@@ -87,4 +87,22 @@ This is the most common production choice for Dash + FastAPI.
 # Running
 ```
 uvicorn app.main:app --reload
+
 ```
+Access the services:
+
+FastAPI API: http://localhost:8000/api/hello
+Dash UI: http://localhost:8000/app
+
+ # Docker 
+Build the image:
+```
+docker build -t ai-tech-lead .
+```
+
+Run the container:
+```
+docker run -p 8000:8000 ai-tech-lead
+```
+
+Your app will be available at http://localhost:8000/app and http://localhost:8000/api/hello
