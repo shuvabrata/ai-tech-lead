@@ -6,3 +6,5 @@ dash-bootstrap-components
 alembic
 sqlalchemy
 asyncpg 
+pydantic-settings
+psycopg2-binary
