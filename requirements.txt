@@ -3,3 +3,6 @@ uvicorn
 dash
 starlette
 dash-bootstrap-components
+alembic
+sqlalchemy
+asyncpg 
