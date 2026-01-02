@@ -1,3 +1,4 @@
+
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
     async_sessionmaker,
@@ -16,3 +17,10 @@ AsyncSessionLocal = async_sessionmaker(
     class_=AsyncSession,
     expire_on_commit=False,
 )
+
+
+
+# Dependency for FastAPI (async version)
+async def get_async_db():
+    async with AsyncSessionLocal() as session:
+        yield session
