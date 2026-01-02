@@ -27,22 +27,34 @@ def create_dash_app():
         className="bg-dark vh-100 sidebar p-2"
     )
 
-    # Top menu using Bootstrap Navbar
-    top_menu = dbc.NavbarSimple(
-        brand="AI Tech Lead",
+    # Top menu using Bootstrap Navbar with left/right alignment (flex row)
+    top_menu = dbc.Navbar(
+        dbc.Container(
+            dbc.Row([
+                dbc.Col(dbc.NavbarBrand("AI Tech Lead"), width="auto"),
+                dbc.Col(
+                    dbc.Nav(
+                        [
+                            dbc.DropdownMenu(
+                                label="Switch Project",
+                                children=[
+                                    dbc.DropdownMenuItem("Project Alpha", id="proj-alpha"),
+                                    dbc.DropdownMenuItem("Project Beta", id="proj-beta"),
+                                ],
+                                nav=True,
+                                in_navbar=True,
+                            ),
+                        ],
+                        className="justify-content-end flex-nowrap"
+                    ),
+                    width=True,
+                    className="d-flex justify-content-end align-items-center"
+                ),
+            ], className="w-100 flex-nowrap g-0 align-items-center justify-content-between"),
+            fluid=True
+        ),
         color="primary",
         dark=True,
-        children=[
-            dbc.DropdownMenu(
-                label="Switch Project",
-                children=[
-                    dbc.DropdownMenuItem("Project Alpha", id="proj-alpha"),
-                    dbc.DropdownMenuItem("Project Beta", id="proj-beta"),
-                ],
-                nav=True,
-                in_navbar=True,
-            ),
-        ],
         className="mb-4"
     )
 
@@ -65,22 +77,22 @@ def create_dash_app():
     )
     def display_page(pathname):
         if pathname == "/app/people":
-            return dbc.Container([
+            return html.Div([
                 html.H2("People"),
                 html.P("List of people involved in the project (placeholder).")
             ], className="mt-4")
         elif pathname == "/app/progress":
-            return dbc.Container([
+            return html.Div([
                 html.H2("Progress"),
                 html.P("Project progress dashboard (placeholder).")
             ], className="mt-4")
         elif pathname == "/app/settings":
-            return dbc.Container([
+            return html.Div([
                 html.H2("Settings"),
                 html.P("Settings page (placeholder).")
             ], className="mt-4")
         else:
-            return dbc.Container([
+            return html.Div([
                 html.H2("GenAI Search"),
                 html.P("Conversational AI assistant (placeholder).")
             ], className="mt-4")
