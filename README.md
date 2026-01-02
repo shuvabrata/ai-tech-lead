@@ -84,6 +84,16 @@ Scaling
 This is the most common production choice for Dash + FastAPI.
 
 
+# Start PostgreSQL docker container
+To start
+```
+docker compose -f docker-compose-psql.yml up -d
+```
+To stop
+```
+docker compose -f docker-compose-psql.yml down
+```
+
 # Running
 ```
 uvicorn app.main:app --reload
