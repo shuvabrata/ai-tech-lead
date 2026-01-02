@@ -2,3 +2,4 @@ fastapi
 uvicorn
 dash
 starlette
+dash-bootstrap-components
