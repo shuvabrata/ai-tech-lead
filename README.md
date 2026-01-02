@@ -116,3 +116,13 @@ docker run -p 8000:8000 ai-tech-lead
 ```
 
 Your app will be available at http://localhost:8000/app and http://localhost:8000/api/hello
+
+# Run tests
+- Start the server
+```
+uvicorn app.main:app --reload
+```
+In another window
+```
+ pytest ./tests/test_projects.py
+```
