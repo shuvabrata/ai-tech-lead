@@ -1,10 +1,12 @@
 
 import os
+import uuid
+
 from dotenv import load_dotenv
 import openai
 import tiktoken
-import uuid
 
+from app.common.logger import logger
 
 # In-memory session store: {session_id: [messages]}
 _chat_sessions = {}
@@ -66,7 +68,7 @@ def end_chat(session_id):
     _chat_sessions.pop(session_id, None)
 
 def start_chat():
-    print("Simple OpenAI CLI Chat Program")
+    logger.info("Simple OpenAI CLI Chat Program")
     session_id = new_chat()
     print(f"[Session ID: {session_id}]")
     print("Type 'exit' or 'quit' to end the session.")

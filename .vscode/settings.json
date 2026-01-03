@@ -1,0 +1,12 @@
+{
+    "python.analysis.extraPaths": [
+        "./app/common"
+    ],
+    "terminal.integrated.profiles.linux": {
+        "zsh": {
+            "path": "zsh",
+            "args": ["-c", "set -a; source ${workspaceFolder}/.env 2>/dev/null; set +a; exec zsh"]
+        }
+    },
+    "terminal.integrated.defaultProfile.linux": "zsh"
+}
