@@ -101,5 +101,3 @@ def create_dash_app():
     # No custom CSS or sidebar collapse for now; Bootstrap handles layout and theme
 
     return app
-
-    return app
