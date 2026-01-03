@@ -169,7 +169,29 @@ Other supported external tools include Confluence, Google Docs, SharePoint, Sale
   - AWS RDS Postgres SQL for DB
   - AWS for hosting
 
+# Design Principles
 
+## No judgement
+The tool will not analyze project phases with the intent of scoring (green, red, yellow). Example: the tool should not analyze data points of the design phase of the project to indicate if it was a good design or not. This is because AI-based analysis heavily relies on past learning and this approach cannot account for possible unique project requirements. Example: it may be perfectly OK for a project to ignore certain compliance requirements. The tool's job is to highlight such misses and not conclude about its quality. 
+
+It is tempting to present a software development lifecycle with Req, Design, LLD, Implementation, Testing, Deployment and give a score of the quality of each phase. This tool will stay away from making judgement calls.
+
+The tool will focus on collecting all data points for each phase and present it objectively. It will aim to do a what-if analysis and present the pros and cons of not following industry practices. 
+
+A scoring system, if any, can be user-defined and supported as a byproduct, but not as a core offering. 
+
+## Self-hosted (data should not leave user's trust boundary)
+This tool requires analysis of a lot of data which are not only sensitive, but have strict governance rules. The user of the tool will not be comfortable giving away full read access to Jira, Confluence, email, org charts, etc. if the data is hosted in the public cloud. It will be a non-starter.
+
+Therefore, this tool MUST primarily support a self-hosted solution. This self-hosted solution should be installable on a user's regular work laptop for evaluation and single use. It should provide evidence that data does not leave the user's computer.
+
+At a slightly larger scale for multi-user support, this tool should be able to host itself on a customer's private cloud or within their trust boundary. 
+
+A SaaS version could be made available for those projects which don't have data governance boundaries. These include educational or research projects or organizations that deal with public data or those building fully open source projects. 
+
+To achieve all the above goals, the deployment architecture will use a Run-Anywhere and Deploy-Anywhere dockerized container approach. No hard dependency on any cloud provider tech. E.g.: The tool should support only KMS-based data encryption -- it should have the option to not use encryption or support a local encryption.
+
+## 
 
 # Notes
 If I take this route (Dash + FastAPI), what are my deployment options? My preference is to deploy it in AWS. I want to host multiple pages under a web portal with top or sidebar-based navigation.
