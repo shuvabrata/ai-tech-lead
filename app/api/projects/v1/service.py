@@ -1,9 +1,9 @@
-
+from typing import List
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from . import query
 from .model import Project, ProjectCreate, ProjectUpdate
-from typing import List
-from sqlalchemy.ext.asyncio import AsyncSession
+
 
 async def get_projects(db: AsyncSession) -> List[Project]:
     return await query.get_projects(db)

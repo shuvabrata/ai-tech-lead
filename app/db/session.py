@@ -12,15 +12,13 @@ engine = create_async_engine(
     future=True,
 )
 
-AsyncSessionLocal = async_sessionmaker(
+ASYNC_SESSION_LOCAL = async_sessionmaker(
     bind=engine,
     class_=AsyncSession,
     expire_on_commit=False,
 )
 
-
-
 # Dependency for FastAPI (async version)
 async def get_async_db():
-    async with AsyncSessionLocal() as session:
+    async with ASYNC_SESSION_LOCAL() as session:
         yield session

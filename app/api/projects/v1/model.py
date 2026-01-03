@@ -1,6 +1,6 @@
 # Project Pydantic models for v1
-from pydantic import BaseModel
 from typing import Optional
+from pydantic import BaseModel
 
 class ProjectBase(BaseModel):
     name: str

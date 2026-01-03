@@ -1,10 +1,11 @@
+from typing import List
+
 # FastAPI router for Project endpoints (v1)
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.session import get_async_db
 from .model import Project, ProjectCreate, ProjectUpdate
 from . import service
-from typing import List
 
 router = APIRouter(prefix="/projects", tags=["projects"])
 

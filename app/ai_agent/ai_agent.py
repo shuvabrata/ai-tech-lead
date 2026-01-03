@@ -1,5 +1,6 @@
 
 import os
+import sys
 import uuid
 
 from dotenv import load_dotenv
@@ -16,7 +17,7 @@ load_dotenv()
 api_key = os.getenv("OPENAI_API_KEY")
 if not api_key:
     print("OPENAI_API_KEY not found in environment.")
-    exit(1)
+    sys.exit(1)
 openai.api_key = api_key
 
 # Load model name from environment or use default

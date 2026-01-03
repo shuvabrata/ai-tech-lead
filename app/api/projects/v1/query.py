@@ -1,10 +1,10 @@
 
+from typing import List, Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from app.db.models.project import Project as ProjectModel
 from .model import ProjectCreate, ProjectUpdate
-from typing import List, Optional
 
 async def get_projects(db: AsyncSession) -> List[ProjectModel]:
     result = await db.execute(select(ProjectModel))

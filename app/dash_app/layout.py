@@ -81,21 +81,21 @@ def create_dash_app():
                 html.H2("People"),
                 html.P("List of people involved in the project (placeholder).")
             ], className="mt-4")
-        elif pathname == "/app/progress":
+        if pathname == "/app/progress":
             return html.Div([
                 html.H2("Progress"),
                 html.P("Project progress dashboard (placeholder).")
             ], className="mt-4")
-        elif pathname == "/app/settings":
+        if pathname == "/app/settings":
             return html.Div([
                 html.H2("Settings"),
                 html.P("Settings page (placeholder).")
             ], className="mt-4")
-        else:
-            return html.Div([
-                html.H2("GenAI Search"),
-                html.P("Conversational AI assistant (placeholder).")
-            ], className="mt-4")
+    
+        return html.Div([
+            html.H2("GenAI Search"),
+            html.P("Conversational AI assistant (placeholder).")
+        ], className="mt-4")
 
 
     # No custom CSS or sidebar collapse for now; Bootstrap handles layout and theme
