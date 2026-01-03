@@ -8,3 +8,6 @@ sqlalchemy
 asyncpg 
 pydantic-settings
 psycopg2-binary
+openai
+tiktoken
+python-dotenv
