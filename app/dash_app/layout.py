@@ -12,7 +12,7 @@ def create_dash_app():
         requests_pathname_prefix="/app/",
         external_stylesheets=[dbc.themes.MATERIA]
     )
-    app.title = "AI Tech Lead"
+    app.title = "X C Lens for Tech Leader"
 
     # Sidebar using Bootstrap Nav
     sidebar = dbc.Nav(
@@ -31,7 +31,7 @@ def create_dash_app():
     top_menu = dbc.Navbar(
         dbc.Container(
             dbc.Row([
-                dbc.Col(dbc.NavbarBrand("AI Tech Lead"), width="auto"),
+                dbc.Col(dbc.NavbarBrand(app.title), width="auto"),
                 dbc.Col(
                     dbc.Nav(
                         [
