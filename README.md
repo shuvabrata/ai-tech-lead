@@ -1,6 +1,6 @@
-# X C Lens for Tech Leader
+# AI Tech Lead
 
-Welcome to the X C Lens for Tech Leader project repository.
+Welcome to the AI tech Lead project repository.
 
 ## Documentation Links
 
