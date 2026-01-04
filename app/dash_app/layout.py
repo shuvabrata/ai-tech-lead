@@ -1,9 +1,10 @@
-
-
 import dash
 import dash_bootstrap_components as dbc
 from dash import dcc, html
 from dash.dependencies import Input, Output
+
+from .pages import chat, people, progress, settings
+
 
 def create_dash_app():
 
@@ -17,7 +18,7 @@ def create_dash_app():
     # Sidebar using Bootstrap Nav
     sidebar = dbc.Nav(
         [
-            dbc.NavLink("💬 GenAI Search", href="/app/", active="exact", id="nav-genai"),
+            dbc.NavLink("💬 Chat", href="/app/chat", active="exact", id="nav-genai"),
             dbc.NavLink("👥 People", href="/app/people", active="exact", id="nav-people"),
             dbc.NavLink("📈 Progress", href="/app/progress", active="exact", id="nav-progress"),
             dbc.NavLink("⚙️ Settings", href="/app/settings", active="exact", id="nav-settings"),
@@ -77,26 +78,15 @@ def create_dash_app():
     )
     def display_page(pathname):
         if pathname == "/app/people":
-            return html.Div([
-                html.H2("People"),
-                html.P("List of people involved in the project (placeholder).")
-            ], className="mt-4")
+            return people.get_layout()
         if pathname == "/app/progress":
-            return html.Div([
-                html.H2("Progress"),
-                html.P("Project progress dashboard (placeholder).")
-            ], className="mt-4")
+            return progress.get_layout()
         if pathname == "/app/settings":
-            return html.Div([
-                html.H2("Settings"),
-                html.P("Settings page (placeholder).")
-            ], className="mt-4")
-    
-        return html.Div([
-            html.H2("GenAI Search"),
-            html.P("Conversational AI assistant (placeholder).")
-        ], className="mt-4")
-
+            return settings.get_layout()
+        if pathname == "/app/chat":
+            return chat.get_layout()
+        # Default to chat page
+        return chat.get_layout()
 
     # No custom CSS or sidebar collapse for now; Bootstrap handles layout and theme
 
