@@ -217,7 +217,11 @@ def send_message(n_clicks, user_message, session_data):
                 )
                 response.raise_for_status()
             except Exception as retry_error:
-                messages.append({"role": "error", "content": f"Session expired and failed to create new session: {str(retry_error)}", "timestamp": datetime.now().strftime("%I:%M %p")})
+                messages.append({
+                    "role": "error",
+                    "content": f"Session expired and failed to create new session: {str(retry_error)}",
+                    "timestamp": datetime.now().strftime("%I:%M %p")
+                })
                 session_data["messages"] = messages
                 return render_messages(messages), "", session_data, str(n_clicks)
         
@@ -235,12 +239,20 @@ def send_message(n_clicks, user_message, session_data):
         
     except requests.exceptions.HTTPError as e:
         # Add error message
-        messages.append({"role": "error", "content": f"HTTP Error: {str(e)}", "timestamp": datetime.now().strftime("%I:%M %p")})
+        messages.append({
+            "role": "error",
+            "content": f"HTTP Error: {str(e)}",
+            "timestamp": datetime.now().strftime("%I:%M %p")
+        })
         session_data["messages"] = messages
         return render_messages(messages), "", session_data, str(n_clicks)
     except Exception as e:
         # Add error message
-        messages.append({"role": "error", "content": f"Error: {str(e)}", "timestamp": datetime.now().strftime("%I:%M %p")})
+        messages.append({
+            "role": "error",
+            "content": f"Error: {str(e)}",
+            "timestamp": datetime.now().strftime("%I:%M %p")
+        })
         session_data["messages"] = messages
         return render_messages(messages), "", session_data, str(n_clicks)
 
@@ -382,7 +394,7 @@ def render_messages(messages):
     State("send-button", "n_clicks"),
     prevent_initial_call=True
 )
-def submit_on_enter(n_submit, n_clicks):
+def submit_on_enter(_n_submit, n_clicks):
     """Trigger send button when Enter is pressed"""
     return (n_clicks or 0) + 1
 
