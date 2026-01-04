@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 import openai
 import tiktoken
 
-from app.common.logger import logger
+from app.common.logger import logger, LogContext
 
 # In-memory session store: {session_id: [messages]}
 _chat_sessions = {}
@@ -40,33 +40,39 @@ def new_chat(system_prompt="You are a helpful AI assistant."):
     """Create a new chat session and return its session_id (GUID)."""
     session_id = str(uuid.uuid4())
     _chat_sessions[session_id] = [{"role": "system", "content": system_prompt}]
+    logger.info(f"New chat session created: {session_id}")
     return session_id
 
 def do_chat(session_id, user_message, model=OPENAI_MODEL, max_tokens=MAX_TOKENS):
     """Perform chat for a session, maintaining message history."""
-    if session_id not in _chat_sessions:
-        raise ValueError("Session not found.")
-    messages = _chat_sessions[session_id]
-    messages.append({"role": "user", "content": user_message})
-    total_tokens = count_tokens(messages, model)
-    if total_tokens > max_tokens:
-        # Remove oldest 3 messages after system prompt
-        if len(messages) > 4:
-            messages[:] = [messages[0]] + messages[4:]
-    try:
-        response = openai.chat.completions.create(
-            model=model,
-            messages=messages
-        )
-        ai_message = response.choices[0].message.content.strip()
-        messages.append({"role": "assistant", "content": ai_message})
-        return ai_message, count_tokens(messages, model)
-    except Exception as e:
-        raise RuntimeError(f"OpenAI error: {e}") from e
+    with LogContext(request_id=session_id):
+        logger.info(f"Received message for session {session_id}")
+        if session_id not in _chat_sessions:
+            raise ValueError("Session not found.")
+        messages = _chat_sessions[session_id]
+        messages.append({"role": "user", "content": user_message})
+        logger.debug(f"Current user_message: {user_message}. Session messages count: {len(messages)}")
+        total_tokens = count_tokens(messages, model)
+        if total_tokens > max_tokens:
+            # Remove oldest 3 messages after system prompt
+            if len(messages) > 4:
+                messages[:] = [messages[0]] + messages[4:]
+        try:
+            response = openai.chat.completions.create(
+                model=model,
+                messages=messages
+            )
+            ai_message = response.choices[0].message.content.strip()
+            logger.debug(f"AI response: {ai_message}")
+            messages.append({"role": "assistant", "content": ai_message})
+            return ai_message, count_tokens(messages, model)
+        except Exception as e:
+            raise RuntimeError(f"OpenAI error: {e}") from e
 
 def end_chat(session_id):
     """End a chat session and clear its history."""
     _chat_sessions.pop(session_id, None)
+    logger.info(f"Chat session ended: {session_id}")
 
 def start_chat():
     logger.info("Simple OpenAI CLI Chat Program")
