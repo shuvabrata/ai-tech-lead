@@ -94,7 +94,7 @@ Technically speaking, here are some of the common tactical questions tech leader
   - Which files should I learn more about as part of KT?
 
 - Developers
-  - Developer, you looked at this file, then looked at this and that file? (Like online shopping tips)
+  - Developers who work on these files almost always change these other files and look at these other files. (Like online shopping tips)
 
 # Technical Tool Architecture High-Level Overview
 The scope if to build tool whose backend uses AI toolset. A base AI agent serves as the interface for the user in addition to specific project settings that the user will configure (e.g., giving access to GitHub, Jira, Confluence, Google docs, sharepoint, Salesforce, Slack, emails, org chart, etc.). The data collection will be a mix of MCP servers and direct tool access. The MCP servers will be a mix of modified off-the-shelf MCP servers for user-specific access control plus existing MCP servers for non-user-specific workflows. There will also be data mining jobs that are constant mining for data points for decisioning making, building charts and reports.
