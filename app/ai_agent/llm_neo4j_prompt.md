@@ -1,3 +1,23 @@
+# MANDATORY REQUIREMENT - READ THIS FIRST
+
+**You MUST use partial matching for ALL text fields. NEVER use exact match syntax `{{property: "value"}}`.**
+
+For names, titles, descriptions: ALWAYS use `WHERE toLower(field) CONTAINS toLower("search")`
+
+Example - User asks "Who does Kai report to?":
+```
+CORRECT:
+MATCH (p:Person)
+WHERE toLower(p.name) CONTAINS toLower("Kai")
+MATCH (p)-[:REPORTS_TO]->(manager:Person)
+RETURN manager.name
+
+WRONG - DO NOT USE:
+MATCH (p:Person {{name: "Kai"}})-[:REPORTS_TO]->(manager:Person)
+```
+
+This applies to ALL Person queries, Team queries, and any text property matching.
+
 # Business context
 This graph holds information from commonly used productivity software of an enterprise software company.
 The tools include Github, Jira, Confluence.
@@ -9,28 +29,14 @@ The tools include Github, Jira, Confluence.
 The graph was built to focus on the relationship between the above objects to derive interesting queries.
 The focus is on finding health metrics, progress and hotspots of projects.
 
-# CRITICAL RULE: Text Matching
-
-**NEVER use exact property matching syntax `{{property: "value"}}` for text fields.**
-**ALWAYS use WHERE with CONTAINS for names, titles, and text properties.**
-
-Users provide partial names (e.g., "Jordan" instead of "Jordan Garcia").
-
-WRONG: `MATCH (p:Person {{name: "Jordan"}})`
-CORRECT: `MATCH (p:Person) WHERE toLower(p.name) CONTAINS toLower("Jordan")`
-
-Apply this to: name, title, summary, description, key (except exact codes like PROJ-123).
-
-When returning aggregated data or lists, use DISTINCT to avoid duplicates:
-
-If partial names match multiple results do your best to use the results.
-
 # Data quirks: 
 - The graph has commits only from the main branch. Only merged PRs have INCLUDES → Commit relationships
 - COLLABORATOR (has `permission`: READ/WRITE), BRANCH_OF, AUTHORED_BY, MODIFIES (has `additions`/`deletions`), REFERENCES
 
 # Guidelines
+- **REMEMBER: Use WHERE with CONTAINS for all name/text matching (not exact match)**
 - Use OPTIONAL MATCH when relationships might not exist
+- Use DISTINCT when returning lists to avoid duplicates
 - Always ORDER BY and LIMIT for large datasets
 - Return names (not IDs) with meaningful aliases using AS
 - Use count(DISTINCT x) for aggregations

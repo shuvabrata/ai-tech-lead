@@ -228,11 +228,13 @@ def augment_message_with_neo4j(user_message, model=OPENAI_MODEL):
         context_data = query_neo4j_custom(user_message, model)
     
     if context_data:
-        augmented_message = f"""[Context from database]:
+        augmented_message = f"""The following answer was retrieved from the database:
+
 {context_data}
 
-[User Question]:
-{user_message}"""
+This is the answer to the user's question: "{user_message}"
+
+Please respond with this information in a natural, conversational way."""
         logger.debug(f"Augmented message: {augmented_message}")
         return augmented_message
     
