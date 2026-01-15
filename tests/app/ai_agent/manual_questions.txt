@@ -3,3 +3,13 @@
 - Which team does Jordan belong to?
 - Who are team members of Devon Parker? - FAILED
 - What is Riley's email id? - PASS or FAILED? No PII exposed.
+- Show me some initiatives assigned to Indigo Campbell. Give me the initiative id also.
+- What Issues are assigned to  Indigo Campbell ?
+- Who has the highest number of issues assigned ?
+- Give me the list of issues which are blocked?
+- Give me the list of unassigned critical issues?
+- What git repositories are you aware of?
+- Are there active feature branches?
+- Can you give me names of some people who are contributing to more than one git repository?
+- Give me the top contributors by commit count?
+- Who are most active reviewers?
