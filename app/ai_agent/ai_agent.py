@@ -251,7 +251,7 @@ def new_chat(system_prompt="You are a helpful AI assistant."):
 def do_chat(session_id, user_message, model=OPENAI_MODEL, max_tokens=MAX_TOKENS):
     """Perform chat for a session, maintaining message history."""
     with LogContext(request_id=session_id):
-        logger.info(f"Received message for session {session_id}")
+        logger.info(f"Received message for session {session_id}: {user_message}")
         if session_id not in _chat_sessions:
             raise ValueError("Session not found.")
         
