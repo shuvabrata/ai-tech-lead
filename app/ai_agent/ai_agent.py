@@ -252,6 +252,8 @@ def do_chat(session_id, user_message, model=OPENAI_MODEL, max_tokens=MAX_TOKENS)
     """Perform chat for a session, maintaining message history."""
     with LogContext(request_id=session_id):
         logger.info(f"Received message for session {session_id}: {user_message}")
+        # print user_message in green color font
+        print(f"\033[92m{user_message}\033[0m")
         if session_id not in _chat_sessions:
             raise ValueError("Session not found.")
         
