@@ -164,51 +164,6 @@ Cypher Query:"""
         return None
 
 
-def query_neo4j_custom(user_message, model=OPENAI_MODEL):
-    """Query Neo4j with custom flow (Option B) - more control"""
-    graph = get_neo4j_graph()
-    if not graph:
-        return None
-    
-    try:
-        # Step 1: Generate Cypher query from natural language
-        cypher_generation_prompt = f"""{NEO4J_SCHEMA_PROMPT}
-
-## Task
-Generate a Cypher query for the following question. Return ONLY the Cypher query, no explanation.
-
-Question: {user_message}
-
-Cypher Query:"""
-        
-        response = openai.chat.completions.create(
-            model=model,
-            messages=[{"role": "user", "content": cypher_generation_prompt}],
-            temperature=0
-        )
-        cypher_query = response.choices[0].message.content.strip()
-        
-        # Clean up the query (remove markdown code blocks if present)
-        if cypher_query.startswith("```"):
-            lines = cypher_query.split("\n")
-            cypher_query = "\n".join(lines[1:-1] if lines[-1].strip() == "```" else lines[1:])
-        
-        logger.info(f"Generated Cypher query: {cypher_query}")
-        
-        # Step 2: Execute the query
-        result = graph.query(cypher_query)
-        logger.info(f"Neo4j custom query result: {result}")
-        
-        # Step 3: Format results
-        if not result:
-            return "No data found matching your query."
-        
-        return str(result)
-    except Exception as e:
-        logger.error(f"Error in custom Neo4j query: {e}")
-        return None
-
-
 def augment_message_with_neo4j(user_message, model=OPENAI_MODEL):
     """Augment user message with Neo4j data if relevant"""
     if not NEO4J_ENABLED:
@@ -221,11 +176,8 @@ def augment_message_with_neo4j(user_message, model=OPENAI_MODEL):
     
     logger.info(f"User message is relevant to Neo4j, using mode: {NEO4J_MODE}")
     
-    # Query Neo4j based on selected mode
-    if NEO4J_MODE == "chain":
-        context_data = query_neo4j_with_chain(user_message, model)
-    else:
-        context_data = query_neo4j_custom(user_message, model)
+    # Query Neo4j using chain mode
+    context_data = query_neo4j_with_chain(user_message, model)
     
     if context_data:
         augmented_message = f"""The following answer was retrieved from the database:
