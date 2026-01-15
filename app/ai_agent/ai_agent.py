@@ -40,7 +40,7 @@ NEO4J_MODE = os.getenv("NEO4J_MODE", "chain")  # "chain" or "custom"
 # Load Neo4j prompt/schema
 def load_neo4j_prompt():
     """Load Neo4j schema and guidelines from neo4j_prompt.md"""
-    prompt_file = Path(__file__).parent / "neo4j_prompt.md"
+    prompt_file = Path(__file__).parent / "llm_neo4j_prompt.md"
     if prompt_file.exists():
         return prompt_file.read_text()
     return ""
@@ -112,14 +112,22 @@ def query_neo4j_with_chain(user_message, model=OPENAI_MODEL):
     try:
         llm = ChatOpenAI(model=model, temperature=0, openai_api_key=api_key)
         
-        # Custom prompt template for Cypher generation
+        # Custom prompt template with domain context and schema
+        # The {schema} placeholder gets auto-filled with introspected schema from Neo4j
         cypher_prompt = PromptTemplate(
             input_variables=["schema", "question"],
-            template="""You are a Neo4j expert. Given the graph schema and question, write a Cypher query.
+            template=f"""You are a Neo4j expert. Generate a Cypher query for an enterprise software development graph database.
 
-{schema}
+## Auto-Introspected Schema
+{{schema}}
 
-Question: {question}
+## Domain Context & Guidelines
+{NEO4J_SCHEMA_PROMPT}
+
+## User Question
+{{question}}
+
+Return ONLY the Cypher query, no explanation or markdown formatting.
 
 Cypher Query:"""
         )
@@ -133,9 +141,8 @@ Cypher Query:"""
             allow_dangerous_requests=True
         )
         
-        # Add schema context to the question
-        enhanced_question = f"{NEO4J_SCHEMA_PROMPT}\n\nQuestion: {user_message}"
-        result = chain.invoke({"query": enhanced_question})
+        # Use original question - domain context is in the prompt template
+        result = chain.invoke({"query": user_message})
         
         logger.info(f"Neo4j chain query result: {result}")
         
