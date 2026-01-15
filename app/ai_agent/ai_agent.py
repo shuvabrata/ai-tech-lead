@@ -146,14 +146,19 @@ Cypher Query:"""
         
         logger.info(f"Neo4j chain query result: {result}")
         
-        # Extract actual data from intermediate steps instead of relying on chain's result
+        # Use the chain's natural language result - it's already formatted nicely
+        # Only fall back to raw context data if the chain couldn't generate an answer
+        chain_result = result.get("result", None)
+        if chain_result and "don't know" not in chain_result.lower():
+            return chain_result
+        
+        # Fallback: extract raw context data if chain had no answer
         if "intermediate_steps" in result and len(result["intermediate_steps"]) > 1:
             context_data = result["intermediate_steps"][1].get("context", [])
             if context_data:
                 return str(context_data)
         
-        # Fallback to chain's result if intermediate steps aren't available
-        return result.get("result", None)
+        return chain_result
     except Exception as e:
         logger.error(f"Error querying Neo4j with chain: {e}")
         return None
