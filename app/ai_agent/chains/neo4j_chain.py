@@ -1,27 +1,14 @@
 """Neo4j chain module for querying graph database using LangChain."""
 
-import os
 from pathlib import Path
 
-from dotenv import load_dotenv
 import openai
 from langchain_neo4j import Neo4jGraph, GraphCypherQAChain
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import PromptTemplate
 
 from app.common.logger import logger
-
-# Load environment variables
-load_dotenv()
-
-# Neo4j configuration
-NEO4J_URI = os.getenv("NEO4J_URI", "bolt://localhost:7687")
-NEO4J_USERNAME = os.getenv("NEO4J_USERNAME", "neo4j")
-NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "")
-NEO4J_ENABLED = os.getenv("NEO4J_ENABLED", "false").lower() == "true"
-
-OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-3.5-turbo")
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+from app.settings import settings
 
 # Initialize Neo4j graph connection (lazy initialization)
 _neo4j_graph = None
@@ -50,12 +37,12 @@ def get_neo4j_graph():
         Neo4jGraph instance or None if connection fails or disabled
     """
     global _neo4j_graph
-    if _neo4j_graph is None and NEO4J_ENABLED:
+    if _neo4j_graph is None and settings.NEO4J_ENABLED:
         try:
             _neo4j_graph = Neo4jGraph(
-                url=NEO4J_URI,
-                username=NEO4J_USERNAME,
-                password=NEO4J_PASSWORD
+                url=settings.NEO4J_URI,
+                username=settings.NEO4J_USERNAME,
+                password=settings.NEO4J_PASSWORD
             )
             logger.info("Neo4j connection established")
         except Exception as e:
@@ -72,13 +59,13 @@ def check_neo4j_relevance(user_message, model=None):
     
     Args:
         user_message: The user's question/message
-        model: OpenAI model to use (defaults to OPENAI_MODEL)
+        model: OpenAI model to use (defaults to settings.OPENAI_MODEL)
         
     Returns:
         Boolean indicating if the message is relevant to Neo4j data
     """
     if model is None:
-        model = OPENAI_MODEL
+        model = settings.OPENAI_MODEL
         
     relevance_prompt = f"""Analyze if this question relates to enterprise software development data including:
 - People, teams, organizational structure
@@ -115,20 +102,20 @@ def query_neo4j_with_chain(user_message, model=None):
     
     Args:
         user_message: The user's question in natural language
-        model: OpenAI model to use (defaults to OPENAI_MODEL)
+        model: OpenAI model to use (defaults to settings.OPENAI_MODEL)
         
     Returns:
         String result from the chain, or None if query fails
     """
     if model is None:
-        model = OPENAI_MODEL
+        model = settings.OPENAI_MODEL
         
     graph = get_neo4j_graph()
     if not graph:
         return None
     
     try:
-        llm = ChatOpenAI(model=model, temperature=0, openai_api_key=OPENAI_API_KEY)
+        llm = ChatOpenAI(model=model, temperature=0, openai_api_key=settings.OPENAI_API_KEY)
         
         # Custom prompt template with domain context and schema
         # The {schema} placeholder gets auto-filled with introspected schema from Neo4j
@@ -192,15 +179,15 @@ def augment_message_with_neo4j(user_message, model=None):
     
     Args:
         user_message: The user's original message
-        model: OpenAI model to use (defaults to OPENAI_MODEL)
+        model: OpenAI model to use (defaults to settings.OPENAI_MODEL)
         
     Returns:
         Augmented message with Neo4j data, or original message if not relevant
     """
     if model is None:
-        model = OPENAI_MODEL
+        model = settings.OPENAI_MODEL
         
-    if not NEO4J_ENABLED:
+    if not settings.NEO4J_ENABLED:
         return user_message
     
     # Check if query is relevant

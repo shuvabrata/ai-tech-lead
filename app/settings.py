@@ -1,7 +1,18 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
+    # PostgreSQL configuration
     DATABASE_URL: str
+    
+    # Neo4j configuration
+    NEO4J_URI: str = "bolt://localhost:7687"
+    NEO4J_USERNAME: str = "neo4j"
+    NEO4J_PASSWORD: str = ""
+    NEO4J_ENABLED: bool = False
+    
+    # OpenAI configuration
+    OPENAI_API_KEY: str = ""
+    OPENAI_MODEL: str = "gpt-3.5-turbo"
 
     model_config = SettingsConfigDict(
         env_file=".env",
