@@ -88,16 +88,24 @@ Add an interactive "Graph" tab to the Dash application where users can execute C
     - Write query rejection
     - All 14 tests passing ✅
 
-- [ ] **1.6 Implement Router**
+- [x] **1.6 Implement Router** ✅
   - File: `app/api/graph/v1/router.py`
   - Create `APIRouter` with prefix `/api/v1/graph`
   - POST endpoint `/query` accepting `CypherQueryRequest`
+  - GET endpoint `/health` for Neo4j connectivity check
   - Call service layer
   - Return `GraphResponse` or `HTTPException`
   - Error codes: 400 (invalid query), 500 (Neo4j errors)
   - Include descriptive error messages
+  - Fixed Neo4j DateTime serialization issue
+  - Testing: `tests/test_graph_router.py`
+    - 7 endpoint integration tests (health check, nodes, relationships, tabular, properties, empty, datetime)
+    - 6 validation tests (reject CREATE/DELETE/MERGE/SET, empty queries)
+    - 4 error handling tests (syntax errors, missing fields, invalid JSON, query length)
+    - 4 complex query tests (WHERE, OPTIONAL MATCH, ORDER BY, multiple returns)
+    - All 21 tests passing ✅
 
-- [ ] **1.7 Register Router**
+- [x] **1.7 Register Router** ✅
   - File: `app/main.py`
   - Import graph router
   - Add to app: `app.include_router(graph_router)`
@@ -416,7 +424,12 @@ These are ideas for future iterations, not part of initial implementation:
 - Neo4j query execution (`tests/test_graph_query.py::TestQueryExecution`)
   - 11 tests for successful queries, error handling, timeouts
   - Requires running Neo4j server
-- Full API endpoint flow (pending Phase 1.6)
+- Service layer transformation (`tests/test_graph_service.py::TestGraphService`)
+  - 14 tests for graph/tabular data transformation
+  - Node/relationship deduplication
+- Router endpoint integration (`tests/test_graph_router.py`)
+  - 21 tests for HTTP endpoints, validation, error responses
+  - All HTTP status codes and response formats
 - Error scenarios (`tests/test_graph_query.py::TestEdgeCases`)
 
 ### Manual Testing (Priority)
@@ -446,3 +459,9 @@ These are ideas for future iterations, not part of initial implementation:
 - **2026-02-22**: Phase 1.4 testing - Created comprehensive pytest suite with 36 tests (all passing)
 - **2026-02-22**: Phase 1.5 completed - Implemented service layer with data transformation and graph detection
 - **2026-02-22**: Phase 1.5 testing - Created service layer tests with 14 integration tests (all passing)
+- **2026-02-22**: Phase 1.6 completed - Implemented FastAPI router with /query and /health endpoints
+- **2026-02-22**: Phase 1.6 fix - Added Neo4j DateTime serialization support (iso_format)
+- **2026-02-22**: Phase 1.6 testing - Created router endpoint tests with 21 tests (all passing)
+- **2026-02-22**: Phase 1.7 completed - Registered router in main.py
+- **2026-02-22**: Phase 1 verification - All endpoints tested and working (graph queries, tabular queries, error handling)
+- **2026-02-22**: Phase 1 complete - Full backend API with 71 automated tests

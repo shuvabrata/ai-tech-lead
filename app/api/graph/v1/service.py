@@ -127,10 +127,13 @@ def _transform_node(neo4j_node: Node) -> GraphNode:
     Returns:
         GraphNode Pydantic model
     """
+    # Serialize properties to handle Neo4j-specific types (DateTime, Date, etc.)
+    serialized_props = {k: _make_serializable(v) for k, v in dict(neo4j_node).items()}
+    
     return GraphNode(
         id=neo4j_node.element_id,
         labels=list(neo4j_node.labels),
-        properties=dict(neo4j_node)
+        properties=serialized_props
     )
 
 
@@ -143,19 +146,23 @@ def _transform_relationship(neo4j_rel: Relationship) -> GraphRelationship:
     Returns:
         GraphRelationship Pydantic model
     """
+    # Serialize properties to handle Neo4j-specific types (DateTime, Date, etc.)
+    serialized_props = {k: _make_serializable(v) for k, v in dict(neo4j_rel).items()}
+    
     return GraphRelationship(
         id=neo4j_rel.element_id,
         type=neo4j_rel.type,
         startNode=neo4j_rel.start_node.element_id,
         endNode=neo4j_rel.end_node.element_id,
-        properties=dict(neo4j_rel)
+        properties=serialized_props
     )
 
 
 def _make_serializable(value: Any) -> Any:
     """Convert Neo4j types to JSON-serializable Python types.
     
-    Handles Node, Relationship, and other Neo4j-specific types.
+    Handles Node, Relationship, temporal types (DateTime, Date, Time), 
+    and other Neo4j-specific types.
     
     Args:
         value: Value to convert
@@ -181,6 +188,13 @@ def _make_serializable(value: Any) -> Any:
         return [_make_serializable(item) for item in value]
     elif isinstance(value, dict):
         return {k: _make_serializable(v) for k, v in value.items()}
+    elif hasattr(value, 'iso_format'):
+        # Neo4j temporal types (DateTime, Date, Time, Duration)
+        # They have an iso_format() method
+        return value.iso_format()
+    elif hasattr(value, '__str__') and type(value).__module__ == 'neo4j.time':
+        # Fallback for any Neo4j time types
+        return str(value)
     else:
         # Primitive types (str, int, float, bool, None) are already serializable
         return value
