@@ -6,8 +6,12 @@ This page allows users to:
 - Display tabular results for non-graph queries
 """
 
+import os
 import dash_bootstrap_components as dbc
-from dash import html, dcc
+from dash import html, dcc, Input, Output, State, callback
+import requests
+
+TIMEOUT_SECONDS = 30
 
 
 def get_layout():
@@ -116,3 +120,144 @@ def get_layout():
         dcc.Store(id="graph-query-history", data=[]),
         
     ], className="mt-4")
+
+
+# Callback to execute Cypher query
+@callback(
+    [Output("graph-data-store", "data"),
+     Output("graph-results-container", "children")],
+    [Input("graph-execute-btn", "n_clicks")],
+    [State("graph-query-input", "value")],
+    prevent_initial_call=True
+)
+def execute_query(n_clicks, query_text):
+    """Execute Cypher query and store results"""
+    # Validate query not empty
+    if not query_text or not query_text.strip():
+        error_display = html.Div([
+            dbc.Alert([
+                html.I(className="fas fa-exclamation-triangle me-2"),
+                "Please enter a Cypher query before executing."
+            ], color="warning", className="mb-0")
+        ])
+        return None, error_display
+    
+    # Get API base URL
+    api_base = os.getenv("API_BASE_URL", "http://localhost:8000")
+    
+    try:
+        # Send query to API
+        response = requests.post(
+            f"{api_base}/api/v1/graph/query",
+            json={"query": query_text},
+            timeout=TIMEOUT_SECONDS
+        )
+        
+        # Handle error responses
+        if response.status_code != 200:
+            error_data = response.json() if response.headers.get('content-type') == 'application/json' else {}
+            error_message = error_data.get("detail", {}).get("error", str(response.text))
+            error_hint = error_data.get("detail", {}).get("hint", "")
+            
+            error_display = html.Div([
+                dbc.Alert([
+                    html.H5([
+                        html.I(className="fas fa-times-circle me-2"),
+                        "Query Execution Failed"
+                    ], className="alert-heading mb-2"),
+                    html.P(error_message, className="mb-1"),
+                    html.Small(error_hint, className="text-muted") if error_hint else None
+                ], color="danger")
+            ])
+            return None, error_display
+        
+        response.raise_for_status()
+        data = response.json()
+        
+        # Display success message with result counts
+        is_graph = data.get("isGraph", False)
+        node_count = len(data.get("nodes", []))
+        rel_count = len(data.get("relationships", []))
+        result_count = data.get("resultCount", 0)
+        
+        if is_graph:
+            success_display = html.Div([
+                dbc.Alert([
+                    html.I(className="fas fa-check-circle me-2"),
+                    f"Query executed successfully! Found {node_count} nodes and {rel_count} relationships."
+                ], color="success", className="mb-3"),
+                html.Div([
+                    html.H6("Graph visualization will be available in Phase 3", className="text-muted mb-2"),
+                    html.P("For now, here's the raw data:", className="mb-2"),
+                    html.Pre(
+                        str(data),
+                        style={
+                            "backgroundColor": "#f8f9fa",
+                            "padding": "12px",
+                            "borderRadius": "8px",
+                            "maxHeight": "400px",
+                            "overflowY": "auto",
+                            "fontSize": "12px"
+                        }
+                    )
+                ])
+            ])
+        else:
+            # Tabular results
+            raw_results = data.get("rawResults", [])
+            success_display = html.Div([
+                dbc.Alert([
+                    html.I(className="fas fa-check-circle me-2"),
+                    f"Query executed successfully! Retrieved {result_count} result(s)."
+                ], color="success", className="mb-3"),
+                html.Div([
+                    html.H6("Tabular Results:", className="mb-2"),
+                    html.Pre(
+                        str(raw_results),
+                        style={
+                            "backgroundColor": "#f8f9fa",
+                            "padding": "12px",
+                            "borderRadius": "8px",
+                            "maxHeight": "400px",
+                            "overflowY": "auto",
+                            "fontSize": "12px"
+                        }
+                    )
+                ])
+            ])
+        
+        return data, success_display
+        
+    except requests.exceptions.Timeout:
+        error_display = html.Div([
+            dbc.Alert([
+                html.I(className="fas fa-clock me-2"),
+                f"Query timeout: The query took longer than {TIMEOUT_SECONDS} seconds to execute."
+            ], color="warning")
+        ])
+        return None, error_display
+    except requests.exceptions.ConnectionError:
+        error_display = html.Div([
+            dbc.Alert([
+                html.I(className="fas fa-exclamation-triangle me-2"),
+                "Connection error: Unable to connect to the backend API. Please ensure the server is running."
+            ], color="danger")
+        ])
+        return None, error_display
+    except requests.exceptions.HTTPError as e:
+        error_display = html.Div([
+            dbc.Alert([
+                html.I(className="fas fa-exclamation-triangle me-2"),
+                f"HTTP Error: {str(e)}"
+            ], color="danger")
+        ])
+        return None, error_display
+    except Exception as e:
+        error_display = html.Div([
+            dbc.Alert([
+                html.I(className="fas fa-exclamation-triangle me-2"),
+                f"Unexpected error: {str(e)}"
+            ], color="danger")
+        ])
+        return None, error_display
+
