@@ -3,7 +3,7 @@ import dash_bootstrap_components as dbc
 from dash import dcc, html
 from dash.dependencies import Input, Output
 
-from .pages import chat, people, progress, settings
+from .pages import chat, people, progress, settings, graph
 
 
 def create_dash_app():
@@ -21,6 +21,7 @@ def create_dash_app():
             dbc.NavLink("💬 Chat", href="/app/chat", active="exact", id="nav-genai"),
             dbc.NavLink("👥 People", href="/app/people", active="exact", id="nav-people"),
             dbc.NavLink("📈 Progress", href="/app/progress", active="exact", id="nav-progress"),
+            dbc.NavLink("📊 Graph", href="/app/graph", active="exact", id="nav-graph"),
             dbc.NavLink("⚙️ Settings", href="/app/settings", active="exact", id="nav-settings"),
         ],
         vertical=True,
@@ -81,6 +82,8 @@ def create_dash_app():
             return people.get_layout()
         if pathname == "/app/progress":
             return progress.get_layout()
+        if pathname == "/app/graph":
+            return graph.get_layout()
         if pathname == "/app/settings":
             return settings.get_layout()
         if pathname == "/app/chat":

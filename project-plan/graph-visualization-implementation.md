@@ -139,28 +139,33 @@ curl -X POST http://localhost:8000/api/v1/graph/query \
 
 ### Tasks
 
-- [ ] **2.1 Create Graph Page**
-  - File: `app/dash_app/pages/graph.py`
-  - Create `get_layout()` function
-  - Add header: "Graph Visualization"
-  - Add `dbc.Textarea` with id `graph-query-input`:
-    - rows=10
-    - placeholder with example: `MATCH (n)-[r]->(m) RETURN n, r, m LIMIT 25`
-  - Add `dbc.Button` "Execute Query" with id `graph-execute-btn`
-  - Add `dcc.Loading` wrapper with id `graph-loading`
-  - Add `html.Div` with id `graph-results-container`
-    - Initial empty state: "Enter a Cypher query above and click Execute to visualize results"
-  - Add `dcc.Store` with id `graph-data-store`
+- [x] **2.1 Create Graph Page** ✅
+  - File: `app/dash_app/pages/graph.py` (117 lines)
+  - Implemented `get_layout()` function
+  - Components added:
+    - Header: "Graph Visualization" with description
+    - Query input section with styled container
+    - `dbc.Textarea` with id `graph-query-input` (150px height, monospace font)
+    - Placeholder: `MATCH (n:Project)-[r]->(m)\nRETURN n, r, m\nLIMIT 10`
+    - `dbc.Button` "Execute Query" with id `graph-execute-btn` (includes play icon)
+    - Security note: "Only read-only queries (MATCH, RETURN) are allowed"
+    - Results section with styled container
+    - `dcc.Loading` wrapper with id `graph-loading` (circle spinner, primary color)
+    - `html.Div` with id `graph-results-container` (min-height: 400px)
+    - Empty state: Icon with message "No results yet..."
+    - `dcc.Store` with id `graph-data-store` (for graph data)
+    - `dcc.Store` with id `graph-query-history` (for future query history feature)
+  - Styling: Modern design with rounded corners, shadows, consistent with chat.py pattern
 
-- [ ] **2.2 Update Navigation**
-  - File: `app/dash_app/pages/__init__.py`
-    - Add import: `from . import graph` (if using explicit imports)
+- [x] **2.2 Update Navigation** ✅
   - File: `app/dash_app/layout.py`
-  - Import graph page: `from .pages import graph`
-  - Add sidebar link: `dbc.NavLink("📊 Graph", href="/app/graph", active="exact", id="nav-graph")`
-  - Insert after Progress link
-  - Update `display_page()` callback:
-    - Add condition: `if pathname == "/app/graph": return graph.get_layout()`
+  - Changes made:
+    - Added `graph` to imports: `from .pages import chat, people, progress, settings, graph`
+    - Added sidebar link: `dbc.NavLink("📊 Graph", href="/app/graph", active="exact", id="nav-graph")`
+    - Positioned after Progress link, before Settings link
+    - Updated `display_page()` callback with routing condition:
+      - `if pathname == "/app/graph": return graph.get_layout()`
+  - Navigation order: Chat → People → Progress → **Graph** → Settings
 
 - [ ] **2.3 Implement Query Execution Callback**
   - File: `app/dash_app/pages/graph.py`
