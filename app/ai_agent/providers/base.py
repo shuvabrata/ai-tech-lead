@@ -11,7 +11,7 @@ from typing import List, Dict, Optional
 class LLMProvider(ABC):
     """Abstract base class for LLM providers.
     
-    All LLM providers (OpenAI, FlexPal, etc.) must inherit from this class
+    All LLM providers (OpenAI, Custom, etc.) must inherit from this class
     and implement its abstract methods to ensure compatibility with the
     AI agent system.
     
@@ -25,7 +25,7 @@ class LLMProvider(ABC):
     @property
     @abstractmethod
     def name(self) -> str:
-        """Return the provider name (e.g., 'openai', 'flexpal').
+        """Return the provider name (e.g., 'openai', 'custom').
         
         Returns:
             Provider name as lowercase string
@@ -55,7 +55,7 @@ class LLMProvider(ABC):
         
         This method handles the provider-specific API call to get a chat completion.
         It should handle message format conversion if needed (e.g., OpenAI's message
-        array vs FlexPal's single prompt string).
+        array vs Custom provider's single prompt string).
         
         Args:
             messages: List of message dictionaries with 'role' and 'content' keys.

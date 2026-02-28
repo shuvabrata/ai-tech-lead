@@ -16,25 +16,24 @@ import sys
 import uuid
 
 from dotenv import load_dotenv
-import openai
 
 from app.common.logger import logger, LogContext
-from app.ai_agent.utils.token_utils import count_tokens
+from app.ai_agent.providers import get_provider
 from app.ai_agent.chains import augment_message
 
 # In-memory session store: {session_id: [messages]}
 _chat_sessions = {}
 
-# Load OpenAI API key and model globally
+# Initialize LLM provider (OpenAI, Custom, etc.)
 load_dotenv()
-api_key = os.getenv("OPENAI_API_KEY")
-if not api_key:
-    print("OPENAI_API_KEY not found in environment.")
+try:
+    _provider = get_provider()
+except ValueError as e:
+    print(f"Error initializing LLM provider: {e}")
     sys.exit(1)
-openai.api_key = api_key
 
-# Load model name from environment or use default
-OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-3.5-turbo")
+# Load model name from environment or use provider's default
+OPENAI_MODEL = os.getenv("OPENAI_MODEL") or _provider.default_model
 
 # Load max tokens from environment or use default
 MAX_TOKENS = int(os.getenv("MAX_TOKENS", "16000"))
@@ -61,12 +60,12 @@ def do_chat(session_id, user_message, model=OPENAI_MODEL, max_tokens=MAX_TOKENS)
     1. Validates the session exists
     2. Augments the message with data from chains (e.g., Neo4j)
     3. Manages token limits by pruning old messages if needed
-    4. Sends the message to OpenAI and stores the response
+    4. Sends the message to the LLM provider and stores the response
     
     Args:
         session_id: UUID of the chat session
         user_message: The user's message text
-        model: OpenAI model to use (default from OPENAI_MODEL env)
+        model: LLM model to use (default from OPENAI_MODEL env or provider default)
         max_tokens: Maximum tokens allowed before pruning history
         
     Returns:
@@ -76,7 +75,7 @@ def do_chat(session_id, user_message, model=OPENAI_MODEL, max_tokens=MAX_TOKENS)
             
     Raises:
         ValueError: If session_id is not found
-        RuntimeError: If OpenAI API call fails
+        RuntimeError: If LLM API call fails
     """
     with LogContext(request_id=session_id):
         logger.info(f"Received message for session {session_id}: {user_message}")
@@ -94,23 +93,19 @@ def do_chat(session_id, user_message, model=OPENAI_MODEL, max_tokens=MAX_TOKENS)
         logger.debug(f"Current user_message: {user_message}. Session messages count: {len(messages)}")
         
         # Check token limits and prune if necessary
-        total_tokens = count_tokens(messages, model)
+        total_tokens = _provider.count_tokens(messages, model)
         if total_tokens > max_tokens:
             # Remove oldest 3 messages after system prompt
             if len(messages) > 4:
                 messages[:] = [messages[0]] + messages[4:]
         
         try:
-            response = openai.chat.completions.create(
-                model=model,
-                messages=messages
-            )
-            ai_message = response.choices[0].message.content.strip()
+            ai_message = _provider.chat_completion(messages, model)
             logger.debug(f"AI response: {ai_message}")
             messages.append({"role": "assistant", "content": ai_message})
-            return ai_message, count_tokens(messages, model)
+            return ai_message, _provider.count_tokens(messages, model)
         except Exception as e:
-            raise RuntimeError(f"OpenAI error: {e}") from e
+            raise RuntimeError(f"LLM provider error: {e}") from e
 
 def end_chat(session_id):
     """End a chat session and clear its history.
@@ -127,7 +122,7 @@ def start_chat():
     This function provides a simple command-line interface for chatting
     with the AI. Type 'exit' or 'quit' to end the session.
     """
-    logger.info("Simple OpenAI CLI Chat Program")
+    logger.info(f"AI Chat Program (Provider: {_provider.name})")
     session_id = new_chat()
     print(f"[Session ID: {session_id}]")
     print("Type 'exit' or 'quit' to end the session.")
@@ -147,7 +142,7 @@ def start_chat():
             print(f"Session error: {ve}")
             break
         except RuntimeError as re:
-            print(f"OpenAI error: {re}")
+            print(f"LLM error: {re}")
         except Exception as e:
             print(f"Unexpected error: {e}")
 
