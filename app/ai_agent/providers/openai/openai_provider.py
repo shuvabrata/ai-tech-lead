@@ -48,7 +48,7 @@ class OpenAIProvider(LLMProvider):
             raise ValueError("OPENAI_API_KEY not found in environment variables")
         
         openai.api_key = api_key
-        self._default_model = os.getenv("OPENAI_MODEL", "gpt-3.5-turbo")
+        self._default_model = os.getenv("LLM_MODEL", "gpt5")
         logger.info(f"OpenAI provider initialized with model: {self._default_model}")
     
     @property

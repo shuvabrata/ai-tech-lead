@@ -104,8 +104,10 @@ app/
 ### Environment Configuration
 Required environment variables:
 - `DATABASE_URL`: PostgreSQL connection string
-- `OPENAI_API_KEY`: OpenAI API key for LLM access
-- `OPENAI_MODEL`: Model name (default: gpt-3.5-turbo)
+- `LLM_PROVIDER`: LLM provider to use (openai, custom)
+- `LLM_MODEL`: Model name to use (e.g., gpt-3.5-turbo, gpt-4, or custom model name)
+- `OPENAI_API_KEY`: OpenAI API key (required for OpenAI provider)
+- `CUSTOM_API_TOKEN`: Custom API token (required for Custom provider)
 - `MAX_TOKENS`: Maximum tokens for chat history (default: 16000)
 
 ### Code Style

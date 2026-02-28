@@ -33,7 +33,7 @@ except ValueError as e:
     sys.exit(1)
 
 # Load model name from environment or use provider's default
-OPENAI_MODEL = os.getenv("OPENAI_MODEL") or _provider.default_model
+LLM_MODEL = os.getenv("LLM_MODEL") or _provider.default_model
 
 # Load max tokens from environment or use default
 MAX_TOKENS = int(os.getenv("MAX_TOKENS", "16000"))
@@ -53,7 +53,7 @@ def new_chat(system_prompt="You are a helpful AI assistant."):
     logger.info(f"New chat session created: {session_id}")
     return session_id
 
-def do_chat(session_id, user_message, model=OPENAI_MODEL, max_tokens=MAX_TOKENS):
+def do_chat(session_id, user_message, model=LLM_MODEL, max_tokens=MAX_TOKENS):
     """Perform chat for a session, maintaining message history.
     
     This function:
@@ -65,7 +65,7 @@ def do_chat(session_id, user_message, model=OPENAI_MODEL, max_tokens=MAX_TOKENS)
     Args:
         session_id: UUID of the chat session
         user_message: The user's message text
-        model: LLM model to use (default from OPENAI_MODEL env or provider default)
+        model: LLM model to use (default from LLM_MODEL env or provider default)
         max_tokens: Maximum tokens allowed before pruning history
         
     Returns:

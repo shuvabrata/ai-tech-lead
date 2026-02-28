@@ -1,13 +1,8 @@
 """Utilities for token counting and management."""
 
-import os
 import tiktoken
-from dotenv import load_dotenv
 
 from app.common.logger import logger
-
-load_dotenv()
-OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-3.5-turbo")
 
 
 def estimate_tokens_from_chars(messages):
@@ -36,13 +31,13 @@ def count_tokens(messages, model=None):
     
     Args:
         messages: List of message dictionaries with 'content' field
-        model: OpenAI model name (defaults to OPENAI_MODEL from env)
+        model: Model name for token counting. Required parameter.
         
     Returns:
         Total number of tokens (accurate or estimated)
     """
     if model is None:
-        model = OPENAI_MODEL
+        raise ValueError("model parameter is required for token counting")
     
     try:
         encoding = tiktoken.encoding_for_model(model)

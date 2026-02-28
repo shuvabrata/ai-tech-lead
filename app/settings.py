@@ -11,9 +11,9 @@ class Settings(BaseSettings):
     NEO4J_ENABLED: bool = False
     FF_NEO4J_USE_PROVIDER_PIPELINE: bool = False
     
-    # OpenAI configuration
+    # LLM configuration (provider-agnostic)
+    LLM_MODEL: str = "gpt5"
     OPENAI_API_KEY: str = ""
-    OPENAI_MODEL: str = "gpt-3.5-turbo"
 
     model_config = SettingsConfigDict(
         env_file=".env",

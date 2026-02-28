@@ -21,11 +21,17 @@ The system supports multiple LLM providers through an abstraction layer. Configu
 LLM_PROVIDER=openai  # Default
 ```
 
+### LLM Model Configuration
+Set the model to use with your selected provider:
+```bash
+LLM_MODEL=gpt5  # For OpenAI: gpt-3.5-turbo, gpt-4, gpt-4-turbo, etc.
+                         # For Custom: your custom model name (e.g., gpt4)
+MAX_TOKENS=16000  # Maximum conversation history tokens
+```
+
 ### OpenAI Configuration (Default Provider)
 ```bash
 OPENAI_API_KEY=your_openai_api_key_here
-OPENAI_MODEL=gpt-3.5-turbo  # Or gpt-4, gpt-4-turbo, etc.
-MAX_TOKENS=16000  # Maximum conversation history tokens
 ```
 
 ### Custom Provider Configuration (Optional)
@@ -34,7 +40,6 @@ For using a custom/in-house LLM provider:
 LLM_PROVIDER=custom
 CUSTOM_API_TOKEN=your_custom_api_token
 CUSTOM_API_URL=https://api.yourcompany.com/chat  # Your custom API endpoint
-CUSTOM_MODEL=gpt4  # Or your custom model name
 ```
 
 ### Neo4j Configuration (Optional)

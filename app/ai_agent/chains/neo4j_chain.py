@@ -117,6 +117,9 @@ Rules:
         logger.warning("Provider returned empty Cypher query")
         return None
 
+    # Log the generated Cypher query in green (similar to LangChain's verbose=True)
+    logger.info(f"Generated Cypher query:\n\033[92m{cypher_query}\033[0m")
+
     if not validate_read_only_query(cypher_query):
         logger.warning(f"Provider-generated query failed read-only validation: {cypher_query}")
         return None
