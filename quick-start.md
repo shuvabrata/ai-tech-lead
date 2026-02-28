@@ -1,5 +1,13 @@
 # ai-tech-lead
 
+# First time dev setup
+Setup python environment
+```
+pyenv local 3.12.12 # optional
+python -m venv .venv
+source .venv/bin/activate\n
+pip install -r requirements.txt
+ ```
 
 # Start PostgreSQL docker container
 To start
