@@ -1,8 +1,8 @@
 """Neo4j chain module for querying graph database using LangChain."""
 
 from pathlib import Path
+from typing import Optional
 
-import openai
 from langchain_neo4j import Neo4jGraph, GraphCypherQAChain
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import PromptTemplate
@@ -51,7 +51,7 @@ def get_neo4j_graph():
     return _neo4j_graph
 
 
-def check_neo4j_relevance(user_message, model=None):
+def check_neo4j_relevance(user_message, provider=None):
     """Check if user message is relevant to Neo4j graph database query.
     
     Uses LLM to determine if the query relates to enterprise software
@@ -59,13 +59,15 @@ def check_neo4j_relevance(user_message, model=None):
     
     Args:
         user_message: The user's question/message
-        model: OpenAI model to use (defaults to settings.OPENAI_MODEL)
+        provider: Optional LLM provider instance. If None, uses default OpenAI.
         
     Returns:
         Boolean indicating if the message is relevant to Neo4j data
     """
-    if model is None:
-        model = settings.OPENAI_MODEL
+    # If no provider given, we'll need to import and get default provider
+    if provider is None:
+        from app.ai_agent.providers import get_provider
+        provider = get_provider()
         
     relevance_prompt = f"""Analyze if this question relates to enterprise software development data including:
 - People, teams, organizational structure
@@ -79,20 +81,16 @@ Question: {user_message}
 Respond with only 'YES' if relevant to the above domains, or 'NO' if not."""
     
     try:
-        response = openai.chat.completions.create(
-            model=model,
-            messages=[{"role": "user", "content": relevance_prompt}],
-            max_tokens=10,
-            temperature=0
-        )
-        answer = response.choices[0].message.content.strip().upper()
-        return "YES" in answer
+        # Use provider's chat_completion method
+        messages = [{"role": "user", "content": relevance_prompt}]
+        answer = provider.chat_completion(messages)
+        return "YES" in answer.strip().upper()
     except Exception as e:
         logger.warning(f"Error checking Neo4j relevance: {e}")
         return False
 
 
-def query_neo4j_with_chain(user_message, model=None):
+def query_neo4j_with_chain(user_message, provider=None):
     """Query Neo4j using LangChain's GraphCypherQAChain.
     
     This function uses LangChain to automatically:
@@ -102,20 +100,29 @@ def query_neo4j_with_chain(user_message, model=None):
     
     Args:
         user_message: The user's question in natural language
-        model: OpenAI model to use (defaults to settings.OPENAI_MODEL)
+        provider: Optional LLM provider instance. If None, uses default OpenAI.
         
     Returns:
         String result from the chain, or None if query fails
     """
-    if model is None:
-        model = settings.OPENAI_MODEL
+    # If no provider given, we'll need to import and get default provider
+    if provider is None:
+        from app.ai_agent.providers import get_provider
+        provider = get_provider()
         
     graph = get_neo4j_graph()
     if not graph:
         return None
     
     try:
-        llm = ChatOpenAI(model=model, temperature=0, openai_api_key=settings.OPENAI_API_KEY)
+        # Use the provider's model and API key for LangChain's ChatOpenAI
+        # Note: This assumes the provider is OpenAI-compatible for now
+        # For non-OpenAI providers, we'd need a different LangChain integration
+        llm = ChatOpenAI(
+            model=provider.default_model,
+            temperature=0,
+            openai_api_key=settings.OPENAI_API_KEY
+        )
         
         # Custom prompt template with domain context and schema
         # The {schema} placeholder gets auto-filled with introspected schema from Neo4j
@@ -169,7 +176,7 @@ Cypher Query:"""
         return None
 
 
-def augment_message_with_neo4j(user_message, model=None):
+def augment_message_with_neo4j(user_message, provider=None):
     """Augment user message with Neo4j data if relevant.
     
     This is the main entry point for Neo4j integration. It:
@@ -179,26 +186,28 @@ def augment_message_with_neo4j(user_message, model=None):
     
     Args:
         user_message: The user's original message
-        model: OpenAI model to use (defaults to settings.OPENAI_MODEL)
+        provider: Optional LLM provider instance. If None, uses default OpenAI.
         
     Returns:
         Augmented message with Neo4j data, or original message if not relevant
     """
-    if model is None:
-        model = settings.OPENAI_MODEL
+    # If no provider given, we'll need to import and get default provider
+    if provider is None:
+        from app.ai_agent.providers import get_provider
+        provider = get_provider()
         
     if not settings.NEO4J_ENABLED:
         return user_message
     
     # Check if query is relevant
-    if not check_neo4j_relevance(user_message, model):
+    if not check_neo4j_relevance(user_message, provider):
         logger.info("User message not relevant to Neo4j data")
         return user_message
     
     logger.info("User message is relevant to Neo4j")
     
     # Query Neo4j using chain mode
-    context_data = query_neo4j_with_chain(user_message, model)
+    context_data = query_neo4j_with_chain(user_message, provider)
     
     if context_data:
         augmented_message = f"""The following answer was retrieved from the database:

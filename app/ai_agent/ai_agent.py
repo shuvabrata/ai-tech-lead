@@ -86,7 +86,7 @@ def do_chat(session_id, user_message, model=OPENAI_MODEL, max_tokens=MAX_TOKENS)
             raise ValueError("Session not found.")
         
         # Augment message with data from chains (e.g., Neo4j)
-        augmented_message = augment_message(user_message)
+        augmented_message = augment_message(user_message, provider=_provider)
         
         messages = _chat_sessions[session_id]
         messages.append({"role": "user", "content": augmented_message})
