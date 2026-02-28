@@ -33,6 +33,7 @@ For using a custom/in-house LLM provider:
 ```bash
 LLM_PROVIDER=custom
 CUSTOM_API_TOKEN=your_custom_api_token
+CUSTOM_API_URL=https://api.yourcompany.com/chat  # Your custom API endpoint
 CUSTOM_MODEL=gpt4  # Or your custom model name
 ```
 

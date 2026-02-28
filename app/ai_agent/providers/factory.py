@@ -10,7 +10,7 @@ from typing import Optional, Dict
 from dotenv import load_dotenv
 
 from app.ai_agent.providers.base import LLMProvider
-from app.ai_agent.providers.openai_provider import OpenAIProvider
+from app.ai_agent.providers.openai import OpenAIProvider
 from app.common.logger import logger
 
 # Load environment variables
@@ -62,11 +62,11 @@ def get_provider(provider_name: Optional[str] = None) -> LLMProvider:
     elif provider_name == "custom":
         # Import here to avoid circular dependency and allow optional Custom
         try:
-            from app.ai_agent.providers.custom_provider import CustomProvider # pylint: disable=import-outside-toplevel
+            from app.ai_agent.providers.custom import CustomProvider
             provider = CustomProvider()
         except ImportError as e:
             raise ValueError(
-                f"Custom provider not available. Ensure custom_provider.py is implemented. Error: {e}"
+                f"Custom provider not available. Ensure custom/ directory exists and is properly configured. Error: {e}"
             ) from e
     else:
         raise ValueError(
