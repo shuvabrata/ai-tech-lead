@@ -4,6 +4,7 @@ from typing import Any, Dict, List, Set
 from neo4j.graph import Node, Relationship
 
 from app.common.logger import logger
+from app.settings import settings
 from .model import GraphNode, GraphRelationship, GraphResponse
 from .query import validate_read_only_query, execute_cypher_query
 
@@ -44,7 +45,7 @@ def execute_and_format_query(query: str) -> GraphResponse:
     
     # Step 2: Execute query
     logger.info(f"Executing query: {query[:100]}...")
-    raw_results = execute_cypher_query(query, timeout=30)
+    raw_results = execute_cypher_query(query, timeout=settings.NEO4J_QUERY_TIMEOUT)
     
     # Step 3: Detect result type and transform
     nodes_dict: Dict[str, GraphNode] = {}  # Keyed by element_id for deduplication

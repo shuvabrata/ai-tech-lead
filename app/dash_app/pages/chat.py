@@ -5,7 +5,9 @@ import dash_bootstrap_components as dbc
 from dash import html, dcc, Input, Output, State, callback, clientside_callback
 import requests
 
-TIMEOUT_SECONDS = 30
+from app.settings import settings
+
+TIMEOUT_SECONDS = settings.HTTP_REQUEST_TIMEOUT
 
 def get_layout():
     """Return the chat page layout"""

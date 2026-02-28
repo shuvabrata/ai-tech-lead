@@ -124,7 +124,7 @@ Rules:
         logger.warning(f"Provider-generated query failed read-only validation: {cypher_query}")
         return None
 
-    query_results = execute_cypher_query(cypher_query, timeout=30)
+    query_results = execute_cypher_query(cypher_query, timeout=settings.NEO4J_QUERY_TIMEOUT)
 
     result_prompt = f"""Answer the user's question using these Neo4j query results.
 

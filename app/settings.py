@@ -14,6 +14,12 @@ class Settings(BaseSettings):
     # LLM configuration (provider-agnostic)
     LLM_MODEL: str = "gpt5"
     OPENAI_API_KEY: str = ""
+    
+    # HTTP request timeout configuration (in seconds)
+    HTTP_REQUEST_TIMEOUT: int = 60
+    
+    # Neo4j query timeout (should be less than HTTP_REQUEST_TIMEOUT to allow overhead)
+    NEO4J_QUERY_TIMEOUT: int = 10
 
     model_config = SettingsConfigDict(
         env_file=".env",
