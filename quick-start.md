@@ -9,6 +9,8 @@ source .venv/bin/activate\n
 pip install -r requirements.txt
  ```
 
+ Make a copy of .env.example to .env and update the values.
+
 # Start PostgreSQL docker container
 To start
 ```
