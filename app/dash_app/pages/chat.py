@@ -114,23 +114,21 @@ def initialize_session(current_data):
     if current_data is not None and current_data.get("session_id"):
         session_id = current_data["session_id"]
         try:
-            # Try to send an empty test to validate session exists
-            # If it fails with 404, we'll create a new session
-            response = requests.post(
-                f"{api_base}/api/v1/chats/{session_id}/messages",
-                json={"message": "test"},
+            # Use GET endpoint to check if session exists (doesn't send messages)
+            response = requests.get(
+                f"{api_base}/api/v1/chats/{session_id}",
                 timeout=TIMEOUT_SECONDS
             )
-            # If we get here without exception, session is valid
-            # But we don't want to actually process the test message
-            # So we'll just return the existing data
-            if response.status_code == 404:
+            response.raise_for_status()
+            data = response.json()
+            
+            if data.get("exists"):
+                # Session exists, return current data
+                return current_data
+            else:
                 # Session doesn't exist, create new one
                 print(f"Session {session_id} not found in backend, creating new session")
                 current_data = None
-            else:
-                # Session exists, return current data
-                return current_data
         except requests.exceptions.RequestException:
             # If any error, treat as invalid session and create new one
             print("Session validation failed, creating new session")

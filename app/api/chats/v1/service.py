@@ -1,5 +1,5 @@
-from app.ai_agent.ai_agent import new_chat, do_chat, end_chat
-from .model import ChatCreate, ChatSession, MessageCreate, MessageResponse, ChatDeleteResponse
+from app.ai_agent.ai_agent import new_chat, do_chat, end_chat, _chat_sessions
+from .model import ChatCreate, ChatSession, MessageCreate, MessageResponse, ChatDeleteResponse, ChatSessionStatus
 
 
 def create_chat_session(chat: ChatCreate) -> ChatSession:
@@ -24,3 +24,15 @@ def delete_chat_session(session_id: str) -> ChatDeleteResponse:
     """End and delete a chat session"""
     end_chat(session_id)
     return ChatDeleteResponse(session_id=session_id, deleted=True)
+
+
+def get_chat_session_status(session_id: str) -> ChatSessionStatus:
+    """Check if a chat session exists and return its status"""
+    exists = session_id in _chat_sessions
+    message_count = len(_chat_sessions.get(session_id, [])) if exists else None
+    
+    return ChatSessionStatus(
+        session_id=session_id,
+        exists=exists,
+        message_count=message_count
+    )

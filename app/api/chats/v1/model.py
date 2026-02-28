@@ -28,3 +28,10 @@ class ChatDeleteResponse(BaseModel):
     """Response model for chat deletion"""
     session_id: str
     deleted: bool
+
+
+class ChatSessionStatus(BaseModel):
+    """Response model for chat session status check"""
+    session_id: str
+    exists: bool
+    message_count: Optional[int] = None  # Number of messages in session

@@ -1,7 +1,7 @@
 # FastAPI router for Chat endpoints (v1)
 from fastapi import APIRouter, HTTPException
 
-from .model import ChatCreate, ChatSession, MessageCreate, MessageResponse, ChatDeleteResponse
+from .model import ChatCreate, ChatSession, MessageCreate, MessageResponse, ChatDeleteResponse, ChatSessionStatus
 from . import service
 
 router = APIRouter(prefix="/chats", tags=["chats"])
@@ -14,6 +14,15 @@ async def create_chat(chat: ChatCreate):
     Returns a unique session_id to be used for subsequent messages.
     """
     return service.create_chat_session(chat)
+
+
+@router.get("/{session_id}", response_model=ChatSessionStatus)
+async def get_chat_session(session_id: str):
+    """
+    Check if a chat session exists.
+    Returns session status without processing any messages.
+    """
+    return service.get_chat_session_status(session_id)
 
 
 @router.post("/{session_id}/messages", response_model=MessageResponse)
