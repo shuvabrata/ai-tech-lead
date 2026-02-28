@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     NEO4J_USERNAME: str = "neo4j"
     NEO4J_PASSWORD: str = ""
     NEO4J_ENABLED: bool = False
+    FF_NEO4J_USE_PROVIDER_PIPELINE: bool = False
     
     # OpenAI configuration
     OPENAI_API_KEY: str = ""

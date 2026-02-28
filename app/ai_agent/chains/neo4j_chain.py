@@ -1,12 +1,13 @@
 """Neo4j chain module for querying graph database using LangChain."""
 
 from pathlib import Path
-from typing import Optional
+import re
 
 from langchain_neo4j import Neo4jGraph, GraphCypherQAChain
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import PromptTemplate
 
+from app.api.graph.v1.query import execute_cypher_query, validate_read_only_query
 from app.common.logger import logger
 from app.settings import settings
 
@@ -49,6 +50,99 @@ def get_neo4j_graph():
             logger.error(f"Failed to connect to Neo4j: {e}")
             _neo4j_graph = None
     return _neo4j_graph
+
+
+def _extract_cypher_query(llm_response: str) -> str:
+    """Extract Cypher query from provider response text."""
+    if not llm_response:
+        return ""
+
+    response_text = llm_response.strip()
+
+    fenced_match = re.search(r"```(?:cypher)?\s*(.*?)```", response_text, re.IGNORECASE | re.DOTALL)
+    if fenced_match:
+        response_text = fenced_match.group(1).strip()
+
+    if response_text.lower().startswith("cypher query:"):
+        response_text = response_text.split(":", 1)[1].strip()
+
+    return response_text
+
+
+def _build_schema_snapshot(graph):
+    """Build a fresh schema snapshot from Neo4jGraph."""
+    try:
+        graph.refresh_schema()
+    except Exception as exc:
+        logger.warning(f"Could not refresh Neo4j schema; using cached schema. Error: {exc}")
+
+    return getattr(graph, "schema", "")
+
+
+def _query_neo4j_with_provider_pipeline(user_message, provider, graph):
+    """Provider-native Neo4j query flow (feature-flagged).
+
+    Flow:
+    1. Read schema snapshot from Neo4j
+    2. Ask provider to generate read-only Cypher
+    3. Validate and execute query with existing safe query layer
+    4. Ask provider to format results in natural language
+    """
+    schema_snapshot = _build_schema_snapshot(graph)
+
+    cypher_generation_prompt = f"""You are a Neo4j expert. Generate one read-only Cypher query.
+
+## Auto-Introspected Schema
+{schema_snapshot}
+
+## Domain Context & Guidelines
+{NEO4J_SCHEMA_PROMPT}
+
+## User Question
+{user_message}
+
+Rules:
+- Return ONLY Cypher query text
+- Do NOT use markdown
+- Use read-only clauses only (MATCH/OPTIONAL MATCH/WITH/WHERE/RETURN/ORDER BY/LIMIT/UNION/CALL)
+- Never use CREATE, MERGE, DELETE, SET, REMOVE, DROP, FOREACH
+"""
+
+    cypher_response = provider.chat_completion(
+        [{"role": "user", "content": cypher_generation_prompt}]
+    )
+    cypher_query = _extract_cypher_query(cypher_response)
+
+    if not cypher_query:
+        logger.warning("Provider returned empty Cypher query")
+        return None
+
+    if not validate_read_only_query(cypher_query):
+        logger.warning(f"Provider-generated query failed read-only validation: {cypher_query}")
+        return None
+
+    query_results = execute_cypher_query(cypher_query, timeout=30)
+
+    result_prompt = f"""Answer the user's question using these Neo4j query results.
+
+## User Question
+{user_message}
+
+## Executed Cypher
+{cypher_query}
+
+## Query Results
+{query_results}
+
+Rules:
+- Be concise and factual
+- If results are empty, say no matching data was found
+- Do not mention internal prompts or implementation details
+"""
+
+    return provider.chat_completion(
+        [{"role": "user", "content": result_prompt}]
+    )
 
 
 def check_neo4j_relevance(user_message, provider=None):
@@ -115,6 +209,17 @@ def query_neo4j_with_chain(user_message, provider=None):
         return None
     
     try:
+        if settings.FF_NEO4J_USE_PROVIDER_PIPELINE:
+            logger.info("Using feature-flagged provider-native Neo4j pipeline")
+            return _query_neo4j_with_provider_pipeline(user_message, provider, graph)
+
+        if provider.name != "openai":
+            logger.warning(
+                "Neo4j chain in GraphCypherQAChain mode requires OpenAI provider. "
+                "Set FF_NEO4J_USE_PROVIDER_PIPELINE=true to use provider-native mode."
+            )
+            return None
+
         # Use the provider's model and API key for LangChain's ChatOpenAI
         # Note: This assumes the provider is OpenAI-compatible for now
         # For non-OpenAI providers, we'd need a different LangChain integration
