@@ -50,38 +50,52 @@ NEO4J_USERNAME=neo4j
 NEO4J_PASSWORD=your_neo4j_password
 ```
 
-# Start PostgreSQL docker container
-To start
-```
-docker compose -f docker-compose-psql.yml up -d
-```
-To stop
-```
-docker compose -f docker-compose-psql.yml down
+# Start Services with Docker Compose
+
+## Option 1: Using Docker Compose (Recommended)
+Start both PostgreSQL and the application together:
+```bash
+docker compose up -d
 ```
 
-# Running
+This will:
+- Start PostgreSQL database
+- Build and start the application
+- Automatically run database migrations
+- Mount .env file and logs directory
+
+To stop all services:
+```bash
+docker compose down
 ```
+
+To view logs:
+```bash
+docker compose logs -f app
+```
+
+## Option 2: PostgreSQL Only (For Local Development)
+If you want to run the app locally but use PostgreSQL in Docker:
+```bash
+docker compose up -d postgres
+```
+
+Then run the app locally:
+```bash
 uvicorn app.main:app --reload
-
 ```
+
 Access the services:
+- FastAPI API: http://localhost:8000/api/hello
+- Dash UI: http://localhost:8000/app
 
-FastAPI API: http://localhost:8000/api/hello
-Dash UI: http://localhost:8000/app
-
- # Docker 
-Build the image:
+## Running Migrations Manually (Local Development)
+If running locally, you'll need to run migrations manually:
+```bash
+cd app
+alembic upgrade head
+cd ..
 ```
-docker build -t ai-tech-lead .
-```
-
-Run the container:
-```
-docker run -p 8000:8000 ai-tech-lead
-```
-
-Your app will be available at http://localhost:8000/app and http://localhost:8000/api/hello
 
 # Run tests
 - Start the server

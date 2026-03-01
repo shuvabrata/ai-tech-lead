@@ -129,11 +129,14 @@ Required environment variables:
 
 ### Development Setup
 ```bash
-# Start PostgreSQL
-docker compose -f docker-compose-psql.yml up -d
+# Start PostgreSQL only (for local development)
+docker compose up -d postgres
 
 # Activate virtual environment
 source .venv/bin/activate
+
+# Run migrations
+cd app && alembic upgrade head && cd ..
 
 # Run application
 uvicorn app.main:app --reload
@@ -141,6 +144,12 @@ uvicorn app.main:app --reload
 # Access points:
 # - FastAPI: http://localhost:8000/api/hello
 # - Dash UI: http://localhost:8000/app
+```
+
+### Docker Deployment
+```bash
+# Start both PostgreSQL and app
+docker compose up -d
 ```
 
 ### Docker Deployment
