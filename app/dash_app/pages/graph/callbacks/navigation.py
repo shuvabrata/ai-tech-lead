@@ -158,6 +158,38 @@ clientside_callback(
 )
 
 
+# Clientside callback for Ctrl+Enter to execute query
+clientside_callback(
+    """
+    function(value) {
+        // Attach listener to the textarea for Ctrl+Enter
+        const textarea = document.getElementById('graph-query-input');
+        if (textarea && !textarea._ctrlEnterListenerAttached) {
+            textarea.addEventListener('keydown', function(e) {
+                // Check for Ctrl+Enter or Cmd+Enter (Mac)
+                if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                    e.preventDefault();
+                    
+                    // Programmatically click the execute button
+                    const executeBtn = document.getElementById('graph-execute-btn');
+                    if (executeBtn) {
+                        executeBtn.click();
+                    }
+                }
+            });
+            
+            textarea._ctrlEnterListenerAttached = true;
+            console.log('[Graph Query] Ctrl+Enter listener attached to query input');
+        }
+        return window.dash_clientside.no_update;
+    }
+    """,
+    Output("graph-query-input", "className"),  # Dummy output
+    Input("graph-query-input", "id"),
+    prevent_initial_call=False
+)
+
+
 # Clientside callback for keyboard shortcuts
 clientside_callback(
     """
@@ -165,7 +197,7 @@ clientside_callback(
         // Only attach listener once
         if (!window._keyboardListenerAttached) {
             document.addEventListener('keydown', function(e) {
-                // Ignore if user is typing in an input field
+                // Ignore if user is typing in an input field (except for specific shortcuts in textarea handled separately)
                 if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
                     return;
                 }

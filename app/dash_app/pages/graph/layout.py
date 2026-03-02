@@ -212,40 +212,49 @@ def create_query_input_section():
     return html.Div([
         html.H6("Query", className="mb-1", style={"fontWeight": "500", "color": "#495057", "fontSize": "13px"}),
         
-        dbc.Textarea(
-            id="graph-query-input",
-            placeholder="MATCH (n:Project)-[r]->(m)\nRETURN n, r, m\nLIMIT 10",
-            style={
-                "height": "90px",
-                "borderRadius": "4px",
-                "border": "1px solid #dee2e6",
-                "padding": "8px 10px",
-                "fontSize": "12px",
-                "fontFamily": "Consolas, Monaco, 'Courier New', monospace",
-                "resize": "vertical",
-                "transition": "border-color 0.2s"
-            },
-            className="mb-1"
-        ),
+        # Row with textarea and execute button side by side
+        dbc.Row([
+            dbc.Col([
+                dbc.Textarea(
+                    id="graph-query-input",
+                    placeholder="MATCH (n:Project)-[r]->(m)\nRETURN n, r, m\nLIMIT 10",
+                    style={
+                        "height": "90px",
+                        "borderRadius": "4px",
+                        "border": "1px solid #dee2e6",
+                        "padding": "8px 10px",
+                        "fontSize": "12px",
+                        "fontFamily": "Consolas, Monaco, 'Courier New', monospace",
+                        "resize": "vertical",
+                        "transition": "border-color 0.2s"
+                    }
+                )
+            ], width=10),
+            dbc.Col([
+                dbc.Button(
+                    [html.I(className="fas fa-play me-1"), "Execute"],
+                    id="graph-execute-btn",
+                    color="primary",
+                    size="sm",
+                    style={
+                        "borderRadius": "6px",
+                        "fontWeight": "500",
+                        "fontSize": "13px",
+                        "height": "90px",
+                        "width": "100%"
+                    }
+                ),
+            ], width=2, className="d-flex align-items-start")
+        ], className="mb-1 g-2"),
         
         # Validation message container
         html.Div(id="query-validation-message", className="mb-1"),
         
+        # Helper text
         html.Div([
-            dbc.Button(
-                [html.I(className="fas fa-play me-1"), "Execute"],
-                id="graph-execute-btn",
-                color="primary",
-                size="sm",
-                style={
-                    "borderRadius": "6px",
-                    "fontWeight": "500",
-                    "fontSize": "13px"
-                }
-            ),
             html.Small(
-                "Read-only queries only",
-                className="ms-2 text-muted",
+                "Ctrl+Enter to execute • Read-only queries only",
+                className="text-muted",
                 style={"fontSize": "11px"}
             )
         ], className="d-flex align-items-center")
