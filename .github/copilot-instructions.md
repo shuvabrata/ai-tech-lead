@@ -1,5 +1,10 @@
 # GitHub Copilot Instructions - AI Tech Lead Assistant
 
+Always activate the virual environment before running the application or tests:
+```bash
+source .venv/bin/activate
+```
+
 ## Project Overview
 
 **AI Tech Lead Assistant** is an AI-powered tool designed to help senior tech leaders make data-driven decisions for project management. The system analyzes project data from various sources (GitHub, Jira, Confluence, etc.) and provides actionable insights through a natural language chat interface.
