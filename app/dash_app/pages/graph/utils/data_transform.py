@@ -29,7 +29,7 @@ def neo4j_to_cytoscape(graph_response):
         display_name = (
             node.get("properties", {}).get("name") or 
             node.get("properties", {}).get("title") or 
-            node.get("properties", {}).get("label") or 
+            node.get("properties", {}).get("key") or 
             node_label
         )
         
