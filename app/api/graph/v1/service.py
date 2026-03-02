@@ -257,12 +257,13 @@ def expand_node(
     
     for record in result["records"]:
         # Each record contains 'm' (connected node) and 'r' (relationship)
-        if 'm' in record:
+        # 'm' can be None when the node is already loaded but we still want the relationship
+        if 'm' in record and record['m'] is not None:
             neo4j_node = record['m']
             node = _transform_node(neo4j_node)
             nodes_dict[node.id] = node
         
-        if 'r' in record:
+        if 'r' in record and record['r'] is not None:
             neo4j_rel = record['r']
             rel = _transform_relationship(neo4j_rel)
             relationships_dict[rel.id] = rel

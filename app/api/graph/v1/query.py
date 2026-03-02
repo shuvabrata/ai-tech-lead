@@ -194,19 +194,18 @@ def expand_node_query(
         type_list = "|".join(relationship_types)
         relationship_filter = f":{type_list}"
     
-    # Build exclusion filter
-    exclusion_clause = ""
-    if exclude_node_ids:
-        # Convert to comma-separated string for Cypher
-        exclusion_list = ", ".join([f"'{nid}'" for nid in exclude_node_ids])
-        exclusion_clause = f"AND NOT elementId(m) IN [{exclusion_list}]"
+    # Build exclusion filter for conditional node return
+    # IMPORTANT: We exclude nodes but NOT relationships
+    # This ensures relationships to already-loaded nodes are still returned
+    exclude_ids_param = exclude_node_ids if exclude_node_ids else []
     
     # Build query based on direction
     if direction == "incoming":
         # Incoming: other nodes point TO this node
         query = f"""
         MATCH (m)-[r{relationship_filter}]->(n)
-        WHERE elementId(n) = $node_id {exclusion_clause}
+        WHERE elementId(n) = $node_id 
+        AND NOT elementId(m) IN $exclude_node_ids
         RETURN m, r
         ORDER BY elementId(m)
         SKIP $offset
@@ -214,15 +213,25 @@ def expand_node_query(
         """
         count_query = f"""
         MATCH (m)-[r{relationship_filter}]->(n)
-        WHERE elementId(n) = $node_id {exclusion_clause}
+        WHERE elementId(n) = $node_id
+        AND NOT elementId(m) IN $exclude_node_ids
         RETURN count(DISTINCT m) as total
+        """
+        
+        # Query for relationships to already-loaded nodes
+        relationships_only_query = f"""
+        MATCH (m)-[r{relationship_filter}]->(n)
+        WHERE elementId(n) = $node_id 
+        AND elementId(m) IN $exclude_node_ids
+        RETURN null as m, r
         """
         
     elif direction == "outgoing":
         # Outgoing: this node points TO other nodes
         query = f"""
         MATCH (n)-[r{relationship_filter}]->(m)
-        WHERE elementId(n) = $node_id {exclusion_clause}
+        WHERE elementId(n) = $node_id
+        AND NOT elementId(m) IN $exclude_node_ids
         RETURN m, r
         ORDER BY elementId(m)
         SKIP $offset
@@ -230,19 +239,30 @@ def expand_node_query(
         """
         count_query = f"""
         MATCH (n)-[r{relationship_filter}]->(m)
-        WHERE elementId(n) = $node_id {exclusion_clause}
+        WHERE elementId(n) = $node_id
+        AND NOT elementId(m) IN $exclude_node_ids
         RETURN count(DISTINCT m) as total
+        """
+        
+        # Query for relationships to already-loaded nodes
+        relationships_only_query = f"""
+        MATCH (n)-[r{relationship_filter}]->(m)
+        WHERE elementId(n) = $node_id 
+        AND elementId(m) IN $exclude_node_ids
+        RETURN null as m, r
         """
         
     else:  # both
         # Both directions: UNION of incoming and outgoing
         query = f"""
         MATCH (m)-[r{relationship_filter}]->(n)
-        WHERE elementId(n) = $node_id {exclusion_clause}
+        WHERE elementId(n) = $node_id
+        AND NOT elementId(m) IN $exclude_node_ids
         RETURN m, r
         UNION
         MATCH (n)-[r{relationship_filter}]->(m)
-        WHERE elementId(n) = $node_id {exclusion_clause}
+        WHERE elementId(n) = $node_id
+        AND NOT elementId(m) IN $exclude_node_ids
         RETURN m, r
         ORDER BY elementId(m)
         SKIP $offset
@@ -250,12 +270,27 @@ def expand_node_query(
         """
         count_query = f"""
         MATCH (m)-[r{relationship_filter}]->(n)
-        WHERE elementId(n) = $node_id {exclusion_clause}
+        WHERE elementId(n) = $node_id
+        AND NOT elementId(m) IN $exclude_node_ids
         RETURN count(DISTINCT m) as c1
         UNION
         MATCH (n)-[r{relationship_filter}]->(m)
-        WHERE elementId(n) = $node_id {exclusion_clause}
+        WHERE elementId(n) = $node_id
+        AND NOT elementId(m) IN $exclude_node_ids
         RETURN count(DISTINCT m) as c1
+        """
+        
+        # Query for relationships to already-loaded nodes
+        relationships_only_query = f"""
+        MATCH (m)-[r{relationship_filter}]->(n)
+        WHERE elementId(n) = $node_id 
+        AND elementId(m) IN $exclude_node_ids
+        RETURN null as m, r
+        UNION
+        MATCH (n)-[r{relationship_filter}]->(m)
+        WHERE elementId(n) = $node_id 
+        AND elementId(m) IN $exclude_node_ids
+        RETURN null as m, r
         """
     
     # Create Neo4j driver
@@ -276,28 +311,44 @@ def expand_node_query(
                 # For UNION, sum the counts
                 count_result = session.run(
                     count_query,
-                    node_id=node_id
+                    node_id=node_id,
+                    exclude_node_ids=exclude_ids_param
                 )
                 total = sum([record["c1"] for record in count_result])
             else:
                 count_result = session.run(
                     count_query,
-                    node_id=node_id
+                    node_id=node_id,
+                    exclude_node_ids=exclude_ids_param
                 )
                 count_record = count_result.single()
                 total = count_record["total"] if count_record else 0
             
-            # Execute main query
+            # Execute main query (new nodes + their relationships)
             result = session.run(
                 query,
                 node_id=node_id,
                 limit=limit,
                 offset=offset,
+                exclude_node_ids=exclude_ids_param,
                 timeout=settings.NEO4J_QUERY_TIMEOUT
             )
             
             # Convert to list of dictionaries
             records = [dict(record) for record in result]
+            
+            # Execute relationships-only query (relationships to already-loaded nodes)
+            # Only run if there are excluded nodes
+            if exclude_node_ids:
+                rel_only_result = session.run(
+                    relationships_only_query,
+                    node_id=node_id,
+                    exclude_node_ids=exclude_ids_param,
+                    timeout=settings.NEO4J_QUERY_TIMEOUT
+                )
+                rel_only_records = [dict(record) for record in rel_only_result]
+                # Merge with main results
+                records.extend(rel_only_records)
             
             logger.info(f"Node expansion query executed. Returned {len(records)} records, total={total}")
             
