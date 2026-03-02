@@ -94,6 +94,26 @@ def get_layout():
                                 id="graph-cytoscape-container",
                                 style={"display": "none"},  # Hidden by default
                                 children=[
+                                    # Layout controls
+                                    dbc.Row([
+                                        dbc.Col([
+                                            html.Label("Layout Algorithm:", 
+                                                      style={"fontSize": "13px", "fontWeight": "500", "color": "#495057", "marginRight": "8px"}),
+                                            dbc.Select(
+                                                id="graph-layout-selector",
+                                                options=[
+                                                    {"label": "Force-Directed (cose)", "value": "cose"},
+                                                    {"label": "Circle", "value": "circle"},
+                                                    {"label": "Grid", "value": "grid"},
+                                                    {"label": "Hierarchical (breadthfirst)", "value": "breadthfirst"},
+                                                    {"label": "Concentric", "value": "concentric"}
+                                                ],
+                                                value="cose",
+                                                style={"width": "250px", "display": "inline-block"}
+                                            )
+                                        ], width="auto")
+                                    ], className="mb-3", align="center"),
+                                    
                                     cyto.Cytoscape(
                                         id="graph-cytoscape",
                                         elements=[],
@@ -759,4 +779,14 @@ def display_properties(selected_nodes, selected_edges):
     
     # Nothing selected
     return empty_state
+
+
+# Callback to update graph layout when selector changes
+@callback(
+    Output("graph-cytoscape", "layout"),
+    Input("graph-layout-selector", "value")
+)
+def update_layout(layout_name):
+    """Update the Cytoscape graph layout algorithm"""
+    return {'name': layout_name, 'animate': True}
 
