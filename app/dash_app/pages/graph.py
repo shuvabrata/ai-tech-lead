@@ -142,19 +142,8 @@ CYTOSCAPE_STYLESHEET = [
 def get_layout():
     """Return the graph page layout"""
     return html.Div([
-        # Page Header
-        html.H2("Graph Visualization", className="mb-4", style={"fontWeight": "600", "color": "#1a1a1a"}),
-        
-        html.P(
-            "Execute Cypher queries against your Neo4j database and visualize the results.", 
-            className="mb-4",
-            style={"color": "#666", "fontSize": "15px"}
-        ),
-        
         # Results Section
         html.Div([
-            html.H5("Results", className="mb-3", style={"fontWeight": "500", "color": "#333"}),
-            
             dcc.Loading(
                 id="graph-loading",
                 type="circle",
@@ -171,8 +160,8 @@ def get_layout():
                                     # Layout controls
                                     dbc.Row([
                                         dbc.Col([
-                                            html.Label("Layout Algorithm:", 
-                                                      style={"fontSize": "13px", "fontWeight": "500", "color": "#495057", "marginRight": "8px"}),
+                                            html.Label("Layout:", 
+                                                      style={"fontSize": "12px", "fontWeight": "500", "color": "#495057", "marginRight": "6px"}),
                                             dbc.Select(
                                                 id="graph-layout-selector",
                                                 options=[
@@ -183,28 +172,29 @@ def get_layout():
                                                     {"label": "Concentric", "value": "concentric"}
                                                 ],
                                                 value="cose",
-                                                style={"width": "250px", "display": "inline-block"}
+                                                style={"width": "220px", "display": "inline-block"},
+                                                size="sm"
                                             )
                                         ], width="auto"),
                                         dbc.Col([
                                             dbc.ButtonGroup([
                                                 dbc.Button(
-                                                    [html.I(className="fas fa-expand me-1"), "Fit to Screen"],
+                                                    [html.I(className="fas fa-expand me-1"), "Fit"],
                                                     id="graph-fit-btn",
                                                     color="light",
                                                     size="sm",
-                                                    style={"fontSize": "12px"}
+                                                    style={"fontSize": "11px"}
                                                 ),
                                                 dbc.Button(
-                                                    [html.I(className="fas fa-redo me-1"), "Reset View"],
+                                                    [html.I(className="fas fa-redo me-1"), "Reset"],
                                                     id="graph-reset-btn",
                                                     color="light",
                                                     size="sm",
-                                                    style={"fontSize": "12px"}
+                                                    style={"fontSize": "11px"}
                                                 )
                                             ], size="sm")
                                         ], width="auto", className="ms-auto")
-                                    ], className="mb-3", align="center"),
+                                    ], className="mb-2", align="center"),
                                     
                                     cyto.Cytoscape(
                                         id="graph-cytoscape",
@@ -236,20 +226,20 @@ def get_layout():
                     html.Div(
                         id="graph-results-container",
                         style={
-                            "minHeight": "400px",
-                            "padding": "20px"
+                            "minHeight": "300px",
+                            "padding": "16px"
                         },
                         children=[
                             html.Div(
                                 [
-                                    html.I(className="fas fa-project-diagram fa-3x mb-3", style={"color": "#ccc"}),
+                                    html.I(className="fas fa-project-diagram fa-2x mb-2", style={"color": "#ccc"}),
                                     html.P(
-                                        "No results yet. Enter a Cypher query above and click 'Execute Query' to visualize data.",
-                                        style={"color": "#999", "fontSize": "15px"}
+                                        "No results yet. Enter a query below and click Execute.",
+                                        style={"color": "#999", "fontSize": "13px"}
                                     )
                                 ],
                                 className="text-center",
-                                style={"marginTop": "80px"}
+                                style={"marginTop": "60px"}
                             )
                         ]
                     )
@@ -263,7 +253,7 @@ def get_layout():
                                     "backgroundColor": "#f8f9fa",
                                     "borderRadius": "8px",
                                     "border": "1px solid #dee2e6",
-                                    "padding": "16px",
+                                    "padding": "12px",
                                     "minHeight": "600px",
                                     "maxHeight": "600px",
                                     "overflowY": "auto"
@@ -274,9 +264,9 @@ def get_layout():
                                         html.P(
                                             "Click a node or edge to view details",
                                             className="text-muted mb-0",
-                                            style={"fontSize": "14px"}
+                                            style={"fontSize": "13px"}
                                         )
-                                    ], className="text-center", style={"marginTop": "200px"})
+                                    ], className="text-center", style={"marginTop": "150px"})
                                 ]
                             )
                         ], width=4)
@@ -285,25 +275,26 @@ def get_layout():
             )
         ], style={
             "backgroundColor": "#ffffff",
-            "borderRadius": "12px",
+            "borderRadius": "8px",
             "border": "1px solid #e0e0e0",
-            "padding": "24px",
-            "boxShadow": "0 2px 8px rgba(0,0,0,0.05)"
+            "padding": "16px",
+            "marginBottom": "12px",
+            "boxShadow": "0 1px 4px rgba(0,0,0,0.05)"
         }),
         
         # Query Input Section
         html.Div([
-            html.H5("Cypher Query", className="mb-3", style={"fontWeight": "500", "color": "#333"}),
+            html.H6("Query", className="mb-2", style={"fontWeight": "500", "color": "#495057", "fontSize": "14px"}),
             
             dbc.Textarea(
                 id="graph-query-input",
                 placeholder="MATCH (n:Project)-[r]->(m)\nRETURN n, r, m\nLIMIT 10",
                 style={
-                    "height": "150px",
-                    "borderRadius": "12px",
+                    "height": "100px",
+                    "borderRadius": "8px",
                     "border": "2px solid #e0e0e0",
-                    "padding": "12px 16px",
-                    "fontSize": "14px",
+                    "padding": "10px 12px",
+                    "fontSize": "13px",
                     "fontFamily": "Consolas, Monaco, 'Courier New', monospace",
                     "resize": "vertical",
                     "transition": "border-color 0.2s"
@@ -312,34 +303,32 @@ def get_layout():
             ),
             
             # Validation message container
-            html.Div(id="query-validation-message", className="mb-3"),
+            html.Div(id="query-validation-message", className="mb-2"),
             
             html.Div([
                 dbc.Button(
-                    [html.I(className="fas fa-play me-2"), "Execute Query"],
+                    [html.I(className="fas fa-play me-1"), "Execute"],
                     id="graph-execute-btn",
                     color="primary",
+                    size="sm",
                     style={
-                        "borderRadius": "8px",
+                        "borderRadius": "6px",
                         "fontWeight": "500",
-                        "fontSize": "15px",
-                        "padding": "10px 24px",
-                        "boxShadow": "0 2px 6px rgba(13, 110, 253, 0.25)"
+                        "fontSize": "13px"
                     }
                 ),
                 html.Small(
-                    "Note: Only read-only queries (MATCH, RETURN) are allowed for security.",
-                    className="ms-3 text-muted",
-                    style={"fontSize": "13px"}
+                    "Read-only queries only",
+                    className="ms-2 text-muted",
+                    style={"fontSize": "11px"}
                 )
-            ], className="d-flex align-items-center mb-4")
+            ], className="d-flex align-items-center")
         ], style={
             "backgroundColor": "#ffffff",
-            "borderRadius": "12px",
+            "borderRadius": "8px",
             "border": "1px solid #e0e0e0",
-            "padding": "24px",
-            "marginBottom": "24px",
-            "boxShadow": "0 2px 8px rgba(0,0,0,0.05)"
+            "padding": "16px",
+            "boxShadow": "0 1px 4px rgba(0,0,0,0.05)"
         }),
         
         # Hidden data store for graph data
@@ -351,7 +340,7 @@ def get_layout():
         # Hidden div for triggering fit-to-screen via clientside callback
         html.Div(id="graph-fit-trigger", style={"display": "none"}),
         
-    ], className="mt-4")
+    ])
 
 
 def neo4j_to_cytoscape(graph_response):
