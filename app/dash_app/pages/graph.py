@@ -393,12 +393,13 @@ def neo4j_to_cytoscape(graph_response):
         )
         
         # Create Cytoscape node element
+        # IMPORTANT: Set id AFTER spreading properties to prevent property 'id' from overwriting it
         cyto_node = {
             'data': {
-                'id': node['id'],
+                **node.get('properties', {}),  # Spread properties first
+                'id': node['id'],               # Then set critical fields (can't be overwritten)
                 'label': display_name,
-                'nodeType': node_label,
-                **node.get('properties', {})
+                'nodeType': node_label
             }
         }
         elements.append(cyto_node)
@@ -406,14 +407,15 @@ def neo4j_to_cytoscape(graph_response):
     # Transform relationships
     for rel in graph_response.get("relationships", []):
         # Create Cytoscape edge element
+        # IMPORTANT: Set id/source/target AFTER spreading properties to prevent overwriting
         cyto_edge = {
             'data': {
-                'id': rel['id'],
+                **rel.get('properties', {}),  # Spread properties first
+                'id': rel['id'],               # Then set critical fields (can't be overwritten)
                 'source': rel['startNode'],
                 'target': rel['endNode'],
                 'label': rel['type'],
-                'relType': rel['type'],
-                **rel.get('properties', {})
+                'relType': rel['type']
             }
         }
         elements.append(cyto_edge)
