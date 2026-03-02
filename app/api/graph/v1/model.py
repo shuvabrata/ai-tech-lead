@@ -127,3 +127,126 @@ class GraphErrorResponse(BaseModel):
                 "query": "CREATE (n:Test) RETURN n"
             }
         }
+
+
+class NodeExpansionRequest(BaseModel):
+    """Request model for expanding a node to show connected neighbors."""
+    
+    node_id: str = Field(
+        ...,
+        description="ID of the node to expand"
+    )
+    direction: str = Field(
+        default="both",
+        description="Direction of relationships to follow: 'incoming', 'outgoing', or 'both'",
+        examples=["both", "incoming", "outgoing"]
+    )
+    relationship_types: Optional[List[str]] = Field(
+        default=None,
+        description="Filter by specific relationship types. If None, all types are included."
+    )
+    limit: int = Field(
+        default=50,
+        ge=1,
+        le=500,
+        description="Maximum number of connected nodes to return (pagination)"
+    )
+    offset: int = Field(
+        default=0,
+        ge=0,
+        description="Offset for pagination (skip first N results)"
+    )
+    exclude_node_ids: Optional[List[str]] = Field(
+        default=None,
+        description="List of node IDs to exclude from results (already loaded nodes)"
+    )
+    
+    @field_validator('direction')
+    @classmethod
+    def validate_direction(cls, v: str) -> str:
+        """Ensure direction is one of the valid values."""
+        valid_directions = ["incoming", "outgoing", "both"]
+        if v.lower() not in valid_directions:
+            raise ValueError(f"Direction must be one of {valid_directions}, got '{v}'")
+        return v.lower()
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "node_id": "123",
+                "direction": "both",
+                "relationship_types": ["WORKS_ON", "KNOWS"],
+                "limit": 50,
+                "offset": 0,
+                "exclude_node_ids": ["456", "789"]
+            }
+        }
+
+
+class PaginationMeta(BaseModel):
+    """Pagination metadata for expansion results."""
+    
+    total: int = Field(..., description="Total number of connected nodes (before pagination)")
+    limit: int = Field(..., description="Number of results per page")
+    offset: int = Field(..., description="Current offset")
+    has_more: bool = Field(..., description="Whether there are more results available")
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "total": 150,
+                "limit": 50,
+                "offset": 0,
+                "has_more": True
+            }
+        }
+
+
+class NodeExpansionResponse(BaseModel):
+    """Response model for node expansion."""
+    
+    nodes: List[GraphNode] = Field(
+        default_factory=list,
+        description="List of newly discovered nodes"
+    )
+    relationships: List[GraphRelationship] = Field(
+        default_factory=list,
+        description="List of relationships connecting to the expanded node"
+    )
+    expanded_node_id: str = Field(
+        ...,
+        description="ID of the node that was expanded"
+    )
+    pagination: PaginationMeta = Field(
+        ...,
+        description="Pagination metadata"
+    )
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "nodes": [
+                    {
+                        "id": "789",
+                        "labels": ["Project"],
+                        "properties": {"name": "AI Platform"}
+                    }
+                ],
+                "relationships": [
+                    {
+                        "id": "456",
+                        "type": "WORKS_ON",
+                        "startNode": "123",
+                        "endNode": "789",
+                        "properties": {"role": "Developer"}
+                    }
+                ],
+                "expanded_node_id": "123",
+                "pagination": {
+                    "total": 5,
+                    "limit": 50,
+                    "offset": 0,
+                    "has_more": False
+                }
+            }
+        }

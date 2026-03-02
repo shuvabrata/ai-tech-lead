@@ -146,3 +146,184 @@ def execute_cypher_query(query: str, timeout: int = 30) -> List[Dict[str, Any]]:
     finally:
         if driver:
             driver.close()
+
+
+def expand_node_query(
+    node_id: str,
+    direction: str = "both",
+    relationship_types: List[str] = None,
+    limit: int = 50,
+    offset: int = 0,
+    exclude_node_ids: List[str] = None
+) -> Dict[str, Any]:
+    """Execute a query to expand a node and return connected nodes and relationships.
+    
+    This function retrieves all nodes connected to the specified node, optionally
+    filtering by relationship direction and types, with pagination support.
+    
+    Args:
+        node_id: Element ID of the node to expand
+        direction: Direction to follow relationships ('incoming', 'outgoing', or 'both')
+        relationship_types: Optional list of relationship types to filter by
+        limit: Maximum number of connected nodes to return
+        offset: Number of results to skip (for pagination)
+        exclude_node_ids: Optional list of node IDs to exclude (already loaded)
+        
+    Returns:
+        Dictionary containing:
+            - nodes: List of connected node records
+            - relationships: List of relationship records
+            - total: Total count of connected nodes (before pagination)
+            
+    Raises:
+        RuntimeError: If Neo4j execution fails
+        ValueError: If node_id is invalid or node not found
+        
+    Examples:
+        >>> result = expand_node_query("123", direction="outgoing", limit=10)
+        >>> len(result['nodes']) <= 10
+        True
+    """
+    if not settings.NEO4J_ENABLED:
+        raise RuntimeError("Neo4j is not enabled. Set NEO4J_ENABLED=true in .env")
+    
+    # Build Cypher query based on direction
+    relationship_filter = ""
+    if relationship_types:
+        # Build type filter like [:WORKS_ON|KNOWS|MANAGES]
+        type_list = "|".join(relationship_types)
+        relationship_filter = f":{type_list}"
+    
+    # Build exclusion filter
+    exclusion_clause = ""
+    if exclude_node_ids:
+        # Convert to comma-separated string for Cypher
+        exclusion_list = ", ".join([f"'{nid}'" for nid in exclude_node_ids])
+        exclusion_clause = f"AND NOT elementId(m) IN [{exclusion_list}]"
+    
+    # Build query based on direction
+    if direction == "incoming":
+        # Incoming: other nodes point TO this node
+        query = f"""
+        MATCH (m)-[r{relationship_filter}]->(n)
+        WHERE elementId(n) = $node_id {exclusion_clause}
+        RETURN m, r
+        ORDER BY elementId(m)
+        SKIP $offset
+        LIMIT $limit
+        """
+        count_query = f"""
+        MATCH (m)-[r{relationship_filter}]->(n)
+        WHERE elementId(n) = $node_id {exclusion_clause}
+        RETURN count(DISTINCT m) as total
+        """
+        
+    elif direction == "outgoing":
+        # Outgoing: this node points TO other nodes
+        query = f"""
+        MATCH (n)-[r{relationship_filter}]->(m)
+        WHERE elementId(n) = $node_id {exclusion_clause}
+        RETURN m, r
+        ORDER BY elementId(m)
+        SKIP $offset
+        LIMIT $limit
+        """
+        count_query = f"""
+        MATCH (n)-[r{relationship_filter}]->(m)
+        WHERE elementId(n) = $node_id {exclusion_clause}
+        RETURN count(DISTINCT m) as total
+        """
+        
+    else:  # both
+        # Both directions: UNION of incoming and outgoing
+        query = f"""
+        MATCH (m)-[r{relationship_filter}]->(n)
+        WHERE elementId(n) = $node_id {exclusion_clause}
+        RETURN m, r
+        UNION
+        MATCH (n)-[r{relationship_filter}]->(m)
+        WHERE elementId(n) = $node_id {exclusion_clause}
+        RETURN m, r
+        ORDER BY elementId(m)
+        SKIP $offset
+        LIMIT $limit
+        """
+        count_query = f"""
+        MATCH (m)-[r{relationship_filter}]->(n)
+        WHERE elementId(n) = $node_id {exclusion_clause}
+        RETURN count(DISTINCT m) as c1
+        UNION
+        MATCH (n)-[r{relationship_filter}]->(m)
+        WHERE elementId(n) = $node_id {exclusion_clause}
+        RETURN count(DISTINCT m) as c1
+        """
+    
+    # Create Neo4j driver
+    driver = None
+    try:
+        driver = GraphDatabase.driver(
+            settings.NEO4J_URI,
+            auth=(settings.NEO4J_USERNAME, settings.NEO4J_PASSWORD)
+        )
+        
+        # Verify connectivity
+        driver.verify_connectivity()
+        
+        # Execute count query first to get total
+        with driver.session() as session:
+            # Get total count
+            if direction == "both":
+                # For UNION, sum the counts
+                count_result = session.run(
+                    count_query,
+                    node_id=node_id
+                )
+                total = sum([record["c1"] for record in count_result])
+            else:
+                count_result = session.run(
+                    count_query,
+                    node_id=node_id
+                )
+                count_record = count_result.single()
+                total = count_record["total"] if count_record else 0
+            
+            # Execute main query
+            result = session.run(
+                query,
+                node_id=node_id,
+                limit=limit,
+                offset=offset,
+                timeout=settings.NEO4J_QUERY_TIMEOUT
+            )
+            
+            # Convert to list of dictionaries
+            records = [dict(record) for record in result]
+            
+            logger.info(f"Node expansion query executed. Returned {len(records)} records, total={total}")
+            
+            return {
+                "records": records,
+                "total": total
+            }
+            
+    except ServiceUnavailable as e:
+        logger.error(f"Neo4j connection failed: {e}")
+        raise RuntimeError(f"Unable to connect to Neo4j database: {str(e)}") from e
+    
+    except Neo4jError as e:
+        logger.error(f"Neo4j expansion query failed: {e}")
+        error_msg = str(e)
+        
+        # Check if node doesn't exist
+        if "not found" in error_msg.lower():
+            raise ValueError(f"Node with ID '{node_id}' not found") from e
+        
+        raise RuntimeError(f"Query execution error: {error_msg}") from e
+    
+    except Exception as e:
+        logger.error(f"Unexpected error executing expansion query: {e}")
+        raise RuntimeError(f"Unexpected error: {str(e)}") from e
+    
+    finally:
+        if driver:
+            driver.close()

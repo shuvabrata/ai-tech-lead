@@ -3,7 +3,7 @@
 from fastapi import APIRouter, HTTPException
 
 from app.common.logger import logger
-from .model import CypherQueryRequest, GraphResponse
+from .model import CypherQueryRequest, GraphResponse, NodeExpansionRequest, NodeExpansionResponse
 from . import service
 
 router = APIRouter(prefix="/graph", tags=["graph"])
@@ -77,6 +77,108 @@ async def execute_query(request: CypherQueryRequest):
             detail={
                 "error": "Internal server error",
                 "message": "An unexpected error occurred while processing your query"
+            }
+        ) from e
+
+
+@router.post("/expand", response_model=NodeExpansionResponse)
+async def expand_node(request: NodeExpansionRequest):
+    """
+    Expand a node to retrieve connected neighbors (nodes and relationships).
+    
+    This endpoint allows progressive graph exploration by expanding a single
+    node to show its connected neighbors. Supports:
+    - Direction filtering (incoming, outgoing, or both)
+    - Relationship type filtering
+    - Pagination (limit and offset)
+    - Deduplication (exclude already loaded nodes)
+    
+    **Use Cases**:
+    - Click a node to see what it connects to
+    - Progressive graph drilling and exploration
+    - Load large graphs incrementally
+    
+    **Examples**:
+    - Expand both directions: `{"node_id": "123", "direction": "both", "limit": 50}`
+    - Expand with filter: `{"node_id": "123", "relationship_types": ["WORKS_ON"], "limit": 25}`
+    - Paginate results: `{"node_id": "123", "limit": 50, "offset": 50}`
+    
+    Args:
+        request: NodeExpansionRequest with node_id, direction, filters, and pagination
+        
+    Returns:
+        NodeExpansionResponse with connected nodes, relationships, and pagination metadata
+        
+    Raises:
+        HTTPException 400: If node_id is invalid or parameters are malformed
+        HTTPException 404: If node not found
+        HTTPException 500: If Neo4j execution fails
+    """
+    try:
+        logger.info(f"Expanding node {request.node_id} with direction={request.direction}, "
+                   f"limit={request.limit}, offset={request.offset}")
+        
+        response = service.expand_node(
+            node_id=request.node_id,
+            direction=request.direction,
+            relationship_types=request.relationship_types,
+            limit=request.limit,
+            offset=request.offset,
+            exclude_node_ids=request.exclude_node_ids
+        )
+        
+        # Log expansion results
+        logger.info(f"Node expanded successfully. nodes={len(response.nodes)}, "
+                   f"relationships={len(response.relationships)}, "
+                   f"total={getattr(response.pagination, 'total', 0)}, "
+                   f"has_more={getattr(response.pagination, 'has_more', False)}")
+        
+        return response
+        
+    except ValueError as e:
+        # Node not found or invalid parameters
+        logger.warning(f"Node expansion validation error: {e}")
+        
+        # Check if it's a "not found" error
+        if "not found" in str(e).lower():
+            raise HTTPException(
+                status_code=404,
+                detail={
+                    "error": "Node not found",
+                    "message": str(e),
+                    "node_id": request.node_id
+                }
+            ) from e
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "error": "Invalid request",
+                    "message": str(e),
+                    "node_id": request.node_id
+                }
+            ) from e
+        
+    except RuntimeError as e:
+        # Neo4j execution errors
+        logger.error(f"Node expansion execution error: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error": "Expansion failed",
+                "message": str(e),
+                "hint": "Check Neo4j connection and query syntax"
+            }
+        ) from e
+        
+    except Exception as e:
+        # Unexpected errors
+        logger.error(f"Unexpected error expanding node: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error": "Internal server error",
+                "message": "An unexpected error occurred while expanding the node"
             }
         ) from e
 

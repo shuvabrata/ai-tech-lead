@@ -5,8 +5,8 @@ from neo4j.graph import Node, Relationship
 
 from app.common.logger import logger
 from app.settings import settings
-from .model import GraphNode, GraphRelationship, GraphResponse
-from .query import validate_read_only_query, execute_cypher_query
+from .model import GraphNode, GraphRelationship, GraphResponse, NodeExpansionResponse, PaginationMeta
+from .query import validate_read_only_query, execute_cypher_query, expand_node_query
 
 
 def execute_and_format_query(query: str) -> GraphResponse:
@@ -199,3 +199,95 @@ def _make_serializable(value: Any) -> Any:
     else:
         # Primitive types (str, int, float, bool, None) are already serializable
         return value
+
+
+def expand_node(
+    node_id: str,
+    direction: str = "both",
+    relationship_types: List[str] = None,
+    limit: int = 50,
+    offset: int = 0,
+    exclude_node_ids: List[str] = None
+) -> NodeExpansionResponse:
+    """Expand a node to retrieve and format connected nodes and relationships.
+    
+    This function orchestrates the node expansion flow:
+    1. Queries Neo4j for connected nodes and relationships
+    2. Transforms Neo4j objects to Pydantic models
+    3. Calculates pagination metadata
+    4. Returns formatted response
+    
+    Args:
+        node_id: Element ID of the node to expand
+        direction: Direction to follow ('incoming', 'outgoing', or 'both')
+        relationship_types: Optional list of relationship types to filter by
+        limit: Maximum number of connected nodes to return
+        offset: Number of results to skip (for pagination)
+        exclude_node_ids: Optional list of node IDs to exclude (already loaded)
+        
+    Returns:
+        NodeExpansionResponse with connected nodes, relationships, and pagination info
+        
+    Raises:
+        ValueError: If node_id is invalid or node not found
+        RuntimeError: If Neo4j execution fails
+        
+    Examples:
+        >>> response = expand_node("123", direction="outgoing", limit=10)
+        >>> response.expanded_node_id
+        '123'
+        >>> len(response.nodes) <= 10
+        True
+    """
+    logger.info(f"Expanding node {node_id} in direction '{direction}' with limit={limit}, offset={offset}")
+    
+    # Execute expansion query
+    result = expand_node_query(
+        node_id=node_id,
+        direction=direction,
+        relationship_types=relationship_types,
+        limit=limit,
+        offset=offset,
+        exclude_node_ids=exclude_node_ids
+    )
+    
+    # Extract nodes and relationships from records
+    nodes_dict: Dict[str, GraphNode] = {}  # Deduplicate by element_id
+    relationships_dict: Dict[str, GraphRelationship] = {}  # Deduplicate by element_id
+    
+    for record in result["records"]:
+        # Each record contains 'm' (connected node) and 'r' (relationship)
+        if 'm' in record:
+            neo4j_node = record['m']
+            node = _transform_node(neo4j_node)
+            nodes_dict[node.id] = node
+        
+        if 'r' in record:
+            neo4j_rel = record['r']
+            rel = _transform_relationship(neo4j_rel)
+            relationships_dict[rel.id] = rel
+    
+    nodes_list = list(nodes_dict.values())
+    relationships_list = list(relationships_dict.values())
+    
+    # Calculate pagination metadata
+    total = result["total"]
+    has_more = (offset + limit) < total
+    
+    pagination = PaginationMeta(
+        total=total,
+        limit=limit,
+        offset=offset,
+        has_more=has_more
+    )
+    
+    logger.info(f"Expansion complete: {len(nodes_list)} nodes, "
+               f"{len(relationships_list)} relationships, "
+               f"total={total}, has_more={has_more}")
+    
+    return NodeExpansionResponse(
+        nodes=nodes_list,
+        relationships=relationships_list,
+        expanded_node_id=node_id,
+        pagination=pagination
+    )
