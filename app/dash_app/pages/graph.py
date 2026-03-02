@@ -168,8 +168,11 @@ def get_layout():
                     "resize": "vertical",
                     "transition": "border-color 0.2s"
                 },
-                className="mb-3"
+                className="mb-2"
             ),
+            
+            # Validation message container
+            html.Div(id="query-validation-message", className="mb-3"),
             
             html.Div([
                 dbc.Button(
@@ -570,6 +573,49 @@ clientside_callback(
     Input("graph-fit-btn", "n_clicks"),
     prevent_initial_call=True
 )
+
+
+# Callback for real-time query validation
+@callback(
+    Output("query-validation-message", "children"),
+    Input("graph-query-input", "value")
+)
+def validate_query(query_text):
+    """Validate Cypher query and provide real-time feedback"""
+    # Empty query - no message
+    if not query_text or not query_text.strip():
+        return None
+    
+    query_upper = query_text.strip().upper()
+    
+    # Check for write operations (not allowed)
+    write_keywords = ['CREATE', 'MERGE', 'SET', 'DELETE', 'REMOVE', 'DROP']
+    for keyword in write_keywords:
+        if f' {keyword} ' in f' {query_upper} ' or query_upper.startswith(f'{keyword} '):
+            return dbc.Alert([
+                html.I(className="fas fa-exclamation-triangle me-2"),
+                f"Write operations ({keyword}) are not allowed for security reasons. Only read-only queries (MATCH, RETURN) are permitted."
+            ], color="danger", className="mb-0", style={"fontSize": "13px"})
+    
+    # Check if query starts with valid read keywords
+    valid_starts = ['MATCH', 'RETURN', 'WITH', 'UNWIND', 'CALL', 'OPTIONAL']
+    starts_valid = any(query_upper.startswith(keyword) for keyword in valid_starts)
+    
+    if not starts_valid:
+        return dbc.Alert([
+            html.I(className="fas fa-info-circle me-2"),
+            "Query should typically start with MATCH, RETURN, or other read-only keywords."
+        ], color="warning", className="mb-0", style={"fontSize": "13px"})
+    
+    # Check for missing LIMIT (performance warning)
+    if 'LIMIT' not in query_upper and 'MATCH' in query_upper:
+        return dbc.Alert([
+            html.I(className="fas fa-lightbulb me-2"),
+            "Consider adding a LIMIT clause to improve query performance."
+        ], color="info", className="mb-0", style={"fontSize": "13px"})
+    
+    # Query looks good
+    return None
 
 
 # Callback to execute Cypher query and display results
