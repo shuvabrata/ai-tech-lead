@@ -47,11 +47,17 @@ This plan extends the basic graph visualization (completed in Phase 1-5 of `grap
 - **Phase**: Prerequisite
 
 **Q2. Node Expansion Interaction Pattern**
-- **Status**: DECIDED ✅
-- **Decision**: **Option b** - Single-click expansion with confirmation dialog ("Expand this node?")
-- **Rationale**: Better UX than double-click (especially on mobile/touchpads), confirmation prevents accidental expansions
-- **Impact**: Phase 1.1.3 implementation
+- **Status**: DECIDED ✅ (REVISED)
+- **Decision**: **Dual interaction model**:
+  - **Double-click**: Immediate expansion with defaults (direction: Both, limit: 50)
+  - **Right-click**: Context menu → "Expand Node..." → Opens dialog with options (direction, limit controls)
+- **Rationale**: Power users get speed (double-click), all users get control (right-click). Best of both worlds.
+- **Impact**: Phase 1.1 split into micro-phases (1.1a, 1.1b, 1.1c) for incremental implementation
 - **Phase**: 1.1
+- **Implementation Notes**: 
+  - Dash Cytoscape doesn't expose `doubleTap` or `cxtTap` as Python properties
+  - Will use clientside JavaScript callbacks to listen to Cytoscape.js native events
+  - Single-click (`tapNodeData`) still used for selection/details panel
 
 **Q3. Expansion Results Pagination**
 - **Status**: DECIDED ✅
@@ -195,70 +201,253 @@ Before starting implementation of each phase:
 **Timeline**: 2-3 weeks  
 **Priority**: Critical (P0)
 
-### 1.1 Node Expansion (Double-Click to Expand)
+### 1.1 Node Expansion (Double-Click + Right-Click)
 
-**Objective**: Load and display connected nodes on demand
+**Objective**: Load and display connected nodes on demand with dual interaction model
 
-**Backend Tasks**:
-- [ ] **1.1.1 Create Expansion Endpoint**
+**Status**: ✅ Backend Complete | 🔄 Frontend In Progress
+
+**Implementation Strategy**: Build incrementally in micro-phases to validate technical approach
+
+---
+
+#### **Phase 1.1a: Backend API** ✅ COMPLETE
+
+**Tasks**:
+- [x] **Create Expansion Endpoint**
   - File: `app/api/graph/v1/router.py`
-  - New endpoint: `POST /api/v1/graph/expand`
-  - Request model: `NodeExpansionRequest(node_id: str, direction: str, relationship_types: Optional[List[str]], limit: int)`
-  - Direction: `"incoming"`, `"outgoing"`, `"both"`
-  - Returns: `GraphResponse` with new nodes/relationships
-  - Query example: 
-    ```cypher
-    MATCH (n)-[r]->(m) WHERE elementId(n) = $nodeId
-    RETURN n, r, m LIMIT $limit
-    ```
-  - Deduplication: Exclude already-loaded nodes
-
-- [ ] **1.1.2 Expansion Service Layer**
+  - Endpoint: `POST /api/v1/graph/expand`
+  - Request model: `NodeExpansionRequest(node_id, direction, relationship_types, limit, offset, exclude_node_ids)`
+  - Response model: `NodeExpansionResponse(nodes, relationships, expanded_node_id, pagination)`
+  - Direction: `"incoming"`, `"outgoing"`, `"both"` (default: `"both"`)
+  - Pagination: Default limit 50, supports offset-based loading
+  
+- [x] **Expansion Query Layer**
+  - File: `app/api/graph/v1/query.py`
+  - Function: `expand_node_query()` - Builds direction-filtered Cypher queries
+  - Deduplication: Excludes already-loaded nodes via `exclude_node_ids` parameter
+  - Handles UNION queries for "both" direction
+  
+- [x] **Expansion Service Layer**
   - File: `app/api/graph/v1/service.py`
-  - Function: `expand_node(node_id, direction, rel_types, limit) -> GraphResponse`
-  - Track expansion state (which nodes are expanded)
-  - Handle circular references
-  - Limit expansion depth (max 3 levels by default)
+  - Function: `expand_node()` - Orchestrates query execution and transformation
+  - Returns deduplicated nodes/relationships with pagination metadata
 
-**Frontend Tasks**:
-- [ ] **1.1.3 Single-Click Event Handler with Confirmation** ✅ **DECISION: Q2**
+---
+
+#### **Phase 1.1b: Simple Button-Based Expansion** 🔄 IN PROGRESS
+
+**Goal**: Get basic expansion working with simplest possible UI (button in details panel)
+
+**Rationale**: Before attempting complex double-click/right-click events, prove the full stack works end-to-end
+
+**Tasks**:
+- [ ] **1. Add UI Components**
+  - Add "Expand Node" button to details panel (shown when node selected)
+  - Add expansion modal with:
+    - Direction selector: Both / Incoming / Outgoing (default: Both)
+    - Limit info display: "Will load first 50 neighbors"
+    - "Load More" button for pagination (if has_more = true)
+    - Expand / Cancel buttons
+  - Add data stores:
+    - `expanded-nodes`: Track which node IDs have been expanded
+    - `loaded-node-ids`: Track all loaded node IDs for deduplication
+
+- [ ] **2. Create Callbacks**
+  - Callback 1: `open_expansion_modal()` - Opens modal when button clicked, passes selected node ID
+  - Callback 2: `execute_expansion()` - Calls backend API, merges results into graph
+    - Input: Modal "Expand" button click + node_id + direction + limit
+    - Process:
+      - Get current graph elements from Cytoscape
+      - Extract loaded node IDs for exclude_node_ids parameter
+      - POST to `/api/v1/graph/expand` with parameters
+      - Transform response using `neo4j_to_cytoscape()`
+      - Merge new elements (deduplicate by ID)
+      - Update Cytoscape elements
+      - Update expanded-nodes and loaded-node-ids stores
+    - Output: Updated graph elements, success/error message
+
+- [ ] **3. Visual Feedback**
+  - Loading spinner while expansion in progress
+  - Success toast: "Loaded X new nodes, Y new relationships"
+  - Error handling: Display user-friendly error messages
+  - Highlight newly added nodes with different border color (temporary, fade after 3s)
+
+**Success Criteria**:
+- ✅ Click node → details panel shows "Expand Node" button
+- ✅ Click button → modal opens with options
+- ✅ Click "Expand" → API called, new nodes appear in graph
+- ✅ No duplicate nodes/edges in graph
+- ✅ Graph layout adjusts to accommodate new nodes
+- ✅ Can expand multiple nodes sequentially
+- ✅ Pagination works ("Load More" button appears when >50 neighbors)
+
+---
+
+#### **Phase 1.1c: Double-Click Quick Expansion** ⏳ PLANNED
+
+**Goal**: Add double-click for power users (immediate expansion with defaults)
+
+**Technical Challenge**: Dash Cytoscape doesn't expose `doubleTap` event as Python Input property
+
+**Proposed Solution**: Clientside JavaScript callback
+```javascript
+// Listen to Cytoscape.js native event
+cyto.on('dbltap', 'node', function(evt) {
+  var node = evt.target;
+  // Trigger hidden dcc.Store or dcc.Input to communicate with Python
+  document.getElementById('doubleclicked-node-id').value = node.id();
+  // Trigger callback
+});
+```
+
+**Tasks**:
+- [ ] **1. Add Hidden Communication Channel**
+  - Add `dcc.Input(id="doubleclicked-node-store", type="hidden")` or `dcc.Store`
+  - Acts as bridge between JavaScript and Python callbacks
+
+- [ ] **2. Clientside Callback for Event Capture**
+  - Register `clientside_callback` that listens to Cytoscape `dbltap` event
+  - Write node ID to hidden store when double-click detected
   - File: `app/dash_app/pages/graph.py`
-  - Callback: Listen to `tapNode` (Cytoscape single-click event)
-  - Show confirmation dialog: "Expand this node?" with Expand/Cancel buttons
-  - Dialog includes options:
-    - Direction: Both/Incoming/Outgoing (default: Both per Q4)
-    - Limit: 50 nodes (default per Q3)
-  - Show loading indicator on expanding node after confirmation
-  - Debounce: Prevent multiple rapid clicks (300ms)
 
-- [ ] **1.1.4 Visual Expansion Feedback**
-  - Add "expanding..." spinner on node during load
-  - Animate new nodes appearing (fade-in effect)
-  - Highlight newly added nodes with temporary border
-  - Update node style to show "expanded" state (e.g., darker border)
+- [ ] **3. Python Callback for Expansion**
+  - Reuse `execute_expansion()` logic from Phase 1.1b
+  - Input: `doubleclicked-node-store` value change
+  - Hardcoded defaults: direction="both", limit=50, offset=0
+  - No modal, immediate execution
 
-- [ ] **1.1.5 Expansion State Management** ✅ **DECISION: Q5**
-  - Store: `dcc.Store(id="expanded-nodes")` - Track which nodes are expanded
-  - Store: `dcc.Store(id="removed-nodes")` - Track manually removed nodes
-  - Feature: **Manual Node Removal** (per Q5 requirement)
-    - Button on node or context menu: "Remove from view"
-    - Removed nodes stored in state (can be restored)
-    - "Show All Hidden Nodes" button to restore removed nodes
-  - Button: "Collapse" to remove expanded children (optional, as graph grows indefinitely per Q5)
-  - Indicator: Show expansion count badge on nodes (e.g., "+23")
+- [ ] **4. Debouncing**
+  - Prevent double-click firing on already-expanded nodes
+  - 500ms cooldown between expansions per node
+  - Visual feedback: "Already expanded" tooltip or disabled state
 
-**UI/UX**:
-- Visual indicator on nodes showing they can be expanded (+ icon overlay)
-- Confirmation dialog on click (per Q2): "Expand this node?"
-  - Direction selector: Both (default per Q4) / Incoming / Outgoing
-  - Limit info: "Will show first 50 neighbors" (per Q3)
-  - "Load More" button if >50 connections (per Q3)
-- Expansion direction controls accessible from dialog and settings
+**Success Criteria**:
+- ✅ Double-click node → immediate expansion (no modal)
+- ✅ Uses default parameters (both/50)
+- ✅ Doesn't conflict with single-click selection
+- ✅ Debounced to prevent accidental double-expansions
 
-**Performance**:
-- Limit to 50 nodes per expansion (configurable)
-- Debounce rapid clicks (300ms)
-- Virtualization for >1000 total nodes
+---
+
+#### **Phase 1.1d: Right-Click Context Menu** ⏳ PLANNED
+
+**Goal**: Add right-click menu for advanced expansion options
+
+**Technical Challenge**: Same as 1.1c - Dash Cytoscape doesn't expose `cxttap` (right-click) event
+
+**Proposed Solution**: Clientside callback + custom context menu component
+
+**Tasks**:
+- [ ] **1. Event Capture (Similar to 1.1c)**
+  - Hidden store: `cxtclicked-node-store`
+  - Clientside callback: Listen to Cytoscape `cxttap` event
+  - Capture mouse coordinates for menu positioning
+
+- [ ] **2. Context Menu Component**
+  - Option A: Use `dash-extensions` library (has ContextMenu component)
+  - Option B: Custom HTML/CSS menu with absolute positioning
+  - Menu items:
+    - **"Expand Node..."** → Opens advanced expansion modal
+    - **"Expand Incoming Only"** → Quick expansion (incoming)
+    - **"Expand Outgoing Only"** → Quick expansion (outgoing)
+    - **"Copy Node ID"**
+    - **"Remove from View"** (Phase 1.1, per Q5)
+    - Divider
+    - **"Focus on This Node"** (hide all others)
+
+- [ ] **3. Context Menu Callbacks**
+  - Show/hide menu based on `cxtclicked-node-store` changes
+  - Route menu actions to appropriate callbacks:
+    - "Expand Node..." → Open expansion modal (reuse from 1.1b)
+    - Quick expansions → Call `execute_expansion()` with preset direction
+    - Remove → Update `removed-nodes` store, hide from graph
+
+- [ ] **4. Menu Positioning**
+  - Position menu at mouse click coordinates
+  - Ensure menu stays within viewport bounds
+  - Dismiss menu on: click outside, ESC key, action selected
+
+**Success Criteria**:
+- ✅ Right-click node → context menu appears at cursor
+- ✅ Menu items execute correct actions
+- ✅ Menu dismisses appropriately
+- ✅ Doesn't interfere with double-click or single-click
+
+---
+
+#### **Phase 1.1e: Expansion State & Visual Indicators** ⏳ PLANNED
+
+**Goal**: Track expansion state and provide visual cues
+
+**Tasks**:
+- [ ] **1. State Management** ✅ **DECISION: Q5**
+  - Store: `expanded-nodes` - `{node_id: {direction: "both", count: 23, timestamp: "..."}}`
+  - Store: `loaded-node-ids` - Array of all loaded node element IDs
+  - Store: `removed-nodes` - Array of manually removed node IDs
+
+- [ ] **2. Visual Indicators**
+  - Expanded nodes: Thicker border or different border color
+  - Expansion badge: Show "+23" count of loaded neighbors
+  - Expandable indicator: "+" icon on un-expanded nodes (optional)
+
+- [ ] **3. Expansion History**
+  - Details panel shows: "Expanded: Both directions, 23 neighbors, 2m ago"
+  - "Undo Expansion" button (removes expanded children, marks node as not expanded)
+  - "Re-expand" button (if previously expanded but children removed)
+
+- [ ] **4. Node Removal** (per Q5 requirement)
+  - Context menu: "Remove from View"
+  - Removed nodes hidden but tracked in state
+  - "Show Hidden Nodes" button to restore
+  - List of hidden nodes in sidebar or modal
+
+**Success Criteria**:
+- ✅ Can visually distinguish expanded from un-expanded nodes
+- ✅ Can see expansion count per node
+- ✅ Can manually remove/restore nodes
+- ✅ Expansion state persists during session
+
+---
+
+#### **Phase 1.1f: Performance & Polish** ⏳ PLANNED
+
+**Goal**: Optimize and handle edge cases
+
+**Tasks**:
+- [ ] **1. Performance Optimization**
+  - Debounce rapid expansions (300ms cooldown)
+  - Virtualization if graph exceeds 1000 nodes
+  - Loading states for slow API responses
+
+- [ ] **2. Error Handling**
+  - Handle 404: Node not found
+  - Handle 500: Query execution errors
+  - Handle network timeouts
+  - Graceful degradation if API unreachable
+
+- [ ] **3. Edge Cases**
+  - Expanding node with 0 neighbors (show "No neighbors found")
+  - Expanding already-fully-expanded node (detect via API response)
+  - Circular references (backend handles, verify frontend)
+  - Very large expansions (>1000 neighbors, show warning)
+
+- [ ] **4. UX Polish**
+  - Smooth animations for new nodes appearing
+  - Automatic layout adjustment after expansion
+  - Optional auto-fit to keep new nodes visible
+  - Keyboard shortcuts (E = expand selected node)
+
+**Success Criteria**:
+- ✅ No performance degradation with <1000 nodes
+- ✅ All error cases handled gracefully
+- ✅ Smooth, polished user experience
+
+---
+
+**Current Status**: Backend ✅ Complete, Starting Phase 1.1b (Button-Based Expansion)
+
+**Next Immediate Step**: Implement Phase 1.1b tasks to prove end-to-end expansion works before tackling complex event handling
 
 ---
 
@@ -1015,9 +1204,22 @@ scikit-learn>=1.3         # Clustering algorithms
 - **2026-03-02**: Defined success criteria, performance targets, and rollout plan
 - **2026-03-02**: Added Decision Log section with answered questions (Q1-Q5, Q7) and unanswered questions (Q6, Q8-Q24)
 - **2026-03-02**: Updated Phase 1 tasks to reflect decisions:
-  - Single-click expansion with confirmation dialog (Q2)
+  - Single-click expansion with confirmation dialog (Q2 - ORIGINAL)
   - Paginated results: 50 + Load More (Q3)
   - Default direction: Both (Q4)
   - Manual node removal feature (Q5)
   - Breadcrumbs above graph (Q7)
 - **2026-03-02**: Added pre-phase review warnings for all phases to ensure unanswered questions resolved before implementation
+- **2026-03-02 (Evening)**: **MAJOR REVISION - Q2 Decision Changed & Phase 1.1 Restructured**:
+  - **Updated Q2**: Changed from single-click+modal to **dual interaction model**:
+    - Double-click for immediate expansion (power users)
+    - Right-click for advanced options menu (all users)
+  - **Restructured Phase 1.1**: Split into 6 micro-phases (1.1a-1.1f) for incremental implementation:
+    - 1.1a: Backend API (✅ COMPLETE)
+    - 1.1b: Simple button-based expansion (🔄 CURRENT - validate full stack)
+    - 1.1c: Double-click quick expansion (⏳ PLANNED - clientside callbacks)
+    - 1.1d: Right-click context menu (⏳ PLANNED - clientside callbacks)
+    - 1.1e: State management & visual indicators (⏳ PLANNED)
+    - 1.1f: Performance & polish (⏳ PLANNED)
+  - **Rationale**: Build incrementally to de-risk technical challenges (Dash Cytoscape event handling)
+  - **Impact**: Phase 1.1 timeline extended, but higher confidence in successful delivery
