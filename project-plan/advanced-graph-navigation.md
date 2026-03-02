@@ -33,129 +33,32 @@ This plan extends the basic graph visualization (completed in Phase 1-5 of `grap
 
 ---
 
-## Decision Log
+## Decision Status Summary
 
-**Last Updated**: March 2, 2026  
-**Status**: Partial answers received, unanswered questions to be resolved before each phase implementation
+**Last Updated**: March 2, 2026
 
-### ✅ Answered Questions
+### Quick Status
+- ✅ **Answered**: 6 decisions (Q1-Q5, Q7)
+- ❓ **Pending**: 18 decisions (Q6, Q8-Q24)
+- 🔄 **Current Phase**: Phase 1.1b (Button-Based Expansion) - ✅ COMPLETE
+- ⏭️ **Next Phase**: Phase 1.1c (Double-Click Expansion)
 
-**Q1. Edge Rendering Issue**
-- **Status**: RESOLVED ✅
-- **Decision**: Was an implementation error, now fixed
-- **Impact**: Basic relationship visibility confirmed working
-- **Phase**: Prerequisite
+### Review Required Before
+- **Phase 1.3** (Context Menu): Answer Q6
+- **Phase 1.4** (Breadcrumb & History): Answer Q8
+- **Phase 2** (Filtering & Search): Answer Q9, Q10
+- **Phase 3** (Path Exploration): Answer Q11-Q14
+- **Phase 4** (Performance): Answer Q15-Q18
+- **Phase 5** (Export & Collaboration): Answer Q19-Q21
+- **Phase 6** (Analytics): Answer Q22-Q24
 
-**Q2. Node Expansion Interaction Pattern**
-- **Status**: DECIDED ✅ (REVISED)
-- **Decision**: **Dual interaction model**:
-  - **Double-click**: Immediate expansion with defaults (direction: Both, limit: 50)
-  - **Right-click**: Context menu → "Expand Node..." → Opens dialog with options (direction, limit controls)
-- **Rationale**: Power users get speed (double-click), all users get control (right-click). Best of both worlds.
-- **Impact**: Phase 1.1 split into micro-phases (1.1a, 1.1b, 1.1c) for incremental implementation
-- **Phase**: 1.1
-- **Implementation Notes**: 
-  - Dash Cytoscape doesn't expose `doubleTap` or `cxtTap` as Python properties
-  - Will use clientside JavaScript callbacks to listen to Cytoscape.js native events
-  - Single-click (`tapNodeData`) still used for selection/details panel
-
-**Q3. Expansion Results Pagination**
-- **Status**: DECIDED ✅
-- **Decision**: **Option a** - Show first 50 + "Load More" button
-- **Rationale**: Safer, better UX, prevents performance issues
-- **Impact**: Phase 1.1.1 backend endpoint should return pagination metadata
-- **Phase**: 1.1
-
-**Q4. Expansion Direction Default**
-- **Status**: DECIDED ✅
-- **Decision**: **Option a** - "Both" (incoming + outgoing)
-- **Rationale**: Shows full picture, more comprehensive exploration (accept potential clutter)
-- **Impact**: Phase 1.1.1 default direction parameter, Phase 1.1 UI controls
-- **Phase**: 1.1
-
-**Q5. Expansion Auto-Collapse Behavior**
-- **Status**: DECIDED ✅ (with addition)
-- **Decision**: **Option a** - Keep all previous expansions (graph grows indefinitely)
-- **Additional Requirement**: Add manual option for removing nodes from the plot
-- **Rationale**: User wants flexibility to grow graph AND manually prune as needed
-- **Impact**: Phase 1.1, requires new "Remove Node" functionality (context menu or button)
-- **Phase**: 1.1, 1.3
-
-**Q7. Breadcrumb Position**
-- **Status**: DECIDED ✅
-- **Decision**: **Option a** - Above graph (near layout controls)
-- **Rationale**: Keeps navigation controls together, doesn't compete with bottom performance metrics
-- **Impact**: Phase 1.4.2 UI layout
-- **Phase**: 1.4
-
-### ❓ Unanswered Questions (Review Before Implementation)
-
-**IMPORTANT**: Each question below MUST be answered before starting its associated phase.
-
-**Q6. Context Menu Implementation Approach**
-- **Status**: UNANSWERED ❓
-- **Phase**: 1.3 (Context Menu)
-- **Review Trigger**: Before starting Phase 1.3.4
-- **Options**: (a) dash-extensions library, (b) dcc.ContextMenu component, (c) Custom React component
-- **Impact**: Development complexity, library dependencies
-
-**Q8. History Persistence Strategy**
-- **Status**: UNANSWERED ❓
-- **Phase**: 1.4 (Breadcrumb Navigation & History)
-- **Review Trigger**: Before starting Phase 1.4.4
-- **Options**: (a) Browser localStorage, (b) No persistence (session-only), (c) Server-side storage
-- **Impact**: Phase 1.4.4 implementation, user experience across sessions
-
-**Q9. Filter Execution Model**
-- **Status**: UNANSWERED ❓
-- **Phase**: 2.1 (Node Filtering)
-- **Review Trigger**: Before starting Phase 2
-- **Options**: (a) Client-side filtering (hide/show existing nodes), (b) Server-side re-query, (c) Hybrid
-- **Impact**: Phase 2.1 architecture, performance characteristics
-
-**Q10. Search Implementation**
-- **Status**: UNANSWERED ❓
-- **Phase**: 2.2 (Graph Search)
-- **Review Trigger**: Before starting Phase 2.2
-- **Options**: Search strategy (full-text, property-based, pattern-based)
-- **Impact**: Phase 2.2 backend endpoint
-
-**Q11-Q14. Path Finding Features**
-- **Status**: UNANSWERED ❓
-- **Phase**: 3 (Path & Pattern Exploration)
-- **Review Trigger**: Before starting Phase 3
-- **Questions**: Path algorithms, visualization style, multiple paths handling, max path length
-- **Impact**: Phase 3 entire implementation
-
-**Q15-Q18. Performance & Scalability**
-- **Status**: UNANSWERED ❓
-- **Phase**: 4 (Performance & Scalability)
-- **Review Trigger**: Before starting Phase 4
-- **Questions**: LOD implementation, sampling strategy, clustering algorithm, progressive loading
-- **Impact**: Phase 4 technical approach
-
-**Q19-Q21. Export & Collaboration**
-- **Status**: UNANSWERED ❓
-- **Phase**: 5 (Export & Collaboration)
-- **Review Trigger**: Before starting Phase 5
-- **Questions**: Export formats, shareable URL scope, collaboration features priority
-- **Impact**: Phase 5 feature scope
-
-**Q22-Q24. Analytics Priority**
-- **Status**: UNANSWERED ❓
-- **Phase**: 6 (Advanced Analytics)
-- **Review Trigger**: Before starting Phase 6
-- **Questions**: Centrality metrics priority, pattern detection approach, time-based analysis
-- **Impact**: Phase 6 feature prioritization
-
-### 🔄 Pre-Implementation Review Protocol
-
-Before starting implementation of each phase:
-1. **Review unanswered questions** for that phase (marked with ❓)
-2. **Get user decisions** on all relevant questions
-3. **Update this Decision Log** with answers
-4. **Adjust phase plan** based on decisions
-5. **Proceed with implementation** only after all blocking questions resolved
+### Pre-Implementation Protocol
+Before starting each phase:
+1. Review unanswered questions for that phase (marked with ❓)
+2. Get user decisions on all relevant questions
+3. Update questions in phase sections with answers
+4. Adjust phase plan based on decisions
+5. Proceed with implementation only after all blocking questions resolved
 
 ---
 
@@ -197,9 +100,82 @@ Before starting implementation of each phase:
 
 ## Phase 1: Core Navigation & Expansion
 
-**Goal**: Enable basic graph drilling and exploration
+**Goal**: Enable basic graph drilling and exploration  
 **Timeline**: 2-3 weeks  
 **Priority**: Critical (P0)
+
+---
+
+### Pre-Phase Decision Review
+
+**Status**: 6 questions answered ✅, 2 questions pending ❓
+
+#### ✅ **Q1. Edge Rendering Issue**
+- **Status**: RESOLVED ✅
+- **Decision**: Was an implementation error, now fixed
+- **Impact**: Basic relationship visibility confirmed working
+- **Phase**: Prerequisite
+
+#### ✅ **Q2. Node Expansion Interaction Pattern**
+- **Status**: DECIDED ✅ (REVISED)
+- **Decision**: **Dual interaction model**:
+  - **Double-click**: Immediate expansion with defaults (direction: Both, limit: 50)
+  - **Right-click**: Context menu → "Expand Node..." → Opens dialog with options (direction, limit controls)
+- **Rationale**: Power users get speed (double-click), all users get control (right-click). Best of both worlds.
+- **Impact**: Phase 1.1 split into micro-phases (1.1a, 1.1b, 1.1c) for incremental implementation
+- **Implementation Notes**: 
+  - Dash Cytoscape doesn't expose `doubleTap` or `cxtTap` as Python properties
+  - Will use clientside JavaScript callbacks to listen to Cytoscape.js native events
+  - Single-click (`tapNodeData`) still used for selection/details panel
+
+#### ✅ **Q3. Expansion Results Pagination**
+- **Status**: DECIDED ✅
+- **Decision**: **Option a** - Show first 50 + "Load More" button
+- **Rationale**: Safer, better UX, prevents performance issues
+- **Impact**: Backend endpoint returns pagination metadata, UI shows "Load More" when has_more=true
+
+#### ✅ **Q4. Expansion Direction Default**
+- **Status**: DECIDED ✅
+- **Decision**: **Option a** - "Both" (incoming + outgoing)
+- **Rationale**: Shows full picture, more comprehensive exploration (accept potential clutter)
+- **Impact**: Default direction parameter in all expansion operations
+
+#### ✅ **Q5. Expansion Auto-Collapse Behavior**
+- **Status**: DECIDED ✅ (with addition)
+- **Decision**: **Option a** - Keep all previous expansions (graph grows indefinitely)
+- **Additional Requirement**: Add manual option for removing nodes from the plot
+- **Rationale**: User wants flexibility to grow graph AND manually prune as needed
+- **Impact**: Requires new "Remove Node" functionality (context menu or button in Phase 1.1e/1.3)
+
+#### ❓ **Q6. Context Menu Implementation Approach**
+- **Status**: UNANSWERED ❓
+- **Phase**: 1.3 (Context Menu), 1.1d (Right-Click Expansion)
+- **Review Trigger**: Before starting Phase 1.1d or 1.3
+- **Options**: 
+  - (a) dash-extensions library - Has ContextMenu component
+  - (b) dcc.ContextMenu component - If available in core Dash
+  - (c) Custom React component - Full control but more complexity
+- **Impact**: Development complexity, library dependencies, maintainability
+- **Action Required**: Research options and decide before Phase 1.1d implementation
+
+#### ✅ **Q7. Breadcrumb Position**
+- **Status**: DECIDED ✅
+- **Decision**: **Option a** - Above graph (near layout controls)
+- **Rationale**: Keeps navigation controls together, doesn't compete with bottom performance metrics
+- **Impact**: Phase 1.4.2 UI layout - breadcrumbs integrated with layout controls row
+
+#### ❓ **Q8. History Persistence Strategy**
+- **Status**: UNANSWERED ❓
+- **Phase**: 1.4 (Breadcrumb Navigation & History)
+- **Review Trigger**: Before starting Phase 1.4.4
+- **Options**: 
+  - (a) Browser localStorage - Persists across sessions, simple implementation
+  - (b) No persistence (session-only) - Simpler, lost on refresh
+  - (c) Server-side storage - Complex, requires backend changes
+- **Impact**: User experience across sessions, implementation complexity
+- **Action Required**: Decide before Phase 1.4.4 implementation
+
+---
 
 ### 1.1 Node Expansion (Double-Click + Right-Click)
 
@@ -575,6 +551,42 @@ cyto.on('dbltap', 'node', function(evt) {
 
 **⚠️ PRE-PHASE REVIEW REQUIRED**: Review and answer **Q9** (Filter Execution Model) before starting Phase 2
 
+---
+
+### Pre-Phase Decision Review
+
+**Status**: 0 questions answered ✅, 2 questions pending ❓
+
+#### ❓ **Q9. Filter Execution Model**
+- **Status**: UNANSWERED ❓
+- **Phase**: 2.1 (Node Filtering)
+- **Review Trigger**: Before starting Phase 2.1.1
+- **Options**: 
+  - (a) Client-side filtering - Filter already-loaded graph data in browser
+  - (b) Server-side filtering - Send filter criteria to backend, run filtered query
+  - (c) Hybrid - Start client-side, offload to server when dataset grows
+- **Impact**: 
+  - Performance implications for large graphs
+  - Backend complexity vs frontend complexity
+  - Affects API design (filter endpoint vs no filter endpoint)
+- **Action Required**: Decide before implementing Phase 2.1.1
+
+#### ❓ **Q10. Search Match Highlighting Strategy**
+- **Status**: UNANSWERED ❓
+- **Phase**: 2.2 (Graph Search)
+- **Review Trigger**: Before starting Phase 2.2.2
+- **Options**: 
+  - (a) Highlight nodes in-place - Change node color/border in existing graph
+  - (b) Isolate matches - Hide non-matching nodes, show only results
+  - (c) Both - Toggle between highlight and isolate modes
+- **Impact**: 
+  - User experience when exploring search results
+  - UI complexity for showing/hiding nodes
+  - Performance for large result sets
+- **Action Required**: Decide before implementing Phase 2.2.2 (Search Results Display)
+
+---
+
 ### 2.1 Node Filtering
 
 **Objective**: Filter visible nodes by type, property, or criteria
@@ -685,6 +697,74 @@ cyto.on('dbltap', 'node', function(evt) {
 
 **⚠️ PRE-PHASE REVIEW REQUIRED**: Review and answer **Q11-Q14** (Path Finding Features) before starting Phase 3
 
+---
+
+### Pre-Phase Decision Review
+
+**Status**: 0 questions answered ✅, 4 questions pending ❓
+
+#### ❓ **Q11. Path Finding Algorithm Selection**
+- **Status**: UNANSWERED ❓
+- **Phase**: 3.1 (Path Finding)
+- **Review Trigger**: Before starting Phase 3.1.3
+- **Options**: 
+  - (a) Dijkstra - Classic shortest path, good for weighted graphs
+  - (b) A* - Heuristic search, faster when you know target location
+  - (c) BFS - Simplest, good for unweighted graphs
+  - (d) Multiple algorithms - Let user choose based on scenario
+- **Impact**: 
+  - Query performance for large graphs
+  - Accuracy of path results (weighted vs unweighted)
+  - Backend complexity
+- **Action Required**: Decide before Phase 3.1.3 implementation
+
+#### ❓ **Q12. Path Visualization Strategy**
+- **Status**: UNANSWERED ❓
+- **Phase**: 3.1 (Path Finding)
+- **Review Trigger**: Before starting Phase 3.1.5
+- **Options**: 
+  - (a) Highlight path in existing graph - Change edge/node colors for path
+  - (b) Show path in separate panel - Display path as linear sequence
+  - (c) Isolate path - Hide all non-path elements
+  - (d) Animated traversal - Animate along the path
+- **Impact**: 
+  - User experience for understanding paths
+  - UI complexity
+  - Multiple path comparison (if showing multiple paths)
+- **Action Required**: Decide before Phase 3.1.5 (Path Visualization)
+
+#### ❓ **Q13. Pattern Detection Approach**
+- **Status**: UNANSWERED ❓
+- **Phase**: 3.2 (Pattern Detection)
+- **Review Trigger**: Before starting Phase 3.2.1
+- **Options**: 
+  - (a) Pre-defined patterns - User selects from common patterns (triangles, stars, chains)
+  - (b) Custom pattern builder - User draws/defines pattern via UI
+  - (c) Cypher query patterns - User writes Cypher queries directly
+  - (d) Combination - Pre-defined + custom builder
+- **Impact**: 
+  - User experience complexity vs flexibility
+  - Backend query generation
+  - Learning curve for end users
+- **Action Required**: Decide before Phase 3.2.1 implementation
+
+#### ❓ **Q14. Pattern Result Grouping**
+- **Status**: UNANSWERED ❓
+- **Phase**: 3.2 (Pattern Detection)
+- **Review Trigger**: Before starting Phase 3.2.3
+- **Options**: 
+  - (a) Show all matches - Display every instance of pattern in graph
+  - (b) Group by similarity - Cluster similar pattern instances
+  - (c) Show one representative - Display one example + count
+  - (d) Paginate results - Show first N, allow browsing
+- **Impact**: 
+  - Handling large result sets (e.g., 1000s of triangles)
+  - User ability to explore vs being overwhelmed
+  - Performance for rendering many nodes
+- **Action Required**: Decide before Phase 3.2.3 (Pattern Results Display)
+
+---
+
 ### 3.1 Path Finding
 
 **Objective**: Find paths between two nodes
@@ -792,6 +872,74 @@ cyto.on('dbltap', 'node', function(evt) {
 
 **⚠️ PRE-PHASE REVIEW REQUIRED**: Review and answer **Q15-Q18** (Performance & Scalability) before starting Phase 4
 
+---
+
+### Pre-Phase Decision Review
+
+**Status**: 0 questions answered ✅, 4 questions pending ❓
+
+#### ❓ **Q15. Large Graph Rendering Strategy**
+- **Status**: UNANSWERED ❓
+- **Phase**: 4.1 (Progressive Loading)
+- **Review Trigger**: Before starting Phase 4.1.2
+- **Options**: 
+  - (a) Level-of-Detail (LOD) - Simplify nodes when zoomed out
+  - (b) Viewport culling - Only render visible nodes
+  - (c) Canvas rendering - Use canvas instead of SVG for better performance
+  - (d) Combination - Use multiple techniques (LOD + culling + canvas)
+- **Impact**: 
+  - Performance threshold (how many nodes before slowdown)
+  - Rendering complexity
+  - Browser compatibility
+- **Action Required**: Decide before Phase 4.1.2 implementation
+
+#### ❓ **Q16. Graph Clustering Algorithm**
+- **Status**: UNANSWERED ❓
+- **Phase**: 4.2 (Graph Clustering & Aggregation)
+- **Review Trigger**: Before starting Phase 4.2.1
+- **Options**: 
+  - (a) Louvain - Fast, hierarchical, good for large graphs
+  - (b) Label Propagation - Very fast, simple, good for well-connected graphs
+  - (c) Connected Components - Simplest, finds disconnected subgraphs
+  - (d) Multiple algorithms - Offer choice based on use case
+- **Impact**: 
+  - Clustering quality
+  - Performance for large graphs
+  - Backend complexity
+- **Action Required**: Decide before Phase 4.2.1 implementation
+
+#### ❓ **Q17. Cluster Interaction Model**
+- **Status**: UNANSWERED ❓
+- **Phase**: 4.2 (Graph Clustering & Aggregation)
+- **Review Trigger**: Before starting Phase 4.2.2
+- **Options**: 
+  - (a) Expand on click - Click super-node to expand cluster inline
+  - (b) Separate view - Open cluster in new graph view
+  - (c) Drill-down mode - Replace graph with cluster contents
+  - (d) Hybrid - Click expands, right-click shows options
+- **Impact**: 
+  - User experience for navigating clusters
+  - Graph layout complexity (expanding inline)
+  - Back-navigation requirements
+- **Action Required**: Decide before Phase 4.2.2 implementation
+
+#### ❓ **Q18. Progressive Loading Strategy**
+- **Status**: UNANSWERED ❓
+- **Phase**: 4.1 (Progressive Loading)
+- **Review Trigger**: Before starting Phase 4.1.1
+- **Options**: 
+  - (a) Pagination - Load N nodes, show "Load More" button
+  - (b) Infinite scroll - Auto-load as user pans/zooms
+  - (c) On-demand chunks - Load connected nodes as user explores
+  - (d) Hybrid - Pagination + on-demand expansion
+- **Impact**: 
+  - User experience for exploring large graphs
+  - Backend query complexity
+  - State management (tracking loaded vs unloaded nodes)
+- **Action Required**: Decide before Phase 4.1.1 implementation
+
+---
+
 ### 4.1 Progressive Loading
 
 **Objective**: Load graph incrementally
@@ -884,6 +1032,59 @@ cyto.on('dbltap', 'node', function(evt) {
 
 **⚠️ PRE-PHASE REVIEW REQUIRED**: Review and answer **Q19-Q21** (Export & Collaboration) before starting Phase 5
 
+---
+
+### Pre-Phase Decision Review
+
+**Status**: 0 questions answered ✅, 3 questions pending ❓
+
+#### ❓ **Q19. Export Format Priorities**
+- **Status**: UNANSWERED ❓
+- **Phase**: 5.1 (Export Capabilities)
+- **Review Trigger**: Before starting Phase 5.1.2
+- **Options**: 
+  - (a) Image first - PNG/SVG for presentations
+  - (b) Data first - JSON/CSV/GraphML for analysis tools
+  - (c) Both equally - Implement image and data exports in parallel
+  - (d) User-driven - Survey users for most needed format
+- **Impact**: 
+  - Development priority and timeline
+  - User satisfaction based on common use cases
+  - Technical complexity varies by format
+- **Action Required**: Decide before Phase 5.1 implementation
+
+#### ❓ **Q20. View State Serialization Approach**
+- **Status**: UNANSWERED ❓
+- **Phase**: 5.2 (Shareable Views)
+- **Review Trigger**: Before starting Phase 5.2.1
+- **Options**: 
+  - (a) URL parameters - Encode state in query string
+  - (b) Short hash - Store state server-side, share hash key
+  - (c) Base64 encoded state - Encode full state in URL fragment
+  - (d) Hybrid - Short URLs with server storage, fallback to URL encoding
+- **Impact**: 
+  - URL length limitations (especially for complex views)
+  - Server storage requirements
+  - Sharing reliability (URLs vs server dependencies)
+- **Action Required**: Decide before Phase 5.2.1 implementation
+
+#### ❓ **Q21. Saved Views Storage Strategy**
+- **Status**: UNANSWERED ❓
+- **Phase**: 5.2 (Shareable Views)
+- **Review Trigger**: Before starting Phase 5.2.3
+- **Options**: 
+  - (a) Browser localStorage - Client-side only, no backend needed
+  - (b) Database - Server-side storage, survives browser changes
+  - (c) Hybrid - localStorage + optional cloud sync
+  - (d) Session-only - No persistence (simplest option)
+- **Impact**: 
+  - Feature richness (personal vs shared bookmarks)
+  - Backend database schema changes
+  - User expectations for bookmark persistence
+- **Action Required**: Decide before Phase 5.2.3 implementation
+
+---
+
 ### 5.1 Export Capabilities
 
 **Tasks**:
@@ -944,6 +1145,59 @@ cyto.on('dbltap', 'node', function(evt) {
 **Priority**: Low (P3)
 
 **⚠️ PRE-PHASE REVIEW REQUIRED**: Review and answer **Q22-Q24** (Analytics Priority) before starting Phase 6
+
+---
+
+### Pre-Phase Decision Review
+
+**Status**: 0 questions answered ✅, 3 questions pending ❓
+
+#### ❓ **Q22. Centrality Metrics Priority**
+- **Status**: UNANSWERED ❓
+- **Phase**: 6.1 (Graph Metrics)
+- **Review Trigger**: Before starting Phase 6.1.1
+- **Options**: 
+  - (a) Degree centrality only - Simplest, fastest to compute
+  - (b) Degree + PageRank - Common combo for importance ranking
+  - (c) All centrality metrics - Comprehensive but computationally expensive
+  - (d) User-selectable - Let user choose which metrics to compute
+- **Impact**: 
+  - Computation time for large graphs
+  - Backend algorithm complexity
+  - User insights vs computational cost trade-off
+- **Action Required**: Decide before Phase 6.1.1 implementation
+
+#### ❓ **Q23. Metrics Visualization Approach**
+- **Status**: UNANSWERED ❓
+- **Phase**: 6.1 (Graph Metrics)
+- **Review Trigger**: Before starting Phase 6.1.3
+- **Options**: 
+  - (a) Color-coded nodes - Heatmap based on metric values
+  - (b) Separate charts - Bar/line charts in side panel
+  - (c) Node size mapping - Size nodes by centrality
+  - (d) Combination - Multiple visualization options
+- **Impact**: 
+  - User understanding of metrics
+  - Visual clarity vs information density
+  - UI complexity
+- **Action Required**: Decide before Phase 6.1.3 implementation
+
+#### ❓ **Q24. Temporal Analysis Scope**
+- **Status**: UNANSWERED ❓
+- **Phase**: 6.2 (Temporal Analysis)
+- **Review Trigger**: Before starting Phase 6.2
+- **Options**: 
+  - (a) Basic time filtering - Filter nodes/edges by date range
+  - (b) Animation playback - Animate graph evolution over time
+  - (c) Trend detection - Detect emerging patterns
+  - (d) Full temporal suite - All of the above
+- **Impact**: 
+  - Requires temporal data model (timestamps on nodes/relationships)
+  - Development complexity
+  - Use case fit (is temporal analysis needed?)
+- **Action Required**: Decide before Phase 6.2 implementation (validate if temporal data exists)
+
+---
 
 ### 6.1 Graph Metrics
 
@@ -1222,4 +1476,17 @@ scikit-learn>=1.3         # Clustering algorithms
     - 1.1e: State management & visual indicators (⏳ PLANNED)
     - 1.1f: Performance & polish (⏳ PLANNED)
   - **Rationale**: Build incrementally to de-risk technical challenges (Dash Cytoscape event handling)
-  - **Impact**: Phase 1.1 timeline extended, but higher confidence in successful delivery
+  - **Impact**: Phase 1.1 timeline extended, but higher confidence in successful delivery- **2026-03-02 (Late Evening)**: **DOCUMENT REFACTORING - Q&A Reorganization**:
+  - **Replaced centralized Decision Log** with compact **Decision Status Summary**:
+    - Shows quick status: 6 answered, 18 pending
+    - Lists review requirements per phase
+    - Includes pre-implementation protocol
+  - **Embedded all Q&A content into respective phases**:
+    - Phase 1: Q1-Q8 (Pre-Phase Decision Review)
+    - Phase 2: Q9-Q10 
+    - Phase 3: Q11-Q14
+    - Phase 4: Q15-Q18
+    - Phase 5: Q19-Q21
+    - Phase 6: Q22-Q24
+  - **Rationale**: Improve document parseability and implementation readiness - developers see relevant decisions where they need them
+  - **Impact**: Better developer experience, easier to review decisions in context during implementation
