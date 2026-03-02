@@ -14,7 +14,8 @@ def create_dash_app():
         external_stylesheets=[
             dbc.themes.MATERIA,
             "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
-        ]
+        ],
+        suppress_callback_exceptions=True  # Required for multi-page apps
     )
     app.title = "AI Tech Lead"
 
