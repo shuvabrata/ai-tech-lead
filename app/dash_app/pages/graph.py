@@ -7,6 +7,7 @@ This page allows users to:
 """
 
 import os
+from datetime import datetime
 import dash_bootstrap_components as dbc
 from dash import html, dcc, Input, Output, State, callback, clientside_callback
 import dash_cytoscape as cyto
@@ -354,6 +355,55 @@ def get_layout():
         
         # Hidden div for triggering fit-to-screen via clientside callback
         html.Div(id="graph-fit-trigger", style={"display": "none"}),
+        
+        # --- Phase 1.1b: Node Expansion Stores ---
+        # Store for tracking expanded nodes: {node_id: {direction: "both", count: 23, timestamp: "..."}}
+        dcc.Store(id="expanded-nodes", data={}),
+        
+        # Store for tracking all loaded node IDs (for deduplication)
+        dcc.Store(id="loaded-node-ids", data=[]),
+        
+        # Store for selected node ID when opening expansion modal
+        dcc.Store(id="selected-node-for-expansion", data=None),
+        
+        # --- Phase 1.1b: Node Expansion Modal ---
+        dbc.Modal([
+            dbc.ModalHeader(dbc.ModalTitle("Expand Node")),
+            dbc.ModalBody([
+                html.Div([
+                    html.Label("Direction:", style={"fontWeight": "500", "fontSize": "13px", "marginBottom": "6px"}),
+                    dbc.RadioItems(
+                        id="expansion-direction-selector",
+                        options=[
+                            {"label": "Both (Incoming + Outgoing)", "value": "both"},
+                            {"label": "Incoming Only", "value": "incoming"},
+                            {"label": "Outgoing Only", "value": "outgoing"}
+                        ],
+                        value="both",
+                        inline=False,
+                        className="mb-3"
+                    ),
+                ]),
+                html.Div([
+                    html.Label("Limit:", style={"fontWeight": "500", "fontSize": "13px", "marginBottom": "6px"}),
+                    dbc.Input(
+                        id="expansion-limit-input",
+                        type="number",
+                        value=50,
+                        min=1,
+                        max=500,
+                        step=1,
+                        size="sm",
+                        className="mb-2"
+                    ),
+                    html.Small("Will load up to this many neighbors (1-500)", className="text-muted", style={"fontSize": "11px"})
+                ]),
+            ]),
+            dbc.ModalFooter([
+                dbc.Button("Cancel", id="expansion-modal-cancel", color="secondary", size="sm", className="me-2"),
+                dbc.Button("Expand", id="expansion-modal-expand", color="primary", size="sm")
+            ])
+        ], id="expansion-modal", is_open=False, size="md"),
         
     ])
 
@@ -1110,7 +1160,26 @@ def display_properties(selected_nodes, selected_edges):
                 html.P("No additional properties", className="text-muted", style={"fontSize": "13px", "fontStyle": "italic"})
             ]
         
-        return html.Div([header] + basic_info + properties_section)
+        # Phase 1.1b: Add Expand Node button
+        expand_button = html.Div([
+            html.Hr(style={"margin": "16px 0"}),
+            dbc.Button(
+                [html.I(className="fas fa-project-diagram me-2"), "Expand Node"],
+                id="expand-node-btn",
+                color="primary",
+                size="sm",
+                outline=True,
+                className="w-100",
+                style={"fontSize": "12px"}
+            ),
+            html.Small(
+                "Load connected neighbors",
+                className="text-muted d-block text-center mt-1",
+                style={"fontSize": "10px"}
+            )
+        ], className="mt-3")
+        
+        return html.Div([header] + basic_info + properties_section + [expand_button])
     
     # Edge was selected (selectedEdgeData returns a list)
     elif selected_edges and len(selected_edges) > 0:
@@ -1212,3 +1281,151 @@ def update_layout(layout_name, reset_clicks, current_layout):
     
     return current_layout
 
+
+# ==================== Phase 1.1b: Node Expansion Callbacks ====================
+
+# Callback to open expansion modal when "Expand Node" button clicked
+@callback(
+    [Output("expansion-modal", "is_open", allow_duplicate=True),
+     Output("selected-node-for-expansion", "data")],
+    Input("expand-node-btn", "n_clicks"),
+    [State("graph-cytoscape", "selectedNodeData")],
+    prevent_initial_call=True
+)
+def open_expansion_modal(n_clicks, selected_nodes):
+    """Open the expansion modal and store the selected node ID"""
+    if n_clicks and selected_nodes and len(selected_nodes) > 0:
+        node_data = selected_nodes[0]
+        node_id = node_data.get('id')
+        return True, node_id
+    return False, None
+
+
+# Callback to close expansion modal when Cancel clicked
+@callback(
+    Output("expansion-modal", "is_open", allow_duplicate=True),
+    Input("expansion-modal-cancel", "n_clicks"),
+    prevent_initial_call=True
+)
+def close_expansion_modal(n_clicks):
+    """Close the expansion modal"""
+    if n_clicks:
+        return False
+    return True
+
+
+# Callback to execute node expansion
+@callback(
+    [Output("graph-cytoscape", "elements", allow_duplicate=True),
+     Output("expanded-nodes", "data", allow_duplicate=True),
+     Output("loaded-node-ids", "data", allow_duplicate=True),
+     Output("expansion-modal", "is_open", allow_duplicate=True),
+     Output("graph-table-container", "children", allow_duplicate=True),
+     Output("graph-table-container", "style", allow_duplicate=True),
+     Output("graph-layout-selector", "value", allow_duplicate=True)],
+    Input("expansion-modal-expand", "n_clicks"),
+    [State("selected-node-for-expansion", "data"),
+     State("expansion-direction-selector", "value"),
+     State("expansion-limit-input", "value"),
+     State("graph-cytoscape", "elements"),
+     State("loaded-node-ids", "data"),
+     State("expanded-nodes", "data"),
+     State("graph-layout-selector", "value")],
+    prevent_initial_call=True
+)
+def execute_node_expansion(n_clicks, node_id, direction, limit, current_elements, 
+                          loaded_node_ids, expanded_nodes, current_layout):
+    """Execute node expansion by calling backend API and merging results"""
+    show_style = {"display": "block"}
+    hide_style = {"display": "none"}
+    
+    if not n_clicks or not node_id:
+        return current_elements, expanded_nodes, loaded_node_ids, True, None, hide_style, current_layout
+    
+    try:
+        # Prepare request payload
+        exclude_ids = loaded_node_ids if loaded_node_ids else []
+        payload = {
+            "node_id": node_id,
+            "direction": direction,
+            "limit": limit,
+            "offset": 0,
+            "exclude_node_ids": exclude_ids,
+            "relationship_types": None
+        }
+        
+        # Call backend API
+        api_url = "http://localhost:8000/api/v1/graph/expand"
+        response = requests.post(api_url, json=payload, timeout=TIMEOUT_SECONDS)
+        
+        if response.status_code == 200:
+            data = response.json()
+            
+            # Extract new nodes and relationships
+            new_nodes = data.get("nodes", [])
+            new_relationships = data.get("relationships", [])
+            pagination = data.get("pagination", {})
+            
+            # Transform to Cytoscape format
+            new_elements = neo4j_to_cytoscape({"nodes": new_nodes, "relationships": new_relationships})
+            
+            # Merge with existing elements (deduplicate by ID)
+            existing_ids = {elem['data']['id'] for elem in current_elements}
+            merged_elements = current_elements.copy()
+            
+            new_count = 0
+            for elem in new_elements:
+                elem_id = elem['data']['id']
+                if elem_id not in existing_ids:
+                    merged_elements.append(elem)
+                    existing_ids.add(elem_id)
+                    new_count += 1
+            
+            # Update loaded node IDs
+            new_node_ids = [node['id'] for node in new_nodes]
+            updated_loaded_ids = list(set(loaded_node_ids + new_node_ids)) if loaded_node_ids else new_node_ids
+            
+            # Update expanded nodes tracking
+            updated_expanded = expanded_nodes.copy() if expanded_nodes else {}
+            updated_expanded[node_id] = {
+                "direction": direction,
+                "count": len(new_nodes),
+                "timestamp": datetime.now().isoformat()
+            }
+            
+            # Success message
+            has_more = pagination.get("has_more", False)
+            more_msg = " (More available)" if has_more else ""
+            success_msg = dbc.Alert([
+                html.I(className="fas fa-check-circle me-2"),
+                f"Expansion complete! Loaded {len(new_nodes)} new nodes, {len(new_relationships)} new relationships{more_msg}"
+            ], color="success", className="mb-0", dismissable=True, duration=4000)
+            
+            # Close modal and return updated data
+            # Trigger layout re-run to accommodate new nodes
+            return merged_elements, updated_expanded, updated_loaded_ids, False, success_msg, show_style, current_layout
+            
+        else:
+            # Handle error response
+            error_data = response.json() if response.content else {}
+            error_msg = error_data.get("detail", {}).get("message", "Unknown error")
+            
+            error_alert = dbc.Alert([
+                html.I(className="fas fa-exclamation-circle me-2"),
+                f"Expansion failed: {error_msg}"
+            ], color="danger", className="mb-0", dismissable=True)
+            return current_elements, expanded_nodes, loaded_node_ids, True, error_alert, show_style, current_layout
+            
+    except requests.exceptions.Timeout:
+        error_alert = dbc.Alert([
+            html.I(className="fas fa-clock me-2"),
+            "Request timed out. The expansion took too long."
+        ], color="warning", className="mb-0", dismissable=True)
+        return current_elements, expanded_nodes, loaded_node_ids, True, error_alert, show_style, current_layout
+        
+    except Exception as e:
+        error_alert = dbc.Alert([
+            html.I(className="fas fa-exclamation-triangle me-2"),
+            f"Error: {str(e)}"
+        ], color="danger", className="mb-0", dismissable=True)
+        return current_elements, expanded_nodes, loaded_node_ids, True, error_alert, show_style, current_layout
