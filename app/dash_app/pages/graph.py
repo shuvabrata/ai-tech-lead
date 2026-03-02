@@ -161,7 +161,7 @@ def get_layout():
                                     dbc.Row([
                                         dbc.Col([
                                             html.Label("Layout:", 
-                                                      style={"fontSize": "12px", "fontWeight": "500", "color": "#495057", "marginRight": "6px"}),
+                                                      style={"fontSize": "11px", "fontWeight": "500", "color": "#495057", "marginRight": "4px"}),
                                             dbc.Select(
                                                 id="graph-layout-selector",
                                                 options=[
@@ -172,7 +172,7 @@ def get_layout():
                                                     {"label": "Concentric", "value": "concentric"}
                                                 ],
                                                 value="cose",
-                                                style={"width": "220px", "display": "inline-block"},
+                                                style={"width": "200px", "display": "inline-block", "fontSize": "11px"},
                                                 size="sm"
                                             )
                                         ], width="auto"),
@@ -183,18 +183,25 @@ def get_layout():
                                                     id="graph-fit-btn",
                                                     color="light",
                                                     size="sm",
-                                                    style={"fontSize": "11px"}
+                                                    style={"fontSize": "10px", "padding": "2px 8px"}
                                                 ),
                                                 dbc.Button(
                                                     [html.I(className="fas fa-redo me-1"), "Reset"],
                                                     id="graph-reset-btn",
                                                     color="light",
                                                     size="sm",
-                                                    style={"fontSize": "11px"}
+                                                    style={"fontSize": "10px", "padding": "2px 8px"}
+                                                ),
+                                                dbc.Button(
+                                                    [html.I(className="fas fa-expand-arrows-alt me-1"), "Full"],
+                                                    id="graph-fullwidth-btn",
+                                                    color="light",
+                                                    size="sm",
+                                                    style={"fontSize": "10px", "padding": "2px 8px"}
                                                 )
                                             ], size="sm")
                                         ], width="auto", className="ms-auto")
-                                    ], className="mb-2", align="center"),
+                                    ], className="mb-1", align="center"),
                                     
                                     cyto.Cytoscape(
                                         id="graph-cytoscape",
@@ -202,9 +209,9 @@ def get_layout():
                                         layout={'name': 'cose', 'animate': True},
                                         style={
                                             'width': '100%',
-                                            'height': '600px',
+                                            'height': '70vh',
                                             'backgroundColor': '#fafafa',
-                                            'borderRadius': '8px'
+                                            'borderRadius': '4px'
                                         },
                                         stylesheet=CYTOSCAPE_STYLESHEET,
                                         userZoomingEnabled=True,
@@ -227,83 +234,82 @@ def get_layout():
                         id="graph-results-container",
                         style={
                             "minHeight": "300px",
-                            "padding": "16px"
+                            "padding": "8px"
                         },
                         children=[
                             html.Div(
                                 [
-                                    html.I(className="fas fa-project-diagram fa-2x mb-2", style={"color": "#ccc"}),
+                                    html.I(className="fas fa-project-diagram fa-lg mb-2", style={"color": "#ccc"}),
                                     html.P(
                                         "No results yet. Enter a query below and click Execute.",
-                                        style={"color": "#999", "fontSize": "13px"}
+                                        style={"color": "#999", "fontSize": "12px"}
                                     )
                                 ],
                                 className="text-center",
-                                style={"marginTop": "60px"}
+                                style={"marginTop": "40px"}
                             )
                         ]
                     )
-                        ], width=8),
+                        ], id="graph-viz-col", width=8),
                         
-                        # Property details panel
+                        # Property details panel (collapsible)
                         dbc.Col([
                             html.Div(
                                 id="graph-details-panel",
                                 style={
                                     "backgroundColor": "#f8f9fa",
-                                    "borderRadius": "8px",
+                                    "borderRadius": "4px",
                                     "border": "1px solid #dee2e6",
-                                    "padding": "12px",
-                                    "minHeight": "600px",
-                                    "maxHeight": "600px",
+                                    "padding": "8px",
+                                    "height": "70vh",
                                     "overflowY": "auto"
                                 },
                                 children=[
                                     html.Div([
-                                        html.I(className="fas fa-info-circle fa-2x mb-2", style={"color": "#adb5bd"}),
+                                        html.I(className="fas fa-info-circle fa-lg mb-2", style={"color": "#adb5bd"}),
                                         html.P(
                                             "Click a node or edge to view details",
                                             className="text-muted mb-0",
-                                            style={"fontSize": "13px"}
+                                            style={"fontSize": "12px"}
                                         )
-                                    ], className="text-center", style={"marginTop": "150px"})
+                                    ], className="text-center", style={"marginTop": "100px"})
                                 ]
                             )
-                        ], width=4)
+                        ], id="graph-details-col", width=4)
                     ])
                 ]
             )
         ], style={
             "backgroundColor": "#ffffff",
-            "borderRadius": "8px",
+            "borderRadius": "4px",
             "border": "1px solid #e0e0e0",
-            "padding": "16px",
-            "marginBottom": "12px",
-            "boxShadow": "0 1px 4px rgba(0,0,0,0.05)"
+            "padding": "8px",
+            "marginBottom": "8px",
+            "boxShadow": "0 1px 2px rgba(0,0,0,0.05)"
         }),
         
         # Query Input Section
         html.Div([
-            html.H6("Query", className="mb-2", style={"fontWeight": "500", "color": "#495057", "fontSize": "14px"}),
+            html.H6("Query", className="mb-1", style={"fontWeight": "500", "color": "#495057", "fontSize": "13px"}),
             
             dbc.Textarea(
                 id="graph-query-input",
                 placeholder="MATCH (n:Project)-[r]->(m)\nRETURN n, r, m\nLIMIT 10",
                 style={
-                    "height": "100px",
-                    "borderRadius": "8px",
-                    "border": "2px solid #e0e0e0",
-                    "padding": "10px 12px",
-                    "fontSize": "13px",
+                    "height": "90px",
+                    "borderRadius": "4px",
+                    "border": "1px solid #dee2e6",
+                    "padding": "8px 10px",
+                    "fontSize": "12px",
                     "fontFamily": "Consolas, Monaco, 'Courier New', monospace",
                     "resize": "vertical",
                     "transition": "border-color 0.2s"
                 },
-                className="mb-2"
+                className="mb-1"
             ),
             
             # Validation message container
-            html.Div(id="query-validation-message", className="mb-2"),
+            html.Div(id="query-validation-message", className="mb-1"),
             
             html.Div([
                 dbc.Button(
@@ -325,10 +331,10 @@ def get_layout():
             ], className="d-flex align-items-center")
         ], style={
             "backgroundColor": "#ffffff",
-            "borderRadius": "8px",
+            "borderRadius": "4px",
             "border": "1px solid #e0e0e0",
-            "padding": "16px",
-            "boxShadow": "0 1px 4px rgba(0,0,0,0.05)"
+            "padding": "8px",
+            "boxShadow": "0 1px 2px rgba(0,0,0,0.05)"
         }),
         
         # Hidden data store for graph data
@@ -337,10 +343,21 @@ def get_layout():
         # Session store for query history (optional, for future use)
         dcc.Store(id="graph-query-history", data=[]),
         
+        # Store for details panel collapsed state
+        dcc.Store(id="graph-fullwidth-state", data=False),
+        
         # Hidden div for triggering fit-to-screen via clientside callback
         html.Div(id="graph-fit-trigger", style={"display": "none"}),
         
     ])
+
+
+def toggle_details_panel(is_fullwidth):
+    """Helper function to calculate column widths based on panel state"""
+    if is_fullwidth:
+        return 12, {"display": "none"}  # Full width graph, hide panel
+    else:
+        return 8, {}  # Normal width, show panel
 
 
 def neo4j_to_cytoscape(graph_response):
@@ -562,6 +579,24 @@ clientside_callback(
     Input("graph-fit-btn", "n_clicks"),
     prevent_initial_call=True
 )
+
+
+# Callback for full-width toggle
+@callback(
+    [
+        Output("graph-fullwidth-state", "data"),
+        Output("graph-viz-col", "width"),
+        Output("graph-details-col", "style")
+    ],
+    Input("graph-fullwidth-btn", "n_clicks"),
+    State("graph-fullwidth-state", "data"),
+    prevent_initial_call=True
+)
+def toggle_fullwidth(n_clicks, is_fullwidth):
+    """Toggle between full-width graph and normal view with details panel"""
+    new_state = not is_fullwidth
+    viz_width, panel_style = toggle_details_panel(new_state)
+    return new_state, viz_width, panel_style
 
 
 # Callback for real-time query validation
