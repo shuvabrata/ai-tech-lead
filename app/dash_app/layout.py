@@ -1,7 +1,7 @@
 import dash
 import dash_bootstrap_components as dbc
 from dash import dcc, html
-from dash.dependencies import Input, Output
+from dash.dependencies import Input, Output, State
 
 from .pages import chat, people, progress, settings, graph
 
@@ -11,7 +11,10 @@ def create_dash_app():
     app = dash.Dash(
         __name__,
         requests_pathname_prefix="/app/",
-        external_stylesheets=[dbc.themes.MATERIA]
+        external_stylesheets=[
+            dbc.themes.MATERIA,
+            "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+        ]
     )
     app.title = "AI Tech Lead"
 
@@ -29,11 +32,26 @@ def create_dash_app():
         className="bg-dark vh-100 sidebar p-2"
     )
 
-    # Top menu using Bootstrap Navbar with left/right alignment (flex row)
+    # Top menu using Bootstrap Navbar with toggle button and project switcher
     top_menu = dbc.Navbar(
         dbc.Container(
             dbc.Row([
-                dbc.Col(dbc.NavbarBrand(app.title), width="auto"),
+                dbc.Col([
+                    dbc.Button(
+                        "☰",
+                        id="sidebar-toggle",
+                        color="light",
+                        outline=True,
+                        className="me-2",
+                        size="sm",
+                        style={
+                            "fontSize": "18px",
+                            "fontWeight": "bold",
+                            "padding": "4px 10px"
+                        }
+                    ),
+                    dbc.NavbarBrand(app.title)
+                ], width="auto", className="d-flex align-items-center"),
                 dbc.Col(
                     dbc.Nav(
                         [
@@ -65,10 +83,17 @@ def create_dash_app():
 
     app.layout = dbc.Container([
         dcc.Location(id="url", refresh=False),
+        dcc.Store(id="sidebar-collapsed", storage_type="local", data=False),
         top_menu,
         dbc.Row([
-            dbc.Col(sidebar, width=2, className="sidebar-col"),
-            dbc.Col(content, width=10)
+            dbc.Col(
+                sidebar,
+                id="sidebar-col",
+                width=2,
+                className="sidebar-col",
+                style={}  # Will be updated by callback
+            ),
+            dbc.Col(content, id="content-col", width=10)
         ], className="g-0"),
     ], fluid=True)
 
@@ -90,6 +115,57 @@ def create_dash_app():
             return chat.get_layout()
         # Default to chat page
         return chat.get_layout()
+
+    # Callback for sidebar toggle
+    @app.callback(
+        [
+            Output("sidebar-collapsed", "data"),
+            Output("sidebar-col", "style"),
+            Output("sidebar-col", "width"),
+            Output("content-col", "width")
+        ],
+        Input("sidebar-toggle", "n_clicks"),
+        State("sidebar-collapsed", "data"),
+        prevent_initial_call=True
+    )
+    def toggle_sidebar(n_clicks, is_collapsed):
+        # Toggle the state
+        new_state = not is_collapsed
+        
+        # Adjust column widths and visibility based on sidebar state
+        if new_state:  # Sidebar collapsed
+            sidebar_style = {"display": "none"}
+            sidebar_width = 0
+            content_width = 12
+        else:  # Sidebar open
+            sidebar_style = {}
+            sidebar_width = 2
+            content_width = 10
+        
+        return new_state, sidebar_style, sidebar_width, content_width
+
+    # Initialize sidebar state from localStorage
+    @app.callback(
+        [
+            Output("sidebar-col", "style", allow_duplicate=True),
+            Output("sidebar-col", "width", allow_duplicate=True),
+            Output("content-col", "width", allow_duplicate=True)
+        ],
+        Input("sidebar-collapsed", "data"),
+        prevent_initial_call='initial_duplicate'
+    )
+    def init_sidebar_state(is_collapsed):
+        # Apply stored state on page load
+        if is_collapsed:  # Sidebar collapsed
+            sidebar_style = {"display": "none"}
+            sidebar_width = 0
+            content_width = 12
+        else:  # Sidebar open
+            sidebar_style = {}
+            sidebar_width = 2
+            content_width = 10
+        
+        return sidebar_style, sidebar_width, content_width
 
     # No custom CSS or sidebar collapse for now; Bootstrap handles layout and theme
 
