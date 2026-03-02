@@ -31,7 +31,7 @@ def create_graph_controls():
                     {"label": "Hierarchical (breadthfirst)", "value": "breadthfirst"},
                     {"label": "Concentric", "value": "concentric"}
                 ],
-                value="cose",
+                value="circle",
                 style={"width": "200px", "display": "inline-block", "fontSize": "11px"},
                 size="sm"
             )
@@ -79,7 +79,7 @@ def create_graph_container():
             cyto.Cytoscape(
                 id="graph-cytoscape",
                 elements=[],
-                layout={'name': 'cose', 'animate': True},
+                layout={'name': 'circle', 'animate': True},
                 style={
                     'width': '100%',
                     'height': '70vh',
