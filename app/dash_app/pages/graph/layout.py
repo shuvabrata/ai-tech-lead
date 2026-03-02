@@ -151,7 +151,7 @@ def create_details_panel():
                 "borderRadius": "4px",
                 "border": "1px solid #dee2e6",
                 "padding": "8px",
-                "height": "70vh",
+                "height": "calc(70vh + 40px)",  # Match graph controls + cytoscape height
                 "overflowY": "auto"
             },
             children=[

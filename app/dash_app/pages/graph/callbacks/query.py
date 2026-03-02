@@ -91,11 +91,10 @@ def execute_query(_n_clicks, query_text):
     panel_visible_style = {
         "display": "block",
         "backgroundColor": "#f8f9fa",
-        "borderRadius": "8px",
+        "borderRadius": "4px",
         "border": "1px solid #dee2e6",
-        "padding": "16px",
-        "minHeight": "600px",
-        "maxHeight": "600px",
+        "padding": "8px",
+        "height": "calc(70vh + 40px)",
         "overflowY": "auto"
     }
     
