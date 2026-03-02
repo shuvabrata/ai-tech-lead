@@ -16,6 +16,128 @@ from app.settings import settings
 
 TIMEOUT_SECONDS = settings.HTTP_REQUEST_TIMEOUT
 
+# Cytoscape stylesheet for graph visualization
+CYTOSCAPE_STYLESHEET = [
+    # Default node style
+    {
+        'selector': 'node',
+        'style': {
+            'label': 'data(label)',
+            'background-color': '#6c757d',
+            'color': '#fff',
+            'text-valign': 'center',
+            'text-halign': 'center',
+            'font-size': '11px',
+            'font-weight': '500',
+            'width': '60px',
+            'height': '60px',
+            'border-width': '2px',
+            'border-color': '#495057',
+            'text-wrap': 'wrap',
+            'text-max-width': '80px'
+        }
+    },
+    # Project nodes - Blue
+    {
+        'selector': 'node[nodeType = "Project"]',
+        'style': {
+            'background-color': '#0d6efd',
+            'border-color': '#0a58ca',
+            'width': '70px',
+            'height': '70px'
+        }
+    },
+    # Person nodes - Purple
+    {
+        'selector': 'node[nodeType = "Person"]',
+        'style': {
+            'background-color': '#6f42c1',
+            'border-color': '#59359a',
+            'width': '65px',
+            'height': '65px'
+        }
+    },
+    # Branch nodes - Teal
+    {
+        'selector': 'node[nodeType = "Branch"]',
+        'style': {
+            'background-color': '#20c997',
+            'border-color': '#198754',
+            'width': '55px',
+            'height': '55px'
+        }
+    },
+    # Epic nodes - Orange
+    {
+        'selector': 'node[nodeType = "Epic"]',
+        'style': {
+            'background-color': '#fd7e14',
+            'border-color': '#dc6502',
+            'width': '65px',
+            'height': '65px'
+        }
+    },
+    # Issue nodes - Yellow
+    {
+        'selector': 'node[nodeType = "Issue"]',
+        'style': {
+            'background-color': '#ffc107',
+            'border-color': '#cc9a06',
+            'color': '#000',
+            'width': '55px',
+            'height': '55px'
+        }
+    },
+    # Repository nodes - Cyan
+    {
+        'selector': 'node[nodeType = "Repository"]',
+        'style': {
+            'background-color': '#0dcaf0',
+            'border-color': '#0aa2c0',
+            'width': '65px',
+            'height': '65px'
+        }
+    },
+    # Edge styles
+    {
+        'selector': 'edge',
+        'style': {
+            'width': 2,
+            'line-color': '#adb5bd',
+            'target-arrow-color': '#adb5bd',
+            'target-arrow-shape': 'triangle',
+            'curve-style': 'bezier',
+            'label': 'data(label)',
+            'font-size': '9px',
+            'text-rotation': 'autorotate',
+            'text-margin-y': -10,
+            'text-background-color': '#fff',
+            'text-background-opacity': 0.8,
+            'text-background-padding': '3px'
+        }
+    },
+    # Node selected state (click to select)
+    {
+        'selector': 'node:selected',
+        'style': {
+            'border-width': '4px',
+            'border-color': '#ffc107',
+            'border-style': 'solid',
+            'z-index': 9999
+        }
+    },
+    # Edge selected state (click to select)
+    {
+        'selector': 'edge:selected',
+        'style': {
+            'width': 4,
+            'line-color': '#ffc107',
+            'target-arrow-color': '#ffc107',
+            'z-index': 9999
+        }
+    }
+]
+
 
 def get_layout():
     """Return the graph page layout"""
@@ -124,126 +246,7 @@ def get_layout():
                                             'backgroundColor': '#fafafa',
                                             'borderRadius': '8px'
                                         },
-                                stylesheet=[
-                                    # Default node style
-                                    {
-                                        'selector': 'node',
-                                        'style': {
-                                            'label': 'data(label)',
-                                            'background-color': '#6c757d',
-                                            'color': '#fff',
-                                            'text-valign': 'center',
-                                            'text-halign': 'center',
-                                            'font-size': '11px',
-                                            'font-weight': '500',
-                                            'width': '60px',
-                                            'height': '60px',
-                                            'border-width': '2px',
-                                            'border-color': '#495057',
-                                            'text-wrap': 'wrap',
-                                            'text-max-width': '80px'
-                                        }
-                                    },
-                                    # Project nodes - Blue
-                                    {
-                                        'selector': 'node[nodeType = "Project"]',
-                                        'style': {
-                                            'background-color': '#0d6efd',
-                                            'border-color': '#0a58ca',
-                                            'width': '70px',
-                                            'height': '70px'
-                                        }
-                                    },
-                                    # Person nodes - Purple
-                                    {
-                                        'selector': 'node[nodeType = "Person"]',
-                                        'style': {
-                                            'background-color': '#6f42c1',
-                                            'border-color': '#59359a',
-                                            'width': '65px',
-                                            'height': '65px'
-                                        }
-                                    },
-                                    # Branch nodes - Teal
-                                    {
-                                        'selector': 'node[nodeType = "Branch"]',
-                                        'style': {
-                                            'background-color': '#20c997',
-                                            'border-color': '#198754',
-                                            'width': '55px',
-                                            'height': '55px'
-                                        }
-                                    },
-                                    # Epic nodes - Orange
-                                    {
-                                        'selector': 'node[nodeType = "Epic"]',
-                                        'style': {
-                                            'background-color': '#fd7e14',
-                                            'border-color': '#dc6502',
-                                            'width': '65px',
-                                            'height': '65px'
-                                        }
-                                    },
-                                    # Issue nodes - Yellow
-                                    {
-                                        'selector': 'node[nodeType = "Issue"]',
-                                        'style': {
-                                            'background-color': '#ffc107',
-                                            'border-color': '#cc9a06',
-                                            'color': '#000',
-                                            'width': '55px',
-                                            'height': '55px'
-                                        }
-                                    },
-                                    # Repository nodes - Dark Blue
-                                    {
-                                        'selector': 'node[nodeType = "Repository"]',
-                                        'style': {
-                                            'background-color': '#0dcaf0',
-                                            'border-color': '#0aa2c0',
-                                            'width': '65px',
-                                            'height': '65px'
-                                        }
-                                    },
-                                    # Edge styles
-                                    {
-                                        'selector': 'edge',
-                                        'style': {
-                                            'width': 2,
-                                            'line-color': '#adb5bd',
-                                            'target-arrow-color': '#adb5bd',
-                                            'target-arrow-shape': 'triangle',
-                                            'curve-style': 'bezier',
-                                            'label': 'data(label)',
-                                            'font-size': '9px',
-                                            'text-rotation': 'autorotate',
-                                            'text-margin-y': -10,
-                                            'text-background-color': '#fff',
-                                            'text-background-opacity': 0.8,
-                                            'text-background-padding': '3px'
-                                        }
-                                    },
-                                    # Node selected state (click to select)
-                                    {
-                                        'selector': 'node:selected',
-                                        'style': {
-                                            'border-width': '4px',
-                                            'border-color': '#ffc107',
-                                            'border-style': 'solid',
-                                            'z-index': 9999
-                                        }
-                                    },
-                                    # Edge selected state (click to select)
-                                    {
-                                        'selector': 'edge:selected',
-                                        'style': {
-                                            'width': 4,
-                                            'line-color': '#ffc107',
-                                            'target-arrow-color': '#ffc107',
-                                            'z-index': 9999
-                                        }
-                                    }
-                                ]
+                                        stylesheet=CYTOSCAPE_STYLESHEET
                             )
                         ]
                     ),
@@ -473,6 +476,55 @@ def _create_graph_success_alert(node_count, rel_count):
     ], color="success", className="mb-0")
 
 
+def _format_property_value(value):
+    """Format a property value for display in the property panel
+    
+    Args:
+        value: Property value (can be dict, list, or primitive type)
+    
+    Returns:
+        html component: Formatted value as html.Pre for complex types or html.Span for primitives
+    """
+    if isinstance(value, (dict, list)):
+        return html.Pre(
+            str(value),
+            style={
+                "fontSize": "11px",
+                "backgroundColor": "#f8f9fa",
+                "padding": "6px",
+                "borderRadius": "3px",
+                "marginBottom": "0",
+                "whiteSpace": "pre-wrap",
+                "wordBreak": "break-all"
+            }
+        )
+    else:
+        return html.Span(
+            str(value),
+            style={"color": "#212529", "fontSize": "13px"}
+        )
+
+
+def _build_property_items(properties):
+    """Build property display items from a properties dictionary
+    
+    Args:
+        properties (dict): Dictionary of property key-value pairs
+    
+    Returns:
+        list: List of html.Div components displaying properties
+    """
+    prop_items = []
+    for key, value in sorted(properties.items()):
+        prop_items.append(
+            html.Div([
+                html.Strong(f"{key}: ", style={"color": "#6c757d", "fontSize": "12px"}),
+                _format_property_value(value)
+            ], className="mb-2")
+        )
+    return prop_items
+
+
 # Callback to execute Cypher query and display results
 @callback(
     [Output("graph-data-store", "data"),
@@ -655,38 +707,9 @@ def display_properties(selected_nodes, selected_edges):
         
         # Properties section
         if properties:
-            prop_items = []
-            for key, value in sorted(properties.items()):
-                # Format value based on type
-                if isinstance(value, (dict, list)):
-                    formatted_value = html.Pre(
-                        str(value),
-                        style={
-                            "fontSize": "11px",
-                            "backgroundColor": "#f8f9fa",
-                            "padding": "6px",
-                            "borderRadius": "3px",
-                            "marginBottom": "0",
-                            "whiteSpace": "pre-wrap",
-                            "wordBreak": "break-all"
-                        }
-                    )
-                else:
-                    formatted_value = html.Span(
-                        str(value),
-                        style={"color": "#212529", "fontSize": "13px"}
-                    )
-                
-                prop_items.append(
-                    html.Div([
-                        html.Strong(f"{key}: ", style={"color": "#6c757d", "fontSize": "12px"}),
-                        formatted_value
-                    ], className="mb-2")
-                )
-            
             properties_section = [
                 html.H6("Properties", style={"fontSize": "14px", "fontWeight": "600", "color": "#495057", "marginBottom": "12px"}),
-                html.Div(prop_items)
+                html.Div(_build_property_items(properties))
             ]
         else:
             properties_section = [
@@ -737,38 +760,9 @@ def display_properties(selected_nodes, selected_edges):
         
         # Properties section
         if properties:
-            prop_items = []
-            for key, value in sorted(properties.items()):
-                # Format value based on type
-                if isinstance(value, (dict, list)):
-                    formatted_value = html.Pre(
-                        str(value),
-                        style={
-                            "fontSize": "11px",
-                            "backgroundColor": "#f8f9fa",
-                            "padding": "6px",
-                            "borderRadius": "3px",
-                            "marginBottom": "0",
-                            "whiteSpace": "pre-wrap",
-                            "wordBreak": "break-all"
-                        }
-                    )
-                else:
-                    formatted_value = html.Span(
-                        str(value),
-                        style={"color": "#212529", "fontSize": "13px"}
-                    )
-                
-                prop_items.append(
-                    html.Div([
-                        html.Strong(f"{key}: ", style={"color": "#6c757d", "fontSize": "12px"}),
-                        formatted_value
-                    ], className="mb-2")
-                )
-            
             properties_section = [
                 html.H6("Properties", style={"fontSize": "14px", "fontWeight": "600", "color": "#495057", "marginBottom": "12px"}),
-                html.Div(prop_items)
+                html.Div(_build_property_items(properties))
             ]
         else:
             properties_section = [
