@@ -23,8 +23,8 @@ CYTOSCAPE_STYLESHEET = [
         'selector': 'node',
         'style': {
             'label': 'data(label)',
-            'background-color': '#6c757d',
-            'color': '#fff',
+            'background-color': '#B8B8B8',  # Pastel Neutral: Soft gray
+            'color': '#333',
             'text-valign': 'center',
             'text-halign': 'center',
             'font-size': '11px',
@@ -32,68 +32,68 @@ CYTOSCAPE_STYLESHEET = [
             'width': '60px',
             'height': '60px',
             'border-width': '2px',
-            'border-color': '#495057',
+            'border-color': '#9E9E9E',  # Darker soft gray
             'text-wrap': 'wrap',
             'text-max-width': '80px'
         }
     },
-    # Project nodes - Blue
+    # Project nodes - Soft Blue
     {
         'selector': 'node[nodeType = "Project"]',
         'style': {
-            'background-color': '#0d6efd',
-            'border-color': '#0a58ca',
+            'background-color': '#AEC6CF',  # Pastel Neutral: Soft blue
+            'border-color': '#8FA8B5',
             'width': '70px',
             'height': '70px'
         }
     },
-    # Person nodes - Purple
+    # Person nodes - Soft Lavender
     {
         'selector': 'node[nodeType = "Person"]',
         'style': {
-            'background-color': '#6f42c1',
-            'border-color': '#59359a',
+            'background-color': '#C5B4E3',  # Pastel Neutral: Soft lavender
+            'border-color': '#A798C7',
             'width': '65px',
             'height': '65px'
         }
     },
-    # Branch nodes - Teal
+    # Branch nodes - Soft Mint
     {
         'selector': 'node[nodeType = "Branch"]',
         'style': {
-            'background-color': '#20c997',
-            'border-color': '#198754',
+            'background-color': '#B5E7E3',  # Pastel Neutral: Soft mint
+            'border-color': '#96C9C5',
             'width': '55px',
             'height': '55px'
         }
     },
-    # Epic nodes - Orange
+    # Epic nodes - Soft Peach
     {
         'selector': 'node[nodeType = "Epic"]',
         'style': {
-            'background-color': '#fd7e14',
-            'border-color': '#dc6502',
+            'background-color': '#F4C2B0',  # Pastel Neutral: Soft peach
+            'border-color': '#D9A892',
             'width': '65px',
             'height': '65px'
         }
     },
-    # Issue nodes - Yellow
+    # Issue nodes - Soft Cream
     {
         'selector': 'node[nodeType = "Issue"]',
         'style': {
-            'background-color': '#ffc107',
-            'border-color': '#cc9a06',
-            'color': '#000',
+            'background-color': '#F5E6D3',  # Pastel Neutral: Soft cream
+            'border-color': '#D9C8B5',
+            'color': '#333',
             'width': '55px',
             'height': '55px'
         }
     },
-    # Repository nodes - Cyan
+    # Repository nodes - Soft Sage
     {
         'selector': 'node[nodeType = "Repository"]',
         'style': {
-            'background-color': '#0dcaf0',
-            'border-color': '#0aa2c0',
+            'background-color': '#C8D5B9',  # Pastel Neutral: Soft sage
+            'border-color': '#AAB89B',
             'width': '65px',
             'height': '65px'
         }
@@ -103,8 +103,8 @@ CYTOSCAPE_STYLESHEET = [
         'selector': 'edge',
         'style': {
             'width': 2,
-            'line-color': '#adb5bd',
-            'target-arrow-color': '#adb5bd',
+            'line-color': '#C0C0C0',  # Pastel Neutral: Lighter neutral gray
+            'target-arrow-color': '#C0C0C0',
             'target-arrow-shape': 'triangle',
             'curve-style': 'bezier',
             'label': 'data(label)',
@@ -121,7 +121,7 @@ CYTOSCAPE_STYLESHEET = [
         'selector': 'node:selected',
         'style': {
             'border-width': '4px',
-            'border-color': '#ffc107',
+            'border-color': '#E6D4A0',  # Pastel Neutral: Soft gold highlight
             'border-style': 'solid',
             'z-index': 9999
         }
@@ -131,8 +131,8 @@ CYTOSCAPE_STYLESHEET = [
         'selector': 'edge:selected',
         'style': {
             'width': 4,
-            'line-color': '#ffc107',
-            'target-arrow-color': '#ffc107',
+            'line-color': '#E6D4A0',  # Pastel Neutral: Soft gold highlight
+            'target-arrow-color': '#E6D4A0',
             'z-index': 9999
         }
     }
@@ -142,6 +142,12 @@ CYTOSCAPE_STYLESHEET = [
 def get_layout():
     """Return the graph page layout"""
     return html.Div([
+        # Performance metrics section (hidden by default)
+        html.Div(
+            id="graph-performance-metrics",
+            style={"display": "none"}
+        ),
+        
         # Results Section
         html.Div([
             dcc.Loading(
@@ -511,6 +517,115 @@ def _create_graph_success_alert(node_count, rel_count):
     ], color="success", className="mb-0")
 
 
+def _create_performance_metrics(node_count, rel_count, execution_time_ms, is_graph=True):
+    """Create performance metrics display
+    
+    Args:
+        node_count (int): Number of nodes (or result count for tabular)
+        rel_count (int): Number of relationships (0 for tabular)
+        execution_time_ms (float): Query execution time in milliseconds
+        is_graph (bool): Whether this is a graph query or tabular query
+    
+    Returns:
+        html.Div: Performance metrics component
+    """
+    # Determine performance status based on result count and execution time
+    total_elements = node_count + rel_count if is_graph else node_count
+    
+    if is_graph:
+        # For graph queries: warn if >100 nodes or >2 seconds
+        if total_elements > 200 or execution_time_ms > 3000:
+            status_color = "#dc3545"  # Red (danger)
+            status_icon = "fa-exclamation-triangle"
+            status_text = "Slow"
+        elif total_elements > 100 or execution_time_ms > 2000:
+            status_color = "#ffc107"  # Yellow (warning)
+            status_icon = "fa-exclamation-circle"
+            status_text = "OK"
+        else:
+            status_color = "#28a745"  # Green (success)
+            status_icon = "fa-check-circle"
+            status_text = "Fast"
+    else:
+        # For tabular queries: warn if >500 rows or >2 seconds
+        if total_elements > 1000 or execution_time_ms > 3000:
+            status_color = "#dc3545"  # Red
+            status_icon = "fa-exclamation-triangle"
+            status_text = "Slow"
+        elif total_elements > 500 or execution_time_ms > 2000:
+            status_color = "#ffc107"  # Yellow
+            status_icon = "fa-exclamation-circle"
+            status_text = "OK"
+        else:
+            status_color = "#28a745"  # Green
+            status_icon = "fa-check-circle"
+            status_text = "Fast"
+    
+    # Format execution time
+    if execution_time_ms < 1000:
+        time_display = f"{execution_time_ms:.0f}ms"
+    else:
+        time_display = f"{execution_time_ms/1000:.2f}s"
+    
+    metrics = [
+        html.Div([
+            html.I(className="fas fa-clock me-1", style={"color": "#6c757d", "fontSize": "10px"}),
+            html.Span("Time: ", style={"color": "#6c757d", "fontSize": "11px", "fontWeight": "500"}),
+            html.Span(time_display, style={"color": "#212529", "fontSize": "11px", "fontWeight": "600"})
+        ], style={"display": "inline-block", "marginRight": "16px"})
+    ]
+    
+    if is_graph:
+        metrics.append(html.Div([
+            html.I(className="fas fa-circle me-1", style={"color": "#6c757d", "fontSize": "8px"}),
+            html.Span("Nodes: ", style={"color": "#6c757d", "fontSize": "11px", "fontWeight": "500"}),
+            html.Span(str(node_count), style={"color": "#212529", "fontSize": "11px", "fontWeight": "600"})
+        ], style={"display": "inline-block", "marginRight": "16px"}))
+        
+        metrics.append(html.Div([
+            html.I(className="fas fa-arrow-right me-1", style={"color": "#6c757d", "fontSize": "8px"}),
+            html.Span("Edges: ", style={"color": "#6c757d", "fontSize": "11px", "fontWeight": "500"}),
+            html.Span(str(rel_count), style={"color": "#212529", "fontSize": "11px", "fontWeight": "600"})
+        ], style={"display": "inline-block", "marginRight": "16px"}))
+    else:
+        metrics.append(html.Div([
+            html.I(className="fas fa-table me-1", style={"color": "#6c757d", "fontSize": "8px"}),
+            html.Span("Rows: ", style={"color": "#6c757d", "fontSize": "11px", "fontWeight": "500"}),
+            html.Span(str(node_count), style={"color": "#212529", "fontSize": "11px", "fontWeight": "600"})
+        ], style={"display": "inline-block", "marginRight": "16px"}))
+    
+    # Performance status indicator
+    metrics.append(html.Div([
+        html.I(className=f"fas {status_icon} me-1", style={"color": status_color, "fontSize": "10px"}),
+        html.Span("Status: ", style={"color": "#6c757d", "fontSize": "11px", "fontWeight": "500"}),
+        html.Span(status_text, style={"color": status_color, "fontSize": "11px", "fontWeight": "600"})
+    ], style={"display": "inline-block"}))
+    
+    # Performance tip for slow queries
+    tip = None
+    if is_graph and total_elements > 100:
+        tip = html.Small([
+            html.I(className="fas fa-lightbulb me-1", style={"fontSize": "9px"}),
+            f"Tip: Consider adding LIMIT 100 to reduce the number of elements ({total_elements} currently)."
+        ], className="text-warning", style={"fontSize": "10px", "display": "block", "marginTop": "4px"})
+    elif not is_graph and total_elements > 500:
+        tip = html.Small([
+            html.I(className="fas fa-lightbulb me-1", style={"fontSize": "9px"}),
+            f"Tip: Consider adding LIMIT clause to reduce the number of rows ({total_elements} currently)."
+        ], className="text-warning", style={"fontSize": "10px", "display": "block", "marginTop": "4px"})
+    
+    return html.Div([
+        html.Div(metrics, style={"display": "flex", "alignItems": "center", "flexWrap": "wrap"}),
+        tip if tip else None
+    ], style={
+        "backgroundColor": "#f8f9fa",
+        "borderRadius": "4px",
+        "padding": "8px 12px",
+        "marginBottom": "8px",
+        "border": "1px solid #e9ecef"
+    })
+
+
 def _format_property_value(value):
     """Format a property value for display in the property panel
     
@@ -635,7 +750,9 @@ def validate_query(query_text):
     if 'LIMIT' not in query_upper and 'MATCH' in query_upper:
         return dbc.Alert([
             html.I(className="fas fa-lightbulb me-2"),
-            "Consider adding a LIMIT clause to improve query performance."
+            "Consider adding ",
+            html.Code("LIMIT 100", style={"fontSize": "12px", "backgroundColor": "rgba(255,255,255,0.3)", "padding": "2px 6px"}),
+            " to improve query performance and avoid loading too many nodes."
         ], color="info", className="mb-0", style={"fontSize": "13px"})
     
     # Query looks good
@@ -651,13 +768,16 @@ def validate_query(query_text):
      Output("graph-table-container", "style"),
      Output("graph-results-container", "children"),
      Output("graph-results-container", "style"),
-     Output("graph-details-panel", "style")],
+     Output("graph-details-panel", "style"),
+     Output("graph-performance-metrics", "children"),
+     Output("graph-performance-metrics", "style")],
     [Input("graph-execute-btn", "n_clicks")],
     [State("graph-query-input", "value")],
     prevent_initial_call=True
 )
 def execute_query(n_clicks, query_text):
     """Execute Cypher query and display results"""
+    import time
     # Default empty states
     empty_elements = []
     hide_style = {"display": "none"}
@@ -681,10 +801,13 @@ def execute_query(n_clicks, query_text):
             alert_type='warning',
             heading=None
         )
-        return None, empty_elements, hide_style, None, hide_style, error_display, default_container_style, hide_style
+        return None, empty_elements, hide_style, None, hide_style, error_display, default_container_style, hide_style, None, hide_style
     
     # Get API base URL
     api_base = os.getenv("API_BASE_URL", "http://localhost:8000")
+    
+    # Track execution time
+    start_time = time.time()
     
     try:
         # Send query to API
@@ -694,6 +817,9 @@ def execute_query(n_clicks, query_text):
             timeout=TIMEOUT_SECONDS
         )
         
+        # Calculate execution time in milliseconds
+        execution_time_ms = (time.time() - start_time) * 1000
+        
         # Handle error responses
         if response.status_code != 200:
             error_data = response.json() if response.headers.get('content-type') == 'application/json' else {}
@@ -701,7 +827,7 @@ def execute_query(n_clicks, query_text):
             error_hint = error_data.get("detail", {}).get("hint", "")
             
             error_display = _create_error_alert(error_message, hint=error_hint)
-            return None, empty_elements, hide_style, None, hide_style, error_display, default_container_style, hide_style
+            return None, empty_elements, hide_style, None, hide_style, error_display, default_container_style, hide_style, None, hide_style
         
         response.raise_for_status()
         data = response.json()
@@ -716,6 +842,7 @@ def execute_query(n_clicks, query_text):
             # Transform data to Cytoscape format
             cyto_elements = neo4j_to_cytoscape(data)
             success_alert = _create_graph_success_alert(node_count, rel_count)
+            performance_metrics = _create_performance_metrics(node_count, rel_count, execution_time_ms, is_graph=True)
             
             # Show graph, hide table and default, show details panel
             return (
@@ -726,12 +853,15 @@ def execute_query(n_clicks, query_text):
                 show_style,
                 None,
                 hide_style,
-                panel_visible_style  # Show details panel for graph results
+                panel_visible_style,  # Show details panel for graph results
+                performance_metrics,
+                show_style  # Show performance metrics
             )
         else:
             # Tabular results - create table
             raw_results = data.get("rawResults", [])
             table_display = _create_table_display(raw_results, result_count)
+            performance_metrics = _create_performance_metrics(result_count, 0, execution_time_ms, is_graph=False)
             
             # Show table, hide graph and default, hide details panel
             return (
@@ -742,7 +872,9 @@ def execute_query(n_clicks, query_text):
                 show_style,
                 None,
                 hide_style,
-                hide_style  # Hide details panel for tabular results
+                hide_style,  # Hide details panel for tabular results
+                performance_metrics,
+                show_style  # Show performance metrics
             )
         
     except requests.exceptions.Timeout:
@@ -751,22 +883,22 @@ def execute_query(n_clicks, query_text):
             alert_type='warning',
             heading=None
         )
-        return None, empty_elements, hide_style, None, hide_style, error_display, default_container_style, hide_style
+        return None, empty_elements, hide_style, None, hide_style, error_display, default_container_style, hide_style, None, hide_style
     
     except requests.exceptions.ConnectionError:
         error_display = _create_error_alert(
             "Connection error: Unable to connect to the backend API. Please ensure the server is running.",
             heading=None
         )
-        return None, empty_elements, hide_style, None, hide_style, error_display, default_container_style, hide_style
+        return None, empty_elements, hide_style, None, hide_style, error_display, default_container_style, hide_style, None, hide_style
     
     except requests.exceptions.HTTPError as e:
         error_display = _create_error_alert(f"HTTP Error: {str(e)}", heading=None)
-        return None, empty_elements, hide_style, None, hide_style, error_display, default_container_style, hide_style
+        return None, empty_elements, hide_style, None, hide_style, error_display, default_container_style, hide_style, None, hide_style
     
     except Exception as e:
         error_display = _create_error_alert(f"Unexpected error: {str(e)}", heading=None)
-        return None, empty_elements, hide_style, None, hide_style, error_display, default_container_style, hide_style
+        return None, empty_elements, hide_style, None, hide_style, error_display, default_container_style, hide_style, None, hide_style
 
 
 # Callback to display property details when node or edge is selected
