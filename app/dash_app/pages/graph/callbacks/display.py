@@ -6,7 +6,7 @@ Callbacks for graph display, layout management, and property details.
 import dash_bootstrap_components as dbc
 from dash import html, Input, Output, State, callback, callback_context
 
-from ..utils import toggle_details_panel, build_property_items
+from ..utils import toggle_details_panel, build_property_items, create_node_legend
 
 
 @callback(
@@ -29,19 +29,23 @@ def toggle_fullwidth(_n_clicks, is_fullwidth):
 @callback(
     Output("graph-details-panel", "children"),
     [Input("graph-cytoscape", "selectedNodeData"),
-     Input("graph-cytoscape", "selectedEdgeData")]
+     Input("graph-cytoscape", "selectedEdgeData"),
+     Input("graph-cytoscape", "elements")]
 )
-def display_properties(selected_nodes, selected_edges):
+def display_properties(selected_nodes, selected_edges, elements):
     """Display detailed properties of selected node or edge"""
-    # Default empty state
-    empty_state = html.Div([
-        html.I(className="fas fa-info-circle fa-2x mb-2", style={"color": "#adb5bd"}),
-        html.P(
-            "Click a node or edge to view details",
-            className="text-muted mb-0",
-            style={"fontSize": "14px"}
-        )
-    ], className="text-center", style={"marginTop": "200px"})
+    # Extract unique node types from current graph elements
+    node_types = set()
+    if elements:
+        for element in elements:
+            # Check if it's a node (not an edge)
+            if 'source' not in element.get('data', {}):
+                node_type = element.get('data', {}).get('nodeType')
+                if node_type:
+                    node_types.add(node_type)
+    
+    # Default state: show legend with current node types (or empty state if no graph)
+    legend_state = create_node_legend(list(node_types) if node_types else None)
     
     # Node was selected (selectedNodeData returns a list)
     if selected_nodes and len(selected_nodes) > 0:
@@ -163,8 +167,8 @@ def display_properties(selected_nodes, selected_edges):
         
         return html.Div([header] + basic_info + properties_section)
     
-    # Nothing selected
-    return empty_state
+    # Nothing selected - show legend
+    return legend_state
 
 
 @callback(

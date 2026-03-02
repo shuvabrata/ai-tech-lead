@@ -12,7 +12,8 @@ from .ui_components import (
     create_table_display,
     create_graph_success_alert,
     create_performance_metrics,
-    toggle_details_panel
+    toggle_details_panel,
+    create_node_legend
 )
 from .formatters import format_property_value, build_property_items
 
@@ -26,6 +27,7 @@ __all__ = [
     'create_graph_success_alert',
     'create_performance_metrics',
     'toggle_details_panel',
+    'create_node_legend',
     # Formatters
     'format_property_value',
     'build_property_items'

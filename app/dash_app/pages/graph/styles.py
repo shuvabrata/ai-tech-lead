@@ -4,6 +4,9 @@ This module contains all visual styling for the graph visualization,
 including node colors, sizes, edge styles, and selection states.
 """
 
+import re
+
+
 CYTOSCAPE_STYLESHEET = [
     # Default node style
     {
@@ -124,3 +127,45 @@ CYTOSCAPE_STYLESHEET = [
         }
     }
 ]
+
+
+def get_node_type_styles():
+    """Extract node type styling information from the stylesheet
+    
+    Parses CYTOSCAPE_STYLESHEET to extract node types and their colors.
+    Returns a dictionary mapping node types to their styling information.
+    
+    Returns:
+        dict: Mapping of node type to style info, e.g.,
+              {
+                  "Project": {"color": "#AEC6CF", "border": "#8FA8B5"},
+                  "Person": {"color": "#C5B4E3", "border": "#A798C7"},
+                  ...
+              }
+              Also includes "default" for nodes without specific types.
+    """
+    node_styles = {}
+    
+    # Pattern to match node[nodeType = "TypeName"]
+    node_type_pattern = re.compile(r'node\[nodeType\s*=\s*"([^"]+)"\]')
+    
+    for style_item in CYTOSCAPE_STYLESHEET:
+        selector = style_item.get('selector', '')
+        style = style_item.get('style', {})
+        
+        # Check if this is a node type selector
+        match = node_type_pattern.search(selector)
+        if match:
+            node_type = match.group(1)
+            node_styles[node_type] = {
+                'color': style.get('background-color', '#B8B8B8'),
+                'border': style.get('border-color', '#9E9E9E')
+            }
+        # Check for default node style
+        elif selector == 'node':
+            node_styles['default'] = {
+                'color': style.get('background-color', '#B8B8B8'),
+                'border': style.get('border-color', '#9E9E9E')
+            }
+    
+    return node_styles

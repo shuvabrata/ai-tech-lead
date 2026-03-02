@@ -7,6 +7,8 @@ These are pure functions that return Dash components.
 import dash_bootstrap_components as dbc
 from dash import html
 
+from ..styles import get_node_type_styles
+
 
 def toggle_details_panel(is_fullwidth):
     """Helper function to calculate column widths based on panel state
@@ -244,3 +246,87 @@ def create_performance_metrics(node_count, rel_count, execution_time_ms, is_grap
         "marginBottom": "8px",
         "border": "1px solid #e9ecef"
     })
+
+
+def create_node_legend(node_types=None):
+    """Create a legend showing node types and their colors
+    
+    Args:
+        node_types (list, optional): List of node types to display in the legend.
+                                    If None or empty, shows a message to execute a query.
+    
+    Returns:
+        html.Div: Legend component
+    """
+    # Get node type styles from the stylesheet (single source of truth)
+    all_node_styles = get_node_type_styles()
+    
+    # If no node types specified, show empty state
+    if not node_types:
+        return html.Div([
+            html.Div([
+                html.I(className="fas fa-info-circle fa-lg mb-2", style={"color": "#adb5bd"}),
+                html.P(
+                    "Execute a query to see the graph",
+                    className="text-muted mb-2",
+                    style={"fontSize": "13px"}
+                ),
+                html.P(
+                    "Click a node or edge to view details",
+                    className="text-muted mb-0",
+                    style={"fontSize": "12px"}
+                )
+            ], className="text-center", style={"marginTop": "100px"})
+        ])
+    
+    # Build legend items for each node type present in the graph
+    legend_items = []
+    for node_type in sorted(node_types):
+        # Get style for this node type, fall back to default if not found
+        style_info = all_node_styles.get(node_type, all_node_styles.get('default', {}))
+        
+        legend_items.append(
+            html.Div([
+                html.Div(
+                    style={
+                        "width": "20px",
+                        "height": "20px",
+                        "borderRadius": "50%",
+                        "backgroundColor": style_info.get('color', '#B8B8B8'),
+                        "border": f"2px solid {style_info.get('border', '#9E9E9E')}",
+                        "display": "inline-block",
+                        "marginRight": "10px",
+                        "verticalAlign": "middle"
+                    }
+                ),
+                html.Span(
+                    node_type,
+                    style={
+                        "fontSize": "13px",
+                        "color": "#495057",
+                        "verticalAlign": "middle"
+                    }
+                )
+            ], style={"marginBottom": "12px"})
+        )
+    
+    return html.Div([
+        html.Div([
+            html.I(className="fas fa-palette fa-lg mb-2", style={"color": "#6c757d"}),
+            html.H6(
+                "Node Legend",
+                className="mt-2 mb-3",
+                style={"fontWeight": "600", "color": "#333", "fontSize": "14px"}
+            )
+        ], className="text-center"),
+        html.Div(legend_items, style={"marginTop": "20px"}),
+        html.Hr(style={"margin": "20px 0"}),
+        html.Div([
+            html.I(className="fas fa-info-circle me-2", style={"color": "#6c757d", "fontSize": "12px"}),
+            html.Span(
+                "Click a node or edge to view details",
+                className="text-muted",
+                style={"fontSize": "12px"}
+            )
+        ], className="text-center")
+    ], style={"padding": "20px"})
