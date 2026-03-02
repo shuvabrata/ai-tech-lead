@@ -16,6 +16,7 @@ import requests
 
 from app.settings import settings
 from .styles import CYTOSCAPE_STYLESHEET
+from .components import create_expansion_modal, create_context_menu
 from .utils import (
     neo4j_to_cytoscape,
     parse_error_response,
@@ -273,98 +274,10 @@ def get_layout():
         dcc.Store(id="keyboard-shortcut-store", data=None),
         
         # --- Phase 1.1d: Context Menu Component ---
-        html.Div([
-            html.Div("Expand Node...", id="ctx-menu-expand", className="context-menu-item", style={
-                "padding": "8px 16px",
-                "cursor": "pointer",
-                "fontSize": "13px",
-                "color": "#333"
-            }),
-            html.Hr(style={"margin": "4px 0", "borderTop": "1px solid #e0e0e0"}),
-            html.Div("Expand Incoming Only", id="ctx-menu-expand-incoming", className="context-menu-item", style={
-                "padding": "8px 16px",
-                "cursor": "pointer",
-                "fontSize": "13px",
-                "color": "#333"
-            }),
-            html.Div("Expand Outgoing Only", id="ctx-menu-expand-outgoing", className="context-menu-item", style={
-                "padding": "8px 16px",
-                "cursor": "pointer",
-                "fontSize": "13px",
-                "color": "#333"
-            }),
-            html.Hr(style={"margin": "4px 0", "borderTop": "1px solid #e0e0e0"}),
-            html.Div("Copy Node ID", id="ctx-menu-copy-id", className="context-menu-item", style={
-                "padding": "8px 16px",
-                "cursor": "pointer",
-                "fontSize": "13px",
-                "color": "#333"
-            }),
-            html.Div("Remove from View", id="ctx-menu-remove", className="context-menu-item", style={
-                "padding": "8px 16px",
-                "cursor": "pointer",
-                "fontSize": "13px",
-                "color": "#dc3545"  # Red for destructive action
-            }),
-        ], id="context-menu", style={
-            "position": "fixed",
-            "display": "none",
-            "backgroundColor": "white",
-            "border": "1px solid #ccc",
-            "borderRadius": "4px",
-            "boxShadow": "2px 2px 8px rgba(0,0,0,0.2)",
-            "zIndex": "9999",
-            "minWidth": "180px",
-            "padding": "4px 0"
-        }),
+        create_context_menu(),
         
         # --- Phase 1.1b: Node Expansion Modal ---
-        dbc.Modal([
-            dbc.ModalHeader(dbc.ModalTitle("Expand Node")),
-            dbc.ModalBody([
-                html.Div([
-                    html.Label("Direction:", style={"fontWeight": "500", "fontSize": "13px", "marginBottom": "6px"}),
-                    dbc.RadioItems(
-                        id="expansion-direction-selector",
-                        options=[
-                            {"label": "Both (Incoming + Outgoing)", "value": "both"},
-                            {"label": "Incoming Only", "value": "incoming"},
-                            {"label": "Outgoing Only", "value": "outgoing"}
-                        ],
-                        value="both",
-                        inline=False,
-                        className="mb-3"
-                    ),
-                ]),
-                html.Div([
-                    html.Label("Limit:", style={"fontWeight": "500", "fontSize": "13px", "marginBottom": "6px"}),
-                    dbc.Input(
-                        id="expansion-limit-input",
-                        type="number",
-                        value=50,
-                        min=1,
-                        max=500,
-                        step=1,
-                        size="sm",
-                        className="mb-2"
-                    ),
-                    html.Small("Will load up to this many neighbors (1-500)", className="text-muted", style={"fontSize": "11px"})
-                ]),
-                html.Div([
-                    dbc.Checkbox(
-                        id="expansion-auto-fit-checkbox",
-                        label="Auto-fit graph after expansion",
-                        value=True,
-                        className="mt-3"
-                    ),
-                    html.Small("Automatically zoom to show all nodes", className="text-muted d-block", style={"fontSize": "11px", "marginLeft": "24px"})
-                ]),
-            ]),
-            dbc.ModalFooter([
-                dbc.Button("Cancel", id="expansion-modal-cancel", color="secondary", size="sm", className="me-2"),
-                dbc.Button("Expand", id="expansion-modal-expand", color="primary", size="sm")
-            ])
-        ], id="expansion-modal", is_open=False, size="md"),
+        create_expansion_modal(),
         
     ])
 
