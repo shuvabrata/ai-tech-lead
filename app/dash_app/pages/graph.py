@@ -86,21 +86,24 @@ def get_layout():
                 type="circle",
                 color="#0d6efd",
                 children=[
-                    # Graph visualization container
-                    html.Div(
-                        id="graph-cytoscape-container",
-                        style={"display": "none"},  # Hidden by default
-                        children=[
-                            cyto.Cytoscape(
-                                id="graph-cytoscape",
-                                elements=[],
-                                layout={'name': 'cose', 'animate': True},
-                                style={
-                                    'width': '100%',
-                                    'height': '600px',
-                                    'backgroundColor': '#fafafa',
-                                    'borderRadius': '8px'
-                                },
+                    dbc.Row([
+                        # Graph visualization area
+                        dbc.Col([
+                            # Graph visualization container
+                            html.Div(
+                                id="graph-cytoscape-container",
+                                style={"display": "none"},  # Hidden by default
+                                children=[
+                                    cyto.Cytoscape(
+                                        id="graph-cytoscape",
+                                        elements=[],
+                                        layout={'name': 'cose', 'animate': True},
+                                        style={
+                                            'width': '100%',
+                                            'height': '600px',
+                                            'backgroundColor': '#fafafa',
+                                            'borderRadius': '8px'
+                                        },
                                 stylesheet=[
                                     # Default node style
                                     {
@@ -252,6 +255,34 @@ def get_layout():
                             )
                         ]
                     )
+                        ], width=8),
+                        
+                        # Property details panel
+                        dbc.Col([
+                            html.Div(
+                                id="graph-details-panel",
+                                style={
+                                    "backgroundColor": "#f8f9fa",
+                                    "borderRadius": "8px",
+                                    "border": "1px solid #dee2e6",
+                                    "padding": "16px",
+                                    "minHeight": "600px",
+                                    "maxHeight": "600px",
+                                    "overflowY": "auto"
+                                },
+                                children=[
+                                    html.Div([
+                                        html.I(className="fas fa-info-circle fa-2x mb-2", style={"color": "#adb5bd"}),
+                                        html.P(
+                                            "Click a node or edge to view details",
+                                            className="text-muted mb-0",
+                                            style={"fontSize": "14px"}
+                                        )
+                                    ], className="text-center", style={"marginTop": "200px"})
+                                ]
+                            )
+                        ], width=4)
+                    ])
                 ]
             )
         ], style={
@@ -430,7 +461,8 @@ def _create_graph_success_alert(node_count, rel_count):
      Output("graph-table-container", "children"),
      Output("graph-table-container", "style"),
      Output("graph-results-container", "children"),
-     Output("graph-results-container", "style")],
+     Output("graph-results-container", "style"),
+     Output("graph-details-panel", "style")],
     [Input("graph-execute-btn", "n_clicks")],
     [State("graph-query-input", "value")],
     prevent_initial_call=True
@@ -442,6 +474,16 @@ def execute_query(n_clicks, query_text):
     hide_style = {"display": "none"}
     show_style = {"display": "block"}
     default_container_style = {"minHeight": "400px", "padding": "20px"}
+    panel_visible_style = {
+        "display": "block",
+        "backgroundColor": "#f8f9fa",
+        "borderRadius": "8px",
+        "border": "1px solid #dee2e6",
+        "padding": "16px",
+        "minHeight": "600px",
+        "maxHeight": "600px",
+        "overflowY": "auto"
+    }
     
     # Validate query not empty
     if not query_text or not query_text.strip():
@@ -450,7 +492,7 @@ def execute_query(n_clicks, query_text):
             alert_type='warning',
             heading=None
         )
-        return None, empty_elements, hide_style, None, hide_style, error_display, default_container_style
+        return None, empty_elements, hide_style, None, hide_style, error_display, default_container_style, hide_style
     
     # Get API base URL
     api_base = os.getenv("API_BASE_URL", "http://localhost:8000")
@@ -470,7 +512,7 @@ def execute_query(n_clicks, query_text):
             error_hint = error_data.get("detail", {}).get("hint", "")
             
             error_display = _create_error_alert(error_message, hint=error_hint)
-            return None, empty_elements, hide_style, None, hide_style, error_display, default_container_style
+            return None, empty_elements, hide_style, None, hide_style, error_display, default_container_style, hide_style
         
         response.raise_for_status()
         data = response.json()
@@ -486,7 +528,7 @@ def execute_query(n_clicks, query_text):
             cyto_elements = neo4j_to_cytoscape(data)
             success_alert = _create_graph_success_alert(node_count, rel_count)
             
-            # Show graph, hide table and default
+            # Show graph, hide table and default, show details panel
             return (
                 data,
                 cyto_elements,
@@ -494,14 +536,15 @@ def execute_query(n_clicks, query_text):
                 success_alert,
                 show_style,
                 None,
-                hide_style
+                hide_style,
+                panel_visible_style  # Show details panel for graph results
             )
         else:
             # Tabular results - create table
             raw_results = data.get("rawResults", [])
             table_display = _create_table_display(raw_results, result_count)
             
-            # Show table, hide graph and default
+            # Show table, hide graph and default, hide details panel
             return (
                 data,
                 empty_elements,
@@ -509,7 +552,8 @@ def execute_query(n_clicks, query_text):
                 table_display,
                 show_style,
                 None,
-                hide_style
+                hide_style,
+                hide_style  # Hide details panel for tabular results
             )
         
     except requests.exceptions.Timeout:
@@ -518,20 +562,201 @@ def execute_query(n_clicks, query_text):
             alert_type='warning',
             heading=None
         )
-        return None, empty_elements, hide_style, None, hide_style, error_display, default_container_style
+        return None, empty_elements, hide_style, None, hide_style, error_display, default_container_style, hide_style
     
     except requests.exceptions.ConnectionError:
         error_display = _create_error_alert(
             "Connection error: Unable to connect to the backend API. Please ensure the server is running.",
             heading=None
         )
-        return None, empty_elements, hide_style, None, hide_style, error_display, default_container_style
+        return None, empty_elements, hide_style, None, hide_style, error_display, default_container_style, hide_style
     
     except requests.exceptions.HTTPError as e:
         error_display = _create_error_alert(f"HTTP Error: {str(e)}", heading=None)
-        return None, empty_elements, hide_style, None, hide_style, error_display, default_container_style
+        return None, empty_elements, hide_style, None, hide_style, error_display, default_container_style, hide_style
     
     except Exception as e:
         error_display = _create_error_alert(f"Unexpected error: {str(e)}", heading=None)
-        return None, empty_elements, hide_style, None, hide_style, error_display, default_container_style
+        return None, empty_elements, hide_style, None, hide_style, error_display, default_container_style, hide_style
+
+
+# Callback to display property details when node or edge is selected
+@callback(
+    Output("graph-details-panel", "children"),
+    [Input("graph-cytoscape", "selectedNodeData"),
+     Input("graph-cytoscape", "selectedEdgeData")]
+)
+def display_properties(selected_nodes, selected_edges):
+    """Display detailed properties of selected node or edge"""
+    # Default empty state
+    empty_state = html.Div([
+        html.I(className="fas fa-info-circle fa-2x mb-2", style={"color": "#adb5bd"}),
+        html.P(
+            "Click a node or edge to view details",
+            className="text-muted mb-0",
+            style={"fontSize": "14px"}
+        )
+    ], className="text-center", style={"marginTop": "200px"})
+    
+    # Node was selected (selectedNodeData returns a list)
+    if selected_nodes and len(selected_nodes) > 0:
+        node_data = selected_nodes[0]  # Get first selected node
+        # Build property table excluding internal Cytoscape fields
+        exclude_keys = {'id', 'label', 'nodeType'}
+        properties = {k: v for k, v in node_data.items() if k not in exclude_keys and v is not None}
+        
+        # Header
+        header = html.Div([
+            html.H6([
+                html.I(className="fas fa-circle me-2", style={"color": "#0d6efd", "fontSize": "10px"}),
+                "Node Details"
+            ], className="mb-3", style={"fontWeight": "600", "color": "#333"}),
+        ])
+        
+        # Basic info
+        basic_info = [
+            html.Div([
+                html.Strong("Type: ", style={"color": "#6c757d", "fontSize": "13px"}),
+                html.Span(node_data.get('nodeType', 'Unknown'), 
+                         style={"color": "#212529", "fontSize": "13px"})
+            ], className="mb-2"),
+            html.Div([
+                html.Strong("Label: ", style={"color": "#6c757d", "fontSize": "13px"}),
+                html.Span(node_data.get('label', 'N/A'), 
+                         style={"color": "#212529", "fontSize": "13px"})
+            ], className="mb-2"),
+            html.Div([
+                html.Strong("ID: ", style={"color": "#6c757d", "fontSize": "13px"}),
+                html.Code(str(node_data.get('id', 'N/A')), 
+                         style={"fontSize": "11px", "backgroundColor": "#e9ecef", "padding": "2px 6px", "borderRadius": "3px"})
+            ], className="mb-3"),
+            html.Hr(style={"margin": "12px 0"})
+        ]
+        
+        # Properties section
+        if properties:
+            prop_items = []
+            for key, value in sorted(properties.items()):
+                # Format value based on type
+                if isinstance(value, (dict, list)):
+                    formatted_value = html.Pre(
+                        str(value),
+                        style={
+                            "fontSize": "11px",
+                            "backgroundColor": "#f8f9fa",
+                            "padding": "6px",
+                            "borderRadius": "3px",
+                            "marginBottom": "0",
+                            "whiteSpace": "pre-wrap",
+                            "wordBreak": "break-all"
+                        }
+                    )
+                else:
+                    formatted_value = html.Span(
+                        str(value),
+                        style={"color": "#212529", "fontSize": "13px"}
+                    )
+                
+                prop_items.append(
+                    html.Div([
+                        html.Strong(f"{key}: ", style={"color": "#6c757d", "fontSize": "12px"}),
+                        formatted_value
+                    ], className="mb-2")
+                )
+            
+            properties_section = [
+                html.H6("Properties", style={"fontSize": "14px", "fontWeight": "600", "color": "#495057", "marginBottom": "12px"}),
+                html.Div(prop_items)
+            ]
+        else:
+            properties_section = [
+                html.P("No additional properties", className="text-muted", style={"fontSize": "13px", "fontStyle": "italic"})
+            ]
+        
+        return html.Div([header] + basic_info + properties_section)
+    
+    # Edge was selected (selectedEdgeData returns a list)
+    elif selected_edges and len(selected_edges) > 0:
+        edge_data = selected_edges[0]  # Get first selected edge
+        # Build property table excluding internal Cytoscape fields
+        exclude_keys = {'id', 'source', 'target', 'label', 'relType'}
+        properties = {k: v for k, v in edge_data.items() if k not in exclude_keys and v is not None}
+        
+        # Header
+        header = html.Div([
+            html.H6([
+                html.I(className="fas fa-arrow-right me-2", style={"color": "#6c757d", "fontSize": "12px"}),
+                "Relationship Details"
+            ], className="mb-3", style={"fontWeight": "600", "color": "#333"}),
+        ])
+        
+        # Basic info
+        basic_info = [
+            html.Div([
+                html.Strong("Type: ", style={"color": "#6c757d", "fontSize": "13px"}),
+                html.Span(edge_data.get('relType', edge_data.get('label', 'Unknown')), 
+                         style={"color": "#212529", "fontSize": "13px"})
+            ], className="mb-2"),
+            html.Div([
+                html.Strong("From: ", style={"color": "#6c757d", "fontSize": "13px"}),
+                html.Code(str(edge_data.get('source', 'N/A')), 
+                         style={"fontSize": "11px", "backgroundColor": "#e9ecef", "padding": "2px 6px", "borderRadius": "3px"})
+            ], className="mb-2"),
+            html.Div([
+                html.Strong("To: ", style={"color": "#6c757d", "fontSize": "13px"}),
+                html.Code(str(edge_data.get('target', 'N/A')), 
+                         style={"fontSize": "11px", "backgroundColor": "#e9ecef", "padding": "2px 6px", "borderRadius": "3px"})
+            ], className="mb-2"),
+            html.Div([
+                html.Strong("ID: ", style={"color": "#6c757d", "fontSize": "13px"}),
+                html.Code(str(edge_data.get('id', 'N/A')), 
+                         style={"fontSize": "11px", "backgroundColor": "#e9ecef", "padding": "2px 6px", "borderRadius": "3px"})
+            ], className="mb-3"),
+            html.Hr(style={"margin": "12px 0"})
+        ]
+        
+        # Properties section
+        if properties:
+            prop_items = []
+            for key, value in sorted(properties.items()):
+                # Format value based on type
+                if isinstance(value, (dict, list)):
+                    formatted_value = html.Pre(
+                        str(value),
+                        style={
+                            "fontSize": "11px",
+                            "backgroundColor": "#f8f9fa",
+                            "padding": "6px",
+                            "borderRadius": "3px",
+                            "marginBottom": "0",
+                            "whiteSpace": "pre-wrap",
+                            "wordBreak": "break-all"
+                        }
+                    )
+                else:
+                    formatted_value = html.Span(
+                        str(value),
+                        style={"color": "#212529", "fontSize": "13px"}
+                    )
+                
+                prop_items.append(
+                    html.Div([
+                        html.Strong(f"{key}: ", style={"color": "#6c757d", "fontSize": "12px"}),
+                        formatted_value
+                    ], className="mb-2")
+                )
+            
+            properties_section = [
+                html.H6("Properties", style={"fontSize": "14px", "fontWeight": "600", "color": "#495057", "marginBottom": "12px"}),
+                html.Div(prop_items)
+            ]
+        else:
+            properties_section = [
+                html.P("No additional properties", className="text-muted", style={"fontSize": "13px", "fontStyle": "italic"})
+            ]
+        
+        return html.Div([header] + basic_info + properties_section)
+    
+    # Nothing selected
+    return empty_state
 
