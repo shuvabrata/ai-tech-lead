@@ -151,57 +151,6 @@ def get_layout():
             style={"color": "#666", "fontSize": "15px"}
         ),
         
-        # Query Input Section
-        html.Div([
-            html.H5("Cypher Query", className="mb-3", style={"fontWeight": "500", "color": "#333"}),
-            
-            dbc.Textarea(
-                id="graph-query-input",
-                placeholder="MATCH (n:Project)-[r]->(m)\nRETURN n, r, m\nLIMIT 10",
-                style={
-                    "height": "150px",
-                    "borderRadius": "12px",
-                    "border": "2px solid #e0e0e0",
-                    "padding": "12px 16px",
-                    "fontSize": "14px",
-                    "fontFamily": "Consolas, Monaco, 'Courier New', monospace",
-                    "resize": "vertical",
-                    "transition": "border-color 0.2s"
-                },
-                className="mb-2"
-            ),
-            
-            # Validation message container
-            html.Div(id="query-validation-message", className="mb-3"),
-            
-            html.Div([
-                dbc.Button(
-                    [html.I(className="fas fa-play me-2"), "Execute Query"],
-                    id="graph-execute-btn",
-                    color="primary",
-                    style={
-                        "borderRadius": "8px",
-                        "fontWeight": "500",
-                        "fontSize": "15px",
-                        "padding": "10px 24px",
-                        "boxShadow": "0 2px 6px rgba(13, 110, 253, 0.25)"
-                    }
-                ),
-                html.Small(
-                    "Note: Only read-only queries (MATCH, RETURN) are allowed for security.",
-                    className="ms-3 text-muted",
-                    style={"fontSize": "13px"}
-                )
-            ], className="d-flex align-items-center mb-4")
-        ], style={
-            "backgroundColor": "#ffffff",
-            "borderRadius": "12px",
-            "border": "1px solid #e0e0e0",
-            "padding": "24px",
-            "marginBottom": "24px",
-            "boxShadow": "0 2px 8px rgba(0,0,0,0.05)"
-        }),
-        
         # Results Section
         html.Div([
             html.H5("Results", className="mb-3", style={"fontWeight": "500", "color": "#333"}),
@@ -339,6 +288,57 @@ def get_layout():
             "borderRadius": "12px",
             "border": "1px solid #e0e0e0",
             "padding": "24px",
+            "boxShadow": "0 2px 8px rgba(0,0,0,0.05)"
+        }),
+        
+        # Query Input Section
+        html.Div([
+            html.H5("Cypher Query", className="mb-3", style={"fontWeight": "500", "color": "#333"}),
+            
+            dbc.Textarea(
+                id="graph-query-input",
+                placeholder="MATCH (n:Project)-[r]->(m)\nRETURN n, r, m\nLIMIT 10",
+                style={
+                    "height": "150px",
+                    "borderRadius": "12px",
+                    "border": "2px solid #e0e0e0",
+                    "padding": "12px 16px",
+                    "fontSize": "14px",
+                    "fontFamily": "Consolas, Monaco, 'Courier New', monospace",
+                    "resize": "vertical",
+                    "transition": "border-color 0.2s"
+                },
+                className="mb-2"
+            ),
+            
+            # Validation message container
+            html.Div(id="query-validation-message", className="mb-3"),
+            
+            html.Div([
+                dbc.Button(
+                    [html.I(className="fas fa-play me-2"), "Execute Query"],
+                    id="graph-execute-btn",
+                    color="primary",
+                    style={
+                        "borderRadius": "8px",
+                        "fontWeight": "500",
+                        "fontSize": "15px",
+                        "padding": "10px 24px",
+                        "boxShadow": "0 2px 6px rgba(13, 110, 253, 0.25)"
+                    }
+                ),
+                html.Small(
+                    "Note: Only read-only queries (MATCH, RETURN) are allowed for security.",
+                    className="ms-3 text-muted",
+                    style={"fontSize": "13px"}
+                )
+            ], className="d-flex align-items-center mb-4")
+        ], style={
+            "backgroundColor": "#ffffff",
+            "borderRadius": "12px",
+            "border": "1px solid #e0e0e0",
+            "padding": "24px",
+            "marginBottom": "24px",
             "boxShadow": "0 2px 8px rgba(0,0,0,0.05)"
         }),
         
