@@ -29,7 +29,8 @@ def create_dash_app():
         ],
         vertical=True,
         pills=True,
-        className="bg-dark vh-100 sidebar p-2"
+        className="bg-dark vh-100 sidebar p-1",
+        style={"fontSize": "14px"}  # Slightly smaller nav links
     )
 
     # Top menu using Bootstrap Navbar with toggle button and project switcher
@@ -42,15 +43,21 @@ def create_dash_app():
                         id="sidebar-toggle",
                         color="light",
                         outline=True,
-                        className="me-2",
+                        className="me-1",
                         size="sm",
                         style={
-                            "fontSize": "18px",
+                            "fontSize": "14px",
                             "fontWeight": "bold",
-                            "padding": "4px 10px"
+                            "padding": "1px 6px",
+                            "lineHeight": "1"
                         }
                     ),
-                    dbc.NavbarBrand(app.title)
+                    dbc.NavbarBrand(app.title, style={
+                        "fontSize": "15px", 
+                        "marginBottom": "0",
+                        "fontWeight": "500",
+                        "padding": "0"
+                    })
                 ], width="auto", className="d-flex align-items-center"),
                 dbc.Col(
                     dbc.Nav(
@@ -63,23 +70,32 @@ def create_dash_app():
                                 ],
                                 nav=True,
                                 in_navbar=True,
+                                size="sm",
+                                style={"fontSize": "13px"}
                             ),
                         ],
-                        className="justify-content-end flex-nowrap"
+                        className="justify-content-end flex-nowrap",
+                        style={"padding": "0"}
                     ),
                     width=True,
                     className="d-flex justify-content-end align-items-center"
                 ),
-            ], className="w-100 flex-nowrap g-0 align-items-center justify-content-between"),
-            fluid=True
+            ], className="w-100 flex-nowrap g-0 align-items-center justify-content-between", style={"margin": "0"}),
+            fluid=True,
+            style={"padding": "4px 12px"}  # Very minimal padding
         ),
         color="primary",
         dark=True,
-        className="mb-4"
+        className="mb-1",
+        style={
+            "minHeight": "auto",
+            "height": "36px",
+            "padding": "0"
+        }
     )
 
     # Main content area with page routing
-    content = html.Div(id="page-content", className="p-4")
+    content = html.Div(id="page-content", className="p-2")
 
     app.layout = dbc.Container([
         dcc.Location(id="url", refresh=False),
