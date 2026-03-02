@@ -1,0 +1,126 @@
+"""Cytoscape style definitions for graph visualization
+
+This module contains all visual styling for the graph visualization,
+including node colors, sizes, edge styles, and selection states.
+"""
+
+CYTOSCAPE_STYLESHEET = [
+    # Default node style
+    {
+        'selector': 'node',
+        'style': {
+            'label': 'data(label)',
+            'background-color': '#B8B8B8',  # Pastel Neutral: Soft gray
+            'color': '#333',
+            'text-valign': 'center',
+            'text-halign': 'center',
+            'font-size': '11px',
+            'font-weight': '500',
+            'width': '60px',
+            'height': '60px',
+            'border-width': '2px',
+            'border-color': '#9E9E9E',  # Darker soft gray
+            'text-wrap': 'wrap',
+            'text-max-width': '80px'
+        }
+    },
+    # Project nodes - Soft Blue
+    {
+        'selector': 'node[nodeType = "Project"]',
+        'style': {
+            'background-color': '#AEC6CF',  # Pastel Neutral: Soft blue
+            'border-color': '#8FA8B5',
+            'width': '70px',
+            'height': '70px'
+        }
+    },
+    # Person nodes - Soft Lavender
+    {
+        'selector': 'node[nodeType = "Person"]',
+        'style': {
+            'background-color': '#C5B4E3',  # Pastel Neutral: Soft lavender
+            'border-color': '#A798C7',
+            'width': '65px',
+            'height': '65px'
+        }
+    },
+    # Branch nodes - Soft Mint
+    {
+        'selector': 'node[nodeType = "Branch"]',
+        'style': {
+            'background-color': '#B5E7E3',  # Pastel Neutral: Soft mint
+            'border-color': '#96C9C5',
+            'width': '55px',
+            'height': '55px'
+        }
+    },
+    # Epic nodes - Soft Peach
+    {
+        'selector': 'node[nodeType = "Epic"]',
+        'style': {
+            'background-color': '#F4C2B0',  # Pastel Neutral: Soft peach
+            'border-color': '#D9A892',
+            'width': '65px',
+            'height': '65px'
+        }
+    },
+    # Issue nodes - Soft Cream
+    {
+        'selector': 'node[nodeType = "Issue"]',
+        'style': {
+            'background-color': '#F5E6D3',  # Pastel Neutral: Soft cream
+            'border-color': '#D9C8B5',
+            'color': '#333',
+            'width': '55px',
+            'height': '55px'
+        }
+    },
+    # Repository nodes - Soft Sage
+    {
+        'selector': 'node[nodeType = "Repository"]',
+        'style': {
+            'background-color': '#C8D5B9',  # Pastel Neutral: Soft sage
+            'border-color': '#AAB89B',
+            'width': '65px',
+            'height': '65px'
+        }
+    },
+    # Edge styles
+    {
+        'selector': 'edge',
+        'style': {
+            'width': 2,
+            'line-color': '#C0C0C0',  # Pastel Neutral: Lighter neutral gray
+            'target-arrow-color': '#C0C0C0',
+            'target-arrow-shape': 'triangle',
+            'curve-style': 'bezier',
+            'label': 'data(label)',
+            'font-size': '9px',
+            'text-rotation': 'autorotate',
+            'text-margin-y': -10,
+            'text-background-color': '#fff',
+            'text-background-opacity': 0.8,
+            'text-background-padding': '3px'
+        }
+    },
+    # Node selected state (click to select)
+    {
+        'selector': 'node:selected',
+        'style': {
+            'border-width': '4px',
+            'border-color': '#E6D4A0',  # Pastel Neutral: Soft gold highlight
+            'border-style': 'solid',
+            'z-index': 9999
+        }
+    },
+    # Edge selected state (click to select)
+    {
+        'selector': 'edge:selected',
+        'style': {
+            'width': 4,
+            'line-color': '#E6D4A0',  # Pastel Neutral: Soft gold highlight
+            'target-arrow-color': '#E6D4A0',
+            'z-index': 9999
+        }
+    }
+]
