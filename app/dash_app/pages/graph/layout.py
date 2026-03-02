@@ -31,7 +31,7 @@ def create_graph_controls():
                     {"label": "Hierarchical (breadthfirst)", "value": "breadthfirst"},
                     {"label": "Concentric", "value": "concentric"}
                 ],
-                value="circle",
+                value="cose",
                 style={"width": "200px", "display": "inline-block", "fontSize": "11px"},
                 size="sm"
             )
