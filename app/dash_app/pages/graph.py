@@ -8,7 +8,7 @@ This page allows users to:
 
 import os
 import dash_bootstrap_components as dbc
-from dash import html, dcc, Input, Output, State, callback
+from dash import html, dcc, Input, Output, State, callback, clientside_callback
 import dash_cytoscape as cyto
 import requests
 
@@ -233,7 +233,25 @@ def get_layout():
                                                 value="cose",
                                                 style={"width": "250px", "display": "inline-block"}
                                             )
-                                        ], width="auto")
+                                        ], width="auto"),
+                                        dbc.Col([
+                                            dbc.ButtonGroup([
+                                                dbc.Button(
+                                                    [html.I(className="fas fa-expand me-1"), "Fit to Screen"],
+                                                    id="graph-fit-btn",
+                                                    color="light",
+                                                    size="sm",
+                                                    style={"fontSize": "12px"}
+                                                ),
+                                                dbc.Button(
+                                                    [html.I(className="fas fa-redo me-1"), "Reset View"],
+                                                    id="graph-reset-btn",
+                                                    color="light",
+                                                    size="sm",
+                                                    style={"fontSize": "12px"}
+                                                )
+                                            ], size="sm")
+                                        ], width="auto", className="ms-auto")
                                     ], className="mb-3", align="center"),
                                     
                                     cyto.Cytoscape(
@@ -246,7 +264,12 @@ def get_layout():
                                             'backgroundColor': '#fafafa',
                                             'borderRadius': '8px'
                                         },
-                                        stylesheet=CYTOSCAPE_STYLESHEET
+                                        stylesheet=CYTOSCAPE_STYLESHEET,
+                                        userZoomingEnabled=True,
+                                        userPanningEnabled=True,
+                                        wheelSensitivity=0.2,
+                                        minZoom=0.5,
+                                        maxZoom=3
                             )
                         ]
                     ),
@@ -321,6 +344,9 @@ def get_layout():
         
         # Session store for query history (optional, for future use)
         dcc.Store(id="graph-query-history", data=[]),
+        
+        # Hidden div for triggering fit-to-screen via clientside callback
+        html.Div(id="graph-fit-trigger", style={"display": "none"}),
         
     ], className="mt-4")
 
@@ -523,6 +549,27 @@ def _build_property_items(properties):
             ], className="mb-2")
         )
     return prop_items
+
+
+# Clientside callback to fit graph to screen without re-running layout
+clientside_callback(
+    """
+    function(n_clicks) {
+        if (n_clicks) {
+            // Get the Cytoscape instance
+            const elem = document.getElementById('graph-cytoscape');
+            if (elem && elem._cyreg && elem._cyreg.cy) {
+                // Call fit() to zoom/pan to show all elements
+                elem._cyreg.cy.fit(null, 30);  // 30px padding
+            }
+        }
+        return n_clicks || 0;
+    }
+    """,
+    Output("graph-fit-trigger", "children"),
+    Input("graph-fit-btn", "n_clicks"),
+    prevent_initial_call=True
+)
 
 
 # Callback to execute Cypher query and display results
@@ -775,12 +822,46 @@ def display_properties(selected_nodes, selected_edges):
     return empty_state
 
 
-# Callback to update graph layout when selector changes
+# Callback to update graph layout when selector changes or reset is clicked
 @callback(
     Output("graph-cytoscape", "layout"),
-    Input("graph-layout-selector", "value")
+    [Input("graph-layout-selector", "value"),
+     Input("graph-reset-btn", "n_clicks")],
+    [State("graph-cytoscape", "layout")],
+    prevent_initial_call=True
 )
-def update_layout(layout_name):
-    """Update the Cytoscape graph layout algorithm"""
-    return {'name': layout_name, 'animate': True}
+def update_layout(layout_name, reset_clicks, current_layout):
+    """Update the Cytoscape graph layout algorithm or trigger layout reset"""
+    from dash import callback_context
+    
+    # Determine which input triggered the callback
+    if not callback_context.triggered:
+        return current_layout
+    
+    trigger_id = callback_context.triggered[0]['prop_id'].split('.')[0]
+    
+    # Layout selector changed
+    if trigger_id == 'graph-layout-selector':
+        return {'name': layout_name, 'animate': True}
+    
+    # Reset button clicked - re-run current layout algorithm to reset node positions
+    elif trigger_id == 'graph-reset-btn':
+        # Use current layout name, or default to cose
+        current_name = current_layout.get('name', 'cose') if current_layout else 'cose'
+        
+        # Toggle a property to force Cytoscape to re-run layout on each click
+        # Use click count to alternate stop value (doesn't affect visual, just forces re-render)
+        click_count = reset_clicks or 0
+        stop_value = 1000 if click_count % 2 == 0 else 1001
+        
+        # Return layout with fit=True to ensure graph fits in viewport
+        return {
+            'name': current_name, 
+            'animate': True, 
+            'fit': True, 
+            'padding': 30,
+            'stop': stop_value  # Alternates each click to force re-render
+        }
+    
+    return current_layout
 
