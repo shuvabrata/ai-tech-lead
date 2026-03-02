@@ -4,6 +4,7 @@ dash
 starlette
 dash-bootstrap-components
 dash-cytoscape==1.0.2
+dash-extensions
 alembic
 sqlalchemy
 asyncpg 

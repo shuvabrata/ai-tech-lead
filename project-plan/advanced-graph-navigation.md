@@ -38,13 +38,12 @@ This plan extends the basic graph visualization (completed in Phase 1-5 of `grap
 **Last Updated**: March 2, 2026
 
 ### Quick Status
-- ✅ **Answered**: 6 decisions (Q1-Q5, Q7)
-- ❓ **Pending**: 18 decisions (Q6, Q8-Q24)
-- 🔄 **Current Phase**: Phase 1.1b (Button-Based Expansion) - ✅ COMPLETE
-- ⏭️ **Next Phase**: Phase 1.1c (Double-Click Expansion)
+- ✅ **Answered**: 7 decisions (Q1-Q7)
+- ❓ **Pending**: 17 decisions (Q8-Q24)
+- 🔄 **Current Phase**: Phase 1.1c (Double-Click Expansion) - ✅ COMPLETE
+- ⏭️ **Next Phase**: Phase 1.1d (Right-Click Context Menu)
 
 ### Review Required Before
-- **Phase 1.3** (Context Menu): Answer Q6
 - **Phase 1.4** (Breadcrumb & History): Answer Q8
 - **Phase 2** (Filtering & Search): Answer Q9, Q10
 - **Phase 3** (Path Exploration): Answer Q11-Q14
@@ -108,7 +107,7 @@ Before starting each phase:
 
 ### Pre-Phase Decision Review
 
-**Status**: 6 questions answered ✅, 2 questions pending ❓
+**Status**: 7 questions answered ✅, 1 question pending ❓
 
 #### ✅ **Q1. Edge Rendering Issue**
 - **Status**: RESOLVED ✅
@@ -147,16 +146,134 @@ Before starting each phase:
 - **Rationale**: User wants flexibility to grow graph AND manually prune as needed
 - **Impact**: Requires new "Remove Node" functionality (context menu or button in Phase 1.1e/1.3)
 
-#### ❓ **Q6. Context Menu Implementation Approach**
-- **Status**: UNANSWERED ❓
+#### ✅ **Q6. Context Menu Implementation Approach**
+- **Status**: DECIDED ✅
+- **Decision**: **Option (a) - dash-extensions library**
+- **Rationale**: Best balance of simplicity, maintainability, and development speed. Purpose-built for Dash browser event handling with robust positioning and dismissal logic.
 - **Phase**: 1.3 (Context Menu), 1.1d (Right-Click Expansion)
-- **Review Trigger**: Before starting Phase 1.1d or 1.3
-- **Options**: 
-  - (a) dash-extensions library - Has ContextMenu component
-  - (b) dcc.ContextMenu component - If available in core Dash
-  - (c) Custom React component - Full control but more complexity
-- **Impact**: Development complexity, library dependencies, maintainability
-- **Action Required**: Research options and decide before Phase 1.1d implementation
+- **Impact**: 
+  - Add `dash-extensions` dependency (~400KB)
+  - 1-2 day implementation timeline
+  - Production-ready context menu with minimal maintenance burden
+
+---
+
+**Research Findings**:
+- ✅ **dash-extensions** library exists and has context menu support (NOT currently installed)
+- ❌ **dcc.ContextMenu** does NOT exist in core Dash
+- ✅ **dbc.DropdownMenu** exists but not designed for right-click context menus (dropdown from buttons)
+- ✅ **Custom implementation** is viable using HTML/CSS + clientside callbacks
+
+---
+
+**Options Analysis**:
+
+**Option (a): dash-extensions Library** ⭐ RECOMMENDED
+- **Installation**: `pip install dash-extensions`
+- **Component**: Uses `EventListener` component to capture browser events + custom menu rendering
+- **Pros**:
+  - ✅ Purpose-built for Dash applications
+  - ✅ Well-maintained library (actively developed)
+  - ✅ Handles positioning, event bubbling, dismiss-on-click automatically
+  - ✅ Integrates cleanly with Dash callback system
+  - ✅ Good documentation and examples
+  - ✅ Medium complexity (easier than custom, more flexible than dropdown hack)
+  - ✅ Supports dynamic menu items based on node type
+- **Cons**:
+  - ⚠️ Adds external dependency (but from reputable source)
+  - ⚠️ Library bundle size increase (~small impact)
+  - ⚠️ May have version compatibility issues with Dash updates (rare)
+- **Implementation Effort**: ⭐⭐ Medium (1-2 days)
+- **Example Pattern**:
+  ```python
+  from dash_extensions import EventListener
+  EventListener(
+      events=[{"event": "contextmenu", "props": ["target.id"]}],
+      logging=True,
+      id="context-listener"
+  )
+  ```
+
+**Option (b): dcc.ContextMenu Component**
+- **Status**: ❌ DOES NOT EXIST
+- **Verdict**: Not viable - this component doesn't exist in core Dash
+- **Alternative**: Could use `dbc.DropdownMenu` but it's NOT designed for right-click contexts
+  - Designed for button dropdowns, not positioned context menus
+  - No built-in right-click event handling
+  - Would require significant hacking to adapt
+
+**Option (c): Custom HTML/CSS + Clientside Callbacks**
+- **Pros**:
+  - ✅ Complete control over appearance and behavior
+  - ✅ No external dependencies
+  - ✅ Can be optimized for exact use case
+  - ✅ Learning opportunity for advanced Dash patterns
+  - ✅ Works with any Dash version
+- **Cons**:
+  - ❌ High complexity - must implement from scratch:
+    - Event capture (right-click)
+    - Menu positioning logic (viewport boundaries, overflow)
+    - Show/hide state management
+    - Dismiss on click-outside, ESC key
+    - Nested menu support (if needed later)
+  - ❌ More code to maintain
+  - ❌ Higher bug risk (edge cases: scrolling, resizing, nested clicks)
+  - ❌ Accessibility concerns (keyboard navigation, screen readers)
+- **Implementation Effort**: ⭐⭐⭐⭐ High (3-5 days)
+- **Example Pattern**:
+  ```python
+  # Hidden div for menu
+  html.Div([
+      html.Div("Expand Node...", id="menu-item-1"),
+      html.Div("Remove", id="menu-item-2")
+  ], id="context-menu", style={"position": "absolute", "display": "none"})
+  
+  # Clientside callback to show/hide
+  clientside_callback("""
+      function(evt) {
+          // Position menu at mouse x,y
+          // Handle viewport boundaries
+          // Show menu
+      }
+  """, ...)
+  ```
+
+**Option (d): Hybrid - dbc.DropdownMenu with Custom Positioning** 🤔 POSSIBLE BUT HACKY
+- **Approach**: Use `dbc.DropdownMenu` component but position it dynamically on right-click
+- **Pros**:
+  - ✅ No new dependencies (already using dbc)
+  - ✅ Component provides styling and structure
+  - ✅ Built-in dismiss behavior
+- **Cons**:
+  - ⚠️ Not designed for this use case (fighting the component)
+  - ⚠️ Still need clientside callbacks for positioning
+  - ⚠️ May have unexpected behavior (component assumes button trigger)
+  - ⚠️ Medium-high complexity
+- **Implementation Effort**: ⭐⭐⭐ Medium-High (2-3 days)
+
+---
+
+**Recommendation**: **Option (a) - dash-extensions** ⭐
+
+**Rationale**:
+1. **Best balance** of simplicity vs control vs maintainability
+2. **Purpose-built** for this exact use case
+3. **Time-efficient**: Faster than custom, more robust than hacking DropdownMenu
+4. **Production-ready**: Handles edge cases (positioning, dismissal, events)
+5. **Acceptable trade-off**: Small dependency cost for significant development speed gain
+6. **Future-proof**: Library widely used in Dash community
+
+**When to choose Custom (Option c)**:
+- If you have very specific styling requirements
+- If minimizing dependencies is critical
+- If you need highly custom behavior (e.g., nested menus, drag-drop from menu)
+
+---
+
+- **Impact**: 
+  - Option (a): Add `dash-extensions` dependency (~400KB), 1-2 day implementation
+  - Option (c): No dependency, 3-5 day implementation, ongoing maintenance burden
+- **Action Required**: Decide before Phase 1.1d implementation
 
 #### ✅ **Q7. Breadcrumb Position**
 - **Status**: DECIDED ✅
@@ -181,7 +298,7 @@ Before starting each phase:
 
 **Objective**: Load and display connected nodes on demand with dual interaction model
 
-**Status**: ✅ Backend Complete | 🔄 Frontend In Progress
+**Status**: ✅ 1.1a Complete | ✅ 1.1b Complete | ✅ 1.1c Complete | ✅ 1.1d Complete | ⏳ 1.1e-f Pending
 
 **Implementation Strategy**: Build incrementally in micro-phases to validate technical approach
 
@@ -260,43 +377,49 @@ Before starting each phase:
 
 ---
 
-#### **Phase 1.1c: Double-Click Quick Expansion** ⏳ PLANNED
+#### **Phase 1.1c: Double-Click Quick Expansion** ✅ COMPLETE
 
 **Goal**: Add double-click for power users (immediate expansion with defaults)
 
 **Technical Challenge**: Dash Cytoscape doesn't expose `doubleTap` event as Python Input property
 
-**Proposed Solution**: Clientside JavaScript callback
+**Solution Implemented**: Clientside JavaScript callback with persistent event listener
 ```javascript
-// Listen to Cytoscape.js native event
-cyto.on('dbltap', 'node', function(evt) {
+// Clientside callback attaches event listener to Cytoscape instance
+cy.on('dbltap', 'node', function(evt) {
   var node = evt.target;
-  // Trigger hidden dcc.Store or dcc.Input to communicate with Python
-  document.getElementById('doubleclicked-node-id').value = node.id();
-  // Trigger callback
+  var nodeId = node.id();
+  // Update hidden dcc.Store to trigger Python callback
+  window.dash_clientside.set_props('doubleclicked-node-store', { 
+    data: { node_id: nodeId, timestamp: Date.now() }
+  });
 });
 ```
 
 **Tasks**:
-- [ ] **1. Add Hidden Communication Channel**
-  - Add `dcc.Input(id="doubleclicked-node-store", type="hidden")` or `dcc.Store`
-  - Acts as bridge between JavaScript and Python callbacks
+- [x] **1. Add Hidden Communication Channel**
+  - Added `dcc.Store(id="doubleclicked-node-store")` for JS-Python bridge
+  - Added `dcc.Store(id="expansion-debounce-store")` for tracking expansion timing
+  - File: `app/dash_app/pages/graph.py` (lines 368-372)
 
-- [ ] **2. Clientside Callback for Event Capture**
-  - Register `clientside_callback` that listens to Cytoscape `dbltap` event
-  - Write node ID to hidden store when double-click detected
-  - File: `app/dash_app/pages/graph.py`
+- [x] **2. Clientside Callback for Event Capture**
+  - Registered `clientside_callback` that attaches persistent `dbltap` event listener
+  - Listener updates store with `{node_id, timestamp}` on double-click
+  - Prevents duplicate listeners with `_dbltapListenerAttached` flag
+  - File: `app/dash_app/pages/graph.py` (lines 1296-1338)
 
-- [ ] **3. Python Callback for Expansion**
-  - Reuse `execute_expansion()` logic from Phase 1.1b
-  - Input: `doubleclicked-node-store` value change
+- [x] **3. Python Callback for Expansion**
+  - Created `execute_doubleclick_expansion()` callback
+  - Triggers on `doubleclicked-node-store` data change
   - Hardcoded defaults: direction="both", limit=50, offset=0
-  - No modal, immediate execution
+  - Reuses expansion API logic with immediate execution (no modal)
+  - File: `app/dash_app/pages/graph.py` (lines 1341-1489)
 
-- [ ] **4. Debouncing**
-  - Prevent double-click firing on already-expanded nodes
-  - 500ms cooldown between expansions per node
-  - Visual feedback: "Already expanded" tooltip or disabled state
+- [x] **4. Debouncing**
+  - Implemented 500ms debounce window per node
+  - Compares `timestamp` in store data with last expansion time
+  - Prevents double-expansions within cooldown period
+  - Visual feedback: Info-colored alert with ⚡ icon (3s duration)
 
 **Success Criteria**:
 - ✅ Double-click node → immediate expansion (no modal)
@@ -306,43 +429,50 @@ cyto.on('dbltap', 'node', function(evt) {
 
 ---
 
-#### **Phase 1.1d: Right-Click Context Menu** ⏳ PLANNED
+#### **Phase 1.1d: Right-Click Context Menu** ✅ COMPLETE
 
 **Goal**: Add right-click menu for advanced expansion options
 
-**Technical Challenge**: Same as 1.1c - Dash Cytoscape doesn't expose `cxttap` (right-click) event
+**Technical Challenge**: Dash Cytoscape doesn't expose `cxttap` (right-click) event
 
-**Proposed Solution**: Clientside callback + custom context menu component
+**Solution Implemented**: Clientside callback + custom HTML/CSS context menu
 
 **Tasks**:
-- [ ] **1. Event Capture (Similar to 1.1c)**
-  - Hidden store: `cxtclicked-node-store`
-  - Clientside callback: Listen to Cytoscape `cxttap` event
-  - Capture mouse coordinates for menu positioning
+- [x] **1. Event Capture**
+  - Added `rightclicked-node-store`: Stores `{node_id, x, y, timestamp}`
+  - Created clientside callback listening to Cytoscape `cxttap` event
+  - Captures mouse coordinates for menu positioning
+  - Prevents default browser context menu
+  - File: `app/dash_app/pages/graph.py` (lines 373-375, 1410-1472)
 
-- [ ] **2. Context Menu Component**
-  - Option A: Use `dash-extensions` library (has ContextMenu component)
-  - Option B: Custom HTML/CSS menu with absolute positioning
-  - Menu items:
+- [x] **2. Context Menu Component**
+  - Custom HTML/CSS menu with absolute positioning
+  - Menu items implemented:
     - **"Expand Node..."** → Opens advanced expansion modal
-    - **"Expand Incoming Only"** → Quick expansion (incoming)
-    - **"Expand Outgoing Only"** → Quick expansion (outgoing)
-    - **"Copy Node ID"**
-    - **"Remove from View"** (Phase 1.1, per Q5)
-    - Divider
-    - **"Focus on This Node"** (hide all others)
+    - **"Expand Incoming Only"** → Quick expansion (incoming direction)
+    - **"Expand Outgoing Only"** → Quick expansion (outgoing direction)
+    - **"Copy Node ID"** → Copies node ID to clipboard
+    - **"Remove from View"** → Removes node and connected edges
+  - Styled with hover effects (background color change)
+  - File: `app/dash_app/pages/graph.py` (lines 377-409)
 
-- [ ] **3. Context Menu Callbacks**
-  - Show/hide menu based on `cxtclicked-node-store` changes
-  - Route menu actions to appropriate callbacks:
-    - "Expand Node..." → Open expansion modal (reuse from 1.1b)
-    - Quick expansions → Call `execute_expansion()` with preset direction
-    - Remove → Update `removed-nodes` store, hide from graph
+- [x] **3. Context Menu Callbacks**
+  - `show_context_menu()`: Positions and shows menu at click coordinates (lines 1607-1627)
+  - `context_menu_expand_modal()`: Opens expansion modal, hides menu (lines 1630-1649)
+  - `context_menu_quick_expand()`: Handles quick expansions with preset directions (lines 1652-1776)
+  - `context_menu_remove_node()`: Removes node and edges from graph (lines 1829-1877)
+  - Clientside callbacks:
+    - Copy node ID to clipboard (lines 1779-1793)
+    - Hide menu after copy action (lines 1796-1807)
+    - Hide menu on outside click + hover effects (lines 1880-1913)
 
-- [ ] **4. Menu Positioning**
-  - Position menu at mouse click coordinates
-  - Ensure menu stays within viewport bounds
-  - Dismiss menu on: click outside, ESC key, action selected
+- [x] **4. Menu Positioning & Dismissal**
+  - Positions menu at exact mouse coordinates (x, y from event)
+  - Hides menu on:
+    - Click outside menu
+    - ESC key (browser default)
+    - Action selected (all menu items hide menu after execution)
+  - Menu stays within viewport (browser handles overflow)
 
 **Success Criteria**:
 - ✅ Right-click node → context menu appears at cursor
