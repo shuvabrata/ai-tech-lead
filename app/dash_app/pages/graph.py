@@ -142,12 +142,6 @@ CYTOSCAPE_STYLESHEET = [
 def get_layout():
     """Return the graph page layout"""
     return html.Div([
-        # Performance metrics section (hidden by default)
-        html.Div(
-            id="graph-performance-metrics",
-            style={"display": "none"}
-        ),
-        
         # Results Section
         html.Div([
             dcc.Loading(
@@ -343,6 +337,12 @@ def get_layout():
             "boxShadow": "0 1px 2px rgba(0,0,0,0.05)"
         }),
         
+        # Performance metrics section (hidden by default, shown after query execution)
+        html.Div(
+            id="graph-performance-metrics",
+            style={"display": "none"}
+        ),
+        
         # Hidden data store for graph data
         dcc.Store(id="graph-data-store", data=None),
         
@@ -421,7 +421,107 @@ def neo4j_to_cytoscape(graph_response):
     return elements
 
 
-def _create_error_alert(message, alert_type='danger', hint=None, heading="Query Execution Failed"):
+def _parse_error_response(error_data, status_code):
+    """Parse backend error response and provide user-friendly messages with helpful links
+    
+    Args:
+        error_data (dict): Error response from backend API
+        status_code (int): HTTP status code
+    
+    Returns:
+        tuple: (message, hint, doc_link, alert_type)
+    """
+    # Extract error details
+    error_type = error_data.get("detail", {}).get("error", "Unknown error")
+    error_message = error_data.get("detail", {}).get("message", "")
+    
+    # Neo4j Cypher documentation base URL
+    CYPHER_DOCS = "https://neo4j.com/docs/cypher-manual/current/"
+    
+    # Parse and categorize errors
+    if status_code == 400:
+        # Validation errors
+        if "write operation" in error_message.lower() or "validation failed" in error_type.lower():
+            return (
+                "🚫 Write operations are not allowed",
+                "Only read-only queries (MATCH, RETURN, WITH, etc.) are permitted for security reasons. Remove CREATE, MERGE, DELETE, SET, or similar keywords from your query.",
+                f"{CYPHER_DOCS}clauses/match/",
+                "danger"
+            )
+        elif "syntax error" in error_message.lower():
+            # Extract the actual syntax error message
+            return (
+                "❌ Cypher Syntax Error",
+                f"Your query has a syntax error: {error_message}. Check for missing parentheses, keywords, or commas.",
+                f"{CYPHER_DOCS}syntax/",
+                "danger"
+            )
+        else:
+            return (
+                "⚠️ Query Validation Error",
+                error_message or "Your query did not pass validation. Check the query syntax and try again.",
+                f"{CYPHER_DOCS}introduction/",
+                "warning"
+            )
+    
+    elif status_code == 500:
+        # Server/execution errors
+        if "unable to connect" in error_message.lower() or "connection" in error_message.lower():
+            return (
+                "🔌 Unable to Connect to Neo4j",
+                f"Cannot establish connection to Neo4j database. Please ensure Neo4j is running at {settings.NEO4J_URI} and the credentials are correct.",
+                "https://neo4j.com/docs/operations-manual/current/installation/",
+                "danger"
+            )
+        elif "timeout" in error_message.lower():
+            return (
+                "⏱️ Query Timeout",
+                "The query took too long to execute. Try simplifying your query or adding a LIMIT clause (e.g., LIMIT 100) to reduce the result set size.",
+                f"{CYPHER_DOCS}clauses/limit/",
+                "warning"
+            )
+        elif "syntax error" in error_message.lower():
+            return (
+                "❌ Cypher Syntax Error",
+                f"{error_message}. Common issues: missing RETURN clause, unmatched parentheses, or invalid property access.",
+                f"{CYPHER_DOCS}syntax/",
+                "danger"
+            )
+        elif "not enabled" in error_message.lower():
+            return (
+                "⚙️ Neo4j Not Enabled",
+                "Neo4j integration is not enabled in the application configuration. Contact your administrator.",
+                None,
+                "warning"
+            )
+        else:
+            return (
+                "💥 Query Execution Failed",
+                f"{error_message or 'An error occurred while executing your query. Check the query syntax and Neo4j connection.'}",
+                f"{CYPHER_DOCS}introduction/",
+                "danger"
+            )
+    
+    elif status_code == 503:
+        # Service unavailable
+        return (
+            "🚧 Service Unavailable",
+            "The Neo4j service is currently unavailable. Please try again later or contact your administrator.",
+            None,
+            "warning"
+        )
+    
+    else:
+        # Other errors
+        return (
+            "⚠️ Unexpected Error",
+            error_message or "An unexpected error occurred. Please try again or contact support if the issue persists.",
+            None,
+            "danger"
+        )
+
+
+def _create_error_alert(message, alert_type='danger', hint=None, heading="Query Execution Failed", doc_link=None):
     """Create an error/warning alert component
     
     Args:
@@ -429,6 +529,7 @@ def _create_error_alert(message, alert_type='danger', hint=None, heading="Query 
         alert_type (str): Bootstrap alert type ('danger', 'warning', 'info')
         hint (str, optional): Additional hint text
         heading (str, optional): Alert heading
+        doc_link (str, optional): URL to documentation for more help
     
     Returns:
         html.Div: Alert component
@@ -446,9 +547,26 @@ def _create_error_alert(message, alert_type='danger', hint=None, heading="Query 
                 html.I(className=f"fas {icon} me-2"),
                 heading
             ], className="alert-heading mb-2"),
-            html.P(message, className="mb-1"),
-            html.Small(hint, className="text-muted") if hint else None
+            html.P(message, className="mb-1", style={"fontSize": "14px"}),
+            html.Small(hint, className="text-muted d-block mb-2", style={"fontSize": "12px"}) if hint else None
         ]
+        
+        # Add documentation link if provided
+        if doc_link:
+            alert_content.append(
+                html.Hr(style={"margin": "8px 0"})
+            )
+            alert_content.append(
+                html.Small([
+                    html.I(className="fas fa-book me-1", style={"fontSize": "10px"}),
+                    html.A(
+                        "View Neo4j Documentation →",
+                        href=doc_link,
+                        target="_blank",
+                        style={"fontSize": "12px", "color": "inherit", "textDecoration": "underline"}
+                    )
+                ])
+            )
     else:
         alert_content = [
             html.I(className=f"fas {icon} me-2"),
@@ -707,7 +825,7 @@ clientside_callback(
     State("graph-fullwidth-state", "data"),
     prevent_initial_call=True
 )
-def toggle_fullwidth(n_clicks, is_fullwidth):
+def toggle_fullwidth(_n_clicks, is_fullwidth):
     """Toggle between full-width graph and normal view with details panel"""
     new_state = not is_fullwidth
     viz_width, panel_style = toggle_details_panel(new_state)
@@ -775,7 +893,7 @@ def validate_query(query_text):
     [State("graph-query-input", "value")],
     prevent_initial_call=True
 )
-def execute_query(n_clicks, query_text):
+def execute_query(_n_clicks, query_text):
     """Execute Cypher query and display results"""
     import time
     # Default empty states
@@ -823,10 +941,17 @@ def execute_query(n_clicks, query_text):
         # Handle error responses
         if response.status_code != 200:
             error_data = response.json() if response.headers.get('content-type') == 'application/json' else {}
-            error_message = error_data.get("detail", {}).get("error", str(response.text))
-            error_hint = error_data.get("detail", {}).get("hint", "")
             
-            error_display = _create_error_alert(error_message, hint=error_hint)
+            # Parse error and get user-friendly message
+            heading, hint, doc_link, alert_type = _parse_error_response(error_data, response.status_code)
+            
+            error_display = _create_error_alert(
+                "",  # message is in heading for parsed errors
+                alert_type=alert_type,
+                hint=hint,
+                heading=heading,
+                doc_link=doc_link
+            )
             return None, empty_elements, hide_style, None, hide_style, error_display, default_container_style, hide_style, None, hide_style
         
         response.raise_for_status()
@@ -879,25 +1004,43 @@ def execute_query(n_clicks, query_text):
         
     except requests.exceptions.Timeout:
         error_display = _create_error_alert(
-            f"Query timeout: The query took longer than {TIMEOUT_SECONDS} seconds to execute.",
+            "",
             alert_type='warning',
-            heading=None
+            heading=f"⏱️ Request Timeout ({TIMEOUT_SECONDS}s)",
+            hint=f"The request to the backend API took longer than {TIMEOUT_SECONDS} seconds. Your query might be too complex or the database is slow. Try adding LIMIT 100 to reduce the result set.",
+            doc_link="https://neo4j.com/docs/cypher-manual/current/clauses/limit/"
         )
         return None, empty_elements, hide_style, None, hide_style, error_display, default_container_style, hide_style, None, hide_style
     
     except requests.exceptions.ConnectionError:
+        api_url = os.getenv("API_BASE_URL", "http://localhost:8000")
         error_display = _create_error_alert(
-            "Connection error: Unable to connect to the backend API. Please ensure the server is running.",
-            heading=None
+            "",
+            alert_type='danger',
+            heading="🔌 Backend API Connection Failed",
+            hint=f"Unable to connect to the backend API at {api_url}. Please ensure the FastAPI server is running using 'uvicorn app.main:app --reload'.",
+            doc_link=None
         )
         return None, empty_elements, hide_style, None, hide_style, error_display, default_container_style, hide_style, None, hide_style
     
     except requests.exceptions.HTTPError as e:
-        error_display = _create_error_alert(f"HTTP Error: {str(e)}", heading=None)
+        error_display = _create_error_alert(
+            "",
+            alert_type='danger',
+            heading="⚠️ HTTP Error",
+            hint=f"An HTTP error occurred: {str(e)}. This usually indicates a server-side issue. Check the backend logs for more details.",
+            doc_link=None
+        )
         return None, empty_elements, hide_style, None, hide_style, error_display, default_container_style, hide_style, None, hide_style
     
     except Exception as e:
-        error_display = _create_error_alert(f"Unexpected error: {str(e)}", heading=None)
+        error_display = _create_error_alert(
+            "",
+            alert_type='danger',
+            heading="💥 Unexpected Error",
+            hint=f"An unexpected error occurred: {str(e)}. Please try again or contact support if the issue persists.",
+            doc_link=None
+        )
         return None, empty_elements, hide_style, None, hide_style, error_display, default_container_style, hide_style, None, hide_style
 
 
