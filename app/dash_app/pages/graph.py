@@ -378,6 +378,10 @@ def get_layout():
         # Store for right-clicked node data: {node_id, x, y, timestamp}
         dcc.Store(id="rightclicked-node-store", data=None),
         
+        # --- Phase 1.1e: Keyboard Shortcuts ---
+        # Store for keyboard shortcuts: {key, timestamp}
+        dcc.Store(id="keyboard-shortcut-store", data=None),
+        
         # --- Phase 1.1d: Context Menu Component ---
         html.Div([
             html.Div("Expand Node...", id="ctx-menu-expand", className="context-menu-item", style={
@@ -455,6 +459,15 @@ def get_layout():
                         className="mb-2"
                     ),
                     html.Small("Will load up to this many neighbors (1-500)", className="text-muted", style={"fontSize": "11px"})
+                ]),
+                html.Div([
+                    dbc.Checkbox(
+                        id="expansion-auto-fit-checkbox",
+                        label="Auto-fit graph after expansion",
+                        value=True,
+                        className="mt-3"
+                    ),
+                    html.Small("Automatically zoom to show all nodes", className="text-muted d-block", style={"fontSize": "11px", "marginLeft": "24px"})
                 ]),
             ]),
             dbc.ModalFooter([
@@ -903,7 +916,7 @@ def _build_property_items(properties):
     return prop_items
 
 
-# Clientside callback to fit graph to screen without re-running layout
+# Clientside callback to fit graph to screen when button clicked
 clientside_callback(
     """
     function(n_clicks) {
@@ -915,11 +928,32 @@ clientside_callback(
                 elem._cyreg.cy.fit(null, 30);  // 30px padding
             }
         }
-        return n_clicks || 0;
+        return window.dash_clientside.no_update;
     }
     """,
-    Output("graph-fit-trigger", "children"),
+    Output("graph-fit-btn", "className"),  # Dummy output
     Input("graph-fit-btn", "n_clicks"),
+    prevent_initial_call=True
+)
+
+
+# Clientside callback to fit graph when triggered programmatically (e.g., keyboard shortcuts)
+clientside_callback(
+    """
+    function(trigger_value) {
+        if (trigger_value) {
+            // Get the Cytoscape instance
+            const elem = document.getElementById('graph-cytoscape');
+            if (elem && elem._cyreg && elem._cyreg.cy) {
+                // Call fit() to zoom/pan to show all elements
+                elem._cyreg.cy.fit(null, 30);  // 30px padding
+            }
+        }
+        return window.dash_clientside.no_update;
+    }
+    """,
+    Output("graph-fit-trigger", "className"),  # Dummy output
+    Input("graph-fit-trigger", "children"),
     prevent_initial_call=True
 )
 
@@ -1559,6 +1593,15 @@ def execute_doubleclick_expansion(dblclick_data, current_elements, loaded_node_i
                 "timestamp": datetime.now().isoformat()
             }
             
+            # Edge case: No new neighbors found
+            if len(new_nodes) == 0:
+                info_msg = dbc.Alert([
+                    html.I(className="fas fa-info-circle me-2"),
+                    "No new neighbors found. Node may have no connections or all neighbors already loaded."
+                ], color="info", className="mb-0", dismissable=True, duration=4000)
+                return (current_elements, updated_expanded, loaded_node_ids, updated_debounce,
+                       info_msg, show_style, current_layout)
+            
             # Success message
             has_more = pagination.get("has_more", False)
             more_msg = " (More available)" if has_more else ""
@@ -1588,6 +1631,14 @@ def execute_doubleclick_expansion(dblclick_data, current_elements, loaded_node_i
             html.I(className="fas fa-clock me-2"),
             "Double-click expansion timed out"
         ], color="warning", className="mb-0", dismissable=True)
+        return (current_elements, expanded_nodes, loaded_node_ids, updated_debounce,
+               error_alert, show_style, current_layout)
+    
+    except requests.exceptions.ConnectionError:
+        error_alert = dbc.Alert([
+            html.I(className="fas fa-plug me-2"),
+            "Could not connect to server. Please check your connection."
+        ], color="danger", className="mb-0", dismissable=True)
         return (current_elements, expanded_nodes, loaded_node_ids, updated_debounce,
                error_alert, show_style, current_layout)
         
@@ -1756,6 +1807,16 @@ def context_menu_quick_expand(n_clicks_incoming, n_clicks_outgoing, rightclick_d
                 "timestamp": datetime.now().isoformat()
             }
             
+            # Edge case: No new neighbors found
+            if len(new_nodes) == 0:
+                direction_label = "Incoming" if direction == "incoming" else "Outgoing"
+                info_msg = dbc.Alert([
+                    html.I(className="fas fa-info-circle me-2"),
+                    f"No new {direction_label.lower()} neighbors found."
+                ], color="info", className="mb-0", dismissable=True, duration=4000)
+                return (merged_elements, updated_expanded, updated_loaded_ids, updated_menu_style,
+                       info_msg, show_style, current_layout)
+            
             # Success message
             direction_label = "Incoming" if direction == "incoming" else "Outgoing"
             has_more = pagination.get("has_more", False)
@@ -1781,6 +1842,22 @@ def context_menu_quick_expand(n_clicks_incoming, n_clicks_outgoing, rightclick_d
             return (current_elements, expanded_nodes, loaded_node_ids, updated_menu_style,
                    error_alert, show_style, current_layout)
             
+    except requests.exceptions.Timeout:
+        error_alert = dbc.Alert([
+            html.I(className="fas fa-clock me-2"),
+            "Quick expansion timed out"
+        ], color="warning", className="mb-0", dismissable=True)
+        return (current_elements, expanded_nodes, loaded_node_ids, updated_menu_style,
+               error_alert, show_style, current_layout)
+    
+    except requests.exceptions.ConnectionError:
+        error_alert = dbc.Alert([
+            html.I(className="fas fa-plug me-2"),
+            "Could not connect to server. Please check your connection."
+        ], color="danger", className="mb-0", dismissable=True)
+        return (current_elements, expanded_nodes, loaded_node_ids, updated_menu_style,
+               error_alert, show_style, current_layout)
+    
     except Exception as e:
         error_alert = dbc.Alert([
             html.I(className="fas fa-exclamation-triangle me-2"),
@@ -1922,6 +1999,95 @@ clientside_callback(
 )
 
 
+# ==================== Phase 1.1e: Keyboard Shortcuts ====================
+
+# Clientside callback to capture keyboard shortcuts
+clientside_callback(
+    """
+    function(elements) {
+        // Only attach listener once
+        if (!window._keyboardListenerAttached) {
+            document.addEventListener('keydown', function(e) {
+                // Ignore if user is typing in an input field
+                if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+                    return;
+                }
+                
+                const key = e.key.toLowerCase();
+                const timestamp = Date.now();
+                
+                // E key: Expand selected node
+                if (key === 'e') {
+                    e.preventDefault();
+                    if (window.dash_clientside && window.dash_clientside.set_props) {
+                        window.dash_clientside.set_props('keyboard-shortcut-store', {
+                            data: { key: 'e', action: 'expand', timestamp: timestamp }
+                        });
+                    }
+                }
+                
+                // F key: Fit graph to view
+                else if (key === 'f') {
+                    e.preventDefault();
+                    if (window.dash_clientside && window.dash_clientside.set_props) {
+                        window.dash_clientside.set_props('keyboard-shortcut-store', {
+                            data: { key: 'f', action: 'fit', timestamp: timestamp }
+                        });
+                    }
+                }
+            });
+            
+            window._keyboardListenerAttached = true;
+            console.log('[Phase 1.1e] Keyboard shortcuts listener attached (E = expand, F = fit)');
+        }
+        return window.dash_clientside.no_update;
+    }
+    """,
+    Output("keyboard-shortcut-store", "data"),
+    Input("graph-cytoscape", "elements"),
+    prevent_initial_call=False
+)
+
+
+# Python callback to handle keyboard shortcuts
+@callback(
+    [Output("expansion-modal", "is_open", allow_duplicate=True),
+     Output("selected-node-for-expansion", "data", allow_duplicate=True),
+     Output("graph-fit-trigger", "children", allow_duplicate=True)],
+    Input("keyboard-shortcut-store", "data"),
+    [State("graph-cytoscape", "selectedNodeData"),
+     State("graph-fit-trigger", "children")],
+    prevent_initial_call=True
+)
+def handle_keyboard_shortcuts(shortcut_data, selected_nodes, current_fit_count):
+    """Handle keyboard shortcuts for expansion and navigation"""
+    if not shortcut_data or not isinstance(shortcut_data, dict):
+        raise PreventUpdate
+    
+    action = shortcut_data.get("action")
+    
+    # E key: Open expansion modal for selected node
+    if action == "expand":
+        if selected_nodes and len(selected_nodes) > 0:
+            node_id = str(selected_nodes[0].get('id', ''))
+            if node_id:
+                # Open modal with selected node
+                return True, node_id, current_fit_count or 0
+        # No node selected - prevent update
+        raise PreventUpdate
+    
+    # F key: Fit graph to view
+    elif action == "fit":
+        # Trigger fit by incrementing the counter
+        new_count = (current_fit_count or 0) + 1
+        return False, None, new_count
+    
+    raise PreventUpdate
+
+
+# ==================== Phase 1.1b: Node Expansion Callbacks ====================
+
+
 # ==================== Phase 1.1b: Node Expansion Callbacks ====================
 
 # Callback to open expansion modal when "Expand Node" button clicked
@@ -1962,25 +2128,29 @@ def close_expansion_modal(n_clicks):
      Output("expansion-modal", "is_open", allow_duplicate=True),
      Output("graph-table-container", "children", allow_duplicate=True),
      Output("graph-table-container", "style", allow_duplicate=True),
-     Output("graph-layout-selector", "value", allow_duplicate=True)],
+     Output("graph-layout-selector", "value", allow_duplicate=True),
+     Output("graph-fit-trigger", "children", allow_duplicate=True)],
     Input("expansion-modal-expand", "n_clicks"),
     [State("selected-node-for-expansion", "data"),
      State("expansion-direction-selector", "value"),
      State("expansion-limit-input", "value"),
+     State("expansion-auto-fit-checkbox", "value"),
      State("graph-cytoscape", "elements"),
      State("loaded-node-ids", "data"),
      State("expanded-nodes", "data"),
-     State("graph-layout-selector", "value")],
+     State("graph-layout-selector", "value"),
+     State("graph-fit-trigger", "children")],
     prevent_initial_call=True
 )
-def execute_node_expansion(n_clicks, node_id, direction, limit, current_elements, 
-                          loaded_node_ids, expanded_nodes, current_layout):
+def execute_node_expansion(n_clicks, node_id, direction, limit, auto_fit, current_elements, 
+                          loaded_node_ids, expanded_nodes, current_layout, current_fit_count):
     """Execute node expansion by calling backend API and merging results"""
     show_style = {"display": "block"}
     hide_style = {"display": "none"}
+    fit_count = current_fit_count or 0
     
     if not n_clicks or not node_id:
-        return current_elements, expanded_nodes, loaded_node_ids, True, None, hide_style, current_layout
+        return current_elements, expanded_nodes, loaded_node_ids, True, None, hide_style, current_layout, fit_count
     
     try:
         # Prepare request payload
@@ -2033,6 +2203,15 @@ def execute_node_expansion(n_clicks, node_id, direction, limit, current_elements
                 "timestamp": datetime.now().isoformat()
             }
             
+            # Edge case: No new neighbors found
+            if len(new_nodes) == 0:
+                info_msg = dbc.Alert([
+                    html.I(className="fas fa-info-circle me-2"),
+                    "No new neighbors found. Node may have no connections or all neighbors already loaded."
+                ], color="info", className="mb-0", dismissable=True, duration=4000)
+                # Close modal and return
+                return current_elements, updated_expanded, loaded_node_ids, False, info_msg, show_style, current_layout, fit_count
+            
             # Success message
             has_more = pagination.get("has_more", False)
             more_msg = " (More available)" if has_more else ""
@@ -2041,9 +2220,13 @@ def execute_node_expansion(n_clicks, node_id, direction, limit, current_elements
                 f"Expansion complete! Loaded {len(new_nodes)} new nodes, {len(new_relationships)} new relationships{more_msg}"
             ], color="success", className="mb-0", dismissable=True, duration=4000)
             
+            # Auto-fit if enabled
+            if auto_fit:
+                fit_count = fit_count + 1
+            
             # Close modal and return updated data
             # Trigger layout re-run to accommodate new nodes
-            return merged_elements, updated_expanded, updated_loaded_ids, False, success_msg, show_style, current_layout
+            return merged_elements, updated_expanded, updated_loaded_ids, False, success_msg, show_style, current_layout, fit_count
             
         else:
             # Handle error response
@@ -2054,18 +2237,25 @@ def execute_node_expansion(n_clicks, node_id, direction, limit, current_elements
                 html.I(className="fas fa-exclamation-circle me-2"),
                 f"Expansion failed: {error_msg}"
             ], color="danger", className="mb-0", dismissable=True)
-            return current_elements, expanded_nodes, loaded_node_ids, True, error_alert, show_style, current_layout
+            return current_elements, expanded_nodes, loaded_node_ids, True, error_alert, show_style, current_layout, fit_count
             
     except requests.exceptions.Timeout:
         error_alert = dbc.Alert([
             html.I(className="fas fa-clock me-2"),
             "Request timed out. The expansion took too long."
         ], color="warning", className="mb-0", dismissable=True)
-        return current_elements, expanded_nodes, loaded_node_ids, True, error_alert, show_style, current_layout
+        return current_elements, expanded_nodes, loaded_node_ids, True, error_alert, show_style, current_layout, fit_count
+    
+    except requests.exceptions.ConnectionError:
+        error_alert = dbc.Alert([
+            html.I(className="fas fa-plug me-2"),
+            "Could not connect to server. Please check your connection."
+        ], color="danger", className="mb-0", dismissable=True)
+        return current_elements, expanded_nodes, loaded_node_ids, True, error_alert, show_style, current_layout, fit_count
         
     except Exception as e:
         error_alert = dbc.Alert([
             html.I(className="fas fa-exclamation-triangle me-2"),
             f"Error: {str(e)}"
         ], color="danger", className="mb-0", dismissable=True)
-        return current_elements, expanded_nodes, loaded_node_ids, True, error_alert, show_style, current_layout
+        return current_elements, expanded_nodes, loaded_node_ids, True, error_alert, show_style, current_layout, fit_count
