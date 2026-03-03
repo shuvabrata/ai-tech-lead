@@ -202,14 +202,18 @@ def expand_node_query(
     # Build query based on direction
     if direction == "incoming":
         # Incoming: other nodes point TO this node
+        # First collect limited unique nodes, then get ALL their relationships
         query = f"""
         MATCH (m)-[r{relationship_filter}]->(n)
         WHERE elementId(n) = $node_id 
         AND NOT elementId(m) IN $exclude_node_ids
-        RETURN m, r
+        WITH DISTINCT m
         ORDER BY elementId(m)
         SKIP $offset
         LIMIT $limit
+        MATCH (m)-[r{relationship_filter}]->(n)
+        WHERE elementId(n) = $node_id
+        RETURN m, r
         """
         count_query = f"""
         MATCH (m)-[r{relationship_filter}]->(n)
@@ -228,14 +232,18 @@ def expand_node_query(
         
     elif direction == "outgoing":
         # Outgoing: this node points TO other nodes
+        # First collect limited unique nodes, then get ALL their relationships
         query = f"""
         MATCH (n)-[r{relationship_filter}]->(m)
         WHERE elementId(n) = $node_id
         AND NOT elementId(m) IN $exclude_node_ids
-        RETURN m, r
+        WITH DISTINCT m
         ORDER BY elementId(m)
         SKIP $offset
         LIMIT $limit
+        MATCH (n)-[r{relationship_filter}]->(m)
+        WHERE elementId(n) = $node_id
+        RETURN m, r
         """
         count_query = f"""
         MATCH (n)-[r{relationship_filter}]->(m)
@@ -253,41 +261,30 @@ def expand_node_query(
         """
         
     else:  # both
-        # Both directions: UNION of incoming and outgoing
+        # Both directions: use undirected pattern to get nodes from both directions
+        # First collect limited unique nodes, then get ALL their relationships
         query = f"""
-        MATCH (m)-[r{relationship_filter}]->(n)
+        MATCH (m)-[r{relationship_filter}]-(n)
         WHERE elementId(n) = $node_id
         AND NOT elementId(m) IN $exclude_node_ids
-        RETURN m, r
-        UNION
-        MATCH (n)-[r{relationship_filter}]->(m)
-        WHERE elementId(n) = $node_id
-        AND NOT elementId(m) IN $exclude_node_ids
-        RETURN m, r
+        WITH DISTINCT m
         ORDER BY elementId(m)
         SKIP $offset
         LIMIT $limit
+        MATCH (m)-[r{relationship_filter}]-(n)
+        WHERE elementId(n) = $node_id
+        RETURN m, r
         """
         count_query = f"""
-        MATCH (m)-[r{relationship_filter}]->(n)
+        MATCH (m)-[r{relationship_filter}]-(n)
         WHERE elementId(n) = $node_id
         AND NOT elementId(m) IN $exclude_node_ids
-        RETURN count(DISTINCT m) as c1
-        UNION
-        MATCH (n)-[r{relationship_filter}]->(m)
-        WHERE elementId(n) = $node_id
-        AND NOT elementId(m) IN $exclude_node_ids
-        RETURN count(DISTINCT m) as c1
+        RETURN count(DISTINCT m) as total
         """
         
-        # Query for relationships to already-loaded nodes
+        # Query for relationships to already-loaded nodes (no limit on relationships)
         relationships_only_query = f"""
-        MATCH (m)-[r{relationship_filter}]->(n)
-        WHERE elementId(n) = $node_id 
-        AND elementId(m) IN $exclude_node_ids
-        RETURN null as m, r
-        UNION
-        MATCH (n)-[r{relationship_filter}]->(m)
+        MATCH (m)-[r{relationship_filter}]-(n)
         WHERE elementId(n) = $node_id 
         AND elementId(m) IN $exclude_node_ids
         RETURN null as m, r
@@ -306,23 +303,14 @@ def expand_node_query(
         
         # Execute count query first to get total
         with driver.session() as session:
-            # Get total count
-            if direction == "both":
-                # For UNION, sum the counts
-                count_result = session.run(
-                    count_query,
-                    node_id=node_id,
-                    exclude_node_ids=exclude_ids_param
-                )
-                total = sum([record["c1"] for record in count_result])
-            else:
-                count_result = session.run(
-                    count_query,
-                    node_id=node_id,
-                    exclude_node_ids=exclude_ids_param
-                )
-                count_record = count_result.single()
-                total = count_record["total"] if count_record else 0
+            # Get total count of unique nodes
+            count_result = session.run(
+                count_query,
+                node_id=node_id,
+                exclude_node_ids=exclude_ids_param
+            )
+            count_record = count_result.single()
+            total = count_record["total"] if count_record else 0
             
             # Execute main query (new nodes + their relationships)
             result = session.run(
