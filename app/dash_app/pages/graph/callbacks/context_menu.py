@@ -116,7 +116,7 @@ def context_menu_quick_expand(n_clicks_incoming, n_clicks_outgoing, rightclick_d
     
     try:
         # Use default limit for quick expansion
-        limit = 50
+        limit = settings.GRAPH_UI_MAX_NODES_TO_EXPAND
         
         # Prepare request payload
         exclude_ids = loaded_node_ids if loaded_node_ids else []

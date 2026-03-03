@@ -66,7 +66,7 @@ def execute_doubleclick_expansion(dblclick_data, current_elements, loaded_node_i
     try:
         # Use default parameters for double-click expansion
         direction = "both"
-        limit = 50
+        limit = settings.GRAPH_UI_MAX_NODES_TO_EXPAND
         
         # Prepare request payload
         exclude_ids = loaded_node_ids if loaded_node_ids else []

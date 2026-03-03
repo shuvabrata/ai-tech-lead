@@ -152,7 +152,7 @@ def expand_node_query(
     node_id: str,
     direction: str = "both",
     relationship_types: List[str] = None,
-    limit: int = 50,
+    limit: int = None,
     offset: int = 0,
     exclude_node_ids: List[str] = None
 ) -> Dict[str, Any]:
@@ -186,6 +186,10 @@ def expand_node_query(
     """
     if not settings.NEO4J_ENABLED:
         raise RuntimeError("Neo4j is not enabled. Set NEO4J_ENABLED=true in .env")
+    
+    # Use configured default if limit not provided
+    if limit is None:
+        limit = settings.GRAPH_UI_MAX_NODES_TO_EXPAND
     
     # Build Cypher query based on direction
     relationship_filter = ""
@@ -302,6 +306,7 @@ def expand_node_query(
         driver.verify_connectivity()
         
         # Execute count query first to get total
+
         with driver.session() as session:
             # Get total count of unique nodes
             count_result = session.run(

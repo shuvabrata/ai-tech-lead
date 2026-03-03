@@ -8,6 +8,8 @@ Modal dialogs for graph interactions:
 import dash_bootstrap_components as dbc
 from dash import html
 
+from app.settings import settings
+
 
 def create_expansion_modal():
     """Create the node expansion configuration modal
@@ -37,7 +39,7 @@ def create_expansion_modal():
                 dbc.Input(
                     id="expansion-limit-input",
                     type="number",
-                    value=50,
+                    value=settings.GRAPH_UI_MAX_NODES_TO_EXPAND,
                     min=1,
                     max=500,
                     step=1,

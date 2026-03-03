@@ -3,6 +3,8 @@
 from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field, field_validator
 
+from app.settings import settings
+
 
 class CypherQueryRequest(BaseModel):
     """Request model for executing a Cypher query."""
@@ -146,7 +148,7 @@ class NodeExpansionRequest(BaseModel):
         description="Filter by specific relationship types. If None, all types are included."
     )
     limit: int = Field(
-        default=50,
+        default=settings.GRAPH_UI_MAX_NODES_TO_EXPAND,
         ge=1,
         le=500,
         description="Maximum number of connected nodes to return (pagination)"

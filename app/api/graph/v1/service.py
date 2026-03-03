@@ -205,7 +205,7 @@ def expand_node(
     node_id: str,
     direction: str = "both",
     relationship_types: List[str] = None,
-    limit: int = 50,
+    limit: int = None,
     offset: int = 0,
     exclude_node_ids: List[str] = None
 ) -> NodeExpansionResponse:
@@ -239,6 +239,10 @@ def expand_node(
         >>> len(response.nodes) <= 10
         True
     """
+    # Use configured default if limit not provided
+    if limit is None:
+        limit = settings.GRAPH_UI_MAX_NODES_TO_EXPAND
+    
     logger.info(f"Expanding node {node_id} in direction '{direction}' with limit={limit}, offset={offset}")
     
     # Execute expansion query

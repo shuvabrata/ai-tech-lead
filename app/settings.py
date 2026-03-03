@@ -20,6 +20,9 @@ class Settings(BaseSettings):
     
     # Neo4j query timeout (should be less than HTTP_REQUEST_TIMEOUT to allow overhead)
     NEO4J_QUERY_TIMEOUT: int = 10
+    
+    # Graph UI configuration
+    GRAPH_UI_MAX_NODES_TO_EXPAND: int = 20
 
     model_config = SettingsConfigDict(
         env_file=".env",
