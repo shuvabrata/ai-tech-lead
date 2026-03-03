@@ -248,6 +248,67 @@ def create_performance_metrics(node_count, rel_count, execution_time_ms, is_grap
     })
 
 
+def create_expansion_success_alert(node_count, rel_count, has_more=False):
+    """Create a success alert for node expansion
+    
+    Args:
+        node_count (int): Number of nodes loaded
+        rel_count (int): Number of relationships loaded
+        has_more (bool): Whether more nodes are available beyond the limit
+    
+    Returns:
+        dbc.Alert: Success alert component
+    """
+    message_parts = [
+        html.I(className="fas fa-check-circle me-2"),
+        f"Expansion complete! Loaded {node_count} new nodes, {rel_count} new relationships"
+    ]
+    if has_more:
+        message_parts.extend([
+            html.Span(" "),
+            html.I(className="fas fa-exclamation-triangle me-1", style={"color": "#ffc107"}),
+            html.Span("More available", style={"color": "#ffc107", "fontWeight": "500"})
+        ])
+    return dbc.Alert(message_parts, color="success", className="mb-0", dismissable=True)
+
+
+def create_no_neighbors_alert():
+    """Create an info alert for when no new neighbors are found
+    
+    Returns:
+        dbc.Alert: Info alert component
+    """
+    return dbc.Alert([
+        html.I(className="fas fa-info-circle me-2"),
+        "No new neighbors found. Node may have no connections or all neighbors already loaded."
+    ], color="info", className="mb-0", dismissable=True, duration=4000)
+
+
+def create_expansion_error_alert(error_message, error_type="general"):
+    """Create an error alert for expansion failures
+    
+    Args:
+        error_message (str): The error message to display
+        error_type (str): Type of error ('general', 'timeout', 'connection')
+    
+    Returns:
+        dbc.Alert: Error alert component
+    """
+    icon_map = {
+        'general': 'fa-exclamation-circle',
+        'timeout': 'fa-clock',
+        'connection': 'fa-plug'
+    }
+    icon = icon_map.get(error_type, 'fa-exclamation-triangle')
+    
+    color = 'warning' if error_type == 'timeout' else 'danger'
+    
+    return dbc.Alert([
+        html.I(className=f"fas {icon} me-2"),
+        error_message
+    ], color=color, className="mb-0", dismissable=True)
+
+
 def create_node_legend(node_types=None):
     """Create a legend showing node types and their colors
     

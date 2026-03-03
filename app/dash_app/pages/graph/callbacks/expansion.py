@@ -5,11 +5,15 @@ Callbacks for node expansion (double-click and modal-based).
 
 from datetime import datetime
 import requests
-import dash_bootstrap_components as dbc
-from dash import html, Input, Output, State, callback
+from dash import Input, Output, State, callback
 
 from app.settings import settings
-from ..utils import neo4j_to_cytoscape
+from ..utils import (
+    neo4j_to_cytoscape,
+    create_expansion_success_alert,
+    create_no_neighbors_alert,
+    create_expansion_error_alert
+)
 
 TIMEOUT_SECONDS = settings.HTTP_REQUEST_TIMEOUT
 
@@ -120,20 +124,13 @@ def execute_doubleclick_expansion(dblclick_data, current_elements, loaded_node_i
             
             # Edge case: No new neighbors found
             if len(new_nodes) == 0:
-                info_msg = dbc.Alert([
-                    html.I(className="fas fa-info-circle me-2"),
-                    "No new neighbors found. Node may have no connections or all neighbors already loaded."
-                ], color="info", className="mb-0", dismissable=True, duration=4000)
+                info_msg = create_no_neighbors_alert()
                 return (current_elements, updated_expanded, loaded_node_ids, updated_debounce,
                        info_msg, show_style, current_layout)
             
             # Success message
             has_more = pagination.get("has_more", False)
-            more_msg = " (More available)" if has_more else ""
-            success_msg = dbc.Alert([
-                html.I(className="fas fa-bolt me-2"),
-                f"Double-click expansion: Loaded {len(new_nodes)} new nodes, {len(new_relationships)} new relationships{more_msg}"
-            ], color="info", className="mb-0", dismissable=True)
+            success_msg = create_expansion_success_alert(len(new_nodes), len(new_relationships), has_more)
             
             # Return updated data
             return (merged_elements, updated_expanded, updated_loaded_ids, updated_debounce,
@@ -144,34 +141,25 @@ def execute_doubleclick_expansion(dblclick_data, current_elements, loaded_node_i
             error_data = response.json() if response.content else {}
             error_msg = error_data.get("detail", {}).get("message", "Unknown error")
             
-            error_alert = dbc.Alert([
-                html.I(className="fas fa-exclamation-circle me-2"),
-                f"Double-click expansion failed: {error_msg}"
-            ], color="danger", className="mb-0", dismissable=True)
+            error_alert = create_expansion_error_alert(f"Expansion failed: {error_msg}")
             return (current_elements, expanded_nodes, loaded_node_ids, updated_debounce,
                    error_alert, show_style, current_layout)
             
     except requests.exceptions.Timeout:
-        error_alert = dbc.Alert([
-            html.I(className="fas fa-clock me-2"),
-            "Double-click expansion timed out"
-        ], color="warning", className="mb-0", dismissable=True)
+        error_alert = create_expansion_error_alert("Expansion timed out", error_type="timeout")
         return (current_elements, expanded_nodes, loaded_node_ids, updated_debounce,
                error_alert, show_style, current_layout)
     
     except requests.exceptions.ConnectionError:
-        error_alert = dbc.Alert([
-            html.I(className="fas fa-plug me-2"),
-            "Could not connect to server. Please check your connection."
-        ], color="danger", className="mb-0", dismissable=True)
+        error_alert = create_expansion_error_alert(
+            "Could not connect to server. Please check your connection.",
+            error_type="connection"
+        )
         return (current_elements, expanded_nodes, loaded_node_ids, updated_debounce,
                error_alert, show_style, current_layout)
         
     except Exception as e:
-        error_alert = dbc.Alert([
-            html.I(className="fas fa-exclamation-triangle me-2"),
-            f"Double-click expansion error: {str(e)}"
-        ], color="danger", className="mb-0", dismissable=True)
+        error_alert = create_expansion_error_alert(f"Expansion error: {str(e)}")
         return (current_elements, expanded_nodes, loaded_node_ids, updated_debounce,
                error_alert, show_style, current_layout)
 
@@ -288,20 +276,13 @@ def execute_node_expansion(n_clicks, node_id, direction, limit, auto_fit, curren
             
             # Edge case: No new neighbors found
             if len(new_nodes) == 0:
-                info_msg = dbc.Alert([
-                    html.I(className="fas fa-info-circle me-2"),
-                    "No new neighbors found. Node may have no connections or all neighbors already loaded."
-                ], color="info", className="mb-0", dismissable=True, duration=4000)
+                info_msg = create_no_neighbors_alert()
                 # Close modal and return
                 return current_elements, updated_expanded, loaded_node_ids, False, info_msg, show_style, current_layout, fit_count
             
             # Success message
             has_more = pagination.get("has_more", False)
-            more_msg = " (More available)" if has_more else ""
-            success_msg = dbc.Alert([
-                html.I(className="fas fa-check-circle me-2"),
-                f"Expansion complete! Loaded {len(new_nodes)} new nodes, {len(new_relationships)} new relationships{more_msg}"
-            ], color="success", className="mb-0", dismissable=True)
+            success_msg = create_expansion_success_alert(len(new_nodes), len(new_relationships), has_more)
             
             # Auto-fit if enabled
             if auto_fit:
@@ -316,29 +297,23 @@ def execute_node_expansion(n_clicks, node_id, direction, limit, auto_fit, curren
             error_data = response.json() if response.content else {}
             error_msg = error_data.get("detail", {}).get("message", "Unknown error")
             
-            error_alert = dbc.Alert([
-                html.I(className="fas fa-exclamation-circle me-2"),
-                f"Expansion failed: {error_msg}"
-            ], color="danger", className="mb-0", dismissable=True)
+            error_alert = create_expansion_error_alert(f"Expansion failed: {error_msg}")
             return current_elements, expanded_nodes, loaded_node_ids, True, error_alert, show_style, current_layout, fit_count
             
     except requests.exceptions.Timeout:
-        error_alert = dbc.Alert([
-            html.I(className="fas fa-clock me-2"),
-            "Request timed out. The expansion took too long."
-        ], color="warning", className="mb-0", dismissable=True)
+        error_alert = create_expansion_error_alert(
+            "Request timed out. The expansion took too long.",
+            error_type="timeout"
+        )
         return current_elements, expanded_nodes, loaded_node_ids, True, error_alert, show_style, current_layout, fit_count
     
     except requests.exceptions.ConnectionError:
-        error_alert = dbc.Alert([
-            html.I(className="fas fa-plug me-2"),
-            "Could not connect to server. Please check your connection."
-        ], color="danger", className="mb-0", dismissable=True)
+        error_alert = create_expansion_error_alert(
+            "Could not connect to server. Please check your connection.",
+            error_type="connection"
+        )
         return current_elements, expanded_nodes, loaded_node_ids, True, error_alert, show_style, current_layout, fit_count
         
     except Exception as e:
-        error_alert = dbc.Alert([
-            html.I(className="fas fa-exclamation-triangle me-2"),
-            f"Error: {str(e)}"
-        ], color="danger", className="mb-0", dismissable=True)
+        error_alert = create_expansion_error_alert(f"Error: {str(e)}")
         return current_elements, expanded_nodes, loaded_node_ids, True, error_alert, show_style, current_layout, fit_count

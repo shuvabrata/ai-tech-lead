@@ -13,7 +13,10 @@ from .ui_components import (
     create_graph_success_alert,
     create_performance_metrics,
     toggle_details_panel,
-    create_node_legend
+    create_node_legend,
+    create_expansion_success_alert,
+    create_no_neighbors_alert,
+    create_expansion_error_alert
 )
 from .formatters import format_property_value, build_property_items
 
@@ -28,6 +31,10 @@ __all__ = [
     'create_performance_metrics',
     'toggle_details_panel',
     'create_node_legend',
+    # Expansion-specific alerts
+    'create_expansion_success_alert',
+    'create_no_neighbors_alert',
+    'create_expansion_error_alert',
     # Formatters
     'format_property_value',
     'build_property_items'

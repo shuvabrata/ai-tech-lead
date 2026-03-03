@@ -10,7 +10,12 @@ from dash import html, Input, Output, State, callback, clientside_callback, call
 from dash.exceptions import PreventUpdate
 
 from app.settings import settings
-from ..utils import neo4j_to_cytoscape
+from ..utils import (
+    neo4j_to_cytoscape,
+    create_expansion_success_alert,
+    create_no_neighbors_alert,
+    create_expansion_error_alert
+)
 
 TIMEOUT_SECONDS = settings.HTTP_REQUEST_TIMEOUT
 
@@ -171,21 +176,14 @@ def context_menu_quick_expand(n_clicks_incoming, n_clicks_outgoing, rightclick_d
             # Edge case: No new neighbors found
             if len(new_nodes) == 0:
                 direction_label = "Incoming" if direction == "incoming" else "Outgoing"
-                info_msg = dbc.Alert([
-                    html.I(className="fas fa-info-circle me-2"),
-                    f"No new {direction_label.lower()} neighbors found."
-                ], color="info", className="mb-0", dismissable=True, duration=4000)
+                info_msg = create_no_neighbors_alert()
                 return (merged_elements, updated_expanded, updated_loaded_ids, updated_menu_style,
                        info_msg, show_style, current_layout)
             
             # Success message
             direction_label = "Incoming" if direction == "incoming" else "Outgoing"
             has_more = pagination.get("has_more", False)
-            more_msg = " (More available)" if has_more else ""
-            success_msg = dbc.Alert([
-                html.I(className="fas fa-context-menu me-2"),
-                f"{direction_label} expansion: Loaded {len(new_nodes)} new nodes, {len(new_relationships)} new relationships{more_msg}"
-            ], color="success", className="mb-0", dismissable=True)
+            success_msg = create_expansion_success_alert(len(new_nodes), len(new_relationships), has_more)
             
             # Return updated data
             return (merged_elements, updated_expanded, updated_loaded_ids, updated_menu_style,
@@ -196,34 +194,25 @@ def context_menu_quick_expand(n_clicks_incoming, n_clicks_outgoing, rightclick_d
             error_data = response.json() if response.content else {}
             error_msg = error_data.get("detail", {}).get("message", "Unknown error")
             
-            error_alert = dbc.Alert([
-                html.I(className="fas fa-exclamation-circle me-2"),
-                f"Quick expansion failed: {error_msg}"
-            ], color="danger", className="mb-0", dismissable=True)
+            error_alert = create_expansion_error_alert(f"Expansion failed: {error_msg}")
             return (current_elements, expanded_nodes, loaded_node_ids, updated_menu_style,
                    error_alert, show_style, current_layout)
             
     except requests.exceptions.Timeout:
-        error_alert = dbc.Alert([
-            html.I(className="fas fa-clock me-2"),
-            "Quick expansion timed out"
-        ], color="warning", className="mb-0", dismissable=True)
+        error_alert = create_expansion_error_alert("Expansion timed out", error_type="timeout")
         return (current_elements, expanded_nodes, loaded_node_ids, updated_menu_style,
                error_alert, show_style, current_layout)
     
     except requests.exceptions.ConnectionError:
-        error_alert = dbc.Alert([
-            html.I(className="fas fa-plug me-2"),
-            "Could not connect to server. Please check your connection."
-        ], color="danger", className="mb-0", dismissable=True)
+        error_alert = create_expansion_error_alert(
+            "Could not connect to server. Please check your connection.",
+            error_type="connection"
+        )
         return (current_elements, expanded_nodes, loaded_node_ids, updated_menu_style,
                error_alert, show_style, current_layout)
     
     except Exception as e:
-        error_alert = dbc.Alert([
-            html.I(className="fas fa-exclamation-triangle me-2"),
-            f"Quick expansion error: {str(e)}"
-        ], color="danger", className="mb-0", dismissable=True)
+        error_alert = create_expansion_error_alert(f"Expansion error: {str(e)}")
         return (current_elements, expanded_nodes, loaded_node_ids, updated_menu_style,
                error_alert, show_style, current_layout)
 
