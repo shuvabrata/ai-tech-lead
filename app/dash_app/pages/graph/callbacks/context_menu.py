@@ -185,7 +185,7 @@ def context_menu_quick_expand(n_clicks_incoming, n_clicks_outgoing, rightclick_d
             success_msg = dbc.Alert([
                 html.I(className="fas fa-context-menu me-2"),
                 f"{direction_label} expansion: Loaded {len(new_nodes)} new nodes, {len(new_relationships)} new relationships{more_msg}"
-            ], color="success", className="mb-0", dismissable=True, duration=3000)
+            ], color="success", className="mb-0", dismissable=True)
             
             # Return updated data
             return (merged_elements, updated_expanded, updated_loaded_ids, updated_menu_style,

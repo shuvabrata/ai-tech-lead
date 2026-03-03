@@ -133,7 +133,7 @@ def execute_doubleclick_expansion(dblclick_data, current_elements, loaded_node_i
             success_msg = dbc.Alert([
                 html.I(className="fas fa-bolt me-2"),
                 f"Double-click expansion: Loaded {len(new_nodes)} new nodes, {len(new_relationships)} new relationships{more_msg}"
-            ], color="info", className="mb-0", dismissable=True, duration=3000)
+            ], color="info", className="mb-0", dismissable=True)
             
             # Return updated data
             return (merged_elements, updated_expanded, updated_loaded_ids, updated_debounce,
@@ -301,7 +301,7 @@ def execute_node_expansion(n_clicks, node_id, direction, limit, auto_fit, curren
             success_msg = dbc.Alert([
                 html.I(className="fas fa-check-circle me-2"),
                 f"Expansion complete! Loaded {len(new_nodes)} new nodes, {len(new_relationships)} new relationships{more_msg}"
-            ], color="success", className="mb-0", dismissable=True, duration=4000)
+            ], color="success", className="mb-0", dismissable=True)
             
             # Auto-fit if enabled
             if auto_fit:
