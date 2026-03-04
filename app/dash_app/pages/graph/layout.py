@@ -153,6 +153,156 @@ def create_graph_container():
     )
 
 
+def create_filter_panel():
+    """Create relationship filtering controls panel (Phase 1.2.4)
+    
+    Returns:
+        html.Div containing collapsible filter controls
+    """
+    return html.Div([
+        # Collapsible header (always visible)
+        dbc.Button(
+            [
+                html.I(id="filter-collapse-icon", className="fas fa-chevron-right me-2"),
+                "Filters"
+            ],
+            id="toggle-filter-collapse-btn",
+            color="light",
+            className="w-100 text-start",
+            style={
+                "fontSize": "13px",
+                "fontWeight": "600",
+                "color": COLOR_GRAY_DARK,
+                "border": f"1px solid {COLOR_GRAY_LIGHTER}",
+                "borderRadius": "4px",
+                "padding": "8px 12px",
+                "marginBottom": "8px"
+            }
+        ),
+        
+        # Collapsible filter content
+        dbc.Collapse(
+            id="filter-panel-collapse",
+            is_open=False,
+            children=[
+                dbc.Card([
+                    dbc.CardBody([
+                        # Clear button
+                        html.Div([
+                            dbc.Button(
+                                "Clear All",
+                                id="clear-filters-btn",
+                                color="link",
+                                size="sm",
+                                className="ms-auto",
+                                style={"fontSize": "11px", "padding": "0", "textDecoration": "none"}
+                            )
+                        ], className="d-flex justify-content-end mb-3"),
+                    
+                    # Node Type Checkboxes
+                    html.Div([
+                        html.Label(
+                            "Node Types:",
+                            style={
+                                "fontSize": "11px",
+                                "fontWeight": FONT_WEIGHT_SEMIBOLD,
+                                "color": COLOR_GRAY_DARK,
+                                "marginBottom": "8px",
+                                "display": "block"
+                            }
+                        ),
+                        dbc.Checklist(
+                            id="node-type-filter",
+                            options=[],  # Populated dynamically
+                            value=[],   # All selected by default
+                            inline=False,
+                            style={"fontSize": "12px"}
+                        )
+                    ], className="mb-3"),
+                    
+                    # Relationship Type Checkboxes
+                    html.Div([
+                        html.Label(
+                            "Relationship Types:",
+                            style={
+                                "fontSize": "11px",
+                                "fontWeight": FONT_WEIGHT_SEMIBOLD,
+                                "color": COLOR_GRAY_DARK,
+                                "marginBottom": "8px",
+                                "display": "block"
+                            }
+                        ),
+                        dbc.Checklist(
+                            id="relationship-type-filter",
+                            options=[],  # Populated dynamically
+                            value=[],   # All selected by default
+                            inline=False,
+                            style={"fontSize": "12px"}
+                        )
+                    ], className="mb-3"),
+                    
+                    # Weight Threshold Slider
+                    html.Div([
+                        html.Label(
+                            "Weight Threshold:",
+                            style={
+                                "fontSize": "11px",
+                                "fontWeight": FONT_WEIGHT_SEMIBOLD,
+                                "color": COLOR_GRAY_DARK,
+                                "marginBottom": "8px",
+                                "display": "block"
+                            }
+                        ),
+                        html.Div([
+                            dcc.Slider(
+                                id="weight-threshold-slider",
+                                min=0,
+                                max=100,
+                                step=1,
+                                value=0,
+                                marks={0: '0', 25: '25', 50: '50', 75: '75', 100: '100'},
+                                tooltip={"placement": "bottom", "always_visible": False}
+                            ),
+                            html.Small(
+                                id="weight-threshold-label",
+                                children="Show edges with weight ≥ 0",
+                                className="text-muted d-block mt-1",
+                                style={"fontSize": "10px"}
+                            )
+                        ])
+                    ], className="mb-3"),
+                    
+                    # Top-N Toggle
+                    html.Div([
+                        html.Label(
+                            "Edge Limit:",
+                            style={
+                                "fontSize": "11px",
+                                "fontWeight": FONT_WEIGHT_SEMIBOLD,
+                                "color": COLOR_GRAY_DARK,
+                                "marginBottom": "8px",
+                                "display": "block"
+                            }
+                        ),
+                        dbc.RadioItems(
+                            id="top-n-toggle",
+                            options=[
+                                {"label": "Show All", "value": "all"},
+                                {"label": "Top 50 Edges", "value": "top50"},
+                                {"label": "Top 100 Edges", "value": "top100"}
+                            ],
+                            value="all",
+                            inline=False,
+                            style={"fontSize": "12px"}
+                        )
+                    ])
+                ], style={"padding": "12px"})
+            ], style={"border": f"1px solid {COLOR_GRAY_LIGHTER}", "borderRadius": "4px"})
+            ]
+        )
+    ], className="mb-3")
+
+
 def create_table_container():
     """Create container for tabular query results
     
@@ -196,30 +346,6 @@ def create_empty_state():
     )
 
 
-def create_details_panel():
-    """Create property details panel for selected nodes/edges
-    
-    Returns:
-        dbc.Col containing details panel
-    """
-    return dbc.Col([
-        html.Div(
-            id="graph-details-panel",
-            style=GRAPH_DETAILS_PANEL_STYLE,
-            children=[
-                html.Div([
-                    html.I(className="fas fa-info-circle fa-lg mb-2", style=GRAPH_DETAILS_PANEL_ICON_STYLE),
-                    html.P(
-                        "Click a node or edge to view details",
-                        className="text-muted mb-0",
-                        style={"fontSize": "12px"}
-                    )
-                ], className="text-center", style={"marginTop": "100px"})
-            ]
-        )
-    ], id="graph-details-col", width=4)
-
-
 def create_results_section():
     """Create the results section (graph + details panel)
     
@@ -240,8 +366,24 @@ def create_results_section():
                         create_empty_state()
                     ], id="graph-viz-col", width=8),
                     
-                    # Property details panel (collapsible)
-                    create_details_panel()
+                    # Right sidebar: Filters + Details panel
+                    dbc.Col([
+                        create_filter_panel(),
+                        html.Div(
+                            id="graph-details-panel",
+                            style=GRAPH_DETAILS_PANEL_STYLE,
+                            children=[
+                                html.Div([
+                                    html.I(className="fas fa-info-circle fa-lg mb-2", style=GRAPH_DETAILS_PANEL_ICON_STYLE),
+                                    html.P(
+                                        "Click a node or edge to view details",
+                                        className="text-muted mb-0",
+                                        style={"fontSize": "12px"}
+                                    )
+                                ], className="text-center", style={"marginTop": "100px"})
+                            ]
+                        )
+                    ], id="graph-details-col", width=4)
                 ])
             ]
         )
@@ -333,6 +475,10 @@ def create_stores():
         # --- Phase 1.1e: Keyboard Shortcuts ---
         # Store for keyboard shortcuts: {key, timestamp}
         dcc.Store(id="keyboard-shortcut-store", data=None),
+        
+        # --- Phase 1.2.4: Relationship Filtering ---
+        # Store for unfiltered graph elements (backup for reset)
+        dcc.Store(id="unfiltered-elements-store", data=[]),
     ]
 
 

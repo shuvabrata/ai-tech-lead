@@ -582,10 +582,13 @@ cy.on('dbltap', 'node', function(evt) {
   - 50ms debounce for hover events (performance optimization)
   - Right-click → context menu (deferred to future phase)
 
-- [ ] **1.2.4 Relationship Filtering UI**
-  - Checkbox list: Show/hide relationship types
-  - Slider: Filter by relationship count
-  - Toggle: Show all relationships vs. sample
+- [x] **1.2.4 Relationship Filtering UI** ✅ COMPLETE (March 4, 2026)
+  - Checkbox list: Show/hide relationship types (dynamically populated from loaded graph)
+  - Slider: Filter by edge weight threshold (min weight to display, range 0-100)
+  - Toggle: Show all vs. Top-N edges by weight (All / Top 50 / Top 100)
+  - Collapsible panel below graph with "Filters" button in controls
+  - Filtered edges completely hidden (removed from elements array)
+  - "Clear All" button to reset filters
 
 ---
 
@@ -1585,6 +1588,126 @@ scikit-learn>=1.3         # Clustering algorithms
 ---
 
 ## Changelog
+
+### 2026-03-04: Phase 1.2.4 Enhancement - Node Type Filtering
+**Implementation**: Added node type filtering alongside relationship type filtering
+- **Context**: Filter panel only supported relationship types; users requested ability to filter nodes by type
+- **Solution**: Added node type checkboxes with same dynamic population pattern
+- **Design Approach**: Option A (Simple node visibility)
+  - Edges only shown when BOTH source and target nodes are visible
+  - No "dangling edges" to filtered-out nodes
+  - Clean, intuitive UX
+- **Files Modified**:
+  - `app/dash_app/pages/graph/layout.py`: Added "Node Types" checkbox section above "Relationship Types"
+  - `app/dash_app/pages/graph/callbacks/filtering.py`: 
+    - Added `update_node_type_filter` callback (dynamic population with counts)
+    - Updated `apply_relationship_filters` to filter both nodes and edges
+    - Updated `clear_all_filters` to reset node type selections
+- **UI Components**:
+  - Node type checkboxes positioned at top of filter panel (logical hierarchy: nodes → relationships)
+  - Dynamic population from graph data (e.g., "Person (15)", "Project (3)")
+  - All node types selected by default (show everything)
+- **Filtering Logic**:
+  - Nodes filtered by `nodeType` property (derived from Neo4j labels)
+  - Edges filtered to only show ones where both endpoints are visible
+  - Filters combined with AND logic (node types + relationship types + weight + top-N)
+- **Benefits**:
+  - ✅ Reduce visual complexity by hiding irrelevant node types
+  - ✅ Focus on specific entity relationships (e.g., only Person-Project connections)
+  - ✅ Consistent filtering UX across nodes and relationships
+  - ✅ No confusing "orphaned edges" pointing to invisible nodes
+- **Testing**: All regression tests pass (35 passed, 1 skipped)
+
+---
+
+### 2026-03-04: Phase 1.2.4 UX Improvement - Filter Panel Relocation
+**Implementation**: Moved filters to right sidebar for better usability
+- **UX Problem Identified**: Filters below graph required scrolling, took vertical space, hidden by default
+- **Solution**: Right sidebar placement (Option 1 from UX analysis)
+- **Files Modified**:
+  - `app/dash_app/pages/graph/layout.py`: Reorganized layout structure
+  - `app/dash_app/pages/graph/callbacks/filtering.py`: Removed toggle callback
+  - `app/dash_app/pages/graph/callbacks/__init__.py`: Updated imports
+- **New Layout**:
+  - Left column (8 cols): Graph visualization only
+  - Right column (4 cols): Filters at top, Details panel below
+  - Filters always visible (no collapse needed)
+  - Removed "Filters" toggle button from graph controls
+- **Benefits**:
+  - ✅ Filters always visible without scrolling
+  - ✅ No vertical space stolen from graph
+  - ✅ Standard BI tool pattern (Tableau, Power BI)
+  - ✅ Natural "controls on right" mental model
+- **Testing**: All regression tests pass (35 passed, 1 skipped)
+
+---
+
+### 2026-03-04: Phase 1.2.4 Enhancement - Collapsible Filter Panel
+**Implementation**: Made filter panel collapsible with collapsed default state
+- **Context**: Filters not always needed, should reduce visual clutter by default
+- **Solution**: Collapsible panel with animated chevron toggle button
+- **Files Modified**:
+  - `app/dash_app/pages/graph/layout.py`: Added `dbc.Collapse` wrapper and toggle button
+  - `app/dash_app/pages/graph/callbacks/filtering.py`: Added `toggle_filter_panel` callback
+  - `app/dash_app/pages/graph/callbacks/__init__.py`: Imported toggle callback
+- **UI Components**:
+  - Toggle button with "Filters" text and chevron icon (right → down animation)
+  - Filter content wrapped in `dbc.Collapse` (collapsed by default, `is_open=False`)
+  - Chevron direction reflects collapse state (right when collapsed, down when expanded)
+- **Behavior**:
+  - Click toggle button to show/hide filter controls
+  - Icon animates smoothly between chevron-right and chevron-down
+  - State managed via dual output callback (collapse state + icon CSS class)
+- **Design Pattern**: Standard UI pattern for optional sections (similar to accordion/sidebar collapse)
+- **Benefits**:
+  - ✅ Reduced visual clutter when filters not needed
+  - ✅ More vertical space for details panel by default
+  - ✅ Still easily accessible with single click
+  - ✅ Clear visual affordance (chevron indicates collapsible state)
+- **Testing**: All regression tests pass (35 passed, 1 skipped)
+
+---
+
+### 2026-03-04: Phase 1.2.4 Bug Fix - Checkbox Persistence
+**Issue**: Unchecking a relationship type made the checkbox option disappear
+- **Root Cause**: Checkbox options were populated from filtered elements instead of original unfiltered data
+- **Fix**: Two-callback pattern
+  - `store_unfiltered_elements`: Detects filter vs. new data operations using element ID comparison
+  - `update_relationship_type_filter`: Reads from unfiltered store, preserves selections
+- **Result**: Checkboxes stable, can select/unselect repeatedly
+- **Testing**: Validated with pytest (35 passed, 1 skipped)
+
+---
+
+### 2026-03-04: Phase 1.2.4 Complete - Relationship Filtering UI
+**Implementation**: Client-side edge filtering with multiple criteria
+- **Files Created**:
+  - `app/dash_app/pages/graph/callbacks/filtering.py`: All filtering callbacks
+- **Files Modified**:
+  - `app/dash_app/pages/graph/layout.py`: Added filter panel UI component, "Filters" button, stores
+  - `app/dash_app/pages/graph/callbacks/__init__.py`: Imported filtering callbacks
+- **UI Components**:
+  - Collapsible filter panel below graph (toggles with "Filters" button)
+  - Relationship type checkboxes (dynamically populated with counts, e.g., "WORKS_ON (12)")
+  - Weight threshold slider (0-100 range with live label update)
+  - Top-N radio buttons (All / Top 50 / Top 100 by weight)
+  - "Clear All" button to reset filters
+- **Filtering Logic**:
+  - Client-side filtering (no backend calls, operates on loaded elements)
+  - Filters combined with AND logic (type + weight + top-N)
+  - Edges sorted by weight descending for Top-N mode
+  - Filtered edges completely hidden (removed from Cytoscape elements)
+  - Original elements preserved in `unfiltered-elements-store` for reset
+- **Behavior**:
+  - Dynamic checkbox population when graph loads (extracts unique relType values)
+  - All types selected by default
+  - Weight threshold 0 by default (no filtering)
+  - "Show All" mode by default
+- **Edge Cases**: If all edges filtered out, graph shows only nodes
+- **Testing**: Syntax validated, no compilation errors
+- **Next**: Phase 1.3 (Context Menu) or Phase 1.4 (Breadcrumb Navigation)
+
+---
 
 ### 2026-03-04: Phase 1.2.3 Complete - Relationship Interaction
 **Implementation**: Edge hover highlighting with connected node visibility
