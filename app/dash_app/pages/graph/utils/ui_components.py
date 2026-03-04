@@ -138,7 +138,7 @@ def create_table_display(raw_results, result_count):
             dbc.Alert([
                 html.I(className="fas fa-check-circle me-2"),
                 f"Query executed successfully! Retrieved {result_count} result(s)."
-            ], color="success", className="mb-3"),
+            ], color="success", className="mb-3", dismissable=True),
             table
         ])
     else:
@@ -146,7 +146,7 @@ def create_table_display(raw_results, result_count):
         return dbc.Alert([
             html.I(className="fas fa-info-circle me-2"),
             "Query executed successfully but returned no results."
-        ], color="info")
+        ], color="info", dismissable=True)
 
 
 def create_graph_success_alert(node_count, rel_count):
@@ -162,7 +162,7 @@ def create_graph_success_alert(node_count, rel_count):
     return dbc.Alert([
         html.I(className="fas fa-check-circle me-2"),
         f"Query executed successfully! Displaying {node_count} nodes and {rel_count} relationships."
-    ], color="success", className="mb-0")
+    ], color="success", className="mb-0", dismissable=True)
 
 
 def create_performance_metrics(node_count, rel_count, execution_time_ms, is_graph=True):

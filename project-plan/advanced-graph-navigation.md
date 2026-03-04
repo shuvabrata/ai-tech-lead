@@ -1589,6 +1589,24 @@ scikit-learn>=1.3         # Clustering algorithms
 
 ## Changelog
 
+### 2026-03-04: UX Enhancement - Dismissable Query Status Alerts
+**Implementation**: Made all query execution status alerts user-dismissable
+- **Context**: Query success messages appeared but couldn't be dismissed by users, unlike node expansion status messages
+- **Solution**: Added `dismissable=True` parameter to all query result alerts
+- **Files Modified**:
+  - `app/dash_app/pages/graph/utils/ui_components.py`: Updated three alert functions
+- **Affected Alerts**:
+  - Graph query success: "Query executed successfully! Displaying X nodes and Y relationships."
+  - Tabular query success: "Query executed successfully! Retrieved X result(s)."
+  - Empty results info: "Query executed successfully but returned no results."
+- **Benefits**:
+  - ✅ Users can dismiss status messages to reduce visual clutter
+  - ✅ Consistent UX with node expansion status messages
+  - ✅ Better control over workspace visibility
+- **Testing**: All regression tests pass (35 passed, 1 skipped)
+
+---
+
 ### 2026-03-04: Phase 1.2.4 Enhancement - Node Type Filtering
 **Implementation**: Added node type filtering alongside relationship type filtering
 - **Context**: Filter panel only supported relationship types; users requested ability to filter nodes by type
