@@ -2,7 +2,6 @@ from dash import html
 import dash_bootstrap_components as dbc
 
 from app.dash_app.components.common import (
-    create_page_header,
     create_feature_card,
     create_diamond_icon
 )
@@ -24,9 +23,6 @@ from app.dash_app.styles import (
 def get_layout():
     """Return the progress page layout with Executive Dashboard aesthetic"""
     return html.Div([
-        # Page header
-        create_page_header("Performance Tracking & Milestone Analytics"),
-        
         # Main content container
         html.Div([
             # Placeholder message section

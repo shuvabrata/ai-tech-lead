@@ -11,7 +11,6 @@ import dash_cytoscape as cyto
 from .styles import CYTOSCAPE_STYLESHEET
 from .components import create_expansion_modal, create_context_menu
 
-from app.dash_app.components.common import create_page_header
 from app.dash_app.styles import (
     FONT_SANS,
     FONT_WEIGHT_SEMIBOLD,
@@ -266,7 +265,7 @@ def create_query_input_section():
             dbc.Col([
                 dbc.Textarea(
                     id="graph-query-input",
-                    value="MATCH (n:Project)-[r]->(m)\nRETURN n, r, m\nLIMIT 10",
+                    value="MATCH (n)-[r]->(m)\nRETURN n, r, m\nLIMIT 10",
                     style=GRAPH_QUERY_TEXTAREA_STYLE,
                     className="graph-query-input"
                 )
@@ -362,9 +361,6 @@ def get_layout():
         html.Div with full page layout
     """
     return html.Div([
-        # Page header
-        create_page_header("Relationship Mapping & Network Visualization"),
-        
         # Results Section (graph visualization + details panel)
         create_results_section(),
         
@@ -382,4 +378,4 @@ def get_layout():
         
         # Expansion modal
         create_expansion_modal(),
-    ], className="mt-3")
+    ])

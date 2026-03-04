@@ -6,7 +6,7 @@ from dash import html, dcc, Input, Output, State, callback, clientside_callback
 import requests
 
 from app.settings import settings
-from app.dash_app.components.common import create_page_header, create_diamond_icon
+from app.dash_app.components.common import create_diamond_icon
 from app.dash_app.styles import (
     FONT_SANS,
     FONT_SERIF,
@@ -37,9 +37,6 @@ TIMEOUT_SECONDS = settings.HTTP_REQUEST_TIMEOUT
 def get_layout():
     """Return the chat page layout with Executive Dashboard aesthetic"""
     return html.Div([
-        # Page header
-        create_page_header("Strategic Analysis & Advisory"),
-        
         # Main chat container with refined styling
         html.Div([
             # Messages area with elegant container
@@ -137,7 +134,7 @@ def get_layout():
                 children=html.Div(id="loading-output")
             )
         ], style=CARD_CONTAINER_STYLE)
-    ], className="mt-3")
+    ])
 
 
 # Callback to initialize chat session
