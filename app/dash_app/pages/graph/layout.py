@@ -20,8 +20,18 @@ def create_graph_controls():
     """
     return dbc.Row([
         dbc.Col([
-            html.Label("Layout:", 
-                      style={"fontSize": "11px", "fontWeight": "500", "color": "#495057", "marginRight": "4px"}),
+            html.Label(
+                "Layout:",
+                style={
+                    "fontFamily": "'Inter', sans-serif",
+                    "fontSize": "11px",
+                    "fontWeight": "600",
+                    "color": "#4a5568",
+                    "marginRight": "8px",
+                    "textTransform": "uppercase",
+                    "letterSpacing": "0.3px"
+                }
+            ),
             dbc.Select(
                 id="graph-layout-selector",
                 options=[
@@ -32,36 +42,67 @@ def create_graph_controls():
                     {"label": "Concentric", "value": "concentric"}
                 ],
                 value="cose",
-                style={"width": "200px", "display": "inline-block", "fontSize": "11px"},
+                style={
+                    "fontFamily": "'Inter', sans-serif",
+                    "width": "200px",
+                    "display": "inline-block",
+                    "fontSize": "12px",
+                    "border": "1px solid #cbd5e0",
+                    "borderRadius": "2px"
+                },
                 size="sm"
             )
         ], width="auto"),
         dbc.Col([
             dbc.ButtonGroup([
                 dbc.Button(
-                    [html.I(className="fas fa-expand me-1"), "Fit"],
+                    "Fit",
                     id="graph-fit-btn",
-                    color="light",
+                    outline=True,
+                    color="secondary",
                     size="sm",
-                    style={"fontSize": "10px", "padding": "2px 8px"}
+                    style={
+                        "fontFamily": "'Inter', sans-serif",
+                        "fontSize": "11px",
+                        "padding": "4px 12px",
+                        "borderRadius": "2px",
+                        "borderColor": "#cbd5e0",
+                        "color": "#4a5568"
+                    }
                 ),
                 dbc.Button(
-                    [html.I(className="fas fa-redo me-1"), "Reset"],
+                    "Reset",
                     id="graph-reset-btn",
-                    color="light",
+                    outline=True,
+                    color="secondary",
                     size="sm",
-                    style={"fontSize": "10px", "padding": "2px 8px"}
+                    style={
+                        "fontFamily": "'Inter', sans-serif",
+                        "fontSize": "11px",
+                        "padding": "4px 12px",
+                        "borderRadius": "2px",
+                        "borderColor": "#cbd5e0",
+                        "color": "#4a5568"
+                    }
                 ),
                 dbc.Button(
-                    [html.I(className="fas fa-expand-arrows-alt me-1"), "Full"],
+                    "Full",
                     id="graph-fullwidth-btn",
-                    color="light",
+                    outline=True,
+                    color="secondary",
                     size="sm",
-                    style={"fontSize": "10px", "padding": "2px 8px"}
+                    style={
+                        "fontFamily": "'Inter', sans-serif",
+                        "fontSize": "11px",
+                        "padding": "4px 12px",
+                        "borderRadius": "2px",
+                        "borderColor": "#cbd5e0",
+                        "color": "#4a5568"
+                    }
                 )
             ], size="sm")
         ], width="auto", className="ms-auto")
-    ], className="mb-1", align="center")
+    ], className="mb-2", align="center")
 
 
 def create_graph_container():
@@ -82,7 +123,7 @@ def create_graph_container():
                 layout={'name': 'circle', 'animate': True},
                 style={
                     'width': '100%',
-                    'height': '70vh',
+                    'height': '75vh',
                     'backgroundColor': '#fafafa',
                     'borderRadius': '4px'
                 },
@@ -119,19 +160,32 @@ def create_empty_state():
         id="graph-results-container",
         style={
             "minHeight": "300px",
-            "padding": "8px"
+            "padding": "16px"
         },
         children=[
             html.Div(
                 [
-                    html.I(className="fas fa-project-diagram fa-lg mb-2", style={"color": "#ccc"}),
+                    html.Div(
+                        "◆",
+                        style={
+                            "fontFamily": "'Cormorant Garamond', serif",
+                            "fontSize": "28px",
+                            "color": "#cbd5e0",
+                            "marginBottom": "12px"
+                        }
+                    ),
                     html.P(
-                        "No results yet. Enter a query below and click Execute.",
-                        style={"color": "#999", "fontSize": "12px"}
+                        "No results to display. Execute a query to visualize network relationships.",
+                        style={
+                            "fontFamily": "'Inter', sans-serif",
+                            "color": "#a0aec0",
+                            "fontSize": "13px",
+                            "lineHeight": "1.6"
+                        }
                     )
                 ],
                 className="text-center",
-                style={"marginTop": "40px"}
+                style={"marginTop": "80px"}
             )
         ]
     )
@@ -151,7 +205,7 @@ def create_details_panel():
                 "borderRadius": "4px",
                 "border": "1px solid #dee2e6",
                 "padding": "8px",
-                "height": "calc(70vh + 40px)",  # Match graph controls + cytoscape height
+                "height": "calc(75vh + 40px)",  # Match graph controls + cytoscape height
                 "overflowY": "auto"
             },
             children=[
@@ -178,7 +232,7 @@ def create_results_section():
         dcc.Loading(
             id="graph-loading",
             type="circle",
-            color="#0d6efd",
+            color="#2c5282",
             children=[
                 dbc.Row([
                     # Graph visualization area
@@ -195,11 +249,10 @@ def create_results_section():
         )
     ], style={
         "backgroundColor": "#ffffff",
-        "borderRadius": "4px",
-        "border": "1px solid #e0e0e0",
-        "padding": "8px",
-        "marginBottom": "8px",
-        "boxShadow": "0 1px 2px rgba(0,0,0,0.05)"
+        "borderRadius": "2px",
+        "border": "1px solid #e2e8f0",
+        "padding": "12px",
+        "marginBottom": "12px"
     })
 
 
@@ -210,7 +263,18 @@ def create_query_input_section():
         html.Div containing query input controls
     """
     return html.Div([
-        html.H6("Query", className="mb-1", style={"fontWeight": "500", "color": "#495057", "fontSize": "13px"}),
+        html.Div(
+            "Query Console",
+            style={
+                "fontFamily": "'Inter', sans-serif",
+                "fontSize": "12px",
+                "fontWeight": "600",
+                "color": "#2d3748",
+                "marginBottom": "12px",
+                "textTransform": "uppercase",
+                "letterSpacing": "0.5px"
+            }
+        ),
         
         # Row with textarea and execute button side by side
         dbc.Row([
@@ -219,51 +283,63 @@ def create_query_input_section():
                     id="graph-query-input",
                     placeholder="MATCH (n:Project)-[r]->(m)\nRETURN n, r, m\nLIMIT 10",
                     style={
+                        "fontFamily": "'Inter', sans-serif",
                         "height": "90px",
-                        "borderRadius": "4px",
-                        "border": "1px solid #dee2e6",
-                        "padding": "8px 10px",
-                        "fontSize": "18px",
-                        "fontFamily": "Consolas, Monaco, 'Courier New', monospace",
+                        "borderRadius": "2px",
+                        "border": "1px solid #cbd5e0",
+                        "padding": "12px 16px",
+                        "fontSize": "13px",
                         "resize": "vertical",
-                        "transition": "border-color 0.2s"
-                    }
+                        "transition": "border-color 0.2s",
+                        "backgroundColor": "#ffffff",
+                        "color": "#2d3748"
+                    },
+                    className="graph-query-input"
                 )
             ], width=10),
             dbc.Col([
                 dbc.Button(
-                    [html.I(className="fas fa-play me-1"), "Execute"],
+                    "Execute",
                     id="graph-execute-btn",
-                    color="primary",
-                    size="sm",
                     style={
-                        "borderRadius": "6px",
+                        "fontFamily": "'Inter', sans-serif",
+                        "borderRadius": "2px",
                         "fontWeight": "500",
                         "fontSize": "13px",
                         "height": "90px",
-                        "width": "100%"
-                    }
+                        "width": "100%",
+                        "backgroundColor": "#2c5282",
+                        "border": "none",
+                        "letterSpacing": "0.5px",
+                        "textTransform": "uppercase",
+                        "transition": "all 0.2s ease"
+                    },
+                    className="graph-execute-btn"
                 ),
             ], width=2, className="d-flex align-items-start")
-        ], className="mb-1 g-2"),
+        ], className="mb-2 g-3"),
         
         # Validation message container
-        html.Div(id="query-validation-message", className="mb-1"),
+        html.Div(id="query-validation-message", className="mb-2"),
         
         # Helper text
         html.Div([
             html.Small(
                 "Ctrl+Enter to execute • Read-only queries only",
-                className="text-muted",
-                style={"fontSize": "11px"}
+                style={
+                    "fontFamily": "'Inter', sans-serif",
+                    "fontSize": "11px",
+                    "color": "#a0aec0",
+                    "letterSpacing": "0.3px"
+                }
             )
-        ], className="d-flex align-items-center")
+        ])
     ], style={
-        "backgroundColor": "#ffffff",
-        "borderRadius": "4px",
-        "border": "1px solid #e0e0e0",
-        "padding": "8px",
-        "boxShadow": "0 1px 2px rgba(0,0,0,0.05)"
+        "backgroundColor": "#f7fafc",
+        "borderRadius": "2px",
+        "border": "1px solid #e2e8f0",
+        "padding": "16px",
+        "marginTop": "12px"
     })
 
 
@@ -329,12 +405,28 @@ def create_hidden_elements():
 
 
 def get_layout():
-    """Build complete graph page layout
+    """Build complete graph page layout with Executive Dashboard aesthetic
     
     Returns:
         html.Div with full page layout
     """
     return html.Div([
+        # Header with refined typography
+        html.Div(
+            "Relationship Mapping & Network Visualization",
+            style={
+                "fontFamily": "'Inter', sans-serif",
+                "fontSize": "13px",
+                "color": "#718096",
+                "letterSpacing": "1.5px",
+                "textTransform": "uppercase",
+                "fontWeight": "500",
+                "borderBottom": "1px solid #e2e8f0",
+                "paddingBottom": "8px",
+                "marginBottom": "12px"
+            }
+        ),
+        
         # Results Section (graph visualization + details panel)
         create_results_section(),
         
@@ -352,4 +444,4 @@ def get_layout():
         
         # Expansion modal
         create_expansion_modal(),
-    ])
+    ], className="mt-3")

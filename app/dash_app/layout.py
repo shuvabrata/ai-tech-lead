@@ -13,28 +13,33 @@ def create_dash_app():
         requests_pathname_prefix="/app/",
         external_stylesheets=[
             dbc.themes.MATERIA,
-            "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+            "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css",
+            "https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600;700&family=Inter:wght@300;400;500;600&display=swap"
         ],
         suppress_callback_exceptions=True  # Required for multi-page apps
     )
     app.title = "AI Tech Lead"
 
-    # Sidebar using Bootstrap Nav
+    # Sidebar using Bootstrap Nav - Executive Dashboard style
     sidebar = dbc.Nav(
         [
-            dbc.NavLink("💬 Chat", href="/app/chat", active="exact", id="nav-genai"),
-            dbc.NavLink("👥 People", href="/app/people", active="exact", id="nav-people"),
-            dbc.NavLink("📈 Progress", href="/app/progress", active="exact", id="nav-progress"),
-            dbc.NavLink("📊 Graph", href="/app/graph", active="exact", id="nav-graph"),
-            dbc.NavLink("⚙️ Settings", href="/app/settings", active="exact", id="nav-settings"),
+            dbc.NavLink("Chat", href="/app/chat", active="exact", id="nav-genai", className="executive-nav-link"),
+            dbc.NavLink("People", href="/app/people", active="exact", id="nav-people", className="executive-nav-link"),
+            dbc.NavLink("Progress", href="/app/progress", active="exact", id="nav-progress", className="executive-nav-link"),
+            dbc.NavLink("Graph", href="/app/graph", active="exact", id="nav-graph", className="executive-nav-link"),
+            dbc.NavLink("Settings", href="/app/settings", active="exact", id="nav-settings", className="executive-nav-link"),
         ],
         vertical=True,
-        pills=True,
-        className="bg-dark vh-100 sidebar p-1",
-        style={"fontSize": "14px"}  # Slightly smaller nav links
+        pills=False,
+        className="vh-100 sidebar executive-sidebar",
+        style={
+            "backgroundColor": "#ffffff",
+            "borderRight": "1px solid #e2e8f0",
+            "padding": "24px 0"
+        }
     )
 
-    # Top menu using Bootstrap Navbar with toggle button and project switcher
+    # Top menu using Bootstrap Navbar - Executive Dashboard style
     top_menu = dbc.Navbar(
         dbc.Container(
             dbc.Row([
@@ -44,21 +49,31 @@ def create_dash_app():
                         id="sidebar-toggle",
                         color="light",
                         outline=True,
-                        className="me-1",
+                        className="me-2 sidebar-toggle-btn",
                         size="sm",
                         style={
-                            "fontSize": "14px",
-                            "fontWeight": "bold",
-                            "padding": "1px 6px",
-                            "lineHeight": "1"
+                            "fontSize": "16px",
+                            "fontWeight": "normal",
+                            "padding": "4px 10px",
+                            "lineHeight": "1",
+                            "borderColor": "#cbd5e0",
+                            "color": "#4a5568",
+                            "backgroundColor": "transparent"
                         }
                     ),
-                    dbc.NavbarBrand(app.title, style={
-                        "fontSize": "15px", 
-                        "marginBottom": "0",
-                        "fontWeight": "500",
-                        "padding": "0"
-                    })
+                    dbc.NavbarBrand(
+                        app.title,
+                        style={
+                            "fontFamily": "'Inter', sans-serif",
+                            "fontSize": "14px", 
+                            "marginBottom": "0",
+                            "fontWeight": "600",
+                            "padding": "0",
+                            "color": "#2d3748",
+                            "letterSpacing": "0.5px",
+                            "textTransform": "uppercase"
+                        }
+                    )
                 ], width="auto", className="d-flex align-items-center"),
                 dbc.Col(
                     dbc.Nav(
@@ -72,7 +87,10 @@ def create_dash_app():
                                 nav=True,
                                 in_navbar=True,
                                 size="sm",
-                                style={"fontSize": "13px"}
+                                style={
+                                    "fontFamily": "'Inter', sans-serif",
+                                    "fontSize": "12px"
+                                }
                             ),
                         ],
                         className="justify-content-end flex-nowrap",
@@ -83,15 +101,17 @@ def create_dash_app():
                 ),
             ], className="w-100 flex-nowrap g-0 align-items-center justify-content-between", style={"margin": "0"}),
             fluid=True,
-            style={"padding": "4px 12px"}  # Very minimal padding
+            style={"padding": "8px 16px"}
         ),
-        color="primary",
-        dark=True,
-        className="mb-1",
+        color="white",
+        dark=False,
+        className="mb-0 executive-topbar",
         style={
             "minHeight": "auto",
-            "height": "36px",
-            "padding": "0"
+            "height": "44px",
+            "padding": "0",
+            "borderBottom": "1px solid #e2e8f0",
+            "boxShadow": "0 1px 2px rgba(0,0,0,0.04)"
         }
     )
 
@@ -106,11 +126,11 @@ def create_dash_app():
             dbc.Col(
                 sidebar,
                 id="sidebar-col",
-                width=2,
+                width="auto",
                 className="sidebar-col",
-                style={}  # Will be updated by callback
+                style={"minWidth": "180px", "maxWidth": "180px"}  # Fixed narrow width
             ),
-            dbc.Col(content, id="content-col", width=10)
+            dbc.Col(content, id="content-col", width=True)
         ], className="g-0"),
     ], fluid=True)
 
@@ -137,37 +157,27 @@ def create_dash_app():
     @app.callback(
         [
             Output("sidebar-collapsed", "data"),
-            Output("sidebar-col", "style"),
-            Output("sidebar-col", "width"),
-            Output("content-col", "width")
+            Output("sidebar-col", "style")
         ],
         Input("sidebar-toggle", "n_clicks"),
         State("sidebar-collapsed", "data"),
         prevent_initial_call=True
     )
-    def toggle_sidebar(n_clicks, is_collapsed):
+    def toggle_sidebar(_n_clicks, is_collapsed):
         # Toggle the state
         new_state = not is_collapsed
         
-        # Adjust column widths and visibility based on sidebar state
+        # Adjust visibility based on sidebar state
         if new_state:  # Sidebar collapsed
             sidebar_style = {"display": "none"}
-            sidebar_width = 0
-            content_width = 12
         else:  # Sidebar open
-            sidebar_style = {}
-            sidebar_width = 2
-            content_width = 10
+            sidebar_style = {"minWidth": "180px", "maxWidth": "180px"}
         
-        return new_state, sidebar_style, sidebar_width, content_width
+        return new_state, sidebar_style
 
     # Initialize sidebar state from localStorage
     @app.callback(
-        [
-            Output("sidebar-col", "style", allow_duplicate=True),
-            Output("sidebar-col", "width", allow_duplicate=True),
-            Output("content-col", "width", allow_duplicate=True)
-        ],
+        Output("sidebar-col", "style", allow_duplicate=True),
         Input("sidebar-collapsed", "data"),
         prevent_initial_call='initial_duplicate'
     )
@@ -175,14 +185,10 @@ def create_dash_app():
         # Apply stored state on page load
         if is_collapsed:  # Sidebar collapsed
             sidebar_style = {"display": "none"}
-            sidebar_width = 0
-            content_width = 12
         else:  # Sidebar open
-            sidebar_style = {}
-            sidebar_width = 2
-            content_width = 10
+            sidebar_style = {"minWidth": "180px", "maxWidth": "180px"}
         
-        return sidebar_style, sidebar_width, content_width
+        return sidebar_style
 
     # No custom CSS or sidebar collapse for now; Bootstrap handles layout and theme
 
