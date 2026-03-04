@@ -576,10 +576,11 @@ cy.on('dbltap', 'node', function(evt) {
   - Arrow size proportional to edge thickness (0.8-2.0 scale range)
   - Dashed lines deferred (no relationship types configured for dashing yet)
 
-- [ ] **1.2.3 Relationship Interaction**
-  - Click relationship → show in details panel
-  - Hover → highlight connected nodes
-  - Right-click → context menu (coming in Phase 2)
+- [x] **1.2.3 Relationship Interaction** ✅ COMPLETE (March 4, 2026)
+  - Click relationship → show in details panel (already implemented via selectedEdgeData)
+  - Hover → highlight connected nodes (edge + source/target nodes highlighted, others dimmed to 0.3 opacity)
+  - 50ms debounce for hover events (performance optimization)
+  - Right-click → context menu (deferred to future phase)
 
 - [ ] **1.2.4 Relationship Filtering UI**
   - Checkbox list: Show/hide relationship types
@@ -1584,6 +1585,25 @@ scikit-learn>=1.3         # Clustering algorithms
 ---
 
 ## Changelog
+
+### 2026-03-04: Phase 1.2.3 Complete - Relationship Interaction
+**Implementation**: Edge hover highlighting with connected node visibility
+- **Files Modified**:
+  - `app/dash_app/pages/graph/styles.py`: Added `.highlighted` and `.dimmed` CSS classes
+  - `app/dash_app/pages/graph/callbacks/display.py`: Added clientside callback for edge hover events
+- **Behavior**:
+  - Hover over edge → edge + source/target nodes highlighted (opacity 1.0), all others dimmed (opacity 0.3)
+  - 50ms debounce prevents performance issues with rapid mouse movements
+  - Mouseout restores normal opacity for all elements
+  - Edge click details panel already working via `selectedEdgeData` (implemented in earlier phase)
+- **Technical Approach**:
+  - Cytoscape.js `mouseover`/`mouseout` events on edge elements
+  - Dynamic class application (no DOM manipulation, pure Cytoscape classes)
+  - Single event listener attachment with flag to prevent duplicates
+- **Testing**: Regression tests pass (35 passed, 1 skipped)
+- **Next**: Phase 1.2.4 (Relationship Filtering UI) or other Phase 1 features
+
+---
 
 - **2026-03-02**: Initial plan created based on Neo4j Browser/Bloom research
 - **2026-03-02**: Added 6 phases covering navigation, filtering, paths, performance, collaboration, analytics

@@ -144,6 +144,21 @@ CYTOSCAPE_STYLESHEET = [
             'target-arrow-color': '#424242',
             'z-index': 9999
         }
+    },
+    # Highlighted elements (hover interaction - Phase 1.2.3)
+    {
+        'selector': '.highlighted',
+        'style': {
+            'opacity': 1.0,
+            'z-index': 9998
+        }
+    },
+    # Dimmed elements (hover interaction - Phase 1.2.3)
+    {
+        'selector': '.dimmed',
+        'style': {
+            'opacity': 0.3
+        }
     }
 ]
 

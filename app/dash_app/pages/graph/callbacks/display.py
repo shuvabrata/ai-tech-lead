@@ -4,7 +4,7 @@ Callbacks for graph display, layout management, and property details.
 """
 
 import dash_bootstrap_components as dbc
-from dash import html, Input, Output, State, callback, callback_context
+from dash import html, Input, Output, State, callback, callback_context, clientside_callback
 
 from app.dash_app.styles import (
     DETAILS_HEADING_STYLE,
@@ -223,3 +223,78 @@ def update_layout(layout_name, reset_clicks, current_layout):
         }
     
     return current_layout
+
+
+# Phase 1.2.3: Edge Hover Highlighting
+# Clientside callback to attach edge hover listeners with highlighting behavior
+clientside_callback(
+    """
+    function(elements) {
+        // Get the Cytoscape instance
+        const elem = document.getElementById('graph-cytoscape');
+        if (!elem || !elem._cyreg || !elem._cyreg.cy) {
+            return window.dash_clientside.no_update;
+        }
+        
+        const cy = elem._cyreg.cy;
+        
+        // Check if we've already attached the listeners (avoid duplicates)
+        if (!cy._edgeHoverListenerAttached) {
+            let hoverTimeout = null;
+            let isHovering = false;
+            
+            // Mouseover handler with 50ms debounce
+            cy.on('mouseover', 'edge', function(evt) {
+                const edge = evt.target;
+                
+                // Clear any pending timeout
+                if (hoverTimeout) {
+                    clearTimeout(hoverTimeout);
+                }
+                
+                // Debounce: wait 50ms before applying highlight
+                hoverTimeout = setTimeout(function() {
+                    isHovering = true;
+                    
+                    // Get source and target nodes
+                    const sourceNode = edge.source();
+                    const targetNode = edge.target();
+                    
+                    // Highlight the edge and connected nodes
+                    edge.addClass('highlighted');
+                    sourceNode.addClass('highlighted');
+                    targetNode.addClass('highlighted');
+                    
+                    // Dim all other elements
+                    cy.elements().not(edge).not(sourceNode).not(targetNode).addClass('dimmed');
+                }, 50);
+            });
+            
+            // Mouseout handler
+            cy.on('mouseout', 'edge', function(evt) {
+                // Clear any pending timeout
+                if (hoverTimeout) {
+                    clearTimeout(hoverTimeout);
+                    hoverTimeout = null;
+                }
+                
+                // Only remove classes if we actually applied them
+                if (isHovering) {
+                    // Remove all highlight and dim classes
+                    cy.elements().removeClass('highlighted dimmed');
+                    isHovering = false;
+                }
+            });
+            
+            // Mark that we've attached the listeners
+            cy._edgeHoverListenerAttached = true;
+            console.log('[Phase 1.2.3] Edge hover listeners attached with 50ms debounce');
+        }
+        
+        return window.dash_clientside.no_update;
+    }
+    """,
+    Output("graph-cytoscape", "className"),  # Dummy output
+    Input("graph-cytoscape", "elements"),
+    prevent_initial_call=False
+)
