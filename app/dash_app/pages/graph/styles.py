@@ -21,7 +21,7 @@ CYTOSCAPE_STYLESHEET = [
             'font-weight': '500',
             'width': '60px',
             'height': '60px',
-            'border-width': '2px',
+            'border-width': '0px',
             'border-color': '#9E9E9E',  # Darker soft gray
             'text-wrap': 'wrap',
             'text-max-width': '80px'
@@ -116,8 +116,8 @@ CYTOSCAPE_STYLESHEET = [
     {
         'selector': 'node:selected',
         'style': {
-            'border-width': '4px',
-            'border-color': '#E6D4A0',  # Pastel Neutral: Soft gold highlight
+            'border-width': '2px',
+            'border-color': '#424242',  # Dark Charcoal: Professional selection highlight
             'border-style': 'solid',
             'z-index': 9999
         }
@@ -127,8 +127,8 @@ CYTOSCAPE_STYLESHEET = [
         'selector': 'edge:selected',
         'style': {
             'width': 4,
-            'line-color': '#E6D4A0',  # Pastel Neutral: Soft gold highlight
-            'target-arrow-color': '#E6D4A0',
+            'line-color': '#424242',  # Dark Charcoal: Professional selection highlight
+            'target-arrow-color': '#424242',
             'z-index': 9999
         }
     }
