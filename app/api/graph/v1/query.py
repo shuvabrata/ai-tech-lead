@@ -148,6 +148,80 @@ def execute_cypher_query(query: str, timeout: int = 30) -> List[Dict[str, Any]]:
             driver.close()
 
 
+def fetch_relationships_between_nodes(node_ids: List[str]) -> List[Dict[str, Any]]:
+    """Fetch all relationships between a given set of nodes.
+    
+    This function queries Neo4j to find all relationships where both the start
+    and end nodes are in the provided list of node IDs. This is useful for
+    displaying a connected graph when only node data is initially returned.
+    
+    Args:
+        node_ids: List of node element IDs to find relationships between
+        
+    Returns:
+        List of result records, each containing a relationship ('r')
+        
+    Raises:
+        RuntimeError: If Neo4j execution fails
+        
+    Examples:
+        >>> node_ids = ["4:abc:1", "4:abc:2", "4:abc:3"]
+        >>> rels = fetch_relationships_between_nodes(node_ids)
+        >>> all('r' in record for record in rels)
+        True
+    """
+    if not settings.NEO4J_ENABLED:
+        raise RuntimeError("Neo4j is not enabled. Set NEO4J_ENABLED=true in .env")
+    
+    if not node_ids or len(node_ids) == 0:
+        logger.info("No node IDs provided, returning empty relationship list")
+        return []
+    
+    # Build Cypher query to find relationships between the provided nodes
+    query = """
+    MATCH (n)-[r]->(m)
+    WHERE elementId(n) IN $node_ids AND elementId(m) IN $node_ids
+    RETURN r
+    """
+    
+    driver = None
+    try:
+        driver = GraphDatabase.driver(
+            settings.NEO4J_URI,
+            auth=(settings.NEO4J_USERNAME, settings.NEO4J_PASSWORD)
+        )
+        
+        driver.verify_connectivity()
+        
+        logger.info(f"Fetching relationships between {len(node_ids)} nodes")
+        
+        with driver.session() as session:
+            result = session.run(query, node_ids=node_ids)
+            
+            records = []
+            for record in result:
+                records.append(dict(record))
+            
+            logger.info(f"Found {len(records)} relationships between nodes")
+            return records
+            
+    except ServiceUnavailable as e:
+        logger.error(f"Neo4j connection failed: {e}")
+        raise RuntimeError(f"Unable to connect to Neo4j database: {str(e)}") from e
+    
+    except Neo4jError as e:
+        logger.error(f"Neo4j query execution failed: {e}")
+        raise RuntimeError(f"Query execution error: {str(e)}") from e
+    
+    except Exception as e:
+        logger.error(f"Unexpected error fetching relationships: {e}")
+        raise RuntimeError(f"Unexpected error: {str(e)}") from e
+    
+    finally:
+        if driver:
+            driver.close()
+
+
 def expand_node_query(
     node_id: str,
     direction: str = "both",

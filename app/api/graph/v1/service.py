@@ -6,7 +6,12 @@ from neo4j.graph import Node, Relationship
 from app.common.logger import logger
 from app.settings import settings
 from .model import GraphNode, GraphRelationship, GraphResponse, NodeExpansionResponse, PaginationMeta
-from .query import validate_read_only_query, execute_cypher_query, expand_node_query
+from .query import (
+    validate_read_only_query, 
+    execute_cypher_query, 
+    expand_node_query,
+    fetch_relationships_between_nodes
+)
 
 
 def execute_and_format_query(query: str) -> GraphResponse:
@@ -88,7 +93,26 @@ def execute_and_format_query(query: str) -> GraphResponse:
                     nodes_dict[end_node.id] = end_node
         
         nodes_list = list(nodes_dict.values())
-        logger.info(f"Extracted {len(nodes_list)} nodes and {len(relationships_list)} relationships")
+        logger.info(f"Extracted {len(nodes_list)} nodes and {len(relationships_list)} relationships from query results")
+        
+        # Step 4.5: Fetch relationships between the loaded nodes
+        # This ensures that if nodes have relationships between them, those relationships
+        # are also loaded, even if they weren't explicitly returned by the query
+        if len(nodes_list) > 0:
+            node_ids = [node.id for node in nodes_list]
+            relationship_records = fetch_relationships_between_nodes(node_ids)
+            
+            # Add any new relationships we found
+            relationship_ids = {rel.id for rel in relationships_list}  # Convert to set for dedup
+            for record in relationship_records:
+                if 'r' in record and record['r'] is not None:
+                    neo4j_rel = record['r']
+                    rel = _transform_relationship(neo4j_rel)
+                    if rel.id not in relationship_ids:
+                        relationships_list.append(rel)
+                        relationship_ids.add(rel.id)
+            
+            logger.info(f"After fetching implicit relationships: {len(relationships_list)} total relationships")
         
         return GraphResponse(
             nodes=nodes_list,
