@@ -569,12 +569,12 @@ cy.on('dbltap', 'node', function(evt) {
   - Fix: Updated backend graph extraction to support Neo4j `Path` and nested structures so relationships are consistently extracted/rendered
   - Validation: `pytest -q tests/test_graph_service.py tests/test_graph_router.py` → **35 passed, 1 skipped**
 
-- [ ] **1.2.2 Relationship Styling Improvements**
-  - Edge thickness based on property (e.g., weight, count)
-  - Curved edges for multiple relationships between same nodes
-  - Edge labels always visible (not just on hover)
-  - Arrow size proportional to edge thickness
-  - Dashed lines for specific relationship types (e.g., virtual, inferred)
+- [x] **1.2.2 Relationship Styling Improvements** ✅ COMPLETE (March 4, 2026)
+  - Edge thickness based on `weight` property (1-8px range with mapData)
+  - Improved curve separation for parallel edges (control-point-step-size: 40)
+  - Edge labels always visible with enhanced readability (text outline, increased opacity)
+  - Arrow size proportional to edge thickness (0.8-2.0 scale range)
+  - Dashed lines deferred (no relationship types configured for dashing yet)
 
 - [ ] **1.2.3 Relationship Interaction**
   - Click relationship → show in details panel
@@ -1662,3 +1662,11 @@ scikit-learn>=1.3         # Clustering algorithms
   - **Fixed** backend extraction gap: `execute_and_format_query()` now recursively extracts graph entities from Neo4j `Path` and nested result structures
   - **Updated tests** for node-only graph queries to validate relationship integrity (start/end nodes must exist in returned node set)
   - **Validation**: `tests/test_graph_service.py` and `tests/test_graph_router.py` passing (`35 passed, 1 skipped`)
+
+- **2026-03-04**: **PHASE 1.2.2 COMPLETE - Relationship Styling Improvements (MVP)**:
+  - **Dynamic edge width**: Added `edge[weight]` selector with mapData mapping weight (0-100) to width (1-8px)
+  - **Proportional arrows**: Arrow scale follows edge thickness (0.8-2.0) for consistent directional cues
+  - **Parallel edge separation**: Increased control-point-step-size to 40 for better visual separation
+  - **Enhanced label visibility**: Added text outline, increased background opacity (0.85), font-weight 500
+  - **Deferred**: Dashed line styling (no relationship types configured for dashing)
+  - **File modified**: `app/dash_app/pages/graph/styles.py` (stylesheet definitions only, no backend/callback changes)

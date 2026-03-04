@@ -94,7 +94,7 @@ CYTOSCAPE_STYLESHEET = [
             'height': '65px'
         }
     },
-    # Edge styles
+    # Edge styles - Default (no weight property)
     {
         'selector': 'edge',
         'style': {
@@ -102,14 +102,27 @@ CYTOSCAPE_STYLESHEET = [
             'line-color': '#C0C0C0',  # Pastel Neutral: Lighter neutral gray
             'target-arrow-color': '#C0C0C0',
             'target-arrow-shape': 'triangle',
+            'target-arrow-scale': 1.0,
             'curve-style': 'bezier',
+            'control-point-step-size': 40,  # Better separation for parallel edges
             'label': 'data(label)',
             'font-size': '9px',
+            'font-weight': '500',
             'text-rotation': 'autorotate',
             'text-margin-y': -10,
             'text-background-color': '#fff',
-            'text-background-opacity': 0.8,
-            'text-background-padding': '3px'
+            'text-background-opacity': 0.85,
+            'text-background-padding': '3px',
+            'text-outline-color': '#fff',
+            'text-outline-width': 1
+        }
+    },
+    # Edge styles - With weight property (dynamic thickness)
+    {
+        'selector': 'edge[weight]',
+        'style': {
+            'width': 'mapData(weight, 0, 100, 1, 8)',  # Map weight 0-100 to width 1-8px
+            'target-arrow-scale': 'mapData(weight, 0, 100, 0.8, 2.0)',  # Scale arrows proportionally
         }
     },
     # Node selected state (click to select)
