@@ -4,6 +4,15 @@ from dash import dcc, html
 from dash.dependencies import Input, Output, State
 
 from .pages import chat, people, progress, settings, graph
+from .styles import (
+    SIDEBAR_STYLE,
+    NAVBAR_BRAND_STYLE,
+    TOPBAR_STYLE,
+    TOPBAR_CONTAINER_STYLE,
+    TOGGLE_BUTTON_STYLE,
+    DROPDOWN_MENU_STYLE,
+    SIDEBAR_COL_STYLE
+)
 
 
 def create_dash_app():
@@ -32,11 +41,7 @@ def create_dash_app():
         vertical=True,
         pills=False,
         className="vh-100 sidebar executive-sidebar",
-        style={
-            "backgroundColor": "#ffffff",
-            "borderRight": "1px solid #e2e8f0",
-            "padding": "24px 0"
-        }
+        style=SIDEBAR_STYLE
     )
 
     # Top menu using Bootstrap Navbar - Executive Dashboard style
@@ -51,28 +56,11 @@ def create_dash_app():
                         outline=True,
                         className="me-2 sidebar-toggle-btn",
                         size="sm",
-                        style={
-                            "fontSize": "16px",
-                            "fontWeight": "normal",
-                            "padding": "4px 10px",
-                            "lineHeight": "1",
-                            "borderColor": "#cbd5e0",
-                            "color": "#4a5568",
-                            "backgroundColor": "transparent"
-                        }
+                        style=TOGGLE_BUTTON_STYLE
                     ),
                     dbc.NavbarBrand(
                         app.title,
-                        style={
-                            "fontFamily": "'Inter', sans-serif",
-                            "fontSize": "14px", 
-                            "marginBottom": "0",
-                            "fontWeight": "600",
-                            "padding": "0",
-                            "color": "#2d3748",
-                            "letterSpacing": "0.5px",
-                            "textTransform": "uppercase"
-                        }
+                        style=NAVBAR_BRAND_STYLE
                     )
                 ], width="auto", className="d-flex align-items-center"),
                 dbc.Col(
@@ -87,10 +75,7 @@ def create_dash_app():
                                 nav=True,
                                 in_navbar=True,
                                 size="sm",
-                                style={
-                                    "fontFamily": "'Inter', sans-serif",
-                                    "fontSize": "12px"
-                                }
+                                style=DROPDOWN_MENU_STYLE
                             ),
                         ],
                         className="justify-content-end flex-nowrap",
@@ -101,18 +86,12 @@ def create_dash_app():
                 ),
             ], className="w-100 flex-nowrap g-0 align-items-center justify-content-between", style={"margin": "0"}),
             fluid=True,
-            style={"padding": "8px 16px"}
+            style=TOPBAR_CONTAINER_STYLE
         ),
         color="white",
         dark=False,
         className="mb-0 executive-topbar",
-        style={
-            "minHeight": "auto",
-            "height": "44px",
-            "padding": "0",
-            "borderBottom": "1px solid #e2e8f0",
-            "boxShadow": "0 1px 2px rgba(0,0,0,0.04)"
-        }
+        style=TOPBAR_STYLE
     )
 
     # Main content area with page routing
@@ -128,7 +107,7 @@ def create_dash_app():
                 id="sidebar-col",
                 width="auto",
                 className="sidebar-col",
-                style={"minWidth": "180px", "maxWidth": "180px"}  # Fixed narrow width
+                style=SIDEBAR_COL_STYLE
             ),
             dbc.Col(content, id="content-col", width=True)
         ], className="g-0"),
@@ -171,7 +150,7 @@ def create_dash_app():
         if new_state:  # Sidebar collapsed
             sidebar_style = {"display": "none"}
         else:  # Sidebar open
-            sidebar_style = {"minWidth": "180px", "maxWidth": "180px"}
+            sidebar_style = SIDEBAR_COL_STYLE
         
         return new_state, sidebar_style
 
@@ -186,7 +165,7 @@ def create_dash_app():
         if is_collapsed:  # Sidebar collapsed
             sidebar_style = {"display": "none"}
         else:  # Sidebar open
-            sidebar_style = {"minWidth": "180px", "maxWidth": "180px"}
+            sidebar_style = SIDEBAR_COL_STYLE
         
         return sidebar_style
 

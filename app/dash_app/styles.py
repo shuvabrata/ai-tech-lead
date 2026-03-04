@@ -239,6 +239,157 @@ GRAPH_CONTAINER_STYLE = {
     "padding": SPACING_XSMALL
 }
 
+# Navigation & Layout
+SIDEBAR_STYLE = {
+    "backgroundColor": COLOR_BACKGROUND_WHITE,
+    "borderRight": f"1px solid {COLOR_BORDER}",
+    "padding": f"{SPACING_MEDIUM} 0"
+}
+
+NAVBAR_BRAND_STYLE = {
+    "fontFamily": FONT_SANS,
+    "fontSize": FONT_SIZE_MEDIUM,
+    "marginBottom": "0",
+    "fontWeight": FONT_WEIGHT_SEMIBOLD,
+    "padding": "0",
+    "color": COLOR_CHARCOAL_MEDIUM,
+    "letterSpacing": "0.5px",
+    "textTransform": "uppercase"
+}
+
+TOPBAR_STYLE = {
+    "minHeight": "auto",
+    "height": "44px",
+    "padding": "0",
+    "borderBottom": f"1px solid {COLOR_BORDER}",
+    "boxShadow": "0 1px 2px rgba(0,0,0,0.04)"
+}
+
+TOPBAR_CONTAINER_STYLE = {
+    "padding": "8px 16px"
+}
+
+TOGGLE_BUTTON_STYLE = {
+    "fontSize": "16px",
+    "fontWeight": "normal",
+    "padding": "4px 10px",
+    "lineHeight": "1",
+    "borderColor": COLOR_GRAY_LIGHTER,
+    "color": COLOR_GRAY_DARK,
+    "backgroundColor": "transparent"
+}
+
+DROPDOWN_MENU_STYLE = {
+    "fontFamily": FONT_SANS,
+    "fontSize": FONT_SIZE_XSMALL
+}
+
+SIDEBAR_COL_STYLE = {
+    "minWidth": "180px",
+    "maxWidth": "180px"
+}
+
+# =============================================================================
+# GRAPH PAGE COMPONENTS
+# =============================================================================
+
+GRAPH_SECTION_CONTAINER_STYLE = {
+    "backgroundColor": COLOR_BACKGROUND_WHITE,
+    "borderRadius": "2px",
+    "border": f"1px solid {COLOR_BORDER}",
+    "padding": SPACING_XSMALL,
+    "marginBottom": SPACING_XSMALL
+}
+
+GRAPH_SECTION_TITLE_STYLE = {
+    "fontFamily": FONT_SANS,
+    "fontSize": FONT_SIZE_XSMALL,
+    "fontWeight": "600",
+    "color": COLOR_CHARCOAL_MEDIUM,
+    "marginBottom": SPACING_XSMALL,
+    "textTransform": "uppercase",
+    "letterSpacing": "0.5px"
+}
+
+GRAPH_QUERY_TEXTAREA_STYLE = {
+    "fontFamily": FONT_SANS,
+    "height": "90px",
+    "borderRadius": "2px",
+    "border": f"1px solid {COLOR_GRAY_LIGHTER}",
+    "padding": f"{SPACING_XSMALL} {SPACING_SMALL}",
+    "fontSize": FONT_SIZE_SMALL,
+    "resize": "vertical",
+    "transition": "border-color 0.2s",
+    "backgroundColor": COLOR_BACKGROUND_WHITE,
+    "color": COLOR_CHARCOAL_MEDIUM
+}
+
+GRAPH_EXECUTE_BUTTON_STYLE = {
+    "fontFamily": FONT_SANS,
+    "borderRadius": "2px",
+    "fontWeight": "500",
+    "fontSize": FONT_SIZE_SMALL,
+    "height": "90px",
+    "width": "100%",
+    "backgroundColor": COLOR_NAVY,
+    "border": "none",
+    "letterSpacing": "0.5px",
+    "textTransform": "uppercase",
+    "transition": "all 0.2s ease"
+}
+
+GRAPH_HELPER_TEXT_STYLE = {
+    "fontFamily": FONT_SANS,
+    "fontSize": "11px",
+    "color": COLOR_GRAY_LIGHT,
+    "letterSpacing": "0.3px"
+}
+
+GRAPH_QUERY_SECTION_CONTAINER_STYLE = {
+    "backgroundColor": COLOR_BACKGROUND_LIGHT,
+    "borderRadius": "2px",
+    "border": f"1px solid {COLOR_BORDER}",
+    "padding": SPACING_SMALL,
+    "marginTop": SPACING_XSMALL
+}
+
+GRAPH_CYTOSCAPE_STYLE = {
+    "width": "100%",
+    "height": "75vh",
+    "backgroundColor": "#fafafa",
+    "borderRadius": "4px"
+}
+
+GRAPH_EMPTY_STATE_ICON_STYLE = {
+    "fontFamily": FONT_SERIF,
+    "fontSize": "28px",
+    "color": COLOR_GRAY_LIGHTER,
+    "marginBottom": SPACING_XSMALL
+}
+
+GRAPH_EMPTY_STATE_TEXT_STYLE = {
+    "fontFamily": FONT_SANS,
+    "color": COLOR_GRAY_LIGHT,
+    "fontSize": FONT_SIZE_SMALL,
+    "lineHeight": "1.6"
+}
+
+GRAPH_DETAILS_PANEL_STYLE = {
+    "backgroundColor": "#f8f9fa",
+    "borderRadius": "4px",
+    "border": "1px solid #dee2e6",
+    "padding": SPACING_XXSMALL,
+    "height": "calc(75vh + 40px)",
+    "overflowY": "auto"
+}
+
+GRAPH_DETAILS_PANEL_ICON_STYLE = {
+    "color": "#adb5bd"
+}
+
+# Graph page constant (used in dcc.Loading component)
+GRAPH_LOADING_COLOR = COLOR_NAVY
+
 # =============================================================================
 # LAYOUT UTILITIES
 # =============================================================================

@@ -1,0 +1,194 @@
+/* ============================================================================= */
+/* Executive Dashboard CSS Variables */
+/* ============================================================================= */
+
+:root {
+    /* Colors - Primary */
+    --color-navy: #2c5282;
+    --color-navy-dark: #1e3a5f;
+    --color-navy-hover: #234164;
+
+    /* Colors - Text */
+    --color-charcoal: #1a202c;
+    --color-charcoal-medium: #2d3748;
+    --color-gray-dark: #4a5568;
+    --color-gray-medium: #718096;
+    --color-gray-light: #a0aec0;
+    --color-gray-lighter: #cbd5e0;
+
+    /* Colors - Background */
+    --color-background-white: #ffffff;
+    --color-background-light: #f7fafc;
+    --color-surface-active: #edf2f7;
+
+    /* Colors - Border */
+    --color-border: #e2e8f0;
+    --color-border-light: #e2e8f0;
+
+    /* Typography */
+    --font-serif: 'Cormorant Garamond', serif;
+    --font-sans: 'Inter', sans-serif;
+    
+    /* Font Sizes */
+    --font-size-xlarge: 42px;
+    --font-size-large: 15px;
+    --font-size-medium: 14px;
+    --font-size-small: 13px;
+    --font-size-xsmall: 12px;
+    --font-size-tiny: 11px;
+
+    /* Font Weights */
+    --font-weight-normal: 400;
+    --font-weight-medium: 500;
+    --font-weight-semibold: 600;
+    --font-weight-bold: 700;
+
+    /* Spacing */
+    --spacing-xxxsmall: 4px;
+    --spacing-xxsmall: 8px;
+    --spacing-xsmall: 12px;
+    --spacing-small: 16px;
+    --spacing-medium: 24px;
+    --spacing-large: 32px;
+    --spacing-xlarge: 40px;
+    --spacing-xxlarge: 48px;
+
+    /* Border Radius */
+    --border-radius: 2px;
+    --border-radius-medium: 3px;
+    --border-radius-large: 4px;
+
+    /* Transitions */
+    --transition-base: 0.2s ease;
+    --transition-long: 0.3s ease-out;
+}
+
+/* ============================================================================= */
+/* Chat Page Styling */
+/* ============================================================================= */
+
+.chat-input-refined:focus {
+    border-color: var(--color-navy) !important;
+    box-shadow: 0 0 0 1px var(--color-navy) !important;
+    outline: none;
+}
+
+#send-button:hover {
+    background-color: var(--color-navy-dark) !important;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+#send-button:active {
+    transform: translateY(0);
+}
+
+.chat-messages-container::-webkit-scrollbar {
+    width: 6px;
+}
+
+.chat-messages-container::-webkit-scrollbar-track {
+    background: var(--color-background-light);
+}
+
+.chat-messages-container::-webkit-scrollbar-thumb {
+    background: var(--color-gray-lighter);
+    border-radius: var(--border-radius-medium);
+}
+
+.chat-messages-container::-webkit-scrollbar-thumb:hover {
+    background: var(--color-gray-light);
+}
+
+@keyframes messageSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(12px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.chat-message-enter {
+    animation: messageSlideIn var(--transition-long);
+}
+
+/* ============================================================================= */
+/* Graph Page Styling */
+/* ============================================================================= */
+
+.graph-query-input:focus {
+    border-color: var(--color-navy) !important;
+    box-shadow: 0 0 0 1px var(--color-navy) !important;
+    outline: none;
+}
+
+.graph-execute-btn:hover {
+    background-color: var(--color-navy-dark) !important;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.graph-execute-btn:active {
+    transform: translateY(0);
+}
+
+/* ============================================================================= */
+/* Navigation - Sidebar */
+/* ============================================================================= */
+
+.executive-sidebar {
+    background-color: var(--color-background-white);
+}
+
+.executive-nav-link {
+    font-family: var(--font-sans);
+    font-size: var(--font-size-xsmall);
+    font-weight: var(--font-weight-medium);
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    color: var(--color-gray-medium) !important;
+    padding: var(--spacing-xsmall) var(--spacing-medium) !important;
+    margin: 0 !important;
+    border-left: 3px solid transparent;
+    border-radius: 0 !important;
+    transition: all var(--transition-base);
+    background-color: transparent !important;
+}
+
+.executive-nav-link:hover {
+    color: var(--color-charcoal-medium) !important;
+    background-color: var(--color-background-light) !important;
+    border-left-color: var(--color-gray-lighter);
+}
+
+.executive-nav-link.active {
+    color: var(--color-navy) !important;
+    background-color: var(--color-surface-active) !important;
+    border-left-color: var(--color-navy);
+    font-weight: var(--font-weight-semibold);
+}
+
+.executive-nav-link:focus {
+    box-shadow: none !important;
+}
+
+/* ============================================================================= */
+/* Navigation - Top Bar */
+/* ============================================================================= */
+
+.executive-topbar .navbar-brand {
+    color: var(--color-charcoal-medium) !important;
+}
+
+.sidebar-toggle-btn:hover {
+    background-color: var(--color-background-light) !important;
+    border-color: var(--color-gray-light) !important;
+    color: var(--color-charcoal-medium) !important;
+}
+
+.sidebar-toggle-btn:focus {
+    box-shadow: none !important;
+}

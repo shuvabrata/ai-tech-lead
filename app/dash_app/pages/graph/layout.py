@@ -17,7 +17,19 @@ from app.dash_app.styles import (
     FONT_WEIGHT_SEMIBOLD,
     COLOR_GRAY_DARK,
     COLOR_GRAY_LIGHTER,
-    SPACING_XXSMALL
+    SPACING_XXSMALL,
+    GRAPH_SECTION_CONTAINER_STYLE,
+    GRAPH_SECTION_TITLE_STYLE,
+    GRAPH_QUERY_TEXTAREA_STYLE,
+    GRAPH_EXECUTE_BUTTON_STYLE,
+    GRAPH_HELPER_TEXT_STYLE,
+    GRAPH_QUERY_SECTION_CONTAINER_STYLE,
+    GRAPH_CYTOSCAPE_STYLE,
+    GRAPH_EMPTY_STATE_ICON_STYLE,
+    GRAPH_EMPTY_STATE_TEXT_STYLE,
+    GRAPH_DETAILS_PANEL_STYLE,
+    GRAPH_DETAILS_PANEL_ICON_STYLE,
+    GRAPH_LOADING_COLOR
 )
 
 
@@ -130,12 +142,7 @@ def create_graph_container():
                 id="graph-cytoscape",
                 elements=[],
                 layout={'name': 'circle', 'animate': True},
-                style={
-                    'width': '100%',
-                    'height': '75vh',
-                    'backgroundColor': '#fafafa',
-                    'borderRadius': '4px'
-                },
+                style=GRAPH_CYTOSCAPE_STYLE,
                 stylesheet=CYTOSCAPE_STYLESHEET,
                 userZoomingEnabled=True,
                 userPanningEnabled=True,
@@ -176,21 +183,11 @@ def create_empty_state():
                 [
                     html.Div(
                         "◆",
-                        style={
-                            "fontFamily": "'Cormorant Garamond', serif",
-                            "fontSize": "28px",
-                            "color": "#cbd5e0",
-                            "marginBottom": "12px"
-                        }
+                        style=GRAPH_EMPTY_STATE_ICON_STYLE
                     ),
                     html.P(
                         "No results to display. Execute a query to visualize network relationships.",
-                        style={
-                            "fontFamily": "'Inter', sans-serif",
-                            "color": "#a0aec0",
-                            "fontSize": "13px",
-                            "lineHeight": "1.6"
-                        }
+                        style=GRAPH_EMPTY_STATE_TEXT_STYLE
                     )
                 ],
                 className="text-center",
@@ -209,17 +206,10 @@ def create_details_panel():
     return dbc.Col([
         html.Div(
             id="graph-details-panel",
-            style={
-                "backgroundColor": "#f8f9fa",
-                "borderRadius": "4px",
-                "border": "1px solid #dee2e6",
-                "padding": "8px",
-                "height": "calc(75vh + 40px)",  # Match graph controls + cytoscape height
-                "overflowY": "auto"
-            },
+            style=GRAPH_DETAILS_PANEL_STYLE,
             children=[
                 html.Div([
-                    html.I(className="fas fa-info-circle fa-lg mb-2", style={"color": "#adb5bd"}),
+                    html.I(className="fas fa-info-circle fa-lg mb-2", style=GRAPH_DETAILS_PANEL_ICON_STYLE),
                     html.P(
                         "Click a node or edge to view details",
                         className="text-muted mb-0",
@@ -241,7 +231,7 @@ def create_results_section():
         dcc.Loading(
             id="graph-loading",
             type="circle",
-            color="#2c5282",
+            color=GRAPH_LOADING_COLOR,
             children=[
                 dbc.Row([
                     # Graph visualization area
@@ -256,13 +246,7 @@ def create_results_section():
                 ])
             ]
         )
-    ], style={
-        "backgroundColor": "#ffffff",
-        "borderRadius": "2px",
-        "border": "1px solid #e2e8f0",
-        "padding": "12px",
-        "marginBottom": "12px"
-    })
+    ], style=GRAPH_SECTION_CONTAINER_STYLE)
 
 
 def create_query_input_section():
@@ -274,15 +258,7 @@ def create_query_input_section():
     return html.Div([
         html.Div(
             "Query Console",
-            style={
-                "fontFamily": "'Inter', sans-serif",
-                "fontSize": "12px",
-                "fontWeight": "600",
-                "color": "#2d3748",
-                "marginBottom": "12px",
-                "textTransform": "uppercase",
-                "letterSpacing": "0.5px"
-            }
+            style=GRAPH_SECTION_TITLE_STYLE
         ),
         
         # Row with textarea and execute button side by side
@@ -291,18 +267,7 @@ def create_query_input_section():
                 dbc.Textarea(
                     id="graph-query-input",
                     placeholder="MATCH (n:Project)-[r]->(m)\nRETURN n, r, m\nLIMIT 10",
-                    style={
-                        "fontFamily": "'Inter', sans-serif",
-                        "height": "90px",
-                        "borderRadius": "2px",
-                        "border": "1px solid #cbd5e0",
-                        "padding": "12px 16px",
-                        "fontSize": "13px",
-                        "resize": "vertical",
-                        "transition": "border-color 0.2s",
-                        "backgroundColor": "#ffffff",
-                        "color": "#2d3748"
-                    },
+                    style=GRAPH_QUERY_TEXTAREA_STYLE,
                     className="graph-query-input"
                 )
             ], width=10),
@@ -310,19 +275,7 @@ def create_query_input_section():
                 dbc.Button(
                     "Execute",
                     id="graph-execute-btn",
-                    style={
-                        "fontFamily": "'Inter', sans-serif",
-                        "borderRadius": "2px",
-                        "fontWeight": "500",
-                        "fontSize": "13px",
-                        "height": "90px",
-                        "width": "100%",
-                        "backgroundColor": "#2c5282",
-                        "border": "none",
-                        "letterSpacing": "0.5px",
-                        "textTransform": "uppercase",
-                        "transition": "all 0.2s ease"
-                    },
+                    style=GRAPH_EXECUTE_BUTTON_STYLE,
                     className="graph-execute-btn"
                 ),
             ], width=2, className="d-flex align-items-start")
@@ -335,21 +288,10 @@ def create_query_input_section():
         html.Div([
             html.Small(
                 "Ctrl+Enter to execute • Read-only queries only",
-                style={
-                    "fontFamily": "'Inter', sans-serif",
-                    "fontSize": "11px",
-                    "color": "#a0aec0",
-                    "letterSpacing": "0.3px"
-                }
+                style=GRAPH_HELPER_TEXT_STYLE
             )
         ])
-    ], style={
-        "backgroundColor": "#f7fafc",
-        "borderRadius": "2px",
-        "border": "1px solid #e2e8f0",
-        "padding": "16px",
-        "marginTop": "12px"
-    })
+    ], style=GRAPH_QUERY_SECTION_CONTAINER_STYLE)
 
 
 def create_stores():
