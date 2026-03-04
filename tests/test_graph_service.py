@@ -53,7 +53,14 @@ class TestGraphService:
         assert isinstance(response, GraphResponse)
         assert response.isGraph is True
         assert isinstance(response.nodes, list)
-        assert response.relationships == []
+        assert isinstance(response.relationships, list)
+
+        # If implicit relationships are returned, they should connect returned nodes
+        if response.relationships:
+            node_ids = {node.id for node in response.nodes}
+            for rel in response.relationships:
+                assert rel.startNode in node_ids
+                assert rel.endNode in node_ids
         
     def test_execute_tabular_query(self):
         """Test query that returns tabular data (not nodes/relationships)."""

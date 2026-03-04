@@ -1,7 +1,7 @@
 """Service layer for Graph API v1 - business logic and data transformation."""
 
 from typing import Any, Dict, List, Set
-from neo4j.graph import Node, Relationship
+from neo4j.graph import Node, Path, Relationship
 
 from app.common.logger import logger
 from app.settings import settings
@@ -55,42 +55,25 @@ def execute_and_format_query(query: str) -> GraphResponse:
     # Step 3: Detect result type and transform
     nodes_dict: Dict[str, GraphNode] = {}  # Keyed by element_id for deduplication
     relationships_list: List[GraphRelationship] = []
+    relationship_ids: Set[str] = set()  # For deduplication
     is_graph = False
     
-    # Check if results contain graph objects (Node or Relationship)
+    # Extract graph objects from query results (supports nested values and Path objects)
     for record in raw_results:
         for value in record.values():
-            if isinstance(value, (Node, Relationship)):
+            extracted = _extract_graph_elements_from_value(
+                value=value,
+                nodes_dict=nodes_dict,
+                relationships_list=relationships_list,
+                relationship_ids=relationship_ids,
+            )
+            if extracted:
                 is_graph = True
-                break
-        if is_graph:
-            break
     
     # Step 4: Transform based on result type
     if is_graph:
-        # Graph data: extract nodes and relationships
+        # Graph data: nodes and relationships are already extracted above
         logger.info("Detected graph data. Extracting nodes and relationships.")
-        relationship_ids: Set[str] = set()  # For deduplication
-        
-        for record in raw_results:
-            for value in record.values():
-                if isinstance(value, Node):
-                    # Add node (deduplicating by element_id)
-                    node = _transform_node(value)
-                    nodes_dict[node.id] = node
-                    
-                elif isinstance(value, Relationship):
-                    # Add relationship (deduplicating by element_id)
-                    rel = _transform_relationship(value)
-                    if rel.id not in relationship_ids:
-                        relationships_list.append(rel)
-                        relationship_ids.add(rel.id)
-                    
-                    # Also add the start and end nodes
-                    start_node = _transform_node(value.start_node)
-                    end_node = _transform_node(value.end_node)
-                    nodes_dict[start_node.id] = start_node
-                    nodes_dict[end_node.id] = end_node
         
         nodes_list = list(nodes_dict.values())
         logger.info(f"Extracted {len(nodes_list)} nodes and {len(relationships_list)} relationships from query results")
@@ -183,6 +166,81 @@ def _transform_relationship(neo4j_rel: Relationship) -> GraphRelationship:
     )
 
 
+def _extract_graph_elements_from_value(
+    value: Any,
+    nodes_dict: Dict[str, GraphNode],
+    relationships_list: List[GraphRelationship],
+    relationship_ids: Set[str],
+) -> bool:
+    """Recursively extract graph nodes/relationships from a Neo4j result value.
+
+    Supports direct Node/Relationship values, Path objects, and nested structures
+    (lists/tuples/sets/dicts) that may contain graph values.
+
+    Args:
+        value: Raw value from a Neo4j record
+        nodes_dict: Target node map for deduplication
+        relationships_list: Target relationship list
+        relationship_ids: Target relationship ID set for deduplication
+
+    Returns:
+        True if at least one graph element was extracted, else False
+    """
+    extracted = False
+
+    if isinstance(value, Node):
+        node = _transform_node(value)
+        nodes_dict[node.id] = node
+        return True
+
+    if isinstance(value, Relationship):
+        rel = _transform_relationship(value)
+        if rel.id not in relationship_ids:
+            relationships_list.append(rel)
+            relationship_ids.add(rel.id)
+
+        start_node = _transform_node(value.start_node)
+        end_node = _transform_node(value.end_node)
+        nodes_dict[start_node.id] = start_node
+        nodes_dict[end_node.id] = end_node
+        return True
+
+    if isinstance(value, Path):
+        for node in value.nodes:
+            transformed_node = _transform_node(node)
+            nodes_dict[transformed_node.id] = transformed_node
+
+        for relationship in value.relationships:
+            transformed_rel = _transform_relationship(relationship)
+            if transformed_rel.id not in relationship_ids:
+                relationships_list.append(transformed_rel)
+                relationship_ids.add(transformed_rel.id)
+
+        return bool(value.nodes or value.relationships)
+
+    if isinstance(value, (list, tuple, set)):
+        for item in value:
+            extracted = _extract_graph_elements_from_value(
+                value=item,
+                nodes_dict=nodes_dict,
+                relationships_list=relationships_list,
+                relationship_ids=relationship_ids,
+            ) or extracted
+        return extracted
+
+    if isinstance(value, dict):
+        for item in value.values():
+            extracted = _extract_graph_elements_from_value(
+                value=item,
+                nodes_dict=nodes_dict,
+                relationships_list=relationships_list,
+                relationship_ids=relationship_ids,
+            ) or extracted
+        return extracted
+
+    return False
+
+
 def _make_serializable(value: Any) -> Any:
     """Convert Neo4j types to JSON-serializable Python types.
     
@@ -208,6 +266,11 @@ def _make_serializable(value: Any) -> Any:
             "startNode": value.start_node.element_id,
             "endNode": value.end_node.element_id,
             "properties": dict(value)
+        }
+    elif isinstance(value, Path):
+        return {
+            "nodes": [_make_serializable(node) for node in value.nodes],
+            "relationships": [_make_serializable(rel) for rel in value.relationships],
         }
     elif isinstance(value, (list, tuple)):
         return [_make_serializable(item) for item in value]

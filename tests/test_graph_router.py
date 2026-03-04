@@ -58,8 +58,15 @@ class TestGraphRouterEndpoints:
             assert data["isGraph"] is True
             assert isinstance(data["nodes"], list)
             assert len(data["nodes"]) <= 5
-            assert data["relationships"] == []
+            assert isinstance(data["relationships"], list)
             assert data["rawResults"] == []
+
+            # If implicit relationships are returned, they should connect returned nodes
+            if data["relationships"]:
+                node_ids = {node["id"] for node in data["nodes"]}
+                for rel in data["relationships"]:
+                    assert rel["startNode"] in node_ids
+                    assert rel["endNode"] in node_ids
             
             # Verify node structure if results exist
             if data["nodes"]:

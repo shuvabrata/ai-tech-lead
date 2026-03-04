@@ -563,10 +563,11 @@ cy.on('dbltap', 'node', function(evt) {
 **Objective**: Ensure relationships are clearly visible and interactive
 
 **Tasks**:
-- [ ] **1.2.1 Verify Relationship Rendering**
-  - Debug: Check if current implementation renders edges correctly
-  - Test: Create queries with various relationship types
-  - Fix: Any edge rendering bugs
+- [x] **1.2.1 Verify Relationship Rendering** ✅ COMPLETE (March 4, 2026)
+  - Debug: Verified edge transformation pipeline (`GraphRelationship` → `neo4j_to_cytoscape` edge elements) is structurally correct
+  - Test: Validated with graph service + router integration tests covering node-only and relationship queries
+  - Fix: Updated backend graph extraction to support Neo4j `Path` and nested structures so relationships are consistently extracted/rendered
+  - Validation: `pytest -q tests/test_graph_service.py tests/test_graph_router.py` → **35 passed, 1 skipped**
 
 - [ ] **1.2.2 Relationship Styling Improvements**
   - Edge thickness based on property (e.g., weight, count)
@@ -1655,3 +1656,9 @@ scikit-learn>=1.3         # Clustering algorithms
     - Updated modal expansion callback to trigger fit via `graph-fit-trigger`
     - Keyboard shortcuts ignore input/textarea fields
   - **Impact**: **Phase 1.1 (Node Expansion) is now COMPLETE!** All 5 micro-phases (1.1a-1.1e) implemented and tested. Graph visualization now supports robust, user-friendly node expansion with three interaction methods, comprehensive error handling, and power-user features.
+
+- **2026-03-04**: **PHASE 1.2.1 COMPLETE - Relationship Rendering Verification**:
+  - **Verified** edge transformation and Cytoscape rendering path from backend `GraphRelationship` to frontend edge elements
+  - **Fixed** backend extraction gap: `execute_and_format_query()` now recursively extracts graph entities from Neo4j `Path` and nested result structures
+  - **Updated tests** for node-only graph queries to validate relationship integrity (start/end nodes must exist in returned node set)
+  - **Validation**: `tests/test_graph_service.py` and `tests/test_graph_router.py` passing (`35 passed, 1 skipped`)
