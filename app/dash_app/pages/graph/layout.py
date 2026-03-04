@@ -133,7 +133,7 @@ def create_graph_container():
     """
     return html.Div(
         id="graph-cytoscape-container",
-        style={"display": "none"},  # Hidden by default
+        style={"display": "none"},  # Hidden initially, then maintains consistent size after first query
         children=[
             create_graph_controls(),
             
