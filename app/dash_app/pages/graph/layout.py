@@ -223,7 +223,7 @@ def create_query_input_section():
                         "borderRadius": "4px",
                         "border": "1px solid #dee2e6",
                         "padding": "8px 10px",
-                        "fontSize": "12px",
+                        "fontSize": "18px",
                         "fontFamily": "Consolas, Monaco, 'Courier New', monospace",
                         "resize": "vertical",
                         "transition": "border-color 0.2s"
