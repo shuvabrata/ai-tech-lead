@@ -4,6 +4,11 @@ Functions for formatting node/edge property values for display.
 """
 
 from dash import html
+from app.dash_app.styles import (
+    PROPERTY_COMPLEX_VALUE_STYLE,
+    PROPERTY_SIMPLE_VALUE_STYLE,
+    PROPERTY_LABEL_STYLE
+)
 
 
 def format_property_value(value):
@@ -18,20 +23,12 @@ def format_property_value(value):
     if isinstance(value, (dict, list)):
         return html.Pre(
             str(value),
-            style={
-                "fontSize": "11px",
-                "backgroundColor": "#f8f9fa",
-                "padding": "6px",
-                "borderRadius": "3px",
-                "marginBottom": "0",
-                "whiteSpace": "pre-wrap",
-                "wordBreak": "break-all"
-            }
+            style=PROPERTY_COMPLEX_VALUE_STYLE
         )
     else:
         return html.Span(
             str(value),
-            style={"color": "#212529", "fontSize": "13px"}
+            style=PROPERTY_SIMPLE_VALUE_STYLE
         )
 
 
@@ -48,7 +45,7 @@ def build_property_items(properties):
     for key, value in sorted(properties.items()):
         prop_items.append(
             html.Div([
-                html.Strong(f"{key}: ", style={"color": "#6c757d", "fontSize": "12px"}),
+                html.Strong(f"{key}: ", style=PROPERTY_LABEL_STYLE),
                 format_property_value(value)
             ], className="mb-2")
         )

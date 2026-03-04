@@ -6,6 +6,18 @@ Callbacks for graph display, layout management, and property details.
 import dash_bootstrap_components as dbc
 from dash import html, Input, Output, State, callback, callback_context
 
+from app.dash_app.styles import (
+    DETAILS_HEADING_STYLE,
+    DETAILS_LABEL_STYLE,
+    DETAILS_VALUE_STYLE,
+    DETAILS_CODE_STYLE,
+    DETAILS_MUTED_TEXT_STYLE,
+    DETAILS_SEPARATOR_STYLE,
+    DETAILS_SUBHEADING_STYLE,
+    FONT_SIZE_XSMALL,
+    COLOR_NAVY,
+    FONT_SIZE_XTINY
+)
 from ..utils import toggle_details_panel, build_property_items, create_node_legend
 
 
@@ -57,40 +69,40 @@ def display_properties(selected_nodes, selected_edges, elements):
         # Header
         header = html.Div([
             html.H6([
-                html.I(className="fas fa-circle me-2", style={"color": "#0d6efd", "fontSize": "10px"}),
+                html.I(className="fas fa-circle me-2", style={"color": COLOR_NAVY, "fontSize": FONT_SIZE_XTINY}),
                 "Node Details"
-            ], className="mb-3", style={"fontWeight": "600", "color": "#333"}),
+            ], className="mb-3", style=DETAILS_HEADING_STYLE),
         ])
         
         # Basic info
         basic_info = [
             html.Div([
-                html.Strong("Type: ", style={"color": "#6c757d", "fontSize": "13px"}),
+                html.Strong("Type: ", style=DETAILS_LABEL_STYLE),
                 html.Span(node_data.get('nodeType', 'Unknown'), 
-                         style={"color": "#212529", "fontSize": "13px"})
+                         style=DETAILS_VALUE_STYLE)
             ], className="mb-2"),
             html.Div([
-                html.Strong("Label: ", style={"color": "#6c757d", "fontSize": "13px"}),
+                html.Strong("Label: ", style=DETAILS_LABEL_STYLE),
                 html.Span(node_data.get('label', 'N/A'), 
-                         style={"color": "#212529", "fontSize": "13px"})
+                         style=DETAILS_VALUE_STYLE)
             ], className="mb-2"),
             html.Div([
-                html.Strong("ID: ", style={"color": "#6c757d", "fontSize": "13px"}),
+                html.Strong("ID: ", style=DETAILS_LABEL_STYLE),
                 html.Code(str(node_data.get('id', 'N/A')), 
-                         style={"fontSize": "11px", "backgroundColor": "#e9ecef", "padding": "2px 6px", "borderRadius": "3px"})
+                         style=DETAILS_CODE_STYLE)
             ], className="mb-3"),
-            html.Hr(style={"margin": "12px 0"})
+            html.Hr(style=DETAILS_SEPARATOR_STYLE)
         ]
         
         # Properties section
         if properties:
             properties_section = [
-                html.H6("Properties", style={"fontSize": "14px", "fontWeight": "600", "color": "#495057", "marginBottom": "12px"}),
+                html.H6("Properties", style=DETAILS_SUBHEADING_STYLE),
                 html.Div(build_property_items(properties))
             ]
         else:
             properties_section = [
-                html.P("No additional properties", className="text-muted", style={"fontSize": "13px", "fontStyle": "italic"})
+                html.P("No additional properties", className="text-muted", style=DETAILS_MUTED_TEXT_STYLE)
             ]
         
         # Phase 1.1b: Add Expand Node button
@@ -103,12 +115,12 @@ def display_properties(selected_nodes, selected_edges, elements):
                 size="sm",
                 outline=True,
                 className="w-100",
-                style={"fontSize": "12px"}
+                style={"fontSize": FONT_SIZE_XSMALL}
             ),
             html.Small(
                 "Load connected neighbors",
                 className="text-muted d-block text-center mt-1",
-                style={"fontSize": "10px"}
+                style={"fontSize": FONT_SIZE_XTINY}
             )
         ], className="mt-3")
         
@@ -124,45 +136,45 @@ def display_properties(selected_nodes, selected_edges, elements):
         # Header
         header = html.Div([
             html.H6([
-                html.I(className="fas fa-arrow-right me-2", style={"color": "#6c757d", "fontSize": "12px"}),
+                html.I(className="fas fa-arrow-right me-2", style={"color": "#6c757d", "fontSize": FONT_SIZE_XSMALL}),
                 "Relationship Details"
-            ], className="mb-3", style={"fontWeight": "600", "color": "#333"}),
+            ], className="mb-3", style=DETAILS_HEADING_STYLE),
         ])
         
         # Basic info
         basic_info = [
             html.Div([
-                html.Strong("Type: ", style={"color": "#6c757d", "fontSize": "13px"}),
+                html.Strong("Type: ", style=DETAILS_LABEL_STYLE),
                 html.Span(edge_data.get('relType', edge_data.get('label', 'Unknown')), 
-                         style={"color": "#212529", "fontSize": "13px"})
+                         style=DETAILS_VALUE_STYLE)
             ], className="mb-2"),
             html.Div([
-                html.Strong("From: ", style={"color": "#6c757d", "fontSize": "13px"}),
+                html.Strong("From: ", style=DETAILS_LABEL_STYLE),
                 html.Code(str(edge_data.get('source', 'N/A')), 
-                         style={"fontSize": "11px", "backgroundColor": "#e9ecef", "padding": "2px 6px", "borderRadius": "3px"})
+                         style=DETAILS_CODE_STYLE)
             ], className="mb-2"),
             html.Div([
-                html.Strong("To: ", style={"color": "#6c757d", "fontSize": "13px"}),
+                html.Strong("To: ", style=DETAILS_LABEL_STYLE),
                 html.Code(str(edge_data.get('target', 'N/A')), 
-                         style={"fontSize": "11px", "backgroundColor": "#e9ecef", "padding": "2px 6px", "borderRadius": "3px"})
+                         style=DETAILS_CODE_STYLE)
             ], className="mb-2"),
             html.Div([
-                html.Strong("ID: ", style={"color": "#6c757d", "fontSize": "13px"}),
+                html.Strong("ID: ", style=DETAILS_LABEL_STYLE),
                 html.Code(str(edge_data.get('id', 'N/A')), 
-                         style={"fontSize": "11px", "backgroundColor": "#e9ecef", "padding": "2px 6px", "borderRadius": "3px"})
+                         style=DETAILS_CODE_STYLE)
             ], className="mb-3"),
-            html.Hr(style={"margin": "12px 0"})
+            html.Hr(style=DETAILS_SEPARATOR_STYLE)
         ]
         
         # Properties section
         if properties:
             properties_section = [
-                html.H6("Properties", style={"fontSize": "14px", "fontWeight": "600", "color": "#495057", "marginBottom": "12px"}),
+                html.H6("Properties", style=DETAILS_SUBHEADING_STYLE),
                 html.Div(build_property_items(properties))
             ]
         else:
             properties_section = [
-                html.P("No additional properties", className="text-muted", style={"fontSize": "13px", "fontStyle": "italic"})
+                html.P("No additional properties", className="text-muted", style=DETAILS_MUTED_TEXT_STYLE)
             ]
         
         return html.Div([header] + basic_info + properties_section)

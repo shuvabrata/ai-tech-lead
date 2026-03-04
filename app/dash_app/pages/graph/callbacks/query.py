@@ -10,6 +10,11 @@ import dash_bootstrap_components as dbc
 from dash import html, Input, Output, State, callback
 
 from app.settings import settings
+from app.dash_app.styles import (
+    VALIDATION_ALERT_STYLE,
+    VALIDATION_CODE_STYLE,
+    GRAPH_DETAILS_PANEL_STYLE
+)
 from ..utils import (
     neo4j_to_cytoscape,
     parse_error_response,
@@ -41,7 +46,7 @@ def validate_query(query_text):
             return dbc.Alert([
                 html.I(className="fas fa-exclamation-triangle me-2"),
                 f"Write operations ({keyword}) are not allowed for security reasons. Only read-only queries (MATCH, RETURN) are permitted."
-            ], color="danger", className="mb-0", style={"fontSize": "13px"})
+            ], color="danger", className="mb-0", style=VALIDATION_ALERT_STYLE)
     
     # Check if query starts with valid read keywords
     valid_starts = ['MATCH', 'RETURN', 'WITH', 'UNWIND', 'CALL', 'OPTIONAL']
@@ -51,16 +56,16 @@ def validate_query(query_text):
         return dbc.Alert([
             html.I(className="fas fa-info-circle me-2"),
             "Query should typically start with MATCH, RETURN, or other read-only keywords."
-        ], color="warning", className="mb-0", style={"fontSize": "13px"})
+        ], color="warning", className="mb-0", style=VALIDATION_ALERT_STYLE)
     
     # Check for missing LIMIT (performance warning)
     if 'LIMIT' not in query_upper and 'MATCH' in query_upper:
         return dbc.Alert([
             html.I(className="fas fa-lightbulb me-2"),
             "Consider adding ",
-            html.Code("LIMIT 100", style={"fontSize": "12px", "backgroundColor": "rgba(255,255,255,0.3)", "padding": "2px 6px"}),
+            html.Code("LIMIT 100", style=VALIDATION_CODE_STYLE),
             " to improve query performance and avoid loading too many nodes."
-        ], color="info", className="mb-0", style={"fontSize": "13px"})
+        ], color="info", className="mb-0", style=VALIDATION_ALERT_STYLE)
     
     # Query looks good
     return None
@@ -91,15 +96,7 @@ def execute_query(_n_clicks, query_text):
     hide_style = {"display": "none"}
     show_style = {"display": "block"}
     default_container_style = {"minHeight": "400px", "padding": "20px"}
-    panel_visible_style = {
-        "display": "block",
-        "backgroundColor": "#f8f9fa",
-        "borderRadius": "4px",
-        "border": "1px solid #dee2e6",
-        "padding": "8px",
-        "height": "calc(70vh + 40px)",
-        "overflowY": "auto"
-    }
+    panel_visible_style = GRAPH_DETAILS_PANEL_STYLE
     
     # Validate query not empty
     if not query_text or not query_text.strip():

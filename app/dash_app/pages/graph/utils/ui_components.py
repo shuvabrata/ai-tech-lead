@@ -7,6 +7,32 @@ These are pure functions that return Dash components.
 import dash_bootstrap_components as dbc
 from dash import html
 
+from app.dash_app.styles import (
+    ALERT_TEXT_STYLE,
+    ALERT_HINT_STYLE,
+    ALERT_SEPARATOR_STYLE,
+    ALERT_DOC_LINK_ICON_STYLE,
+    ALERT_LINK_STYLE,
+    PERFORMANCE_CONTAINER_STYLE,
+    PERFORMANCE_METRIC_ICON_STYLE,
+    PERFORMANCE_METRIC_LABEL_STYLE,
+    PERFORMANCE_METRIC_VALUE_STYLE,
+    PERFORMANCE_TIP_STYLE,
+    PERFORMANCE_TIP_ICON_STYLE,
+    COLOR_WARNING_DARK,
+    COLOR_SUCCESS_DARK,
+    COLOR_DESTRUCTIVE,
+    FONT_SIZE_TINY,
+    FONT_SIZE_XTINY,
+    FONT_SIZE_XXSMALL,
+    COLOR_TEXT_MUTED,
+    COLOR_TEXT_SECONDARY,
+    COLOR_CHARCOAL_MEDIUM,
+    COLOR_GRAY_LIGHTER,
+    FONT_SIZE_SMALL,
+    FONT_SIZE_XSMALL,
+    FONT_WEIGHT_SEMIBOLD
+)
 from ..styles import get_node_type_styles
 
 
@@ -51,23 +77,23 @@ def create_error_alert(message, alert_type='danger', hint=None, heading="Query E
                 html.I(className=f"fas {icon} me-2"),
                 heading
             ], className="alert-heading mb-2"),
-            html.P(message, className="mb-1", style={"fontSize": "14px"}),
-            html.Small(hint, className="text-muted d-block mb-2", style={"fontSize": "12px"}) if hint else None
+            html.P(message, className="mb-1", style=ALERT_TEXT_STYLE),
+            html.Small(hint, className="text-muted d-block mb-2", style=ALERT_HINT_STYLE) if hint else None
         ]
         
         # Add documentation link if provided
         if doc_link:
             alert_content.append(
-                html.Hr(style={"margin": "8px 0"})
+                html.Hr(style=ALERT_SEPARATOR_STYLE)
             )
             alert_content.append(
                 html.Small([
-                    html.I(className="fas fa-book me-1", style={"fontSize": "10px"}),
+                    html.I(className="fas fa-book me-1", style=ALERT_DOC_LINK_ICON_STYLE),
                     html.A(
                         "View Neo4j Documentation →",
                         href=doc_link,
                         target="_blank",
-                        style={"fontSize": "12px", "color": "inherit", "textDecoration": "underline"}
+                        style=ALERT_LINK_STYLE
                     )
                 ])
             )
@@ -157,29 +183,29 @@ def create_performance_metrics(node_count, rel_count, execution_time_ms, is_grap
     if is_graph:
         # For graph queries: warn if >100 nodes or >2 seconds
         if total_elements > 200 or execution_time_ms > 3000:
-            status_color = "#dc3545"  # Red (danger)
+            status_color = COLOR_DESTRUCTIVE
             status_icon = "fa-exclamation-triangle"
             status_text = "Slow"
         elif total_elements > 100 or execution_time_ms > 2000:
-            status_color = "#ffc107"  # Yellow (warning)
+            status_color = COLOR_WARNING_DARK
             status_icon = "fa-exclamation-circle"
             status_text = "OK"
         else:
-            status_color = "#28a745"  # Green (success)
+            status_color = COLOR_SUCCESS_DARK
             status_icon = "fa-check-circle"
             status_text = "Fast"
     else:
         # For tabular queries: warn if >500 rows or >2 seconds
         if total_elements > 1000 or execution_time_ms > 3000:
-            status_color = "#dc3545"  # Red
+            status_color = COLOR_DESTRUCTIVE
             status_icon = "fa-exclamation-triangle"
             status_text = "Slow"
         elif total_elements > 500 or execution_time_ms > 2000:
-            status_color = "#ffc107"  # Yellow
+            status_color = COLOR_WARNING_DARK
             status_icon = "fa-exclamation-circle"
             status_text = "OK"
         else:
-            status_color = "#28a745"  # Green
+            status_color = COLOR_SUCCESS_DARK
             status_icon = "fa-check-circle"
             status_text = "Fast"
     
@@ -191,61 +217,55 @@ def create_performance_metrics(node_count, rel_count, execution_time_ms, is_grap
     
     metrics = [
         html.Div([
-            html.I(className="fas fa-clock me-1", style={"color": "#6c757d", "fontSize": "10px"}),
-            html.Span("Time: ", style={"color": "#6c757d", "fontSize": "11px", "fontWeight": "500"}),
-            html.Span(time_display, style={"color": "#212529", "fontSize": "11px", "fontWeight": "600"})
+            html.I(className="fas fa-clock me-1", style=PERFORMANCE_METRIC_ICON_STYLE),
+            html.Span("Time: ", style=PERFORMANCE_METRIC_LABEL_STYLE),
+            html.Span(time_display, style=PERFORMANCE_METRIC_VALUE_STYLE)
         ], style={"display": "inline-block", "marginRight": "16px"})
     ]
     
     if is_graph:
         metrics.append(html.Div([
-            html.I(className="fas fa-circle me-1", style={"color": "#6c757d", "fontSize": "8px"}),
-            html.Span("Nodes: ", style={"color": "#6c757d", "fontSize": "11px", "fontWeight": "500"}),
-            html.Span(str(node_count), style={"color": "#212529", "fontSize": "11px", "fontWeight": "600"})
+            html.I(className="fas fa-circle me-1", style={"color": COLOR_TEXT_MUTED, "fontSize": FONT_SIZE_XXSMALL}),
+            html.Span("Nodes: ", style=PERFORMANCE_METRIC_LABEL_STYLE),
+            html.Span(str(node_count), style=PERFORMANCE_METRIC_VALUE_STYLE)
         ], style={"display": "inline-block", "marginRight": "16px"}))
         
         metrics.append(html.Div([
-            html.I(className="fas fa-arrow-right me-1", style={"color": "#6c757d", "fontSize": "8px"}),
-            html.Span("Edges: ", style={"color": "#6c757d", "fontSize": "11px", "fontWeight": "500"}),
-            html.Span(str(rel_count), style={"color": "#212529", "fontSize": "11px", "fontWeight": "600"})
+            html.I(className="fas fa-arrow-right me-1", style={"color": COLOR_TEXT_MUTED, "fontSize": FONT_SIZE_XXSMALL}),
+            html.Span("Edges: ", style=PERFORMANCE_METRIC_LABEL_STYLE),
+            html.Span(str(rel_count), style=PERFORMANCE_METRIC_VALUE_STYLE)
         ], style={"display": "inline-block", "marginRight": "16px"}))
     else:
         metrics.append(html.Div([
-            html.I(className="fas fa-table me-1", style={"color": "#6c757d", "fontSize": "8px"}),
-            html.Span("Rows: ", style={"color": "#6c757d", "fontSize": "11px", "fontWeight": "500"}),
-            html.Span(str(node_count), style={"color": "#212529", "fontSize": "11px", "fontWeight": "600"})
+            html.I(className="fas fa-table me-1", style={"color": COLOR_TEXT_MUTED, "fontSize": FONT_SIZE_XXSMALL}),
+            html.Span("Rows: ", style=PERFORMANCE_METRIC_LABEL_STYLE),
+            html.Span(str(node_count), style=PERFORMANCE_METRIC_VALUE_STYLE)
         ], style={"display": "inline-block", "marginRight": "16px"}))
     
     # Performance status indicator
     metrics.append(html.Div([
-        html.I(className=f"fas {status_icon} me-1", style={"color": status_color, "fontSize": "10px"}),
-        html.Span("Status: ", style={"color": "#6c757d", "fontSize": "11px", "fontWeight": "500"}),
-        html.Span(status_text, style={"color": status_color, "fontSize": "11px", "fontWeight": "600"})
+        html.I(className=f"fas {status_icon} me-1", style={"color": status_color, "fontSize": FONT_SIZE_XTINY}),
+        html.Span("Status: ", style=PERFORMANCE_METRIC_LABEL_STYLE),
+        html.Span(status_text, style={"color": status_color, "fontSize": FONT_SIZE_TINY, "fontWeight": "600"})
     ], style={"display": "inline-block"}))
     
     # Performance tip for slow queries
     tip = None
     if is_graph and total_elements > 100:
         tip = html.Small([
-            html.I(className="fas fa-lightbulb me-1", style={"fontSize": "9px"}),
+            html.I(className="fas fa-lightbulb me-1", style=PERFORMANCE_TIP_ICON_STYLE),
             f"Tip: Consider adding LIMIT 100 to reduce the number of elements ({total_elements} currently)."
-        ], className="text-warning", style={"fontSize": "10px", "display": "block", "marginTop": "4px"})
+        ], className="text-warning", style=PERFORMANCE_TIP_STYLE)
     elif not is_graph and total_elements > 500:
         tip = html.Small([
-            html.I(className="fas fa-lightbulb me-1", style={"fontSize": "9px"}),
+            html.I(className="fas fa-lightbulb me-1", style=PERFORMANCE_TIP_ICON_STYLE),
             f"Tip: Consider adding LIMIT clause to reduce the number of rows ({total_elements} currently)."
-        ], className="text-warning", style={"fontSize": "10px", "display": "block", "marginTop": "4px"})
+        ], className="text-warning", style=PERFORMANCE_TIP_STYLE)
     
     return html.Div([
         html.Div(metrics, style={"display": "flex", "alignItems": "center", "flexWrap": "wrap"}),
         tip if tip else None
-    ], style={
-        "backgroundColor": "#f8f9fa",
-        "borderRadius": "4px",
-        "padding": "8px 12px",
-        "marginBottom": "8px",
-        "border": "1px solid #e9ecef"
-    })
+    ], style=PERFORMANCE_CONTAINER_STYLE)
 
 
 def create_expansion_success_alert(node_count, rel_count, has_more=False):
@@ -266,8 +286,8 @@ def create_expansion_success_alert(node_count, rel_count, has_more=False):
     if has_more:
         message_parts.extend([
             html.Span(" "),
-            html.I(className="fas fa-exclamation-triangle me-1", style={"color": "#ffc107"}),
-            html.Span("More available", style={"color": "#ffc107", "fontWeight": "500"})
+            html.I(className="fas fa-exclamation-triangle me-1", style={"color": COLOR_WARNING_DARK}),
+            html.Span("More available", style={"color": COLOR_WARNING_DARK, "fontWeight": "500"})
         ])
     return dbc.Alert(message_parts, color="success", className="mb-0", dismissable=True)
 
@@ -360,16 +380,16 @@ def create_node_legend(node_types=None):
     if not node_types:
         return html.Div([
             html.Div([
-                html.I(className="fas fa-info-circle fa-lg mb-2", style={"color": "#adb5bd"}),
+                html.I(className="fas fa-info-circle fa-lg mb-2", style={"color": COLOR_GRAY_LIGHTER}),
                 html.P(
                     "Execute a query to see the graph",
                     className="text-muted mb-2",
-                    style={"fontSize": "13px"}
+                    style={"fontSize": FONT_SIZE_SMALL}
                 ),
                 html.P(
                     "Click a node or edge to view details",
                     className="text-muted mb-0",
-                    style={"fontSize": "12px"}
+                    style={"fontSize": FONT_SIZE_XSMALL}
                 )
             ], className="text-center", style={"marginTop": "100px"})
         ])
@@ -397,8 +417,8 @@ def create_node_legend(node_types=None):
                 html.Span(
                     node_type,
                     style={
-                        "fontSize": "13px",
-                        "color": "#495057",
+                        "fontSize": FONT_SIZE_SMALL,
+                        "color": COLOR_TEXT_SECONDARY,
                         "verticalAlign": "middle"
                     }
                 )
@@ -407,21 +427,21 @@ def create_node_legend(node_types=None):
     
     return html.Div([
         html.Div([
-            html.I(className="fas fa-palette fa-lg mb-2", style={"color": "#6c757d"}),
+            html.I(className="fas fa-palette fa-lg mb-2", style={"color": COLOR_TEXT_MUTED}),
             html.H6(
                 "Node Legend",
                 className="mt-2 mb-3",
-                style={"fontWeight": "600", "color": "#333", "fontSize": "14px"}
+                style={"fontWeight": FONT_WEIGHT_SEMIBOLD, "color": COLOR_CHARCOAL_MEDIUM, "fontSize": "14px"}
             )
         ], className="text-center"),
         html.Div(legend_items, style={"marginTop": "20px"}),
         html.Hr(style={"margin": "20px 0"}),
         html.Div([
-            html.I(className="fas fa-info-circle me-2", style={"color": "#6c757d", "fontSize": "12px"}),
+            html.I(className="fas fa-info-circle me-2", style={"color": COLOR_TEXT_MUTED, "fontSize": FONT_SIZE_XSMALL}),
             html.Span(
                 "Click a node or edge to view details",
                 className="text-muted",
-                style={"fontSize": "12px"}
+                style={"fontSize": FONT_SIZE_XSMALL}
             )
         ], className="text-center")
     ], style={"padding": "20px"})

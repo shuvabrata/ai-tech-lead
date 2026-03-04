@@ -25,6 +25,9 @@ FONT_SIZE_LARGE = "15px"
 FONT_SIZE_MEDIUM = "14px"
 FONT_SIZE_SMALL = "13px"
 FONT_SIZE_XSMALL = "12px"
+FONT_SIZE_TINY = "11px"
+FONT_SIZE_XTINY = "10px"
+FONT_SIZE_XXSMALL = "9px"
 
 # Font Weights
 FONT_WEIGHT_NORMAL = "400"
@@ -63,6 +66,19 @@ COLOR_SUCCESS = "#48bb78"
 COLOR_WARNING = "#ed8936"
 COLOR_ERROR = "#f56565"
 COLOR_INFO = "#4299e1"
+
+# Extended Colors (Graph UI Components)
+COLOR_TEXT_DARK = "#212529"
+COLOR_TEXT_MUTED = "#6c757d"
+COLOR_TEXT_SECONDARY = "#495057"
+COLOR_BACKGROUND_PALE = "#f8f9fa"
+COLOR_BORDER_GRAY = "#dee2e6"
+COLOR_CODE_BACKGROUND = "#e9ecef"
+COLOR_SHADOW_LIGHT = "rgba(0,0,0,0.2)"
+COLOR_CONTEXT_MENU_BORDER = "#ccc"
+COLOR_DESTRUCTIVE = "#dc3545"
+COLOR_WARNING_DARK = "#ffc107"
+COLOR_SUCCESS_DARK = "#28a745"
 
 # =============================================================================
 # SPACING
@@ -389,6 +405,176 @@ GRAPH_DETAILS_PANEL_ICON_STYLE = {
 
 # Graph page constant (used in dcc.Loading component)
 GRAPH_LOADING_COLOR = COLOR_NAVY
+
+# =============================================================================
+# GRAPH UI COMPONENTS (Callbacks, Menus, Details)
+# =============================================================================
+
+# Context Menu Styles
+CONTEXT_MENU_CONTAINER_STYLE = {
+    "position": "fixed",
+    "display": "none",
+    "backgroundColor": COLOR_BACKGROUND_WHITE,
+    "border": f"1px solid {COLOR_CONTEXT_MENU_BORDER}",
+    "borderRadius": "4px",
+    "boxShadow": f"2px 2px 8px {COLOR_SHADOW_LIGHT}",
+    "zIndex": "9999",
+    "minWidth": "180px",
+    "padding": "4px 0"
+}
+
+CONTEXT_MENU_ITEM_STYLE = {
+    "padding": "8px 16px",
+    "cursor": "pointer",
+    "fontSize": FONT_SIZE_SMALL,
+    "color": COLOR_CHARCOAL_MEDIUM
+}
+
+CONTEXT_MENU_DIVIDER_STYLE = {
+    "margin": "4px 0",
+    "borderTop": f"1px solid {COLOR_BORDER}"
+}
+
+CONTEXT_MENU_DESTRUCTIVE_STYLE = {
+    "padding": "8px 16px",
+    "cursor": "pointer",
+    "fontSize": FONT_SIZE_SMALL,
+    "color": COLOR_DESTRUCTIVE
+}
+
+# Validation Message Styles
+VALIDATION_ALERT_STYLE = {
+    "fontSize": FONT_SIZE_SMALL
+}
+
+VALIDATION_CODE_STYLE = {
+    "fontSize": FONT_SIZE_XSMALL,
+    "backgroundColor": "rgba(255,255,255,0.3)",
+    "padding": "2px 6px"
+}
+
+# Details Panel Styles
+DETAILS_LABEL_STYLE = {
+    "color": COLOR_TEXT_MUTED,
+    "fontSize": FONT_SIZE_SMALL
+}
+
+DETAILS_VALUE_STYLE = {
+    "color": COLOR_TEXT_DARK,
+    "fontSize": FONT_SIZE_SMALL
+}
+
+DETAILS_HEADING_STYLE = {
+    "fontWeight": FONT_WEIGHT_SEMIBOLD,
+    "color": COLOR_CHARCOAL_MEDIUM
+}
+
+DETAILS_SUBHEADING_STYLE = {
+    "fontSize": FONT_SIZE_MEDIUM,
+    "fontWeight": FONT_WEIGHT_SEMIBOLD,
+    "color": COLOR_TEXT_SECONDARY,
+    "marginBottom": SPACING_XSMALL
+}
+
+DETAILS_CODE_STYLE = {
+    "fontSize": FONT_SIZE_TINY,
+    "backgroundColor": COLOR_CODE_BACKGROUND,
+    "padding": "2px 6px",
+    "borderRadius": "3px"
+}
+
+DETAILS_MUTED_TEXT_STYLE = {
+    "fontSize": FONT_SIZE_SMALL,
+    "fontStyle": "italic"
+}
+
+DETAILS_SEPARATOR_STYLE = {
+    "margin": "12px 0"
+}
+
+# Property Formatter Styles
+PROPERTY_COMPLEX_VALUE_STYLE = {
+    "fontSize": FONT_SIZE_TINY,
+    "backgroundColor": COLOR_BACKGROUND_PALE,
+    "padding": "6px",
+    "borderRadius": "3px",
+    "marginBottom": "0",
+    "whiteSpace": "pre-wrap",
+    "wordBreak": "break-all"
+}
+
+PROPERTY_SIMPLE_VALUE_STYLE = {
+    "color": COLOR_TEXT_DARK,
+    "fontSize": FONT_SIZE_SMALL
+}
+
+PROPERTY_LABEL_STYLE = {
+    "color": COLOR_TEXT_MUTED,
+    "fontSize": FONT_SIZE_XSMALL
+}
+
+# Performance Metrics Styles
+PERFORMANCE_CONTAINER_STYLE = {
+    "backgroundColor": COLOR_BACKGROUND_PALE,
+    "borderRadius": "4px",
+    "padding": "8px 12px",
+    "marginBottom": "8px",
+    "border": f"1px solid {COLOR_CODE_BACKGROUND}"
+}
+
+PERFORMANCE_METRIC_ICON_STYLE = {
+    "color": COLOR_TEXT_MUTED,
+    "fontSize": FONT_SIZE_XTINY
+}
+
+PERFORMANCE_METRIC_LABEL_STYLE = {
+    "color": COLOR_TEXT_MUTED,
+    "fontSize": FONT_SIZE_TINY,
+    "fontWeight": FONT_WEIGHT_MEDIUM
+}
+
+PERFORMANCE_METRIC_VALUE_STYLE = {
+    "color": COLOR_TEXT_DARK,
+    "fontSize": FONT_SIZE_TINY,
+    "fontWeight": FONT_WEIGHT_SEMIBOLD
+}
+
+PERFORMANCE_TIP_STYLE = {
+    "fontSize": FONT_SIZE_XTINY,
+    "display": "block",
+    "marginTop": "4px"
+}
+
+PERFORMANCE_TIP_ICON_STYLE = {
+    "fontSize": FONT_SIZE_XXSMALL
+}
+
+# Alert Component Styles  
+ALERT_HEADING_ICON_STYLE = {
+    "fontSize": FONT_SIZE_MEDIUM
+}
+
+ALERT_TEXT_STYLE = {
+    "fontSize": FONT_SIZE_MEDIUM
+}
+
+ALERT_HINT_STYLE = {
+    "fontSize": FONT_SIZE_XSMALL
+}
+
+ALERT_LINK_STYLE = {
+    "fontSize": FONT_SIZE_XSMALL,
+    "color": "inherit",
+    "textDecoration": "underline"
+}
+
+ALERT_SEPARATOR_STYLE = {
+    "margin": "8px 0"
+}
+
+ALERT_DOC_LINK_ICON_STYLE = {
+    "fontSize": FONT_SIZE_XTINY
+}
 
 # =============================================================================
 # LAYOUT UTILITIES
