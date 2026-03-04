@@ -11,6 +11,15 @@ import dash_cytoscape as cyto
 from .styles import CYTOSCAPE_STYLESHEET
 from .components import create_expansion_modal, create_context_menu
 
+from app.dash_app.components.common import create_page_header
+from app.dash_app.styles import (
+    FONT_SANS,
+    FONT_WEIGHT_SEMIBOLD,
+    COLOR_GRAY_DARK,
+    COLOR_GRAY_LIGHTER,
+    SPACING_XXSMALL
+)
+
 
 def create_graph_controls():
     """Create layout controls (layout selector and action buttons)
@@ -23,11 +32,11 @@ def create_graph_controls():
             html.Label(
                 "Layout:",
                 style={
-                    "fontFamily": "'Inter', sans-serif",
+                    "fontFamily": FONT_SANS,
                     "fontSize": "11px",
-                    "fontWeight": "600",
-                    "color": "#4a5568",
-                    "marginRight": "8px",
+                    "fontWeight": FONT_WEIGHT_SEMIBOLD,
+                    "color": COLOR_GRAY_DARK,
+                    "marginRight": SPACING_XXSMALL,
                     "textTransform": "uppercase",
                     "letterSpacing": "0.3px"
                 }
@@ -43,11 +52,11 @@ def create_graph_controls():
                 ],
                 value="cose",
                 style={
-                    "fontFamily": "'Inter', sans-serif",
+                    "fontFamily": FONT_SANS,
                     "width": "200px",
                     "display": "inline-block",
                     "fontSize": "12px",
-                    "border": "1px solid #cbd5e0",
+                    "border": f"1px solid {COLOR_GRAY_LIGHTER}",
                     "borderRadius": "2px"
                 },
                 size="sm"
@@ -62,12 +71,12 @@ def create_graph_controls():
                     color="secondary",
                     size="sm",
                     style={
-                        "fontFamily": "'Inter', sans-serif",
+                        "fontFamily": FONT_SANS,
                         "fontSize": "11px",
                         "padding": "4px 12px",
                         "borderRadius": "2px",
-                        "borderColor": "#cbd5e0",
-                        "color": "#4a5568"
+                        "borderColor": COLOR_GRAY_LIGHTER,
+                        "color": COLOR_GRAY_DARK
                     }
                 ),
                 dbc.Button(
@@ -77,12 +86,12 @@ def create_graph_controls():
                     color="secondary",
                     size="sm",
                     style={
-                        "fontFamily": "'Inter', sans-serif",
+                        "fontFamily": FONT_SANS,
                         "fontSize": "11px",
                         "padding": "4px 12px",
                         "borderRadius": "2px",
-                        "borderColor": "#cbd5e0",
-                        "color": "#4a5568"
+                        "borderColor": COLOR_GRAY_LIGHTER,
+                        "color": COLOR_GRAY_DARK
                     }
                 ),
                 dbc.Button(
@@ -92,12 +101,12 @@ def create_graph_controls():
                     color="secondary",
                     size="sm",
                     style={
-                        "fontFamily": "'Inter', sans-serif",
+                        "fontFamily": FONT_SANS,
                         "fontSize": "11px",
                         "padding": "4px 12px",
                         "borderRadius": "2px",
-                        "borderColor": "#cbd5e0",
-                        "color": "#4a5568"
+                        "borderColor": COLOR_GRAY_LIGHTER,
+                        "color": COLOR_GRAY_DARK
                     }
                 )
             ], size="sm")
@@ -411,21 +420,8 @@ def get_layout():
         html.Div with full page layout
     """
     return html.Div([
-        # Header with refined typography
-        html.Div(
-            "Relationship Mapping & Network Visualization",
-            style={
-                "fontFamily": "'Inter', sans-serif",
-                "fontSize": "13px",
-                "color": "#718096",
-                "letterSpacing": "1.5px",
-                "textTransform": "uppercase",
-                "fontWeight": "500",
-                "borderBottom": "1px solid #e2e8f0",
-                "paddingBottom": "8px",
-                "marginBottom": "12px"
-            }
-        ),
+        # Page header
+        create_page_header("Relationship Mapping & Network Visualization"),
         
         # Results Section (graph visualization + details panel)
         create_results_section(),

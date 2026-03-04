@@ -6,27 +6,39 @@ from dash import html, dcc, Input, Output, State, callback, clientside_callback
 import requests
 
 from app.settings import settings
+from app.dash_app.components.common import create_page_header, create_diamond_icon
+from app.dash_app.styles import (
+    FONT_SANS,
+    FONT_SERIF,
+    FONT_SIZE_MEDIUM,
+    FONT_SIZE_LARGE,
+    FONT_WEIGHT_MEDIUM,
+    COLOR_NAVY,
+    COLOR_NAVY_DARK,
+    COLOR_CHARCOAL_MEDIUM,
+    COLOR_GRAY_DARK,
+    COLOR_GRAY_LIGHT,
+    COLOR_GRAY_LIGHTER,
+    COLOR_BACKGROUND_WHITE,
+    COLOR_BORDER,
+    COLOR_ERROR,
+    SPACING_XXXSMALL,
+    SPACING_XXSMALL,
+    SPACING_XSMALL,
+    SPACING_SMALL,
+    SPACING_MEDIUM,
+    SPACING_LARGE,
+    CARD_CONTAINER_STYLE,
+    BUTTON_PRIMARY_STYLE
+)
 
 TIMEOUT_SECONDS = settings.HTTP_REQUEST_TIMEOUT
 
 def get_layout():
     """Return the chat page layout with Executive Dashboard aesthetic"""
     return html.Div([
-        # Header with refined typography
-        html.Div(
-            "Strategic Analysis & Advisory",
-            style={
-                "fontFamily": "'Inter', sans-serif",
-                "fontSize": "13px",
-                "color": "#718096",
-                "letterSpacing": "1.5px",
-                "textTransform": "uppercase",
-                "fontWeight": "500",
-                "borderBottom": "1px solid #e2e8f0",
-                "paddingBottom": "12px",
-                "marginBottom": "16px"
-            }
-        ),
+        # Page header
+        create_page_header("Strategic Analysis & Advisory"),
         
         # Main chat container with refined styling
         html.Div([
@@ -37,11 +49,11 @@ def get_layout():
                 style={
                     "height": "580px",
                     "overflowY": "auto",
-                    "marginBottom": "24px",
-                    "padding": "32px",
-                    "backgroundColor": "#ffffff",
+                    "marginBottom": SPACING_MEDIUM,
+                    "padding": SPACING_LARGE,
+                    "backgroundColor": COLOR_BACKGROUND_WHITE,
                     "borderRadius": "2px",
-                    "border": "1px solid #cbd5e0",
+                    "border": f"1px solid {COLOR_GRAY_LIGHTER}",
                     "boxShadow": "0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.02)"
                 },
                 children=[
@@ -49,18 +61,18 @@ def get_layout():
                         html.Div(
                             "—",
                             style={
-                                "fontFamily": "'Cormorant Garamond', serif",
+                                "fontFamily": FONT_SERIF,
                                 "fontSize": "32px",
-                                "color": "#2d3748",
-                                "marginBottom": "16px"
+                                "color": COLOR_CHARCOAL_MEDIUM,
+                                "marginBottom": SPACING_SMALL
                             }
                         ),
                         html.Div(
                             "Begin your strategic inquiry below. Each question will be analyzed with precision and depth.", 
                             style={
-                                "fontFamily": "'Inter', sans-serif",
-                                "color": "#4a5568",
-                                "fontSize": "15px",
+                                "fontFamily": FONT_SANS,
+                                "color": COLOR_GRAY_DARK,
+                                "fontSize": FONT_SIZE_LARGE,
                                 "lineHeight": "1.7",
                                 "fontWeight": "400"
                             }
@@ -84,16 +96,16 @@ def get_layout():
                             id="chat-input",
                             placeholder="Compose your inquiry...",
                             style={
-                                "fontFamily": "'Inter', sans-serif",
+                                "fontFamily": FONT_SANS,
                                 "height": "68px",
                                 "borderRadius": "2px",
-                                "border": "1px solid #cbd5e0",
-                                "padding": "16px 20px",
-                                "fontSize": "15px",
+                                "border": f"1px solid {COLOR_GRAY_LIGHTER}",
+                                "padding": f"{SPACING_SMALL} 20px",
+                                "fontSize": FONT_SIZE_LARGE,
                                 "resize": "none",
                                 "transition": "all 0.2s ease",
-                                "backgroundColor": "#ffffff",
-                                "color": "#2d3748",
+                                "backgroundColor": COLOR_BACKGROUND_WHITE,
+                                "color": COLOR_CHARCOAL_MEDIUM,
                                 "lineHeight": "1.6"
                             },
                             className="mb-0 chat-input-refined"
@@ -105,16 +117,8 @@ def get_layout():
                             id="send-button",
                             className="w-100",
                             style={
-                                "fontFamily": "'Inter', sans-serif",
-                                "height": "68px",
-                                "borderRadius": "2px",
-                                "fontWeight": "500",
-                                "fontSize": "14px",
-                                "letterSpacing": "0.5px",
-                                "backgroundColor": "#2c5282",
-                                "border": "none",
-                                "transition": "all 0.2s ease",
-                                "textTransform": "uppercase"
+                                **BUTTON_PRIMARY_STYLE,
+                                "height": "68px"
                             }
                         )
                     ], width=2)
@@ -129,15 +133,10 @@ def get_layout():
             dcc.Loading(
                 id="loading-chat",
                 type="circle",
-                color="#2c5282",
+                color=COLOR_NAVY,
                 children=html.Div(id="loading-output")
             )
-        ], style={
-            "backgroundColor": "#f7fafc",
-            "padding": "24px",
-            "borderRadius": "2px",
-            "border": "1px solid #e2e8f0"
-        })
+        ], style=CARD_CONTAINER_STYLE)
     ], className="mt-3")
 
 
@@ -304,18 +303,18 @@ def render_messages(messages):
             html.Div(
                 "—",
                 style={
-                    "fontFamily": "'Cormorant Garamond', serif",
+                    "fontFamily": FONT_SERIF,
                     "fontSize": "32px",
-                    "color": "#2d3748",
-                    "marginBottom": "16px"
+                    "color": COLOR_CHARCOAL_MEDIUM,
+                    "marginBottom": SPACING_SMALL
                 }
             ),
             html.Div(
                 "Begin your strategic inquiry below. Each question will be analyzed with precision and depth.", 
                 style={
-                    "fontFamily": "'Inter', sans-serif",
-                    "color": "#4a5568",
-                    "fontSize": "15px",
+                    "fontFamily": FONT_SANS,
+                    "color": COLOR_GRAY_DARK,
+                    "fontSize": FONT_SIZE_LARGE,
                     "lineHeight": "1.7",
                     "fontWeight": "400"
                 }
@@ -344,42 +343,42 @@ def render_messages(messages):
                             html.Div(
                                 content,
                                 style={
-                                    "fontFamily": "'Inter', sans-serif",
-                                    "backgroundColor": "#2c5282",
-                                    "color": "#ffffff",
+                                    "fontFamily": FONT_SANS,
+                                    "backgroundColor": COLOR_NAVY,
+                                    "color": COLOR_BACKGROUND_WHITE,
                                     "padding": "14px 20px",
                                     "borderRadius": "2px",
                                     "wordWrap": "break-word",
                                     "whiteSpace": "pre-wrap",
-                                    "fontSize": "15px",
+                                    "fontSize": FONT_SIZE_LARGE,
                                     "lineHeight": "1.7",
                                     "boxShadow": "0 1px 2px rgba(0,0,0,0.08)",
                                     "display": "inline-block",
-                                    "borderLeft": "3px solid #1e3a5f"
+                                    "borderLeft": f"3px solid {COLOR_NAVY_DARK}"
                                 }
                             ),
                             html.Div(
                                 timestamp,
                                 style={
-                                    "fontFamily": "'Inter', sans-serif",
+                                    "fontFamily": FONT_SANS,
                                     "fontSize": "11px",
-                                    "color": "#a0aec0",
-                                    "marginTop": "6px",
+                                    "color": COLOR_GRAY_LIGHT,
+                                    "marginTop": SPACING_XXSMALL,
                                     "textAlign": "right",
                                     "letterSpacing": "0.3px",
-                                    "fontWeight": "500"
+                                    "fontWeight": FONT_WEIGHT_MEDIUM
                                 }
                             )
                         ], style={"display": "inline-block", "textAlign": "right", "maxWidth": "75%"})
                     ], style={
                         "display": "flex",
                         "justifyContent": "flex-end",
-                        "marginBottom": "24px",
+                        "marginBottom": SPACING_MEDIUM,
                         "alignItems": "flex-end"
                     })
                 ], 
                 className="chat-message-enter",
-                style={"marginBottom": "8px"}
+                style={"marginBottom": SPACING_XXSMALL}
                 )
             )
         elif role == "assistant":
@@ -389,21 +388,19 @@ def render_messages(messages):
                     # Subtle divider before AI response
                     html.Div(
                         style={
-                            "borderTop": "1px solid #e2e8f0",
+                            "borderTop": f"1px solid {COLOR_BORDER}",
                             "marginBottom": "20px",
-                            "marginTop": "8px"
+                            "marginTop": SPACING_XXSMALL
                         }
                     ),
                     html.Div([
                         # Icon/indicator
                         html.Div(
-                            "◆",
+                            [create_diamond_icon()],
                             style={
-                                "fontFamily": "'Cormorant Garamond', serif",
                                 "fontSize": "16px",
-                                "color": "#2c5282",
-                                "marginRight": "16px",
-                                "marginTop": "4px",
+                                "marginRight": SPACING_SMALL,
+                                "marginTop": SPACING_XXXSMALL,
                                 "flexShrink": "0"
                             }
                         ),
@@ -411,41 +408,41 @@ def render_messages(messages):
                             html.Div(
                                 content,
                                 style={
-                                    "fontFamily": "'Inter', sans-serif",
-                                    "backgroundColor": "#ffffff",
-                                    "color": "#2d3748",
-                                    "padding": "16px 20px",
+                                    "fontFamily": FONT_SANS,
+                                    "backgroundColor": COLOR_BACKGROUND_WHITE,
+                                    "color": COLOR_CHARCOAL_MEDIUM,
+                                    "padding": f"{SPACING_SMALL} 20px",
                                     "borderRadius": "2px",
                                     "wordWrap": "break-word",
                                     "whiteSpace": "pre-wrap",
-                                    "fontSize": "15px",
+                                    "fontSize": FONT_SIZE_LARGE,
                                     "lineHeight": "1.8",
                                     "display": "inline-block",
-                                    "borderLeft": "2px solid #e2e8f0"
+                                    "borderLeft": f"2px solid {COLOR_BORDER}"
                                 }
                             ),
                             html.Div(
                                 timestamp,
                                 style={
-                                    "fontFamily": "'Inter', sans-serif",
+                                    "fontFamily": FONT_SANS,
                                     "fontSize": "11px",
-                                    "color": "#a0aec0",
-                                    "marginTop": "6px",
+                                    "color": COLOR_GRAY_LIGHT,
+                                    "marginTop": SPACING_XXSMALL,
                                     "textAlign": "left",
                                     "letterSpacing": "0.3px",
-                                    "fontWeight": "500"
+                                    "fontWeight": FONT_WEIGHT_MEDIUM
                                 }
                             )
                         ], style={"display": "inline-block", "maxWidth": "75%"})
                     ], style={
                         "display": "flex",
                         "justifyContent": "flex-start",
-                        "marginBottom": "24px",
+                        "marginBottom": SPACING_MEDIUM,
                         "alignItems": "flex-start"
                     })
                 ], 
                 className="chat-message-enter",
-                style={"marginBottom": "16px"}
+                style={"marginBottom": SPACING_SMALL}
                 )
             )
         elif role == "error":
@@ -454,16 +451,16 @@ def render_messages(messages):
                 html.Div(
                     html.Div(
                         [
-                            html.Span("⚠", style={"marginRight": "8px", "fontSize": "14px"}),
+                            html.Span("⚠", style={"marginRight": SPACING_XXSMALL, "fontSize": FONT_SIZE_MEDIUM}),
                             html.Span(content)
                         ],
                         style={
-                            "fontFamily": "'Inter', sans-serif",
+                            "fontFamily": FONT_SANS,
                             "backgroundColor": "#fff5f5",
-                            "color": "#c53030",
-                            "padding": "12px 20px",
+                            "color": COLOR_ERROR,
+                            "padding": f"{SPACING_XSMALL} 20px",
                             "borderRadius": "2px",
-                            "fontSize": "14px",
+                            "fontSize": FONT_SIZE_MEDIUM,
                             "border": "1px solid #feb2b2",
                             "borderLeft": "3px solid #fc8181",
                             "textAlign": "left",

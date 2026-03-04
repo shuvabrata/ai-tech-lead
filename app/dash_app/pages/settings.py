@@ -1,47 +1,51 @@
 from dash import html
 import dash_bootstrap_components as dbc
 
+from app.dash_app.components.common import (
+    create_page_header,
+    create_feature_card,
+    create_diamond_icon
+)
+from app.dash_app.styles import (
+    CARD_CONTAINER_STYLE,
+    FONT_SANS,
+    FONT_SIZE_LARGE,
+    FONT_SIZE_MEDIUM,
+    COLOR_GRAY_DARK,
+    COLOR_GRAY_MEDIUM,
+    SPACING_SMALL,
+    SPACING_MEDIUM,
+    SPACING_LARGE,
+    COLOR_BACKGROUND_WHITE,
+    COLOR_BORDER
+)
+
 
 def get_layout():
     """Return the settings page layout with Executive Dashboard aesthetic"""
     return html.Div([
-        # Header with refined typography
-        html.Div(
-            "System Preferences & Administrative Controls",
-            style={
-                "fontFamily": "'Inter', sans-serif",
-                "fontSize": "13px",
-                "color": "#718096",
-                "letterSpacing": "1.5px",
-                "textTransform": "uppercase",
-                "fontWeight": "500",
-                "borderBottom": "1px solid #e2e8f0",
-                "paddingBottom": "12px",
-                "marginBottom": "16px"
-            }
-        ),
+        # Page header
+        create_page_header("System Preferences & Administrative Controls"),
         
         # Main content container
         html.Div([
-            # Placeholder message
+            # Placeholder message section
             html.Div([
                 html.Div(
-                    "◆",
+                    [create_diamond_icon()],
                     style={
-                        "fontFamily": "'Cormorant Garamond', serif",
                         "fontSize": "32px",
-                        "color": "#2c5282",
-                        "marginBottom": "16px",
+                        "marginBottom": SPACING_SMALL,
                         "textAlign": "center"
                     }
                 ),
                 html.Div(
                     "Configuration interface in development",
                     style={
-                        "fontFamily": "'Inter', sans-serif",
-                        "fontSize": "15px",
-                        "color": "#4a5568",
-                        "marginBottom": "24px",
+                        "fontFamily": FONT_SANS,
+                        "fontSize": FONT_SIZE_LARGE,
+                        "color": COLOR_GRAY_DARK,
+                        "marginBottom": SPACING_MEDIUM,
                         "textAlign": "center",
                         "fontWeight": "400"
                     }
@@ -49,10 +53,10 @@ def get_layout():
                 html.Div(
                     "This module will provide comprehensive system administration capabilities:",
                     style={
-                        "fontFamily": "'Inter', sans-serif",
-                        "fontSize": "14px",
-                        "color": "#718096",
-                        "marginBottom": "16px",
+                        "fontFamily": FONT_SANS,
+                        "fontSize": FONT_SIZE_MEDIUM,
+                        "color": COLOR_GRAY_MEDIUM,
+                        "marginBottom": SPACING_SMALL,
                         "lineHeight": "1.7"
                     }
                 ),
@@ -60,147 +64,42 @@ def get_layout():
                 "maxWidth": "640px",
                 "marginLeft": "auto",
                 "marginRight": "auto",
-                "marginBottom": "32px",
-                "padding": "40px 32px",
-                "backgroundColor": "#ffffff",
-                "border": "1px solid #e2e8f0",
+                "marginBottom": SPACING_LARGE,
+                "padding": f"{SPACING_LARGE} {SPACING_LARGE}",
+                "backgroundColor": COLOR_BACKGROUND_WHITE,
+                "border": f"1px solid {COLOR_BORDER}",
                 "borderRadius": "2px"
             }),
             
             # Configuration categories grid
             dbc.Row([
                 dbc.Col([
-                    html.Div([
-                        html.Div(
-                            "Application Preferences",
-                            style={
-                                "fontFamily": "'Inter', sans-serif",
-                                "fontSize": "14px",
-                                "fontWeight": "600",
-                                "color": "#2d3748",
-                                "marginBottom": "8px",
-                                "textTransform": "uppercase",
-                                "letterSpacing": "0.5px"
-                            }
-                        ),
-                        html.Div(
-                            "Display settings, theme customization, and interface behavior controls",
-                            style={
-                                "fontFamily": "'Inter', sans-serif",
-                                "fontSize": "13px",
-                                "color": "#718096",
-                                "lineHeight": "1.6"
-                            }
-                        )
-                    ], style={
-                        "padding": "24px",
-                        "backgroundColor": "#f7fafc",
-                        "border": "1px solid #e2e8f0",
-                        "borderLeft": "3px solid #2c5282",
-                        "borderRadius": "2px"
-                    })
+                    create_feature_card(
+                        "Application Preferences",
+                        "Display settings, theme customization, and interface behavior controls"
+                    )
                 ], md=6, className="mb-3"),
                 
                 dbc.Col([
-                    html.Div([
-                        html.Div(
-                            "User Profile",
-                            style={
-                                "fontFamily": "'Inter', sans-serif",
-                                "fontSize": "14px",
-                                "fontWeight": "600",
-                                "color": "#2d3748",
-                                "marginBottom": "8px",
-                                "textTransform": "uppercase",
-                                "letterSpacing": "0.5px"
-                            }
-                        ),
-                        html.Div(
-                            "Personal information, role assignments, and security credentials",
-                            style={
-                                "fontFamily": "'Inter', sans-serif",
-                                "fontSize": "13px",
-                                "color": "#718096",
-                                "lineHeight": "1.6"
-                            }
-                        )
-                    ], style={
-                        "padding": "24px",
-                        "backgroundColor": "#f7fafc",
-                        "border": "1px solid #e2e8f0",
-                        "borderLeft": "3px solid #2c5282",
-                        "borderRadius": "2px"
-                    })
+                    create_feature_card(
+                        "User Profile",
+                        "Personal information, role assignments, and security credentials"
+                    )
                 ], md=6, className="mb-3"),
                 
                 dbc.Col([
-                    html.Div([
-                        html.Div(
-                            "Notification Management",
-                            style={
-                                "fontFamily": "'Inter', sans-serif",
-                                "fontSize": "14px",
-                                "fontWeight": "600",
-                                "color": "#2d3748",
-                                "marginBottom": "8px",
-                                "textTransform": "uppercase",
-                                "letterSpacing": "0.5px"
-                            }
-                        ),
-                        html.Div(
-                            "Alert preferences, email subscriptions, and communication channel settings",
-                            style={
-                                "fontFamily": "'Inter', sans-serif",
-                                "fontSize": "13px",
-                                "color": "#718096",
-                                "lineHeight": "1.6"
-                            }
-                        )
-                    ], style={
-                        "padding": "24px",
-                        "backgroundColor": "#f7fafc",
-                        "border": "1px solid #e2e8f0",
-                        "borderLeft": "3px solid #2c5282",
-                        "borderRadius": "2px"
-                    })
+                    create_feature_card(
+                        "Notification Management",
+                        "Alert preferences, email subscriptions, and communication channel settings"
+                    )
                 ], md=6, className="mb-3"),
                 
                 dbc.Col([
-                    html.Div([
-                        html.Div(
-                            "API Configuration",
-                            style={
-                                "fontFamily": "'Inter', sans-serif",
-                                "fontSize": "14px",
-                                "fontWeight": "600",
-                                "color": "#2d3748",
-                                "marginBottom": "8px",
-                                "textTransform": "uppercase",
-                                "letterSpacing": "0.5px"
-                            }
-                        ),
-                        html.Div(
-                            "Integration endpoints, authentication tokens, and external service connections",
-                            style={
-                                "fontFamily": "'Inter', sans-serif",
-                                "fontSize": "13px",
-                                "color": "#718096",
-                                "lineHeight": "1.6"
-                            }
-                        )
-                    ], style={
-                        "padding": "24px",
-                        "backgroundColor": "#f7fafc",
-                        "border": "1px solid #e2e8f0",
-                        "borderLeft": "3px solid #2c5282",
-                        "borderRadius": "2px"
-                    })
+                    create_feature_card(
+                        "API Configuration",
+                        "Integration endpoints, authentication tokens, and external service connections"
+                    )
                 ], md=6, className="mb-3"),
             ])
-        ], style={
-            "backgroundColor": "#ffffff",
-            "padding": "24px",
-            "borderRadius": "2px",
-            "border": "1px solid #e2e8f0"
-        })
+        ], style=CARD_CONTAINER_STYLE)
     ], className="mt-3")
