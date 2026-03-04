@@ -266,7 +266,7 @@ def create_query_input_section():
             dbc.Col([
                 dbc.Textarea(
                     id="graph-query-input",
-                    placeholder="MATCH (n:Project)-[r]->(m)\nRETURN n, r, m\nLIMIT 10",
+                    value="MATCH (n:Project)-[r]->(m)\nRETURN n, r, m\nLIMIT 10",
                     style=GRAPH_QUERY_TEXTAREA_STYLE,
                     className="graph-query-input"
                 )
