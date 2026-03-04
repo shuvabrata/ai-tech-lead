@@ -31,6 +31,7 @@ CYTOSCAPE_STYLESHEET = [
     {
         'selector': 'node[nodeType = "Project"]',
         'style': {
+            'shape': 'round-rectangle',
             'background-color': '#AEC6CF',  # Pastel Neutral: Soft blue
             'border-color': '#8FA8B5',
             'width': '70px',
@@ -41,6 +42,7 @@ CYTOSCAPE_STYLESHEET = [
     {
         'selector': 'node[nodeType = "Person"]',
         'style': {
+            'shape': 'octagon',
             'background-color': '#C5B4E3',  # Pastel Neutral: Soft lavender
             'border-color': '#A798C7',
             'width': '65px',
@@ -51,6 +53,7 @@ CYTOSCAPE_STYLESHEET = [
     {
         'selector': 'node[nodeType = "Branch"]',
         'style': {
+            'shape': 'diamond',
             'background-color': '#B5E7E3',  # Pastel Neutral: Soft mint
             'border-color': '#96C9C5',
             'width': '55px',
@@ -61,6 +64,7 @@ CYTOSCAPE_STYLESHEET = [
     {
         'selector': 'node[nodeType = "Epic"]',
         'style': {
+            'shape': 'hexagon',
             'background-color': '#F4C2B0',  # Pastel Neutral: Soft peach
             'border-color': '#D9A892',
             'width': '65px',
@@ -71,6 +75,7 @@ CYTOSCAPE_STYLESHEET = [
     {
         'selector': 'node[nodeType = "Issue"]',
         'style': {
+            'shape': 'triangle',
             'background-color': '#F5E6D3',  # Pastel Neutral: Soft cream
             'border-color': '#D9C8B5',
             'color': '#333',
@@ -82,6 +87,7 @@ CYTOSCAPE_STYLESHEET = [
     {
         'selector': 'node[nodeType = "Repository"]',
         'style': {
+            'shape': 'rectangle',
             'background-color': '#C8D5B9',  # Pastel Neutral: Soft sage
             'border-color': '#AAB89B',
             'width': '65px',
@@ -138,8 +144,8 @@ def get_node_type_styles():
     Returns:
         dict: Mapping of node type to style info, e.g.,
               {
-                  "Project": {"color": "#AEC6CF", "border": "#8FA8B5"},
-                  "Person": {"color": "#C5B4E3", "border": "#A798C7"},
+                  "Project": {"color": "#AEC6CF", "border": "#8FA8B5", "shape": "round-rectangle"},
+                  "Person": {"color": "#C5B4E3", "border": "#A798C7", "shape": "octagon"},
                   ...
               }
               Also includes "default" for nodes without specific types.
@@ -159,13 +165,15 @@ def get_node_type_styles():
             node_type = match.group(1)
             node_styles[node_type] = {
                 'color': style.get('background-color', '#B8B8B8'),
-                'border': style.get('border-color', '#9E9E9E')
+                'border': style.get('border-color', '#9E9E9E'),
+                'shape': style.get('shape', 'ellipse')
             }
         # Check for default node style
         elif selector == 'node':
             node_styles['default'] = {
                 'color': style.get('background-color', '#B8B8B8'),
-                'border': style.get('border-color', '#9E9E9E')
+                'border': style.get('border-color', '#9E9E9E'),
+                'shape': style.get('shape', 'ellipse')
             }
     
     return node_styles

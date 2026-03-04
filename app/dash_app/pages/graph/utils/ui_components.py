@@ -309,6 +309,40 @@ def create_expansion_error_alert(error_message, error_type="general"):
     ], color=color, className="mb-0", dismissable=True)
 
 
+def get_shape_css(shape):
+    """Get CSS styling for a shape icon in the legend
+    
+    Args:
+        shape (str): Shape name (e.g., 'rectangle', 'triangle', 'hexagon')
+    
+    Returns:
+        dict: CSS style dictionary for rendering the shape
+    """
+    base_style = {
+        "width": "20px",
+        "height": "20px",
+        "display": "inline-block",
+        "marginRight": "10px",
+        "verticalAlign": "middle"
+    }
+    
+    # Define clip-path for different shapes
+    shape_styles = {
+        'ellipse': {'borderRadius': '50%'},
+        'circle': {'borderRadius': '50%'},
+        'rectangle': {'borderRadius': '0'},
+        'round-rectangle': {'borderRadius': '4px'},
+        'triangle': {'clipPath': 'polygon(50% 0%, 0% 100%, 100% 100%)'},
+        'diamond': {'clipPath': 'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)', 'transform': 'rotate(0deg)'},
+        'hexagon': {'clipPath': 'polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%)'},
+        'octagon': {'clipPath': 'polygon(30% 0%, 70% 0%, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0% 70%, 0% 30%)'},
+        'pentagon': {'clipPath': 'polygon(50% 0%, 100% 38%, 82% 100%, 18% 100%, 0% 38%)'},
+    }
+    
+    # Merge base style with shape-specific style
+    return {**base_style, **shape_styles.get(shape, {'borderRadius': '50%'})}
+
+
 def create_node_legend(node_types=None):
     """Create a legend showing node types and their colors
     
@@ -346,20 +380,20 @@ def create_node_legend(node_types=None):
         # Get style for this node type, fall back to default if not found
         style_info = all_node_styles.get(node_type, all_node_styles.get('default', {}))
         
+        # Get shape-specific CSS
+        shape = style_info.get('shape', 'ellipse')
+        shape_css = get_shape_css(shape)
+        
+        # Merge shape CSS with color/border styling
+        icon_style = {
+            **shape_css,
+            "backgroundColor": style_info.get('color', '#B8B8B8'),
+            "border": f"2px solid {style_info.get('border', '#9E9E9E')}"
+        }
+        
         legend_items.append(
             html.Div([
-                html.Div(
-                    style={
-                        "width": "20px",
-                        "height": "20px",
-                        "borderRadius": "50%",
-                        "backgroundColor": style_info.get('color', '#B8B8B8'),
-                        "border": f"2px solid {style_info.get('border', '#9E9E9E')}",
-                        "display": "inline-block",
-                        "marginRight": "10px",
-                        "verticalAlign": "middle"
-                    }
-                ),
+                html.Div(style=icon_style),
                 html.Span(
                     node_type,
                     style={
