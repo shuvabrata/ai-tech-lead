@@ -82,12 +82,14 @@ def context_menu_expand_modal(n_clicks, rightclick_data, menu_style):
      State("unfiltered-elements-store", "data"),
      State("loaded-node-ids", "data"),
      State("expanded-nodes", "data"),
+     State("node-positions-store", "data"),
      State("context-menu", "style"),
      State("graph-layout-selector", "value")],
     prevent_initial_call=True
 )
 def context_menu_quick_expand(_n_clicks_incoming, _n_clicks_outgoing, rightclick_data,
                               current_elements, current_unfiltered, loaded_node_ids, expanded_nodes,
+                              current_node_positions,
                               menu_style, current_layout):
     """Handle quick expansion from context menu"""
     show_style = {"display": "block"}
@@ -129,6 +131,7 @@ def context_menu_quick_expand(_n_clicks_incoming, _n_clicks_outgoing, rightclick
             loaded_node_ids=loaded_node_ids,
             expanded_nodes=expanded_nodes,
             current_elements=current_elements,
+            current_node_positions=current_node_positions,
             timeout_seconds=TIMEOUT_SECONDS,
         )
 
@@ -153,7 +156,7 @@ def context_menu_quick_expand(_n_clicks_incoming, _n_clicks_outgoing, rightclick
         )
 
         return (merged_elements, merged_elements, updated_expanded, updated_loaded_ids, updated_menu_style,
-                success_msg, show_style, current_layout)
+            success_msg, show_style, "preset")
             
     except requests.exceptions.Timeout:
         error_alert = create_expansion_error_alert("Expansion timed out", error_type="timeout")

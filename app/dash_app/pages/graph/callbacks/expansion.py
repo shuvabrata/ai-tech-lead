@@ -34,11 +34,13 @@ TIMEOUT_SECONDS = settings.HTTP_REQUEST_TIMEOUT
      State("loaded-node-ids", "data"),
      State("expanded-nodes", "data"),
      State("expansion-debounce-store", "data"),
+     State("node-positions-store", "data"),
      State("graph-layout-selector", "value")],
     prevent_initial_call=True
 )
 def execute_doubleclick_expansion(dblclick_data, current_elements, current_unfiltered,
                                   loaded_node_ids, expanded_nodes, debounce_store,
+                                  current_node_positions,
                                   current_layout):
     """Execute immediate expansion on double-click with default parameters"""
     show_style = {"display": "block"}
@@ -85,6 +87,7 @@ def execute_doubleclick_expansion(dblclick_data, current_elements, current_unfil
             loaded_node_ids=loaded_node_ids,
             expanded_nodes=expanded_nodes,
             current_elements=current_elements,
+            current_node_positions=current_node_positions,
             timeout_seconds=TIMEOUT_SECONDS,
         )
 
@@ -120,7 +123,7 @@ def execute_doubleclick_expansion(dblclick_data, current_elements, current_unfil
         )
 
         return (merged_elements, merged_elements, updated_expanded, updated_loaded_ids, updated_debounce,
-                success_msg, show_style, current_layout)
+            success_msg, show_style, "preset")
             
     except requests.exceptions.Timeout:
         error_alert = create_expansion_error_alert("Expansion timed out", error_type="timeout")
@@ -188,12 +191,14 @@ def close_expansion_modal(n_clicks):
     State("unfiltered-elements-store", "data"),
      State("loaded-node-ids", "data"),
      State("expanded-nodes", "data"),
+     State("node-positions-store", "data"),
      State("graph-layout-selector", "value"),
      State("graph-fit-trigger", "children")],
     prevent_initial_call=True
 )
 def execute_node_expansion(n_clicks, node_id, direction, limit, auto_fit, current_elements,
                      current_unfiltered, loaded_node_ids, expanded_nodes,
+                     current_node_positions,
                      current_layout, current_fit_count):
     """Execute node expansion by calling backend API and merging results"""
     show_style = {"display": "block"}
@@ -217,6 +222,7 @@ def execute_node_expansion(n_clicks, node_id, direction, limit, auto_fit, curren
             loaded_node_ids=loaded_node_ids,
             expanded_nodes=expanded_nodes,
             current_elements=current_elements,
+            current_node_positions=current_node_positions,
             timeout_seconds=TIMEOUT_SECONDS,
         )
 
@@ -251,7 +257,7 @@ def execute_node_expansion(n_clicks, node_id, direction, limit, auto_fit, curren
         if auto_fit:
             fit_count += 1
 
-        return merged_elements, merged_elements, updated_expanded, updated_loaded_ids, False, success_msg, show_style, current_layout, fit_count
+        return merged_elements, merged_elements, updated_expanded, updated_loaded_ids, False, success_msg, show_style, "preset", fit_count
             
     except requests.exceptions.Timeout:
         error_alert = create_expansion_error_alert(

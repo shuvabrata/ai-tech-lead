@@ -52,7 +52,7 @@ def create_expansion_modal():
                 dbc.Checkbox(
                     id="expansion-auto-fit-checkbox",
                     label="Auto-fit graph after expansion",
-                    value=True,
+                    value=False,
                     className="mt-3"
                 ),
                 html.Small("Automatically zoom to show all nodes", className="text-muted d-block", style={"fontSize": "11px", "marginLeft": "24px"})

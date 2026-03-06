@@ -200,6 +200,8 @@ def update_layout(layout_name, reset_clicks, current_layout):
     
     # Layout selector changed
     if trigger_id == 'graph-layout-selector':
+        if layout_name == 'preset':
+            return {'name': 'preset', 'fit': False, 'animate': False, 'padding': 30}
         return {'name': layout_name, 'animate': True}
     
     # Reset button clicked - re-run current layout algorithm to reset node positions
@@ -213,6 +215,15 @@ def update_layout(layout_name, reset_clicks, current_layout):
         stop_value = 1000 if click_count % 2 == 0 else 1001
         
         # Return layout with fit=True to ensure graph fits in viewport
+        if current_name == 'preset':
+            return {
+                'name': 'preset',
+                'fit': False,
+                'animate': False,
+                'padding': 30,
+                'stop': stop_value
+            }
+
         return {
             'name': current_name, 
             'animate': True, 

@@ -55,6 +55,7 @@ def create_graph_controls():
             dbc.Select(
                 id="graph-layout-selector",
                 options=[
+                    {"label": "Manual Stable (preset)", "value": "preset"},
                     {"label": "Force-Directed (cose)", "value": "cose"},
                     {"label": "Circle", "value": "circle"},
                     {"label": "Grid", "value": "grid"},
@@ -479,6 +480,9 @@ def create_stores():
         # --- Phase 1.2.4: Relationship Filtering ---
         # Store for unfiltered graph elements (backup for reset)
         dcc.Store(id="unfiltered-elements-store", data=[]),
+
+        # Store for live Cytoscape node positions (captured clientside)
+        dcc.Store(id="node-positions-store", data={}),
 
         # Track previously available filter domains to detect newly introduced types
         # during expansion and keep "no active filtering" behavior intuitive.

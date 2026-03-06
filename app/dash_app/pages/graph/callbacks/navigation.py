@@ -28,6 +28,32 @@ clientside_callback(
 )
 
 
+# Clientside callback to capture current node positions for stable expansion
+clientside_callback(
+    """
+    function(elements) {
+        const elem = document.getElementById('graph-cytoscape');
+        if (!elem || !elem._cyreg || !elem._cyreg.cy) {
+            return window.dash_clientside.no_update;
+        }
+
+        const cy = elem._cyreg.cy;
+        const positions = {};
+
+        cy.nodes().forEach(function(node) {
+            const pos = node.position();
+            positions[node.id()] = { x: pos.x, y: pos.y };
+        });
+
+        return positions;
+    }
+    """,
+    Output("node-positions-store", "data"),
+    Input("graph-cytoscape", "elements"),
+    prevent_initial_call=False
+)
+
+
 # Clientside callback to fit graph when triggered programmatically (e.g., keyboard shortcuts)
 clientside_callback(
     """
