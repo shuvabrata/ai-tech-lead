@@ -28,7 +28,8 @@ from app.dash_app.styles import (
     GRAPH_EMPTY_STATE_TEXT_STYLE,
     GRAPH_DETAILS_PANEL_STYLE,
     GRAPH_DETAILS_PANEL_ICON_STYLE,
-    GRAPH_LOADING_COLOR
+    GRAPH_LOADING_COLOR,
+    GRAPH_NODE_HOVER_TOOLTIP_STYLE,
 )
 
 
@@ -513,23 +514,7 @@ def create_hidden_elements():
         # Full-label tooltip shown on node hover (positioned clientside)
         html.Div(
             id="graph-node-hover-tooltip",
-            style={
-                "display": "none",
-                "position": "fixed",
-                "zIndex": 9999,
-                "pointerEvents": "none",
-                "backgroundColor": "rgba(255,255,255,0.96)",
-                "border": f"1px solid {COLOR_GRAY_LIGHTER}",
-                "borderRadius": "4px",
-                "padding": "6px 8px",
-                "fontFamily": FONT_SANS,
-                "fontSize": "12px",
-                "color": COLOR_GRAY_DARK,
-                "maxWidth": "320px",
-                "boxShadow": "0 2px 8px rgba(0,0,0,0.12)",
-                "whiteSpace": "normal",
-                "wordBreak": "break-word",
-            },
+            style=GRAPH_NODE_HOVER_TOOLTIP_STYLE,
         ),
     ]
 

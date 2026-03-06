@@ -421,6 +421,24 @@ GRAPH_DETAILS_PANEL_ICON_STYLE = {
     "color": "#adb5bd"
 }
 
+GRAPH_NODE_HOVER_TOOLTIP_STYLE = {
+    "display": "none",
+    "position": "fixed",
+    "zIndex": 9999,
+    "pointerEvents": "none",
+    "backgroundColor": COLOR_BACKGROUND_WHITE,
+    "border": f"1px solid {COLOR_BORDER}",
+    "borderRadius": "4px",
+    "padding": f"{SPACING_XXXSMALL} {SPACING_XXSMALL}",
+    "fontFamily": FONT_SANS,
+    "fontSize": FONT_SIZE_XSMALL,
+    "color": COLOR_CHARCOAL_MEDIUM,
+    "maxWidth": "320px",
+    "boxShadow": f"0 2px 8px {COLOR_SHADOW_LIGHT}",
+    "whiteSpace": "normal",
+    "wordBreak": "break-word",
+}
+
 # Graph page constant (used in dcc.Loading component)
 GRAPH_LOADING_COLOR = COLOR_NAVY
 

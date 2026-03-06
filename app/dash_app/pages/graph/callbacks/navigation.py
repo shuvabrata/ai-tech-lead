@@ -38,14 +38,27 @@ clientside_callback(
         }
 
         const cy = elem._cyreg.cy;
-        const positions = {};
+        const collectPositions = function() {
+            const positions = {};
+            cy.nodes().forEach(function(node) {
+                const pos = node.position();
+                positions[node.id()] = { x: pos.x, y: pos.y };
+            });
+            return positions;
+        };
 
-        cy.nodes().forEach(function(node) {
-            const pos = node.position();
-            positions[node.id()] = { x: pos.x, y: pos.y };
-        });
+        if (!cy._dragfreePositionListenerAttached) {
+            cy.on('dragfree', 'node', function() {
+                if (window.dash_clientside && window.dash_clientside.set_props) {
+                    window.dash_clientside.set_props('node-positions-store', {
+                        data: collectPositions()
+                    });
+                }
+            });
+            cy._dragfreePositionListenerAttached = true;
+        }
 
-        return positions;
+        return collectPositions();
     }
     """,
     Output("node-positions-store", "data"),
@@ -140,8 +153,11 @@ clientside_callback(
 # Clientside callback to render hover tooltip with full node label
 clientside_callback(
     """
-    function(hoverData) {
+    function(hoverData, currentStyle) {
+        const baseStyle = currentStyle || {};
+
         const hiddenStyle = {
+            ...baseStyle,
             display: 'none'
         };
 
@@ -150,23 +166,10 @@ clientside_callback(
         }
 
         const tooltipStyle = {
+            ...baseStyle,
             display: 'block',
-            position: 'fixed',
             left: (hoverData.x + 12) + 'px',
-            top: (hoverData.y + 12) + 'px',
-            zIndex: 9999,
-            pointerEvents: 'none',
-            backgroundColor: 'rgba(255,255,255,0.96)',
-            border: '1px solid #cbd5e0',
-            borderRadius: '4px',
-            padding: '6px 8px',
-            fontFamily: 'Inter, sans-serif',
-            fontSize: '12px',
-            color: '#4a5568',
-            maxWidth: '320px',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
-            whiteSpace: 'normal',
-            wordBreak: 'break-word'
+            top: (hoverData.y + 12) + 'px'
         };
 
         return [hoverData.label, tooltipStyle];
@@ -175,6 +178,7 @@ clientside_callback(
     [Output("graph-node-hover-tooltip", "children"),
      Output("graph-node-hover-tooltip", "style")],
     Input("node-hover-store", "data"),
+    State("graph-node-hover-tooltip", "style"),
     prevent_initial_call=False
 )
 
