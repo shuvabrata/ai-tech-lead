@@ -3,7 +3,6 @@
 Callbacks for query validation and execution.
 """
 
-import os
 import time
 import requests
 import dash_bootstrap_components as dbc
@@ -21,7 +20,8 @@ from ..utils import (
     create_error_alert,
     create_table_display,
     create_graph_success_alert,
-    create_performance_metrics
+    create_performance_metrics,
+    get_graph_api_base_url
 )
 
 TIMEOUT_SECONDS = settings.HTTP_REQUEST_TIMEOUT
@@ -105,6 +105,51 @@ def execute_query(_n_clicks, query_text):
     default_container_style = {"minHeight": "400px", "padding": "20px"}
     panel_visible_style = GRAPH_DETAILS_PANEL_STYLE
     default_filters = ([], [], 0, "all")
+
+    def build_response(
+        graph_data,
+        elements,
+        table_children,
+        table_style,
+        results_children,
+        results_style,
+        details_style,
+        metrics_children,
+        metrics_style,
+        unfiltered_elements,
+    ):
+        """Build execute-query callback response with a stable output contract."""
+        return (
+            graph_data,
+            elements,
+            graph_container_style,
+            table_children,
+            table_style,
+            results_children,
+            results_style,
+            details_style,
+            metrics_children,
+            metrics_style,
+            [],
+            {},
+            {},
+            unfiltered_elements,
+            *default_filters,
+        )
+
+    def error_response(error_display):
+        return build_response(
+            None,
+            empty_elements,
+            None,
+            hide_style,
+            error_display,
+            default_container_style,
+            hide_style,
+            None,
+            hide_style,
+            [],
+        )
     
     # Validate query not empty
     if not query_text or not query_text.strip():
@@ -113,10 +158,10 @@ def execute_query(_n_clicks, query_text):
             alert_type='warning',
             heading=None
         )
-        return None, empty_elements, graph_container_style, None, hide_style, error_display, default_container_style, hide_style, None, hide_style, [], {}, {}, [], *default_filters
+        return error_response(error_display)
     
     # Get API base URL
-    api_base = os.getenv("API_BASE_URL", "http://localhost:8000")
+    api_base = get_graph_api_base_url()
     
     # Track execution time
     start_time = time.time()
@@ -146,7 +191,7 @@ def execute_query(_n_clicks, query_text):
                 heading=heading,
                 doc_link=doc_link
             )
-            return None, empty_elements, graph_container_style, None, hide_style, error_display, default_container_style, hide_style, None, hide_style, [], {}, {}, [], *default_filters
+            return error_response(error_display)
         
         response.raise_for_status()
         data = response.json()
@@ -164,10 +209,9 @@ def execute_query(_n_clicks, query_text):
             performance_metrics = create_performance_metrics(node_count, rel_count, execution_time_ms, is_graph=True)
             
             # Show graph, hide table and default, show details panel
-            return (
+            return build_response(
                 data,
                 cyto_elements,
-                graph_container_style,
                 success_alert,
                 show_style,
                 None,
@@ -175,11 +219,7 @@ def execute_query(_n_clicks, query_text):
                 panel_visible_style,  # Show details panel for graph results
                 performance_metrics,
                 show_style,  # Show performance metrics
-                [],  # Reset loaded-node-ids
-                {},  # Reset expanded-nodes
-                {},  # Reset expansion-debounce-store
                 cyto_elements,  # Reset unfiltered baseline to fresh execute result
-                *default_filters
             )
         else:
             # Tabular results - create table
@@ -188,10 +228,9 @@ def execute_query(_n_clicks, query_text):
             performance_metrics = create_performance_metrics(result_count, 0, execution_time_ms, is_graph=False)
             
             # Show table, hide graph and default, hide details panel
-            return (
+            return build_response(
                 data,
                 empty_elements,
-                graph_container_style,
                 table_display,
                 show_style,
                 None,
@@ -199,11 +238,7 @@ def execute_query(_n_clicks, query_text):
                 hide_style,  # Hide details panel for tabular results
                 performance_metrics,
                 show_style,  # Show performance metrics
-                [],  # Reset loaded-node-ids
-                {},  # Reset expanded-nodes
-                {},  # Reset expansion-debounce-store
                 [],  # No unfiltered graph baseline for tabular query
-                *default_filters
             )
         
     except requests.exceptions.Timeout:
@@ -214,10 +249,10 @@ def execute_query(_n_clicks, query_text):
             hint=f"The request to the backend API took longer than {TIMEOUT_SECONDS} seconds. Your query might be too complex or the database is slow. Try adding LIMIT 100 to reduce the result set.",
             doc_link="https://neo4j.com/docs/cypher-manual/current/clauses/limit/"
         )
-        return None, empty_elements, graph_container_style, None, hide_style, error_display, default_container_style, hide_style, None, hide_style, [], {}, {}, [], *default_filters
+        return error_response(error_display)
     
     except requests.exceptions.ConnectionError:
-        api_url = os.getenv("API_BASE_URL", "http://localhost:8000")
+        api_url = get_graph_api_base_url()
         error_display = create_error_alert(
             "",
             alert_type='danger',
@@ -225,7 +260,7 @@ def execute_query(_n_clicks, query_text):
             hint=f"Unable to connect to the backend API at {api_url}. Please ensure the FastAPI server is running using 'uvicorn app.main:app --reload'.",
             doc_link=None
         )
-        return None, empty_elements, graph_container_style, None, hide_style, error_display, default_container_style, hide_style, None, hide_style, [], {}, {}, [], *default_filters
+        return error_response(error_display)
     
     except requests.exceptions.HTTPError as e:
         error_display = create_error_alert(
@@ -235,7 +270,7 @@ def execute_query(_n_clicks, query_text):
             hint=f"An HTTP error occurred: {str(e)}. This usually indicates a server-side issue. Check the backend logs for more details.",
             doc_link=None
         )
-        return None, empty_elements, graph_container_style, None, hide_style, error_display, default_container_style, hide_style, None, hide_style, [], {}, {}, [], *default_filters
+        return error_response(error_display)
     
     except Exception as e:
         error_display = create_error_alert(
@@ -245,4 +280,4 @@ def execute_query(_n_clicks, query_text):
             hint=f"An unexpected error occurred: {str(e)}. Please try again or contact support if the issue persists.",
             doc_link=None
         )
-        return None, empty_elements, graph_container_style, None, hide_style, error_display, default_container_style, hide_style, None, hide_style, [], {}, {}, [], *default_filters
+        return error_response(error_display)

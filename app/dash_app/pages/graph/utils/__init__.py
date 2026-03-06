@@ -19,6 +19,11 @@ from .ui_components import (
     create_expansion_error_alert
 )
 from .formatters import format_property_value, build_property_items
+from .graph_operations import (
+    get_graph_api_base_url,
+    get_graph_expand_url,
+    execute_expansion_and_merge
+)
 
 __all__ = [
     # Data transformation
@@ -37,5 +42,9 @@ __all__ = [
     'create_expansion_error_alert',
     # Formatters
     'format_property_value',
-    'build_property_items'
+    'build_property_items',
+    # Graph operations
+    'get_graph_api_base_url',
+    'get_graph_expand_url',
+    'execute_expansion_and_merge'
 ]

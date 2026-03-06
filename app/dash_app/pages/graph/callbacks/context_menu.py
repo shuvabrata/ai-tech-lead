@@ -3,7 +3,6 @@
 Callbacks for right-click context menu functionality.
 """
 
-from datetime import datetime
 import requests
 import dash_bootstrap_components as dbc
 from dash import html, Input, Output, State, callback, clientside_callback, callback_context
@@ -11,7 +10,7 @@ from dash.exceptions import PreventUpdate
 
 from app.settings import settings
 from ..utils import (
-    neo4j_to_cytoscape,
+    execute_expansion_and_merge,
     create_expansion_success_alert,
     create_no_neighbors_alert,
     create_expansion_error_alert
@@ -86,7 +85,7 @@ def context_menu_expand_modal(n_clicks, rightclick_data, menu_style):
      State("graph-layout-selector", "value")],
     prevent_initial_call=True
 )
-def context_menu_quick_expand(n_clicks_incoming, n_clicks_outgoing, rightclick_data,
+def context_menu_quick_expand(_n_clicks_incoming, _n_clicks_outgoing, rightclick_data,
                               current_elements, current_unfiltered, loaded_node_ids, expanded_nodes,
                               menu_style, current_layout):
     """Handle quick expansion from context menu"""
@@ -122,81 +121,38 @@ def context_menu_quick_expand(n_clicks_incoming, n_clicks_outgoing, rightclick_d
                 None, hide_style, current_layout)
     
     try:
-        # Use default limit for quick expansion
-        limit = settings.GRAPH_UI_MAX_NODES_TO_EXPAND
-        
-        # Prepare request payload
-        exclude_ids = loaded_node_ids if loaded_node_ids else []
-        payload = {
-            "node_id": node_id,
-            "direction": direction,
-            "limit": limit,
-            "offset": 0,
-            "exclude_node_ids": exclude_ids,
-            "relationship_types": None
-        }
-        
-        # Call backend API
-        api_url = "http://localhost:8000/api/v1/graph/expand"
-        response = requests.post(api_url, json=payload, timeout=TIMEOUT_SECONDS)
-        
-        if response.status_code == 200:
-            data = response.json()
-            
-            # Extract new nodes and relationships
-            new_nodes = data.get("nodes", [])
-            new_relationships = data.get("relationships", [])
-            pagination = data.get("pagination", {})
-            
-            # Transform to Cytoscape format
-            new_elements = neo4j_to_cytoscape({"nodes": new_nodes, "relationships": new_relationships})
-            
-            # Merge with existing elements (deduplicate by ID)
-            existing_ids = {elem['data']['id'] for elem in current_elements}
-            merged_elements = current_elements.copy()
-            
-            new_count = 0
-            for elem in new_elements:
-                elem_id = elem['data']['id']
-                if elem_id not in existing_ids:
-                    merged_elements.append(elem)
-                    existing_ids.add(elem_id)
-                    new_count += 1
-            
-            # Update loaded node IDs
-            new_node_ids = [node['id'] for node in new_nodes]
-            updated_loaded_ids = list(set(loaded_node_ids + new_node_ids)) if loaded_node_ids else new_node_ids
-            
-            # Update expanded nodes tracking
-            updated_expanded = expanded_nodes.copy() if expanded_nodes else {}
-            updated_expanded[node_id] = {
-                "direction": direction,
-                "count": len(new_nodes),
-                "timestamp": datetime.now().isoformat()
-            }
-            
-            # Edge case: No new neighbors found
-            if len(new_nodes) == 0:
-                info_msg = create_no_neighbors_alert()
-                return (merged_elements, merged_elements, updated_expanded, updated_loaded_ids, updated_menu_style,
-                       info_msg, show_style, current_layout)
-            
-            # Success message
-            has_more = pagination.get("has_more", False)
-            success_msg = create_expansion_success_alert(len(new_nodes), len(new_relationships), has_more)
-            
-            # Return updated data
-            return (merged_elements, merged_elements, updated_expanded, updated_loaded_ids, updated_menu_style,
-                    success_msg, show_style, current_layout)
-            
-        else:
-            # Handle error response
-            error_data = response.json() if response.content else {}
-            error_msg = error_data.get("detail", {}).get("message", "Unknown error")
-            
-            error_alert = create_expansion_error_alert(f"Expansion failed: {error_msg}")
+        result = execute_expansion_and_merge(
+            node_id=node_id,
+            direction=direction,
+            limit=settings.GRAPH_UI_MAX_NODES_TO_EXPAND,
+            loaded_node_ids=loaded_node_ids,
+            expanded_nodes=expanded_nodes,
+            current_elements=current_elements,
+            timeout_seconds=TIMEOUT_SECONDS,
+        )
+
+        if not result["ok"]:
+            error_alert = create_expansion_error_alert(f"Expansion failed: {result['error_message']}")
             return (current_elements, current_unfiltered, expanded_nodes, loaded_node_ids, updated_menu_style,
                     error_alert, show_style, current_layout)
+
+        merged_elements = result["merged_elements"]
+        updated_loaded_ids = result["updated_loaded_ids"]
+        updated_expanded = result["updated_expanded"]
+
+        if result["new_nodes_count"] == 0:
+            info_msg = create_no_neighbors_alert()
+            return (merged_elements, merged_elements, updated_expanded, updated_loaded_ids, updated_menu_style,
+                    info_msg, show_style, current_layout)
+
+        success_msg = create_expansion_success_alert(
+            result["new_nodes_count"],
+            result["new_relationships_count"],
+            result["has_more"],
+        )
+
+        return (merged_elements, merged_elements, updated_expanded, updated_loaded_ids, updated_menu_style,
+                success_msg, show_style, current_layout)
             
     except requests.exceptions.Timeout:
         error_alert = create_expansion_error_alert("Expansion timed out", error_type="timeout")
