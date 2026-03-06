@@ -13,7 +13,8 @@ from ..utils import (
     execute_expansion_and_merge,
     create_expansion_success_alert,
     create_no_neighbors_alert,
-    create_expansion_error_alert
+    create_expansion_error_alert,
+    is_edge_element,
 )
 
 TIMEOUT_SECONDS = settings.HTTP_REQUEST_TIMEOUT
@@ -250,7 +251,7 @@ def context_menu_remove_node(n_clicks, rightclick_data, current_elements, curren
             continue
         
         # Skip edges connected to this node
-        if 'source' in elem['data'] and 'target' in elem['data']:
+        if is_edge_element(elem):
             if elem['data']['source'] == node_id or elem['data']['target'] == node_id:
                 removed_count += 1
                 continue

@@ -21,7 +21,7 @@ from ..utils import (
     create_table_display,
     create_graph_success_alert,
     create_performance_metrics,
-    get_graph_api_base_url
+    get_graph_api_base_url,
 )
 
 TIMEOUT_SECONDS = settings.HTTP_REQUEST_TIMEOUT
@@ -205,6 +205,7 @@ def execute_query(_n_clicks, query_text):
         if is_graph:
             # Transform data to Cytoscape format
             cyto_elements = neo4j_to_cytoscape(data)
+
             success_alert = create_graph_success_alert(node_count, rel_count)
             performance_metrics = create_performance_metrics(node_count, rel_count, execution_time_ms, is_graph=True)
             

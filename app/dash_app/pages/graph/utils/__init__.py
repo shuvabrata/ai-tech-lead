@@ -24,6 +24,12 @@ from .graph_operations import (
     get_graph_expand_url,
     execute_expansion_and_merge
 )
+from .element_types import (
+    is_edge_data,
+    is_node_data,
+    is_edge_element,
+    is_node_element,
+)
 
 __all__ = [
     # Data transformation
@@ -46,5 +52,10 @@ __all__ = [
     # Graph operations
     'get_graph_api_base_url',
     'get_graph_expand_url',
-    'execute_expansion_and_merge'
+    'execute_expansion_and_merge',
+    # Element typing
+    'is_edge_data',
+    'is_node_data',
+    'is_edge_element',
+    'is_node_element',
 ]

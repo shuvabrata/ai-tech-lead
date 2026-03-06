@@ -18,7 +18,7 @@ from app.dash_app.styles import (
     COLOR_NAVY,
     FONT_SIZE_XTINY
 )
-from ..utils import toggle_details_panel, build_property_items, create_node_legend
+from ..utils import toggle_details_panel, build_property_items, create_node_legend, is_node_element
 
 
 @callback(
@@ -50,8 +50,7 @@ def display_properties(selected_nodes, selected_edges, elements):
     node_types = set()
     if elements:
         for element in elements:
-            # Check if it's a node (not an edge)
-            if 'source' not in element.get('data', {}):
+            if is_node_element(element):
                 node_type = element.get('data', {}).get('nodeType')
                 if node_type:
                     node_types.add(node_type)

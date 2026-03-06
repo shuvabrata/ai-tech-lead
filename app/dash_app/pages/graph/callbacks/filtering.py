@@ -5,6 +5,7 @@ Callbacks for relationship filtering UI controls.
 
 from dash import Input, Output, State, callback
 from dash.exceptions import PreventUpdate
+from ..utils import is_edge_data, is_node_data
 
 
 @callback(
@@ -40,8 +41,7 @@ def update_relationship_type_filter(unfiltered_elements, current_values):
     rel_types = {}
     for elem in unfiltered_elements:
         data = elem.get("data", {})
-        # Check if it's an edge (has source/target)
-        if "source" in data and "target" in data:
+        if is_edge_data(data):
             rel_type = data.get("relType", data.get("label", "Unknown"))
             if rel_type not in rel_types:
                 rel_types[rel_type] = 0
@@ -60,7 +60,7 @@ def update_relationship_type_filter(unfiltered_elements, current_values):
     else:
         # Preserve existing selections, but only for types that still exist
         values = [v for v in current_values if v in rel_types]
-    
+
     return options, values
 
 
@@ -80,8 +80,7 @@ def update_node_type_filter(unfiltered_elements, current_values):
     node_types = {}
     for elem in unfiltered_elements:
         data = elem.get("data", {})
-        # Check if it's a node (no source/target)
-        if "source" not in data and "target" not in data:
+        if is_node_data(data):
             node_type = data.get("nodeType", "Unknown")
             if node_type not in node_types:
                 node_types[node_type] = 0
@@ -100,7 +99,7 @@ def update_node_type_filter(unfiltered_elements, current_values):
     else:
         # Preserve existing selections, but only for types that still exist
         values = [v for v in current_values if v in node_types]
-    
+
     return options, values
 
 
@@ -160,11 +159,11 @@ def apply_relationship_filters(selected_node_types, selected_rel_types, weight_t
     
     for elem in unfiltered_elements:
         data = elem.get("data", {})
-        if "source" in data and "target" in data:
+        if is_edge_data(data):
             edges.append(elem)
         else:
             nodes.append(elem)
-    
+
     # Filter nodes by type
     if selected_node_types:
         filtered_nodes = [
@@ -173,7 +172,7 @@ def apply_relationship_filters(selected_node_types, selected_rel_types, weight_t
         ]
     else:
         filtered_nodes = []
-    
+
     # Create set of visible node IDs for edge filtering
     visible_node_ids = {node.get("data", {}).get("id") for node in filtered_nodes}
     
@@ -185,14 +184,14 @@ def apply_relationship_filters(selected_node_types, selected_rel_types, weight_t
         ]
     else:
         filtered_edges = []
-    
+
     # Filter edges to only show ones where both endpoints are visible
     filtered_edges = [
         edge for edge in filtered_edges
         if edge.get("data", {}).get("source") in visible_node_ids
         and edge.get("data", {}).get("target") in visible_node_ids
     ]
-    
+
     # Filter by weight threshold
     if weight_threshold > 0:
         filtered_edges = [

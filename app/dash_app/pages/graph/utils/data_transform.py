@@ -40,7 +40,9 @@ def neo4j_to_cytoscape(graph_response):
                 **node.get('properties', {}),  # Spread properties first
                 'id': node['id'],               # Then set critical fields (can't be overwritten)
                 'label': display_name,
-                'nodeType': node_label
+                'nodeType': node_label,
+                # Explicit marker avoids misclassifying nodes that have source/target properties.
+                'elementType': 'node'
             }
         }
         elements.append(cyto_node)
@@ -56,7 +58,8 @@ def neo4j_to_cytoscape(graph_response):
                 'source': rel['startNode'],
                 'target': rel['endNode'],
                 'label': rel['type'],
-                'relType': rel['type']
+                'relType': rel['type'],
+                'elementType': 'edge'
             }
         }
         elements.append(cyto_edge)
