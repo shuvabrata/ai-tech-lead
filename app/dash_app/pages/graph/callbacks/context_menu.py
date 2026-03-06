@@ -68,6 +68,7 @@ def context_menu_expand_modal(n_clicks, rightclick_data, menu_style):
 
 @callback(
     [Output("graph-cytoscape", "elements", allow_duplicate=True),
+    Output("unfiltered-elements-store", "data", allow_duplicate=True),
      Output("expanded-nodes", "data", allow_duplicate=True),
      Output("loaded-node-ids", "data", allow_duplicate=True),
      Output("context-menu", "style", allow_duplicate=True),
@@ -78,6 +79,7 @@ def context_menu_expand_modal(n_clicks, rightclick_data, menu_style):
      Input("ctx-menu-expand-outgoing", "n_clicks")],
     [State("rightclicked-node-store", "data"),
      State("graph-cytoscape", "elements"),
+     State("unfiltered-elements-store", "data"),
      State("loaded-node-ids", "data"),
      State("expanded-nodes", "data"),
      State("context-menu", "style"),
@@ -85,7 +87,7 @@ def context_menu_expand_modal(n_clicks, rightclick_data, menu_style):
     prevent_initial_call=True
 )
 def context_menu_quick_expand(n_clicks_incoming, n_clicks_outgoing, rightclick_data,
-                              current_elements, loaded_node_ids, expanded_nodes, 
+                              current_elements, current_unfiltered, loaded_node_ids, expanded_nodes,
                               menu_style, current_layout):
     """Handle quick expansion from context menu"""
     show_style = {"display": "block"}
@@ -96,7 +98,7 @@ def context_menu_quick_expand(n_clicks_incoming, n_clicks_outgoing, rightclick_d
     updated_menu_style["display"] = "none"
     
     if not rightclick_data:
-        return (current_elements, expanded_nodes, loaded_node_ids, updated_menu_style,
+        return (current_elements, current_unfiltered, expanded_nodes, loaded_node_ids, updated_menu_style,
                 None, hide_style, current_layout)
     
     # Determine which button was clicked
@@ -116,7 +118,7 @@ def context_menu_quick_expand(n_clicks_incoming, n_clicks_outgoing, rightclick_d
     
     node_id = rightclick_data.get("node_id")
     if not node_id:
-        return (current_elements, expanded_nodes, loaded_node_ids, updated_menu_style,
+        return (current_elements, current_unfiltered, expanded_nodes, loaded_node_ids, updated_menu_style,
                 None, hide_style, current_layout)
     
     try:
@@ -175,19 +177,17 @@ def context_menu_quick_expand(n_clicks_incoming, n_clicks_outgoing, rightclick_d
             
             # Edge case: No new neighbors found
             if len(new_nodes) == 0:
-                direction_label = "Incoming" if direction == "incoming" else "Outgoing"
                 info_msg = create_no_neighbors_alert()
-                return (merged_elements, updated_expanded, updated_loaded_ids, updated_menu_style,
+                return (merged_elements, merged_elements, updated_expanded, updated_loaded_ids, updated_menu_style,
                        info_msg, show_style, current_layout)
             
             # Success message
-            direction_label = "Incoming" if direction == "incoming" else "Outgoing"
             has_more = pagination.get("has_more", False)
             success_msg = create_expansion_success_alert(len(new_nodes), len(new_relationships), has_more)
             
             # Return updated data
-            return (merged_elements, updated_expanded, updated_loaded_ids, updated_menu_style,
-                   success_msg, show_style, current_layout)
+            return (merged_elements, merged_elements, updated_expanded, updated_loaded_ids, updated_menu_style,
+                    success_msg, show_style, current_layout)
             
         else:
             # Handle error response
@@ -195,12 +195,12 @@ def context_menu_quick_expand(n_clicks_incoming, n_clicks_outgoing, rightclick_d
             error_msg = error_data.get("detail", {}).get("message", "Unknown error")
             
             error_alert = create_expansion_error_alert(f"Expansion failed: {error_msg}")
-            return (current_elements, expanded_nodes, loaded_node_ids, updated_menu_style,
-                   error_alert, show_style, current_layout)
+            return (current_elements, current_unfiltered, expanded_nodes, loaded_node_ids, updated_menu_style,
+                    error_alert, show_style, current_layout)
             
     except requests.exceptions.Timeout:
         error_alert = create_expansion_error_alert("Expansion timed out", error_type="timeout")
-        return (current_elements, expanded_nodes, loaded_node_ids, updated_menu_style,
+        return (current_elements, current_unfiltered, expanded_nodes, loaded_node_ids, updated_menu_style,
                error_alert, show_style, current_layout)
     
     except requests.exceptions.ConnectionError:
@@ -208,12 +208,12 @@ def context_menu_quick_expand(n_clicks_incoming, n_clicks_outgoing, rightclick_d
             "Could not connect to server. Please check your connection.",
             error_type="connection"
         )
-        return (current_elements, expanded_nodes, loaded_node_ids, updated_menu_style,
+        return (current_elements, current_unfiltered, expanded_nodes, loaded_node_ids, updated_menu_style,
                error_alert, show_style, current_layout)
     
     except Exception as e:
         error_alert = create_expansion_error_alert(f"Expansion error: {str(e)}")
-        return (current_elements, expanded_nodes, loaded_node_ids, updated_menu_style,
+        return (current_elements, current_unfiltered, expanded_nodes, loaded_node_ids, updated_menu_style,
                error_alert, show_style, current_layout)
 
 
@@ -255,16 +255,18 @@ def hide_menu_after_copy(n_clicks, menu_style):
 
 @callback(
     [Output("graph-cytoscape", "elements", allow_duplicate=True),
+     Output("unfiltered-elements-store", "data", allow_duplicate=True),
      Output("context-menu", "style", allow_duplicate=True),
      Output("graph-table-container", "children", allow_duplicate=True),
      Output("graph-table-container", "style", allow_duplicate=True)],
     Input("ctx-menu-remove", "n_clicks"),
     [State("rightclicked-node-store", "data"),
      State("graph-cytoscape", "elements"),
+     State("unfiltered-elements-store", "data"),
      State("context-menu", "style")],
     prevent_initial_call=True
 )
-def context_menu_remove_node(n_clicks, rightclick_data, current_elements, menu_style):
+def context_menu_remove_node(n_clicks, rightclick_data, current_elements, current_unfiltered, menu_style):
     """Remove node from view"""
     show_style = {"display": "block"}
     
@@ -277,7 +279,7 @@ def context_menu_remove_node(n_clicks, rightclick_data, current_elements, menu_s
     
     node_id = rightclick_data.get("node_id")
     if not node_id:
-        return current_elements, updated_menu_style, None, {"display": "none"}
+        return current_elements, current_unfiltered, updated_menu_style, None, {"display": "none"}
     
     # Remove node and its edges from elements
     filtered_elements = []
@@ -305,7 +307,7 @@ def context_menu_remove_node(n_clicks, rightclick_data, current_elements, menu_s
         f"Removed node and {removed_count - 1} connected relationships from view"
     ], color="warning", className="mb-0", dismissable=True, duration=3000)
     
-    return filtered_elements, updated_menu_style, success_msg, show_style
+    return filtered_elements, filtered_elements, updated_menu_style, success_msg, show_style
 
 
 # Clientside callback to hide context menu on outside click

@@ -20,6 +20,7 @@ TIMEOUT_SECONDS = settings.HTTP_REQUEST_TIMEOUT
 
 @callback(
     [Output("graph-cytoscape", "elements", allow_duplicate=True),
+     Output("unfiltered-elements-store", "data", allow_duplicate=True),
      Output("expanded-nodes", "data", allow_duplicate=True),
      Output("loaded-node-ids", "data", allow_duplicate=True),
      Output("expansion-debounce-store", "data", allow_duplicate=True),
@@ -28,28 +29,30 @@ TIMEOUT_SECONDS = settings.HTTP_REQUEST_TIMEOUT
      Output("graph-layout-selector", "value", allow_duplicate=True)],
     Input("doubleclicked-node-store", "data"),
     [State("graph-cytoscape", "elements"),
+     State("unfiltered-elements-store", "data"),
      State("loaded-node-ids", "data"),
      State("expanded-nodes", "data"),
      State("expansion-debounce-store", "data"),
      State("graph-layout-selector", "value")],
     prevent_initial_call=True
 )
-def execute_doubleclick_expansion(dblclick_data, current_elements, loaded_node_ids, 
-                                   expanded_nodes, debounce_store, current_layout):
+def execute_doubleclick_expansion(dblclick_data, current_elements, current_unfiltered,
+                                  loaded_node_ids, expanded_nodes, debounce_store,
+                                  current_layout):
     """Execute immediate expansion on double-click with default parameters"""
     show_style = {"display": "block"}
     hide_style = {"display": "none"}
     
     # Extract node_id from the store data
     if not dblclick_data or not isinstance(dblclick_data, dict):
-        return (current_elements, expanded_nodes, loaded_node_ids, debounce_store,
+        return (current_elements, current_unfiltered, expanded_nodes, loaded_node_ids, debounce_store,
                 None, hide_style, current_layout)
     
     node_id = dblclick_data.get("node_id")
     timestamp = dblclick_data.get("timestamp", 0)
     
     if not node_id:
-        return (current_elements, expanded_nodes, loaded_node_ids, debounce_store,
+        return (current_elements, current_unfiltered, expanded_nodes, loaded_node_ids, debounce_store,
                 None, hide_style, current_layout)
     
     # Debouncing: Check if this node was recently expanded (within 500ms)
@@ -60,7 +63,7 @@ def execute_doubleclick_expansion(dblclick_data, current_elements, loaded_node_i
     DEBOUNCE_MS = 500  # 500ms debounce window
     if time_since_last < DEBOUNCE_MS:
         # Too soon, ignore this double-click
-        return (current_elements, expanded_nodes, loaded_node_ids, debounce_store,
+        return (current_elements, current_unfiltered, expanded_nodes, loaded_node_ids, debounce_store,
                 None, hide_style, current_layout)
     
     # Update debounce store
@@ -125,7 +128,7 @@ def execute_doubleclick_expansion(dblclick_data, current_elements, loaded_node_i
             # Edge case: No new neighbors found
             if len(new_nodes) == 0:
                 info_msg = create_no_neighbors_alert()
-                return (current_elements, updated_expanded, loaded_node_ids, updated_debounce,
+                return (current_elements, current_unfiltered, updated_expanded, loaded_node_ids, updated_debounce,
                        info_msg, show_style, current_layout)
             
             # Success message
@@ -133,8 +136,8 @@ def execute_doubleclick_expansion(dblclick_data, current_elements, loaded_node_i
             success_msg = create_expansion_success_alert(len(new_nodes), len(new_relationships), has_more)
             
             # Return updated data
-            return (merged_elements, updated_expanded, updated_loaded_ids, updated_debounce,
-                   success_msg, show_style, current_layout)
+            return (merged_elements, merged_elements, updated_expanded, updated_loaded_ids, updated_debounce,
+                    success_msg, show_style, current_layout)
             
         else:
             # Handle error response
@@ -142,12 +145,12 @@ def execute_doubleclick_expansion(dblclick_data, current_elements, loaded_node_i
             error_msg = error_data.get("detail", {}).get("message", "Unknown error")
             
             error_alert = create_expansion_error_alert(f"Expansion failed: {error_msg}")
-            return (current_elements, expanded_nodes, loaded_node_ids, updated_debounce,
-                   error_alert, show_style, current_layout)
+            return (current_elements, current_unfiltered, expanded_nodes, loaded_node_ids, updated_debounce,
+                    error_alert, show_style, current_layout)
             
     except requests.exceptions.Timeout:
         error_alert = create_expansion_error_alert("Expansion timed out", error_type="timeout")
-        return (current_elements, expanded_nodes, loaded_node_ids, updated_debounce,
+        return (current_elements, current_unfiltered, expanded_nodes, loaded_node_ids, updated_debounce,
                error_alert, show_style, current_layout)
     
     except requests.exceptions.ConnectionError:
@@ -155,12 +158,12 @@ def execute_doubleclick_expansion(dblclick_data, current_elements, loaded_node_i
             "Could not connect to server. Please check your connection.",
             error_type="connection"
         )
-        return (current_elements, expanded_nodes, loaded_node_ids, updated_debounce,
+        return (current_elements, current_unfiltered, expanded_nodes, loaded_node_ids, updated_debounce,
                error_alert, show_style, current_layout)
         
     except Exception as e:
         error_alert = create_expansion_error_alert(f"Expansion error: {str(e)}")
-        return (current_elements, expanded_nodes, loaded_node_ids, updated_debounce,
+        return (current_elements, current_unfiltered, expanded_nodes, loaded_node_ids, updated_debounce,
                error_alert, show_style, current_layout)
 
 
@@ -194,6 +197,7 @@ def close_expansion_modal(n_clicks):
 
 @callback(
     [Output("graph-cytoscape", "elements", allow_duplicate=True),
+    Output("unfiltered-elements-store", "data", allow_duplicate=True),
      Output("expanded-nodes", "data", allow_duplicate=True),
      Output("loaded-node-ids", "data", allow_duplicate=True),
      Output("expansion-modal", "is_open", allow_duplicate=True),
@@ -207,21 +211,23 @@ def close_expansion_modal(n_clicks):
      State("expansion-limit-input", "value"),
      State("expansion-auto-fit-checkbox", "value"),
      State("graph-cytoscape", "elements"),
+    State("unfiltered-elements-store", "data"),
      State("loaded-node-ids", "data"),
      State("expanded-nodes", "data"),
      State("graph-layout-selector", "value"),
      State("graph-fit-trigger", "children")],
     prevent_initial_call=True
 )
-def execute_node_expansion(n_clicks, node_id, direction, limit, auto_fit, current_elements, 
-                          loaded_node_ids, expanded_nodes, current_layout, current_fit_count):
+def execute_node_expansion(n_clicks, node_id, direction, limit, auto_fit, current_elements,
+                     current_unfiltered, loaded_node_ids, expanded_nodes,
+                     current_layout, current_fit_count):
     """Execute node expansion by calling backend API and merging results"""
     show_style = {"display": "block"}
     hide_style = {"display": "none"}
     fit_count = current_fit_count or 0
     
     if not n_clicks or not node_id:
-        return current_elements, expanded_nodes, loaded_node_ids, True, None, hide_style, current_layout, fit_count
+        return current_elements, current_unfiltered, expanded_nodes, loaded_node_ids, True, None, hide_style, current_layout, fit_count
     
     try:
         # Prepare request payload
@@ -278,7 +284,7 @@ def execute_node_expansion(n_clicks, node_id, direction, limit, auto_fit, curren
             if len(new_nodes) == 0:
                 info_msg = create_no_neighbors_alert()
                 # Close modal and return
-                return current_elements, updated_expanded, loaded_node_ids, False, info_msg, show_style, current_layout, fit_count
+                return current_elements, current_unfiltered, updated_expanded, loaded_node_ids, False, info_msg, show_style, current_layout, fit_count
             
             # Success message
             has_more = pagination.get("has_more", False)
@@ -290,7 +296,7 @@ def execute_node_expansion(n_clicks, node_id, direction, limit, auto_fit, curren
             
             # Close modal and return updated data
             # Trigger layout re-run to accommodate new nodes
-            return merged_elements, updated_expanded, updated_loaded_ids, False, success_msg, show_style, current_layout, fit_count
+            return merged_elements, merged_elements, updated_expanded, updated_loaded_ids, False, success_msg, show_style, current_layout, fit_count
             
         else:
             # Handle error response
@@ -298,22 +304,22 @@ def execute_node_expansion(n_clicks, node_id, direction, limit, auto_fit, curren
             error_msg = error_data.get("detail", {}).get("message", "Unknown error")
             
             error_alert = create_expansion_error_alert(f"Expansion failed: {error_msg}")
-            return current_elements, expanded_nodes, loaded_node_ids, True, error_alert, show_style, current_layout, fit_count
+            return current_elements, current_unfiltered, expanded_nodes, loaded_node_ids, True, error_alert, show_style, current_layout, fit_count
             
     except requests.exceptions.Timeout:
         error_alert = create_expansion_error_alert(
             "Request timed out. The expansion took too long.",
             error_type="timeout"
         )
-        return current_elements, expanded_nodes, loaded_node_ids, True, error_alert, show_style, current_layout, fit_count
+        return current_elements, current_unfiltered, expanded_nodes, loaded_node_ids, True, error_alert, show_style, current_layout, fit_count
     
     except requests.exceptions.ConnectionError:
         error_alert = create_expansion_error_alert(
             "Could not connect to server. Please check your connection.",
             error_type="connection"
         )
-        return current_elements, expanded_nodes, loaded_node_ids, True, error_alert, show_style, current_layout, fit_count
+        return current_elements, current_unfiltered, expanded_nodes, loaded_node_ids, True, error_alert, show_style, current_layout, fit_count
         
     except Exception as e:
         error_alert = create_expansion_error_alert(f"Error: {str(e)}")
-        return current_elements, expanded_nodes, loaded_node_ids, True, error_alert, show_style, current_layout, fit_count
+        return current_elements, current_unfiltered, expanded_nodes, loaded_node_ids, True, error_alert, show_style, current_layout, fit_count

@@ -25,37 +25,6 @@ def toggle_filter_panel(n_clicks, is_open):
 
 
 @callback(
-    Output("unfiltered-elements-store", "data"),
-    Input("graph-cytoscape", "elements"),
-    State("unfiltered-elements-store", "data"),
-    prevent_initial_call=True
-)
-def store_unfiltered_elements(elements, current_unfiltered):
-    """Store unfiltered elements when new graph data loads (not when filtering)"""
-    if not elements:
-        return []
-    
-    # If no unfiltered store yet, this is initial load
-    if not current_unfiltered:
-        return elements
-    
-    # Check if current elements are a subset of unfiltered (indicating a filter operation)
-    # Extract element IDs for comparison
-    current_ids = set(e.get("data", {}).get("id") for e in elements if "data" in e and "id" in e.get("data", {}))
-    unfiltered_ids = set(e.get("data", {}).get("id") for e in current_unfiltered if "data" in e and "id" in e.get("data", {}))
-    
-    # If current IDs are a subset of unfiltered IDs, this is a filter operation
-    if current_ids and unfiltered_ids and current_ids.issubset(unfiltered_ids):
-        # Check if they're actually different (not just reloading the same data)
-        if current_ids != unfiltered_ids:
-            # This is a filter operation (subset but not equal), don't update
-            return current_unfiltered
-    
-    # New data loaded (different IDs or superset from expansion), store it
-    return elements
-
-
-@callback(
     [Output("relationship-type-filter", "options"),
      Output("relationship-type-filter", "value")],
     Input("unfiltered-elements-store", "data"),

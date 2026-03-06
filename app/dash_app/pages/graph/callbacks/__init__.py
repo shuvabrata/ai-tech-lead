@@ -22,7 +22,6 @@ from .context_menu import (
 from .navigation import handle_keyboard_shortcuts
 from .filtering import (
     toggle_filter_panel,
-    store_unfiltered_elements,
     update_relationship_type_filter,
     update_weight_threshold_label,
     clear_all_filters,
@@ -52,7 +51,6 @@ __all__ = [
     'handle_keyboard_shortcuts',
     # Filtering callbacks (Phase 1.2.4)
     'toggle_filter_panel',
-    'store_unfiltered_elements',
     'update_relationship_type_filter',
     'update_weight_threshold_label',
     'clear_all_filters',
