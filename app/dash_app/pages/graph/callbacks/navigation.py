@@ -75,6 +75,110 @@ clientside_callback(
 )
 
 
+# Clientside callback to capture node hover and expose full label tooltip data
+clientside_callback(
+    """
+    function(elements) {
+        const elem = document.getElementById('graph-cytoscape');
+        if (!elem || !elem._cyreg || !elem._cyreg.cy) {
+            return window.dash_clientside.no_update;
+        }
+
+        const cy = elem._cyreg.cy;
+
+        if (!cy._nodeHoverListenerAttached) {
+            cy.on('mouseover', 'node', function(evt) {
+                const node = evt.target;
+                const nativeEvent = evt.originalEvent || {};
+                const fullLabel = node.data('label') || node.data('displayLabel') || node.id();
+
+                if (window.dash_clientside && window.dash_clientside.set_props) {
+                    window.dash_clientside.set_props('node-hover-store', {
+                        data: {
+                            label: String(fullLabel),
+                            x: nativeEvent.clientX || 0,
+                            y: nativeEvent.clientY || 0
+                        }
+                    });
+                }
+            });
+
+            cy.on('mousemove', 'node', function(evt) {
+                const node = evt.target;
+                const nativeEvent = evt.originalEvent || {};
+                const fullLabel = node.data('label') || node.data('displayLabel') || node.id();
+
+                if (window.dash_clientside && window.dash_clientside.set_props) {
+                    window.dash_clientside.set_props('node-hover-store', {
+                        data: {
+                            label: String(fullLabel),
+                            x: nativeEvent.clientX || 0,
+                            y: nativeEvent.clientY || 0
+                        }
+                    });
+                }
+            });
+
+            cy.on('mouseout', 'node', function() {
+                if (window.dash_clientside && window.dash_clientside.set_props) {
+                    window.dash_clientside.set_props('node-hover-store', { data: null });
+                }
+            });
+
+            cy._nodeHoverListenerAttached = true;
+        }
+
+        return window.dash_clientside.no_update;
+    }
+    """,
+    Output("node-hover-store", "data"),
+    Input("graph-cytoscape", "elements"),
+    prevent_initial_call=False
+)
+
+
+# Clientside callback to render hover tooltip with full node label
+clientside_callback(
+    """
+    function(hoverData) {
+        const hiddenStyle = {
+            display: 'none'
+        };
+
+        if (!hoverData || !hoverData.label) {
+            return ['', hiddenStyle];
+        }
+
+        const tooltipStyle = {
+            display: 'block',
+            position: 'fixed',
+            left: (hoverData.x + 12) + 'px',
+            top: (hoverData.y + 12) + 'px',
+            zIndex: 9999,
+            pointerEvents: 'none',
+            backgroundColor: 'rgba(255,255,255,0.96)',
+            border: '1px solid #cbd5e0',
+            borderRadius: '4px',
+            padding: '6px 8px',
+            fontFamily: 'Inter, sans-serif',
+            fontSize: '12px',
+            color: '#4a5568',
+            maxWidth: '320px',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
+            whiteSpace: 'normal',
+            wordBreak: 'break-word'
+        };
+
+        return [hoverData.label, tooltipStyle];
+    }
+    """,
+    [Output("graph-node-hover-tooltip", "children"),
+     Output("graph-node-hover-tooltip", "style")],
+    Input("node-hover-store", "data"),
+    prevent_initial_call=False
+)
+
+
 # Clientside callback to capture double-click events on nodes
 clientside_callback(
     """

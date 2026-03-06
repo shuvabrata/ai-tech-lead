@@ -62,7 +62,7 @@ def display_properties(selected_nodes, selected_edges, elements):
     if selected_nodes and len(selected_nodes) > 0:
         node_data = selected_nodes[0]  # Get first selected node
         # Build property table excluding internal Cytoscape fields
-        exclude_keys = {'id', 'label', 'nodeType'}
+        exclude_keys = {'id', 'label', 'displayLabel', 'nodeType'}
         properties = {k: v for k, v in node_data.items() if k not in exclude_keys and v is not None}
         
         # Header

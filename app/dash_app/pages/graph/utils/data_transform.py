@@ -7,6 +7,18 @@ and parsing error responses from the backend API.
 from app.settings import settings
 
 
+def _compact_node_label(label_value):
+    """Create a compact node label for in-node rendering.
+
+    Keeps labels short enough to stay visually contained in node shapes.
+    """
+    max_chars = max(4, int(settings.GRAPH_UI_MAX_NODE_LABEL_CHARS))
+    text = str(label_value) if label_value is not None else ""
+    if len(text) <= max_chars:
+        return text
+    return text[: max_chars - 3].rstrip() + "..."
+
+
 def neo4j_to_cytoscape(graph_response):
     """Transform Neo4j graph response to Cytoscape elements format
     
@@ -32,6 +44,7 @@ def neo4j_to_cytoscape(graph_response):
             node.get("properties", {}).get("key") or 
             node_label
         )
+        compact_label = _compact_node_label(display_name)
         
         # Create Cytoscape node element
         # IMPORTANT: Set id AFTER spreading properties to prevent property 'id' from overwriting it
@@ -39,7 +52,8 @@ def neo4j_to_cytoscape(graph_response):
             'data': {
                 **node.get('properties', {}),  # Spread properties first
                 'id': node['id'],               # Then set critical fields (can't be overwritten)
-                'label': display_name,
+                'label': display_name,          # Full label for details panel and future hover UX.
+                'displayLabel': compact_label,  # Compact label for in-node rendering.
                 'nodeType': node_label,
                 # Explicit marker avoids misclassifying nodes that have source/target properties.
                 'elementType': 'node'

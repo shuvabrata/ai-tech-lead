@@ -37,7 +37,7 @@ CYTOSCAPE_STYLESHEET = [
     {
         'selector': 'node',
         'style': {
-            'label': 'data(label)',
+            'label': 'data(displayLabel)',
             'background-color': COLOR_GRAPH_NODE_DEFAULT,
             'color': COLOR_CHARCOAL_MEDIUM,
             'text-valign': 'center',
@@ -50,7 +50,7 @@ CYTOSCAPE_STYLESHEET = [
             'border-width': '0px',
             'border-color': COLOR_GRAPH_NODE_DEFAULT_BORDER,
             'text-wrap': 'wrap',
-            'text-max-width': '80px'
+            'text-max-width': '56px'
         }
     },
     # Project nodes - Soft Blue

@@ -23,6 +23,7 @@ class Settings(BaseSettings):
     
     # Graph UI configuration
     GRAPH_UI_MAX_NODES_TO_EXPAND: int = 20
+    GRAPH_UI_MAX_NODE_LABEL_CHARS: int = 10
 
     model_config = SettingsConfigDict(
         env_file=".env",

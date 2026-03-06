@@ -484,6 +484,9 @@ def create_stores():
         # Store for live Cytoscape node positions (captured clientside)
         dcc.Store(id="node-positions-store", data={}),
 
+        # Store for hovered node tooltip data (full label + cursor position)
+        dcc.Store(id="node-hover-store", data=None),
+
         # Track previously available filter domains to detect newly introduced types
         # during expansion and keep "no active filtering" behavior intuitive.
         dcc.Store(id="node-type-available-store", data=[]),
@@ -506,6 +509,28 @@ def create_hidden_elements():
         
         # Hidden div for triggering fit-to-screen via clientside callback
         html.Div(id="graph-fit-trigger", style={"display": "none"}),
+
+        # Full-label tooltip shown on node hover (positioned clientside)
+        html.Div(
+            id="graph-node-hover-tooltip",
+            style={
+                "display": "none",
+                "position": "fixed",
+                "zIndex": 9999,
+                "pointerEvents": "none",
+                "backgroundColor": "rgba(255,255,255,0.96)",
+                "border": f"1px solid {COLOR_GRAY_LIGHTER}",
+                "borderRadius": "4px",
+                "padding": "6px 8px",
+                "fontFamily": FONT_SANS,
+                "fontSize": "12px",
+                "color": COLOR_GRAY_DARK,
+                "maxWidth": "320px",
+                "boxShadow": "0 2px 8px rgba(0,0,0,0.12)",
+                "whiteSpace": "normal",
+                "wordBreak": "break-word",
+            },
+        ),
     ]
 
 
