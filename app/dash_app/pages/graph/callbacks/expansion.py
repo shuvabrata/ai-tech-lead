@@ -7,11 +7,13 @@ import requests
 from dash import Input, Output, State, callback
 
 from app.settings import settings
+from app.common.logger import logger
 from ..utils import (
     execute_expansion_and_merge,
     create_expansion_success_alert,
     create_no_neighbors_alert,
-    create_expansion_error_alert
+    create_expansion_error_alert,
+    is_edge_element,
 )
 
 TIMEOUT_SECONDS = settings.HTTP_REQUEST_TIMEOUT
@@ -70,6 +72,12 @@ def execute_doubleclick_expansion(dblclick_data, current_elements, current_unfil
     updated_debounce[node_id] = timestamp
     
     try:
+        logger.info(
+            "[GRAPH-DEBUG][expand.doubleclick] before "
+            f"node_id={node_id} current_elements={len(current_elements or [])} "
+            f"loaded_node_ids={len(loaded_node_ids or [])}"
+        )
+
         result = execute_expansion_and_merge(
             node_id=node_id,
             direction="both",
@@ -88,6 +96,16 @@ def execute_doubleclick_expansion(dblclick_data, current_elements, current_unfil
         merged_elements = result["merged_elements"]
         updated_loaded_ids = result["updated_loaded_ids"]
         updated_expanded = result["updated_expanded"]
+
+        merged_nodes = [e for e in merged_elements if not is_edge_element(e)]
+        merged_edges = [e for e in merged_elements if is_edge_element(e)]
+
+        logger.info(
+            "[GRAPH-DEBUG][expand.doubleclick] after "
+            f"new_nodes={result['new_nodes_count']} new_relationships={result['new_relationships_count']} "
+            f"merged_nodes={len(merged_nodes)} merged_edges={len(merged_edges)} "
+            f"loaded_node_ids={len(updated_loaded_ids)}"
+        )
 
         # Edge case: No new neighbors found
         if result["new_nodes_count"] == 0:
@@ -186,6 +204,12 @@ def execute_node_expansion(n_clicks, node_id, direction, limit, auto_fit, curren
         return current_elements, current_unfiltered, expanded_nodes, loaded_node_ids, True, None, hide_style, current_layout, fit_count
     
     try:
+        logger.info(
+            "[GRAPH-DEBUG][expand.modal] before "
+            f"node_id={node_id} direction={direction} limit={limit} "
+            f"current_elements={len(current_elements or [])} loaded_node_ids={len(loaded_node_ids or [])}"
+        )
+
         result = execute_expansion_and_merge(
             node_id=node_id,
             direction=direction,
@@ -203,6 +227,16 @@ def execute_node_expansion(n_clicks, node_id, direction, limit, auto_fit, curren
         merged_elements = result["merged_elements"]
         updated_loaded_ids = result["updated_loaded_ids"]
         updated_expanded = result["updated_expanded"]
+
+        merged_nodes = [e for e in merged_elements if not is_edge_element(e)]
+        merged_edges = [e for e in merged_elements if is_edge_element(e)]
+
+        logger.info(
+            "[GRAPH-DEBUG][expand.modal] after "
+            f"new_nodes={result['new_nodes_count']} new_relationships={result['new_relationships_count']} "
+            f"merged_nodes={len(merged_nodes)} merged_edges={len(merged_edges)} "
+            f"loaded_node_ids={len(updated_loaded_ids)}"
+        )
 
         if result["new_nodes_count"] == 0:
             info_msg = create_no_neighbors_alert()

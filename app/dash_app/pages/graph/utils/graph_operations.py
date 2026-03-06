@@ -9,7 +9,9 @@ from datetime import datetime
 
 import requests
 
+from app.common.logger import logger
 from .data_transform import neo4j_to_cytoscape
+from .element_types import is_edge_element
 
 
 def get_graph_api_base_url() -> str:
@@ -51,6 +53,12 @@ def execute_expansion_and_merge(
         "relationship_types": None,
     }
 
+    logger.info(
+        "[GRAPH-DEBUG][expand.merge] request "
+        f"node_id={node_id} direction={direction} limit={limit} "
+        f"exclude_count={len(exclude_ids)} current_elements={len(current_elements)}"
+    )
+
     response = requests.post(
         get_graph_expand_url(),
         json=payload,
@@ -70,16 +78,33 @@ def execute_expansion_and_merge(
     new_relationships = data.get("relationships", [])
     pagination = data.get("pagination", {})
 
+    logger.info(
+        "[GRAPH-DEBUG][expand.merge] response "
+        f"new_nodes={len(new_nodes)} new_relationships={len(new_relationships)} "
+        f"has_more={pagination.get('has_more', False)}"
+    )
+
     new_elements = neo4j_to_cytoscape({"nodes": new_nodes, "relationships": new_relationships})
+    new_nodes_elements = [e for e in new_elements if not is_edge_element(e)]
+    new_edge_elements = [e for e in new_elements if is_edge_element(e)]
+
+    logger.info(
+        "[GRAPH-DEBUG][expand.merge] transformed "
+        f"new_elements={len(new_elements)} node_elements={len(new_nodes_elements)} "
+        f"edge_elements={len(new_edge_elements)}"
+    )
 
     existing_ids = {elem["data"]["id"] for elem in current_elements}
     merged_elements = current_elements.copy()
+    skipped_existing = 0
 
     for elem in new_elements:
         elem_id = elem["data"]["id"]
         if elem_id not in existing_ids:
             merged_elements.append(elem)
             existing_ids.add(elem_id)
+        else:
+            skipped_existing += 1
 
     new_node_ids = [node["id"] for node in new_nodes]
     updated_loaded_ids = list(set((loaded_node_ids or []) + new_node_ids))
@@ -90,6 +115,16 @@ def execute_expansion_and_merge(
         "count": len(new_nodes),
         "timestamp": datetime.now().isoformat(),
     }
+
+    merged_nodes = [e for e in merged_elements if not is_edge_element(e)]
+    merged_edges = [e for e in merged_elements if is_edge_element(e)]
+
+    logger.info(
+        "[GRAPH-DEBUG][expand.merge] merged "
+        f"merged_total={len(merged_elements)} merged_nodes={len(merged_nodes)} "
+        f"merged_edges={len(merged_edges)} skipped_existing={skipped_existing} "
+        f"loaded_node_ids={len(updated_loaded_ids)}"
+    )
 
     return {
         "ok": True,

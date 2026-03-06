@@ -5,6 +5,7 @@ Callbacks for relationship filtering UI controls.
 
 from dash import Input, Output, State, callback
 from dash.exceptions import PreventUpdate
+from app.common.logger import logger
 from ..utils import is_edge_data, is_node_data
 
 
@@ -27,15 +28,17 @@ def toggle_filter_panel(n_clicks, is_open):
 
 @callback(
     [Output("relationship-type-filter", "options"),
-     Output("relationship-type-filter", "value")],
+     Output("relationship-type-filter", "value"),
+     Output("relationship-type-available-store", "data")],
     Input("unfiltered-elements-store", "data"),
-    State("relationship-type-filter", "value"),
+    [State("relationship-type-filter", "value"),
+     State("relationship-type-available-store", "data")],
     prevent_initial_call=True
 )
-def update_relationship_type_filter(unfiltered_elements, current_values):
+def update_relationship_type_filter(unfiltered_elements, current_values, previous_available):
     """Dynamically populate relationship type checkboxes from unfiltered graph"""
     if not unfiltered_elements:
-        return [], []
+        return [], [], []
     
     # Extract unique relationship types from edges (using unfiltered data)
     rel_types = {}
@@ -52,29 +55,44 @@ def update_relationship_type_filter(unfiltered_elements, current_values):
         {"label": f"{rel_type} ({count})", "value": rel_type}
         for rel_type, count in sorted(rel_types.items())
     ]
+
+    available_values = [opt["value"] for opt in options]
+    available_set = set(available_values)
+    previous_available_set = set(previous_available or [])
+    current_set = set(current_values or [])
     
     # If this is the first load (no current values), select all
     # Otherwise, preserve the current selection
     if current_values is None or len(current_values) == 0:
-        values = list(rel_types.keys())
+        values = available_values
+    elif previous_available_set and current_set.issuperset(previous_available_set):
+        # No active relationship-type filtering previously, so include newly discovered types.
+        values = available_values
     else:
         # Preserve existing selections, but only for types that still exist
-        values = [v for v in current_values if v in rel_types]
+        values = [v for v in current_values if v in available_set]
 
-    return options, values
+    logger.info(
+        "[GRAPH-DEBUG][filter.rel_types] refresh "
+        f"available={sorted(rel_types.keys())} current={current_values} selected={values}"
+    )
+
+    return options, values, available_values
 
 
 @callback(
     [Output("node-type-filter", "options"),
-     Output("node-type-filter", "value")],
+     Output("node-type-filter", "value"),
+     Output("node-type-available-store", "data")],
     Input("unfiltered-elements-store", "data"),
-    State("node-type-filter", "value"),
+    [State("node-type-filter", "value"),
+     State("node-type-available-store", "data")],
     prevent_initial_call=True
 )
-def update_node_type_filter(unfiltered_elements, current_values):
+def update_node_type_filter(unfiltered_elements, current_values, previous_available):
     """Dynamically populate node type checkboxes from unfiltered graph"""
     if not unfiltered_elements:
-        return [], []
+        return [], [], []
     
     # Extract unique node types from nodes (using unfiltered data)
     node_types = {}
@@ -91,16 +109,32 @@ def update_node_type_filter(unfiltered_elements, current_values):
         {"label": f"{node_type} ({count})", "value": node_type}
         for node_type, count in sorted(node_types.items())
     ]
+
+    available_values = [opt["value"] for opt in options]
+    available_set = set(available_values)
+    previous_available_set = set(previous_available or [])
+    current_set = set(current_values or [])
     
     # If this is the first load (no current values), select all
     # Otherwise, preserve the current selection
     if current_values is None or len(current_values) == 0:
-        values = list(node_types.keys())
+        values = available_values
+    elif previous_available_set and current_set.issuperset(previous_available_set):
+        # No active node-type filtering previously, so include newly discovered types.
+        values = available_values
     else:
         # Preserve existing selections, but only for types that still exist
-        values = [v for v in current_values if v in node_types]
+        values = [v for v in current_values if v in available_set]
 
-    return options, values
+    hidden_types = [t for t in node_types if t not in values]
+    logger.info(
+        "[GRAPH-DEBUG][filter.node_types] refresh "
+        f"available={sorted(node_types.keys())} previous_available={sorted(previous_available_set)} "
+        f"current={current_values} selected={values} "
+        f"hidden_types={sorted(hidden_types)}"
+    )
+
+    return options, values, available_values
 
 
 @callback(
@@ -164,6 +198,12 @@ def apply_relationship_filters(selected_node_types, selected_rel_types, weight_t
         else:
             nodes.append(elem)
 
+    logger.info(
+        "[GRAPH-DEBUG][filter.apply] start "
+        f"nodes={len(nodes)} edges={len(edges)} selected_node_types={selected_node_types} "
+        f"selected_rel_types={selected_rel_types} weight_threshold={weight_threshold} top_n_mode={top_n_mode}"
+    )
+
     # Filter nodes by type
     if selected_node_types:
         filtered_nodes = [
@@ -172,6 +212,11 @@ def apply_relationship_filters(selected_node_types, selected_rel_types, weight_t
         ]
     else:
         filtered_nodes = []
+
+    logger.info(
+        "[GRAPH-DEBUG][filter.apply] nodes_after_type_filter "
+        f"visible={len(filtered_nodes)} removed={len(nodes) - len(filtered_nodes)}"
+    )
 
     # Create set of visible node IDs for edge filtering
     visible_node_ids = {node.get("data", {}).get("id") for node in filtered_nodes}
@@ -191,6 +236,11 @@ def apply_relationship_filters(selected_node_types, selected_rel_types, weight_t
         if edge.get("data", {}).get("source") in visible_node_ids
         and edge.get("data", {}).get("target") in visible_node_ids
     ]
+
+    logger.info(
+        "[GRAPH-DEBUG][filter.apply] edges_after_visibility_filter "
+        f"visible={len(filtered_edges)}"
+    )
 
     # Filter by weight threshold
     if weight_threshold > 0:
@@ -217,5 +267,10 @@ def apply_relationship_filters(selected_node_types, selected_rel_types, weight_t
     
     # Combine filtered nodes and filtered edges
     filtered_elements = filtered_nodes + filtered_edges
+
+    logger.info(
+        "[GRAPH-DEBUG][filter.apply] final "
+        f"elements={len(filtered_elements)} nodes={len(filtered_nodes)} edges={len(filtered_edges)}"
+    )
     
     return filtered_elements

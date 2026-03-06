@@ -479,6 +479,11 @@ def create_stores():
         # --- Phase 1.2.4: Relationship Filtering ---
         # Store for unfiltered graph elements (backup for reset)
         dcc.Store(id="unfiltered-elements-store", data=[]),
+
+        # Track previously available filter domains to detect newly introduced types
+        # during expansion and keep "no active filtering" behavior intuitive.
+        dcc.Store(id="node-type-available-store", data=[]),
+        dcc.Store(id="relationship-type-available-store", data=[]),
     ]
 
 
