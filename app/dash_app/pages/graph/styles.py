@@ -6,6 +6,31 @@ including node colors, sizes, edge styles, and selection states.
 
 import re
 
+from app.dash_app.styles import (
+    FONT_SANS,
+    FONT_SIZE_TINY,
+    FONT_SIZE_XXSMALL,
+    FONT_WEIGHT_MEDIUM,
+    COLOR_CHARCOAL_MEDIUM,
+    COLOR_BACKGROUND_WHITE,
+    COLOR_GRAPH_NODE_DEFAULT,
+    COLOR_GRAPH_NODE_DEFAULT_BORDER,
+    COLOR_GRAPH_NODE_PROJECT,
+    COLOR_GRAPH_NODE_PROJECT_BORDER,
+    COLOR_GRAPH_NODE_PERSON,
+    COLOR_GRAPH_NODE_PERSON_BORDER,
+    COLOR_GRAPH_NODE_BRANCH,
+    COLOR_GRAPH_NODE_BRANCH_BORDER,
+    COLOR_GRAPH_NODE_EPIC,
+    COLOR_GRAPH_NODE_EPIC_BORDER,
+    COLOR_GRAPH_NODE_ISSUE,
+    COLOR_GRAPH_NODE_ISSUE_BORDER,
+    COLOR_GRAPH_NODE_REPOSITORY,
+    COLOR_GRAPH_NODE_REPOSITORY_BORDER,
+    COLOR_GRAPH_EDGE_DEFAULT,
+    COLOR_GRAPH_SELECTION,
+)
+
 
 CYTOSCAPE_STYLESHEET = [
     # Default node style
@@ -13,16 +38,17 @@ CYTOSCAPE_STYLESHEET = [
         'selector': 'node',
         'style': {
             'label': 'data(label)',
-            'background-color': '#B8B8B8',  # Pastel Neutral: Soft gray
-            'color': '#333',
+            'background-color': COLOR_GRAPH_NODE_DEFAULT,
+            'color': COLOR_CHARCOAL_MEDIUM,
             'text-valign': 'center',
             'text-halign': 'center',
-            'font-size': '11px',
-            'font-weight': '500',
+            'font-family': FONT_SANS,
+            'font-size': FONT_SIZE_TINY,
+            'font-weight': FONT_WEIGHT_MEDIUM,
             'width': '60px',
             'height': '60px',
             'border-width': '0px',
-            'border-color': '#9E9E9E',  # Darker soft gray
+            'border-color': COLOR_GRAPH_NODE_DEFAULT_BORDER,
             'text-wrap': 'wrap',
             'text-max-width': '80px'
         }
@@ -32,8 +58,8 @@ CYTOSCAPE_STYLESHEET = [
         'selector': 'node[nodeType = "Project"]',
         'style': {
             'shape': 'round-rectangle',
-            'background-color': '#AEC6CF',  # Pastel Neutral: Soft blue
-            'border-color': '#8FA8B5',
+            'background-color': COLOR_GRAPH_NODE_PROJECT,
+            'border-color': COLOR_GRAPH_NODE_PROJECT_BORDER,
             'width': '70px',
             'height': '70px'
         }
@@ -43,8 +69,8 @@ CYTOSCAPE_STYLESHEET = [
         'selector': 'node[nodeType = "Person"]',
         'style': {
             'shape': 'octagon',
-            'background-color': '#C5B4E3',  # Pastel Neutral: Soft lavender
-            'border-color': '#A798C7',
+            'background-color': COLOR_GRAPH_NODE_PERSON,
+            'border-color': COLOR_GRAPH_NODE_PERSON_BORDER,
             'width': '65px',
             'height': '65px'
         }
@@ -54,8 +80,8 @@ CYTOSCAPE_STYLESHEET = [
         'selector': 'node[nodeType = "Branch"]',
         'style': {
             'shape': 'diamond',
-            'background-color': '#B5E7E3',  # Pastel Neutral: Soft mint
-            'border-color': '#96C9C5',
+            'background-color': COLOR_GRAPH_NODE_BRANCH,
+            'border-color': COLOR_GRAPH_NODE_BRANCH_BORDER,
             'width': '55px',
             'height': '55px'
         }
@@ -65,8 +91,8 @@ CYTOSCAPE_STYLESHEET = [
         'selector': 'node[nodeType = "Epic"]',
         'style': {
             'shape': 'hexagon',
-            'background-color': '#F4C2B0',  # Pastel Neutral: Soft peach
-            'border-color': '#D9A892',
+            'background-color': COLOR_GRAPH_NODE_EPIC,
+            'border-color': COLOR_GRAPH_NODE_EPIC_BORDER,
             'width': '65px',
             'height': '65px'
         }
@@ -76,9 +102,9 @@ CYTOSCAPE_STYLESHEET = [
         'selector': 'node[nodeType = "Issue"]',
         'style': {
             'shape': 'triangle',
-            'background-color': '#F5E6D3',  # Pastel Neutral: Soft cream
-            'border-color': '#D9C8B5',
-            'color': '#333',
+            'background-color': COLOR_GRAPH_NODE_ISSUE,
+            'border-color': COLOR_GRAPH_NODE_ISSUE_BORDER,
+            'color': COLOR_CHARCOAL_MEDIUM,
             'width': '55px',
             'height': '55px'
         }
@@ -88,8 +114,8 @@ CYTOSCAPE_STYLESHEET = [
         'selector': 'node[nodeType = "Repository"]',
         'style': {
             'shape': 'rectangle',
-            'background-color': '#C8D5B9',  # Pastel Neutral: Soft sage
-            'border-color': '#AAB89B',
+            'background-color': COLOR_GRAPH_NODE_REPOSITORY,
+            'border-color': COLOR_GRAPH_NODE_REPOSITORY_BORDER,
             'width': '65px',
             'height': '65px'
         }
@@ -99,21 +125,23 @@ CYTOSCAPE_STYLESHEET = [
         'selector': 'edge',
         'style': {
             'width': 2,
-            'line-color': '#C0C0C0',  # Pastel Neutral: Lighter neutral gray
-            'target-arrow-color': '#C0C0C0',
+            'line-color': COLOR_GRAPH_EDGE_DEFAULT,
+            'target-arrow-color': COLOR_GRAPH_EDGE_DEFAULT,
             'target-arrow-shape': 'triangle',
             'target-arrow-scale': 1.0,
             'curve-style': 'bezier',
             'control-point-step-size': 40,  # Better separation for parallel edges
             'label': 'data(label)',
-            'font-size': '9px',
-            'font-weight': '500',
+            'font-family': FONT_SANS,
+            'font-size': FONT_SIZE_XXSMALL,
+            'font-weight': FONT_WEIGHT_MEDIUM,
+            'color': COLOR_CHARCOAL_MEDIUM,
             'text-rotation': 'autorotate',
             'text-margin-y': -10,
-            'text-background-color': '#fff',
+            'text-background-color': COLOR_BACKGROUND_WHITE,
             'text-background-opacity': 0.85,
             'text-background-padding': '3px',
-            'text-outline-color': '#fff',
+            'text-outline-color': COLOR_BACKGROUND_WHITE,
             'text-outline-width': 1
         }
     },
@@ -130,7 +158,7 @@ CYTOSCAPE_STYLESHEET = [
         'selector': 'node:selected',
         'style': {
             'border-width': '2px',
-            'border-color': '#424242',  # Dark Charcoal: Professional selection highlight
+            'border-color': COLOR_GRAPH_SELECTION,
             'border-style': 'solid',
             'z-index': 9999
         }
@@ -140,8 +168,8 @@ CYTOSCAPE_STYLESHEET = [
         'selector': 'edge:selected',
         'style': {
             'width': 4,
-            'line-color': '#424242',  # Dark Charcoal: Professional selection highlight
-            'target-arrow-color': '#424242',
+            'line-color': COLOR_GRAPH_SELECTION,
+            'target-arrow-color': COLOR_GRAPH_SELECTION,
             'z-index': 9999
         }
     },
@@ -172,8 +200,8 @@ def get_node_type_styles():
     Returns:
         dict: Mapping of node type to style info, e.g.,
               {
-                  "Project": {"color": "#AEC6CF", "border": "#8FA8B5", "shape": "round-rectangle"},
-                  "Person": {"color": "#C5B4E3", "border": "#A798C7", "shape": "octagon"},
+                  "Project": {"color": COLOR_GRAPH_NODE_PROJECT, "border": COLOR_GRAPH_NODE_PROJECT_BORDER, "shape": "round-rectangle"},
+                  "Person": {"color": COLOR_GRAPH_NODE_PERSON, "border": COLOR_GRAPH_NODE_PERSON_BORDER, "shape": "octagon"},
                   ...
               }
               Also includes "default" for nodes without specific types.
@@ -192,15 +220,15 @@ def get_node_type_styles():
         if match:
             node_type = match.group(1)
             node_styles[node_type] = {
-                'color': style.get('background-color', '#B8B8B8'),
-                'border': style.get('border-color', '#9E9E9E'),
+                'color': style.get('background-color', COLOR_GRAPH_NODE_DEFAULT),
+                'border': style.get('border-color', COLOR_GRAPH_NODE_DEFAULT_BORDER),
                 'shape': style.get('shape', 'ellipse')
             }
         # Check for default node style
         elif selector == 'node':
             node_styles['default'] = {
-                'color': style.get('background-color', '#B8B8B8'),
-                'border': style.get('border-color', '#9E9E9E'),
+                'color': style.get('background-color', COLOR_GRAPH_NODE_DEFAULT),
+                'border': style.get('border-color', COLOR_GRAPH_NODE_DEFAULT_BORDER),
                 'shape': style.get('shape', 'ellipse')
             }
     
