@@ -7,191 +7,174 @@ including node colors, sizes, edge styles, and selection states.
 import re
 
 from app.dash_app.styles import (
+    ACTIVE_THEME,
+    get_theme_tokens,
     FONT_SANS,
     FONT_SIZE_TINY,
     FONT_SIZE_XXSMALL,
     FONT_WEIGHT_MEDIUM,
-    COLOR_CHARCOAL_MEDIUM,
-    COLOR_BACKGROUND_WHITE,
-    COLOR_GRAPH_NODE_DEFAULT,
-    COLOR_GRAPH_NODE_DEFAULT_BORDER,
-    COLOR_GRAPH_NODE_PROJECT,
-    COLOR_GRAPH_NODE_PROJECT_BORDER,
-    COLOR_GRAPH_NODE_PERSON,
-    COLOR_GRAPH_NODE_PERSON_BORDER,
-    COLOR_GRAPH_NODE_BRANCH,
-    COLOR_GRAPH_NODE_BRANCH_BORDER,
-    COLOR_GRAPH_NODE_EPIC,
-    COLOR_GRAPH_NODE_EPIC_BORDER,
-    COLOR_GRAPH_NODE_ISSUE,
-    COLOR_GRAPH_NODE_ISSUE_BORDER,
-    COLOR_GRAPH_NODE_REPOSITORY,
-    COLOR_GRAPH_NODE_REPOSITORY_BORDER,
-    COLOR_GRAPH_EDGE_DEFAULT,
-    COLOR_GRAPH_SELECTION,
 )
 
 
-CYTOSCAPE_STYLESHEET = [
-    # Default node style
-    {
-        'selector': 'node',
-        'style': {
-            'label': 'data(displayLabel)',
-            'background-color': COLOR_GRAPH_NODE_DEFAULT,
-            'color': COLOR_CHARCOAL_MEDIUM,
-            'text-valign': 'center',
-            'text-halign': 'center',
-            'font-family': FONT_SANS,
-            'font-size': FONT_SIZE_TINY,
-            'font-weight': FONT_WEIGHT_MEDIUM,
-            'width': '60px',
-            'height': '60px',
-            'border-width': '0px',
-            'border-color': COLOR_GRAPH_NODE_DEFAULT_BORDER,
-            'text-wrap': 'wrap',
-            'text-max-width': '56px'
+def build_cytoscape_stylesheet(theme_name: str = ACTIVE_THEME):
+    """Build Cytoscape stylesheet for a specific theme."""
+    tokens = get_theme_tokens(theme_name)
+
+    # Keep graph labels readable on dark node fills.
+    node_label_color = tokens["text.primary"] if theme_name == "executive-light" else "#f4f7fb"
+    edge_label_bg = tokens["surface.base"]
+
+    return [
+        # Default node style
+        {
+            'selector': 'node',
+            'style': {
+                'label': 'data(displayLabel)',
+                'background-color': tokens["graph.node.default"],
+                'color': node_label_color,
+                'text-valign': 'center',
+                'text-halign': 'center',
+                'font-family': FONT_SANS,
+                'font-size': FONT_SIZE_TINY,
+                'font-weight': FONT_WEIGHT_MEDIUM,
+                'width': '60px',
+                'height': '60px',
+                'border-width': '0px',
+                'border-color': tokens["graph.node.default.border"],
+                'text-wrap': 'wrap',
+                'text-max-width': '56px'
+            }
+        },
+        {
+            'selector': 'node[nodeType = "Project"]',
+            'style': {
+                'shape': 'round-rectangle',
+                'background-color': tokens["graph.node.project"],
+                'border-color': tokens["graph.node.project.border"],
+                'width': '70px',
+                'height': '70px'
+            }
+        },
+        {
+            'selector': 'node[nodeType = "Person"]',
+            'style': {
+                'shape': 'octagon',
+                'background-color': tokens["graph.node.person"],
+                'border-color': tokens["graph.node.person.border"],
+                'width': '65px',
+                'height': '65px'
+            }
+        },
+        {
+            'selector': 'node[nodeType = "Branch"]',
+            'style': {
+                'shape': 'diamond',
+                'background-color': tokens["graph.node.branch"],
+                'border-color': tokens["graph.node.branch.border"],
+                'width': '55px',
+                'height': '55px'
+            }
+        },
+        {
+            'selector': 'node[nodeType = "Epic"]',
+            'style': {
+                'shape': 'hexagon',
+                'background-color': tokens["graph.node.epic"],
+                'border-color': tokens["graph.node.epic.border"],
+                'width': '65px',
+                'height': '65px'
+            }
+        },
+        {
+            'selector': 'node[nodeType = "Issue"]',
+            'style': {
+                'shape': 'triangle',
+                'background-color': tokens["graph.node.issue"],
+                'border-color': tokens["graph.node.issue.border"],
+                'color': node_label_color,
+                'width': '55px',
+                'height': '55px'
+            }
+        },
+        {
+            'selector': 'node[nodeType = "Repository"]',
+            'style': {
+                'shape': 'rectangle',
+                'background-color': tokens["graph.node.repository"],
+                'border-color': tokens["graph.node.repository.border"],
+                'width': '65px',
+                'height': '65px'
+            }
+        },
+        {
+            'selector': 'edge',
+            'style': {
+                'width': 2,
+                'line-color': tokens["graph.edge.default"],
+                'target-arrow-color': tokens["graph.edge.default"],
+                'target-arrow-shape': 'triangle',
+                'target-arrow-scale': 1.0,
+                'curve-style': 'bezier',
+                'control-point-step-size': 40,
+                'label': 'data(label)',
+                'font-family': FONT_SANS,
+                'font-size': FONT_SIZE_XXSMALL,
+                'font-weight': FONT_WEIGHT_MEDIUM,
+                'color': tokens["text.secondary"],
+                'text-rotation': 'autorotate',
+                'text-margin-y': -10,
+                'text-background-color': edge_label_bg,
+                'text-background-opacity': 0.85,
+                'text-background-padding': '3px',
+                'text-outline-color': edge_label_bg,
+                'text-outline-width': 1
+            }
+        },
+        {
+            'selector': 'edge[weight]',
+            'style': {
+                'width': 'mapData(weight, 0, 100, 1, 8)',
+                'target-arrow-scale': 'mapData(weight, 0, 100, 0.8, 2.0)',
+            }
+        },
+        {
+            'selector': 'node:selected',
+            'style': {
+                'border-width': '2px',
+                'border-color': tokens["graph.selection"],
+                'border-style': 'solid',
+                'z-index': 9999
+            }
+        },
+        {
+            'selector': 'edge:selected',
+            'style': {
+                'width': 4,
+                'line-color': tokens["graph.selection"],
+                'target-arrow-color': tokens["graph.selection"],
+                'z-index': 9999
+            }
+        },
+        {
+            'selector': '.highlighted',
+            'style': {
+                'opacity': 1.0,
+                'z-index': 9998
+            }
+        },
+        {
+            'selector': '.dimmed',
+            'style': {
+                'opacity': 0.3
+            }
         }
-    },
-    # Project nodes - Soft Blue
-    {
-        'selector': 'node[nodeType = "Project"]',
-        'style': {
-            'shape': 'round-rectangle',
-            'background-color': COLOR_GRAPH_NODE_PROJECT,
-            'border-color': COLOR_GRAPH_NODE_PROJECT_BORDER,
-            'width': '70px',
-            'height': '70px'
-        }
-    },
-    # Person nodes - Soft Lavender
-    {
-        'selector': 'node[nodeType = "Person"]',
-        'style': {
-            'shape': 'octagon',
-            'background-color': COLOR_GRAPH_NODE_PERSON,
-            'border-color': COLOR_GRAPH_NODE_PERSON_BORDER,
-            'width': '65px',
-            'height': '65px'
-        }
-    },
-    # Branch nodes - Soft Mint
-    {
-        'selector': 'node[nodeType = "Branch"]',
-        'style': {
-            'shape': 'diamond',
-            'background-color': COLOR_GRAPH_NODE_BRANCH,
-            'border-color': COLOR_GRAPH_NODE_BRANCH_BORDER,
-            'width': '55px',
-            'height': '55px'
-        }
-    },
-    # Epic nodes - Soft Peach
-    {
-        'selector': 'node[nodeType = "Epic"]',
-        'style': {
-            'shape': 'hexagon',
-            'background-color': COLOR_GRAPH_NODE_EPIC,
-            'border-color': COLOR_GRAPH_NODE_EPIC_BORDER,
-            'width': '65px',
-            'height': '65px'
-        }
-    },
-    # Issue nodes - Soft Cream
-    {
-        'selector': 'node[nodeType = "Issue"]',
-        'style': {
-            'shape': 'triangle',
-            'background-color': COLOR_GRAPH_NODE_ISSUE,
-            'border-color': COLOR_GRAPH_NODE_ISSUE_BORDER,
-            'color': COLOR_CHARCOAL_MEDIUM,
-            'width': '55px',
-            'height': '55px'
-        }
-    },
-    # Repository nodes - Soft Sage
-    {
-        'selector': 'node[nodeType = "Repository"]',
-        'style': {
-            'shape': 'rectangle',
-            'background-color': COLOR_GRAPH_NODE_REPOSITORY,
-            'border-color': COLOR_GRAPH_NODE_REPOSITORY_BORDER,
-            'width': '65px',
-            'height': '65px'
-        }
-    },
-    # Edge styles - Default (no weight property)
-    {
-        'selector': 'edge',
-        'style': {
-            'width': 2,
-            'line-color': COLOR_GRAPH_EDGE_DEFAULT,
-            'target-arrow-color': COLOR_GRAPH_EDGE_DEFAULT,
-            'target-arrow-shape': 'triangle',
-            'target-arrow-scale': 1.0,
-            'curve-style': 'bezier',
-            'control-point-step-size': 40,  # Better separation for parallel edges
-            'label': 'data(label)',
-            'font-family': FONT_SANS,
-            'font-size': FONT_SIZE_XXSMALL,
-            'font-weight': FONT_WEIGHT_MEDIUM,
-            'color': COLOR_CHARCOAL_MEDIUM,
-            'text-rotation': 'autorotate',
-            'text-margin-y': -10,
-            'text-background-color': COLOR_BACKGROUND_WHITE,
-            'text-background-opacity': 0.85,
-            'text-background-padding': '3px',
-            'text-outline-color': COLOR_BACKGROUND_WHITE,
-            'text-outline-width': 1
-        }
-    },
-    # Edge styles - With weight property (dynamic thickness)
-    {
-        'selector': 'edge[weight]',
-        'style': {
-            'width': 'mapData(weight, 0, 100, 1, 8)',  # Map weight 0-100 to width 1-8px
-            'target-arrow-scale': 'mapData(weight, 0, 100, 0.8, 2.0)',  # Scale arrows proportionally
-        }
-    },
-    # Node selected state (click to select)
-    {
-        'selector': 'node:selected',
-        'style': {
-            'border-width': '2px',
-            'border-color': COLOR_GRAPH_SELECTION,
-            'border-style': 'solid',
-            'z-index': 9999
-        }
-    },
-    # Edge selected state (click to select)
-    {
-        'selector': 'edge:selected',
-        'style': {
-            'width': 4,
-            'line-color': COLOR_GRAPH_SELECTION,
-            'target-arrow-color': COLOR_GRAPH_SELECTION,
-            'z-index': 9999
-        }
-    },
-    # Highlighted elements (hover interaction - Phase 1.2.3)
-    {
-        'selector': '.highlighted',
-        'style': {
-            'opacity': 1.0,
-            'z-index': 9998
-        }
-    },
-    # Dimmed elements (hover interaction - Phase 1.2.3)
-    {
-        'selector': '.dimmed',
-        'style': {
-            'opacity': 0.3
-        }
-    }
-]
+    ]
 
 
-def get_node_type_styles():
+CYTOSCAPE_STYLESHEET = build_cytoscape_stylesheet()
+
+
+def get_node_type_styles(theme_name: str = ACTIVE_THEME, stylesheet=None):
     """Extract node type styling information from the stylesheet
     
     Parses CYTOSCAPE_STYLESHEET to extract node types and their colors.
@@ -211,7 +194,11 @@ def get_node_type_styles():
     # Pattern to match node[nodeType = "TypeName"]
     node_type_pattern = re.compile(r'node\[nodeType\s*=\s*"([^"]+)"\]')
     
-    for style_item in CYTOSCAPE_STYLESHEET:
+    stylesheet_to_parse = stylesheet or build_cytoscape_stylesheet(theme_name)
+
+    tokens = get_theme_tokens(theme_name)
+
+    for style_item in stylesheet_to_parse:
         selector = style_item.get('selector', '')
         style = style_item.get('style', {})
         
@@ -220,15 +207,15 @@ def get_node_type_styles():
         if match:
             node_type = match.group(1)
             node_styles[node_type] = {
-                'color': style.get('background-color', COLOR_GRAPH_NODE_DEFAULT),
-                'border': style.get('border-color', COLOR_GRAPH_NODE_DEFAULT_BORDER),
+                'color': style.get('background-color', tokens["graph.node.default"]),
+                'border': style.get('border-color', tokens["graph.node.default.border"]),
                 'shape': style.get('shape', 'ellipse')
             }
         # Check for default node style
         elif selector == 'node':
             node_styles['default'] = {
-                'color': style.get('background-color', COLOR_GRAPH_NODE_DEFAULT),
-                'border': style.get('border-color', COLOR_GRAPH_NODE_DEFAULT_BORDER),
+                'color': style.get('background-color', tokens["graph.node.default"]),
+                'border': style.get('border-color', tokens["graph.node.default.border"]),
                 'shape': style.get('shape', 'ellipse')
             }
     

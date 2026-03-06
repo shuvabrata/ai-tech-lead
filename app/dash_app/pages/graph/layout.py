@@ -169,14 +169,14 @@ def create_filter_panel():
                 "Filters"
             ],
             id="toggle-filter-collapse-btn",
-            color="light",
-            className="w-100 text-start",
+            className="w-100 text-start graph-filter-toggle-btn",
             style={
                 "fontSize": "13px",
                 "fontWeight": "600",
                 "color": COLOR_GRAY_DARK,
                 "border": f"1px solid {COLOR_GRAY_LIGHTER}",
                 "borderRadius": "4px",
+                "backgroundColor": "var(--color-background-white)",
                 "padding": "8px 12px",
                 "marginBottom": "8px"
             }
@@ -218,6 +218,7 @@ def create_filter_panel():
                             options=[],  # Populated dynamically
                             value=[],   # All selected by default
                             inline=False,
+                            className="graph-filter-checklist",
                             style={"fontSize": "12px"}
                         )
                     ], className="mb-3"),
@@ -239,6 +240,7 @@ def create_filter_panel():
                             options=[],  # Populated dynamically
                             value=[],   # All selected by default
                             inline=False,
+                            className="graph-filter-checklist",
                             style={"fontSize": "12px"}
                         )
                     ], className="mb-3"),
@@ -268,8 +270,8 @@ def create_filter_panel():
                             html.Small(
                                 id="weight-threshold-label",
                                 children="Show edges with weight ≥ 0",
-                                className="text-muted d-block mt-1",
-                                style={"fontSize": "10px"}
+                                className="d-block mt-1",
+                                style={"fontSize": "10px", "color": "var(--color-text-secondary)"}
                             )
                         ])
                     ], className="mb-3"),
@@ -295,11 +297,12 @@ def create_filter_panel():
                             ],
                             value="all",
                             inline=False,
+                            className="graph-filter-radio",
                             style={"fontSize": "12px"}
                         )
                     ])
-                ], style={"padding": "12px"})
-            ], style={"border": f"1px solid {COLOR_GRAY_LIGHTER}", "borderRadius": "4px"})
+                ], className="graph-filter-card-body", style={"padding": "12px"})
+            ], className="graph-filter-card", style={"border": f"1px solid {COLOR_GRAY_LIGHTER}", "borderRadius": "4px"})
             ]
         )
     ], className="mb-3")
@@ -378,9 +381,9 @@ def create_results_section():
                                 html.Div([
                                     html.I(className="fas fa-info-circle fa-lg mb-2", style=GRAPH_DETAILS_PANEL_ICON_STYLE),
                                     html.P(
-                                        "Click a node or edge to view details",
-                                        className="text-muted mb-0",
-                                        style={"fontSize": "12px"}
+                                        "Execute a query to see the graph",
+                                        className="mb-0",
+                                        style={"fontSize": "12px", "color": "var(--color-text-secondary)"}
                                     )
                                 ], className="text-center", style={"marginTop": "100px"})
                             ]

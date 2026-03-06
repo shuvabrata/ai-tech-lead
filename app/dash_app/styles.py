@@ -36,67 +36,228 @@ FONT_WEIGHT_SEMIBOLD = "600"
 FONT_WEIGHT_BOLD = "700"
 
 # =============================================================================
-# COLORS - Executive Dashboard Palette
+# COLORS - Theme Tokens
 # =============================================================================
 
+ACTIVE_THEME = "executive-light"
+
+# Semantic token registry.
+# Keeping all existing exported COLOR_* constants below preserves current imports
+# while making it straightforward to add additional themes later.
+THEME_TOKENS = {
+    "executive-light": {
+        # Brand / accent
+        "brand.primary": "#2c5282",
+        "brand.primary.dark": "#1e3a5f",
+        "brand.primary.hover": "#234164",
+
+        # Text
+        "text.primary": "#1a202c",
+        "text.secondary": "#2d3748",
+        "text.tertiary": "#4a5568",
+        "text.muted": "#718096",
+        "text.subtle": "#a0aec0",
+        "text.disabled": "#cbd5e0",
+
+        # Surfaces
+        "surface.base": "#ffffff",
+        "surface.subtle": "#f7fafc",
+        "surface.active": "#edf2f7",
+        "surface.pale": "#f8f9fa",
+
+        # Borders
+        "border.default": "#e2e8f0",
+        "border.light": "#e2e8f0",
+        "border.medium": "#dee2e6",
+        "border.context-menu": "#ccc",
+
+        # Utility
+        "utility.success": "#48bb78",
+        "utility.warning": "#ed8936",
+        "utility.error": "#f56565",
+        "utility.info": "#4299e1",
+        "utility.destructive": "#dc3545",
+        "utility.warning.dark": "#ffc107",
+        "utility.success.dark": "#28a745",
+
+        # Extended UI
+        "ui.text.dark": "#212529",
+        "ui.text.muted": "#6c757d",
+        "ui.text.secondary": "#495057",
+        "ui.code.background": "#e9ecef",
+        "ui.details.icon": "#adb5bd",
+        "ui.graph.canvas": "#fafafa",
+        "ui.shadow.light": "rgba(0,0,0,0.2)",
+        "ui.focus.ring": "rgba(44, 82, 130, 0.1)",
+        "ui.validation.code.background": "rgba(255,255,255,0.3)",
+        "ui.topbar.shadow": "rgba(0,0,0,0.04)",
+
+        # Graph palette tokens (Cytoscape)
+        "graph.node.default": "#B8B8B8",
+        "graph.node.default.border": "#9E9E9E",
+        "graph.node.project": "#AEC6CF",
+        "graph.node.project.border": "#8FA8B5",
+        "graph.node.person": "#C5B4E3",
+        "graph.node.person.border": "#A798C7",
+        "graph.node.branch": "#B5E7E3",
+        "graph.node.branch.border": "#96C9C5",
+        "graph.node.epic": "#F4C2B0",
+        "graph.node.epic.border": "#D9A892",
+        "graph.node.issue": "#F5E6D3",
+        "graph.node.issue.border": "#D9C8B5",
+        "graph.node.repository": "#C8D5B9",
+        "graph.node.repository.border": "#AAB89B",
+        "graph.edge.default": "#C0C0C0",
+        "graph.selection": "#424242",
+    },
+    "executive-dark": {
+        # Brand / accent (slightly brighter for dark surfaces)
+        "brand.primary": "#5f86b4",
+        "brand.primary.dark": "#4d739f",
+        "brand.primary.hover": "#6b93c3",
+
+        # Text
+        "text.primary": "#e6edf3",
+        "text.secondary": "#ced8e3",
+        "text.tertiary": "#a9b6c5",
+        "text.muted": "#8f9fb1",
+        "text.subtle": "#78889b",
+        "text.disabled": "#5f6f82",
+
+        # Surfaces (soft dark, not pure black)
+        "surface.base": "#1f262f",
+        "surface.subtle": "#252f3a",
+        "surface.active": "#2f3b49",
+        "surface.pale": "#2a3440",
+
+        # Borders
+        "border.default": "#3a4653",
+        "border.light": "#445262",
+        "border.medium": "#4c5968",
+        "border.context-menu": "#566474",
+
+        # Utility
+        "utility.success": "#57b983",
+        "utility.warning": "#d6a564",
+        "utility.error": "#db7f7f",
+        "utility.info": "#62a6d8",
+        "utility.destructive": "#d97b7b",
+        "utility.warning.dark": "#d9b26d",
+        "utility.success.dark": "#5eb88d",
+
+        # Extended UI
+        "ui.text.dark": "#e6edf3",
+        "ui.text.muted": "#98a8bb",
+        "ui.text.secondary": "#bdc9d7",
+        "ui.code.background": "#323e4b",
+        "ui.details.icon": "#8ea0b3",
+        "ui.graph.canvas": "#222b35",
+        "ui.shadow.light": "rgba(0,0,0,0.35)",
+        "ui.focus.ring": "rgba(95, 134, 180, 0.28)",
+        "ui.validation.code.background": "rgba(255,255,255,0.08)",
+        "ui.topbar.shadow": "rgba(0,0,0,0.28)",
+
+        # Graph palette tokens (muted, professional on dark canvas)
+        "graph.node.default": "#7f8fa3",
+        "graph.node.default.border": "#96a4b6",
+        "graph.node.project": "#6f8fb1",
+        "graph.node.project.border": "#89a5c2",
+        "graph.node.person": "#8b7eab",
+        "graph.node.person.border": "#a193bf",
+        "graph.node.branch": "#6b9ea1",
+        "graph.node.branch.border": "#83b3b6",
+        "graph.node.epic": "#b18676",
+        "graph.node.epic.border": "#c49a8b",
+        "graph.node.issue": "#b6a58a",
+        "graph.node.issue.border": "#cabaa1",
+        "graph.node.repository": "#7e9a7b",
+        "graph.node.repository.border": "#97b092",
+        "graph.edge.default": "#8c9aab",
+        "graph.selection": "#d5deea",
+    }
+}
+
+
+def get_theme_tokens(theme_name: str = ACTIVE_THEME) -> dict:
+    """Return semantic tokens for the requested theme."""
+    if theme_name not in THEME_TOKENS:
+        available = ", ".join(sorted(THEME_TOKENS.keys()))
+        raise ValueError(f"Unknown theme '{theme_name}'. Available themes: {available}")
+    return THEME_TOKENS[theme_name]
+
+
+TOKENS = get_theme_tokens()
+
+
+def _token(name: str) -> str:
+    """Fetch a token from the active theme and fail fast if missing."""
+    try:
+        return TOKENS[name]
+    except KeyError as exc:
+        raise KeyError(f"Theme token not found: {name}") from exc
+
+
+# Legacy color exports backed by CSS variables for runtime theme switching.
+# Theme hex values remain available through get_theme_tokens(...).
+
 # Primary Colors
-COLOR_NAVY = "#2c5282"
-COLOR_NAVY_DARK = "#1e3a5f"
-COLOR_NAVY_HOVER = "#234164"
+COLOR_NAVY = "var(--color-navy)"
+COLOR_NAVY_DARK = "var(--color-navy-dark)"
+COLOR_NAVY_HOVER = "var(--color-navy-hover)"
 
 # Text Colors
-COLOR_CHARCOAL = "#1a202c"
-COLOR_CHARCOAL_MEDIUM = "#2d3748"
-COLOR_GRAY_DARK = "#4a5568"
-COLOR_GRAY_MEDIUM = "#718096"
-COLOR_GRAY_LIGHT = "#a0aec0"
-COLOR_GRAY_LIGHTER = "#cbd5e0"
+COLOR_CHARCOAL = "var(--color-charcoal)"
+COLOR_CHARCOAL_MEDIUM = "var(--color-charcoal-medium)"
+COLOR_GRAY_DARK = "var(--color-gray-dark)"
+COLOR_GRAY_MEDIUM = "var(--color-gray-medium)"
+COLOR_GRAY_LIGHT = "var(--color-gray-light)"
+COLOR_GRAY_LIGHTER = "var(--color-gray-lighter)"
 
 # Background Colors
-COLOR_BACKGROUND_WHITE = "#ffffff"
-COLOR_BACKGROUND_LIGHT = "#f7fafc"
-COLOR_SURFACE_ACTIVE = "#edf2f7"
+COLOR_BACKGROUND_WHITE = "var(--color-background-white)"
+COLOR_BACKGROUND_LIGHT = "var(--color-background-light)"
+COLOR_SURFACE_ACTIVE = "var(--color-surface-active)"
 
 # Border Colors
-COLOR_BORDER = "#e2e8f0"
-COLOR_BORDER_LIGHT = "#e2e8f0"
+COLOR_BORDER = "var(--color-border)"
+COLOR_BORDER_LIGHT = "var(--color-border-light)"
 
 # Utility Colors
-COLOR_SUCCESS = "#48bb78"
-COLOR_WARNING = "#ed8936"
-COLOR_ERROR = "#f56565"
-COLOR_INFO = "#4299e1"
+COLOR_SUCCESS = "var(--color-success)"
+COLOR_WARNING = "var(--color-warning)"
+COLOR_ERROR = "var(--color-error)"
+COLOR_INFO = "var(--color-info)"
 
 # Extended Colors (Graph UI Components)
-COLOR_TEXT_DARK = "#212529"
-COLOR_TEXT_MUTED = "#6c757d"
-COLOR_TEXT_SECONDARY = "#495057"
-COLOR_BACKGROUND_PALE = "#f8f9fa"
-COLOR_BORDER_GRAY = "#dee2e6"
-COLOR_CODE_BACKGROUND = "#e9ecef"
-COLOR_SHADOW_LIGHT = "rgba(0,0,0,0.2)"
-COLOR_CONTEXT_MENU_BORDER = "#ccc"
-COLOR_DESTRUCTIVE = "#dc3545"
-COLOR_WARNING_DARK = "#ffc107"
-COLOR_SUCCESS_DARK = "#28a745"
+COLOR_TEXT_DARK = "var(--color-text-dark)"
+COLOR_TEXT_MUTED = "var(--color-text-muted)"
+COLOR_TEXT_SECONDARY = "var(--color-text-secondary)"
+COLOR_BACKGROUND_PALE = "var(--color-background-pale)"
+COLOR_BORDER_GRAY = "var(--color-border-gray)"
+COLOR_CODE_BACKGROUND = "var(--color-code-background)"
+COLOR_SHADOW_LIGHT = "var(--color-shadow-light)"
+COLOR_CONTEXT_MENU_BORDER = "var(--color-context-menu-border)"
+COLOR_DESTRUCTIVE = "var(--color-destructive)"
+COLOR_WARNING_DARK = "var(--color-warning-dark)"
+COLOR_SUCCESS_DARK = "var(--color-success-dark)"
 
 # Graph palette tokens (Cytoscape)
-COLOR_GRAPH_NODE_DEFAULT = "#B8B8B8"
-COLOR_GRAPH_NODE_DEFAULT_BORDER = "#9E9E9E"
-COLOR_GRAPH_NODE_PROJECT = "#AEC6CF"
-COLOR_GRAPH_NODE_PROJECT_BORDER = "#8FA8B5"
-COLOR_GRAPH_NODE_PERSON = "#C5B4E3"
-COLOR_GRAPH_NODE_PERSON_BORDER = "#A798C7"
-COLOR_GRAPH_NODE_BRANCH = "#B5E7E3"
-COLOR_GRAPH_NODE_BRANCH_BORDER = "#96C9C5"
-COLOR_GRAPH_NODE_EPIC = "#F4C2B0"
-COLOR_GRAPH_NODE_EPIC_BORDER = "#D9A892"
-COLOR_GRAPH_NODE_ISSUE = "#F5E6D3"
-COLOR_GRAPH_NODE_ISSUE_BORDER = "#D9C8B5"
-COLOR_GRAPH_NODE_REPOSITORY = "#C8D5B9"
-COLOR_GRAPH_NODE_REPOSITORY_BORDER = "#AAB89B"
-COLOR_GRAPH_EDGE_DEFAULT = "#C0C0C0"
-COLOR_GRAPH_SELECTION = "#424242"
+COLOR_GRAPH_NODE_DEFAULT = "var(--color-graph-node-default)"
+COLOR_GRAPH_NODE_DEFAULT_BORDER = "var(--color-graph-node-default-border)"
+COLOR_GRAPH_NODE_PROJECT = "var(--color-graph-node-project)"
+COLOR_GRAPH_NODE_PROJECT_BORDER = "var(--color-graph-node-project-border)"
+COLOR_GRAPH_NODE_PERSON = "var(--color-graph-node-person)"
+COLOR_GRAPH_NODE_PERSON_BORDER = "var(--color-graph-node-person-border)"
+COLOR_GRAPH_NODE_BRANCH = "var(--color-graph-node-branch)"
+COLOR_GRAPH_NODE_BRANCH_BORDER = "var(--color-graph-node-branch-border)"
+COLOR_GRAPH_NODE_EPIC = "var(--color-graph-node-epic)"
+COLOR_GRAPH_NODE_EPIC_BORDER = "var(--color-graph-node-epic-border)"
+COLOR_GRAPH_NODE_ISSUE = "var(--color-graph-node-issue)"
+COLOR_GRAPH_NODE_ISSUE_BORDER = "var(--color-graph-node-issue-border)"
+COLOR_GRAPH_NODE_REPOSITORY = "var(--color-graph-node-repository)"
+COLOR_GRAPH_NODE_REPOSITORY_BORDER = "var(--color-graph-node-repository-border)"
+COLOR_GRAPH_EDGE_DEFAULT = "var(--color-graph-edge-default)"
+COLOR_GRAPH_SELECTION = "var(--color-graph-selection)"
 
 # =============================================================================
 # SPACING
@@ -230,7 +391,7 @@ INPUT_FOCUS_STYLE = {
     **INPUT_STYLE,
     "borderColor": COLOR_NAVY,
     "outline": "none",
-    "boxShadow": "0 0 0 3px rgba(44, 82, 130, 0.1)"
+    "boxShadow": "0 0 0 3px var(--color-focus-ring)"
 }
 
 # Button Styles
@@ -296,7 +457,8 @@ TOPBAR_STYLE = {
     "height": "44px",
     "padding": "0",
     "borderBottom": f"1px solid {COLOR_BORDER}",
-    "boxShadow": "0 1px 2px rgba(0,0,0,0.04)"
+    "boxShadow": "0 1px 2px var(--color-topbar-shadow)",
+    "backgroundColor": COLOR_BACKGROUND_WHITE
 }
 
 TOPBAR_CONTAINER_STYLE = {
@@ -390,7 +552,7 @@ GRAPH_QUERY_SECTION_CONTAINER_STYLE = {
 GRAPH_CYTOSCAPE_STYLE = {
     "width": "100%",
     "height": "75vh",
-    "backgroundColor": "#fafafa",
+    "backgroundColor": "var(--color-graph-canvas)",
     "borderRadius": "4px"
 }
 
@@ -409,16 +571,16 @@ GRAPH_EMPTY_STATE_TEXT_STYLE = {
 }
 
 GRAPH_DETAILS_PANEL_STYLE = {
-    "backgroundColor": "#f8f9fa",
+    "backgroundColor": COLOR_BACKGROUND_PALE,
     "borderRadius": "4px",
-    "border": "1px solid #dee2e6",
+    "border": f"1px solid {COLOR_BORDER_GRAY}",
     "padding": SPACING_XXSMALL,
     "height": "calc(75vh + 40px)",
     "overflowY": "auto"
 }
 
 GRAPH_DETAILS_PANEL_ICON_STYLE = {
-    "color": "#adb5bd"
+    "color": "var(--color-details-icon)"
 }
 
 GRAPH_NODE_HOVER_TOOLTIP_STYLE = {
@@ -485,7 +647,7 @@ VALIDATION_ALERT_STYLE = {
 
 VALIDATION_CODE_STYLE = {
     "fontSize": FONT_SIZE_XSMALL,
-    "backgroundColor": "rgba(255,255,255,0.3)",
+    "backgroundColor": "var(--color-validation-code-background)",
     "padding": "2px 6px"
 }
 

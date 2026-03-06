@@ -16,8 +16,10 @@ from app.dash_app.styles import (
     DETAILS_SUBHEADING_STYLE,
     FONT_SIZE_XSMALL,
     COLOR_NAVY,
+    COLOR_TEXT_MUTED,
     FONT_SIZE_XTINY
 )
+from ..styles import build_cytoscape_stylesheet
 from ..utils import toggle_details_panel, build_property_items, create_node_legend, is_node_element
 
 
@@ -42,9 +44,10 @@ def toggle_fullwidth(_n_clicks, is_fullwidth):
     Output("graph-details-panel", "children"),
     [Input("graph-cytoscape", "selectedNodeData"),
      Input("graph-cytoscape", "selectedEdgeData"),
-     Input("graph-cytoscape", "elements")]
+    Input("graph-cytoscape", "elements"),
+    Input("theme-store", "data")]
 )
-def display_properties(selected_nodes, selected_edges, elements):
+def display_properties(selected_nodes, selected_edges, elements, theme_name):
     """Display detailed properties of selected node or edge"""
     # Extract unique node types from current graph elements
     node_types = set()
@@ -56,7 +59,8 @@ def display_properties(selected_nodes, selected_edges, elements):
                     node_types.add(node_type)
     
     # Default state: show legend with current node types (or empty state if no graph)
-    legend_state = create_node_legend(list(node_types) if node_types else None)
+    active_theme = theme_name or "executive-light"
+    legend_state = create_node_legend(list(node_types) if node_types else None, theme_name=active_theme)
     
     # Node was selected (selectedNodeData returns a list)
     if selected_nodes and len(selected_nodes) > 0:
@@ -135,7 +139,7 @@ def display_properties(selected_nodes, selected_edges, elements):
         # Header
         header = html.Div([
             html.H6([
-                html.I(className="fas fa-arrow-right me-2", style={"color": "#6c757d", "fontSize": FONT_SIZE_XSMALL}),
+                html.I(className="fas fa-arrow-right me-2", style={"color": COLOR_TEXT_MUTED, "fontSize": FONT_SIZE_XSMALL}),
                 "Relationship Details"
             ], className="mb-3", style=DETAILS_HEADING_STYLE),
         ])
@@ -233,6 +237,16 @@ def update_layout(layout_name, reset_clicks, current_layout):
         }
     
     return current_layout
+
+
+@callback(
+    Output("graph-cytoscape", "stylesheet"),
+    Input("theme-store", "data")
+)
+def update_graph_stylesheet(theme_name):
+    """Update graph node/edge palette when the app theme changes."""
+    active_theme = theme_name or "executive-light"
+    return build_cytoscape_stylesheet(active_theme)
 
 
 # Phase 1.2.3: Edge Hover Highlighting

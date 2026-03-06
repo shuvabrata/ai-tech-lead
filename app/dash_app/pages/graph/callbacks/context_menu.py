@@ -290,7 +290,9 @@ clientside_callback(
             const menuItems = document.querySelectorAll('.context-menu-item');
             menuItems.forEach(item => {
                 item.addEventListener('mouseenter', function() {
-                    this.style.backgroundColor = '#f0f0f0';
+                    this.style.backgroundColor = getComputedStyle(this)
+                        .getPropertyValue('--color-surface-active')
+                        .trim();
                 });
                 item.addEventListener('mouseleave', function() {
                     this.style.backgroundColor = 'transparent';

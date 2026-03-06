@@ -453,13 +453,13 @@ def render_messages(messages):
                         ],
                         style={
                             "fontFamily": FONT_SANS,
-                            "backgroundColor": "#fff5f5",
+                            "backgroundColor": "var(--color-background-pale)",
                             "color": COLOR_ERROR,
                             "padding": f"{SPACING_XSMALL} 20px",
                             "borderRadius": "2px",
                             "fontSize": FONT_SIZE_MEDIUM,
-                            "border": "1px solid #feb2b2",
-                            "borderLeft": "3px solid #fc8181",
+                            "border": "1px solid var(--color-border)",
+                            "borderLeft": "3px solid var(--color-error)",
                             "textAlign": "left",
                             "lineHeight": "1.6"
                         }

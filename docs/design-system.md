@@ -5,12 +5,13 @@ This document describes the centralized design system for the AI Tech Lead appli
 ## Table of Contents
 
 1. [Design Philosophy](#design-philosophy)
-2. [Color Palette](#color-palette)
-3. [Typography](#typography)
-4. [Spacing System](#spacing-system)
-5. [Components](#components)
-6. [CSS Variables](#css-variables)
-7. [Usage Examples](#usage-examples)
+2. [Theme Foundation](#theme-foundation)
+3. [Color Palette](#color-palette)
+4. [Typography](#typography)
+5. [Spacing System](#spacing-system)
+6. [Components](#components)
+7. [CSS Variables](#css-variables)
+8. [Usage Examples](#usage-examples)
 
 ---
 
@@ -23,6 +24,28 @@ The Executive Dashboard aesthetic prioritizes:
 - **Consistency**: Centralized design tokens prevent style drift
 - **Accessibility**: Sufficient color contrast and readable font sizes
 - **Restraint**: Navy accent color (#2c5282) used sparingly for emphasis
+
+---
+
+## Theme Foundation
+
+The design system now has a semantic token layer in `app/dash_app/styles.py`.
+
+- `THEME_TOKENS` stores theme values keyed by semantic names (for example `brand.primary`, `surface.base`, `text.muted`)
+- `ACTIVE_THEME` currently defaults to `executive-light`
+- Supported themes: `executive-light`, `executive-dark`
+- Existing exported constants (`COLOR_NAVY`, `COLOR_BORDER`, etc.) are still available and now resolve from semantic tokens
+- Theme switching is persisted with `dcc.Store(storage_type="local")` and applied via `app-shell` theme classes (`theme-executive-light`, `theme-executive-dark`)
+- CSS variables are defined for light mode under both `:root` and `:root[data-theme="executive-light"]`, with dark overrides in `.theme-executive-dark` in `app/dash_app/assets/executive-dashboard.css`
+
+This preserves current visuals while making it easier to add future themes (for example `executive-dark`) without rewriting component code.
+
+### Runtime Theme Toggle
+
+- Theme is selected in the top bar `theme-selector`
+- Selection is persisted in `theme-store` (`localStorage`)
+- The root container (`#app-shell`) receives `theme-{name}` class
+- Graph node/edge Cytoscape stylesheet is rebuilt per theme for readable dark-mode graph rendering
 
 ---
 
@@ -229,7 +252,8 @@ placeholder = create_placeholder_section(
 All CSS variables are defined in `app/dash_app/assets/executive-dashboard.css`:
 
 ```css
-:root {
+:root,
+:root[data-theme="executive-light"] {
     /* Colors */
     --color-navy: #2c5282;
     --color-charcoal-medium: #2d3748;
@@ -357,11 +381,12 @@ card = html.Div("Content", style=custom_card_style)
 ## Best Practices
 
 1. **Always use design tokens**: Never hardcode colors, fonts, or spacing values
-2. **Use helper components**: Prefer `create_page_header()` over custom implementations
-3. **Keep CSS minimal**: Use Python style dictionaries for most styling
-4. **Use CSS for interactions**: Hover states, animations, and transitions belong in CSS
-5. **Maintain consistency**: If a pattern exists, reuse it instead of creating variations
-6. **Test visual regression**: Verify no visual changes when refactoring styles
+2. **Use semantic theme tokens for new work**: Add/update values in `THEME_TOKENS` first, then map to exported constants if needed
+3. **Use helper components**: Prefer `create_page_header()` over custom implementations
+4. **Keep CSS minimal**: Use Python style dictionaries for most styling
+5. **Use CSS for interactions**: Hover states, animations, and transitions belong in CSS
+6. **Maintain consistency**: If a pattern exists, reuse it instead of creating variations
+7. **Test visual regression**: Verify no visual changes when refactoring styles
 
 ---
 

@@ -66,6 +66,17 @@ def create_dash_app():
                 dbc.Col(
                     dbc.Nav(
                         [
+                            dbc.Select(
+                                id="theme-selector",
+                                options=[
+                                    {"label": "Executive Light", "value": "executive-light"},
+                                    {"label": "Executive Dark", "value": "executive-dark"},
+                                ],
+                                value="executive-light",
+                                size="sm",
+                                className="theme-selector me-2",
+                                style={"minWidth": "180px", "fontSize": "12px"}
+                            ),
                             dbc.DropdownMenu(
                                 label="Switch Project",
                                 children=[
@@ -88,8 +99,6 @@ def create_dash_app():
             fluid=True,
             style=TOPBAR_CONTAINER_STYLE
         ),
-        color="white",
-        dark=False,
         className="mb-0 executive-topbar",
         style=TOPBAR_STYLE
     )
@@ -100,6 +109,7 @@ def create_dash_app():
     app.layout = dbc.Container([
         dcc.Location(id="url", refresh=False),
         dcc.Store(id="sidebar-collapsed", storage_type="local", data=False),
+        dcc.Store(id="theme-store", storage_type="local", data="executive-light"),
         top_menu,
         dbc.Row([
             dbc.Col(
@@ -111,7 +121,7 @@ def create_dash_app():
             ),
             dbc.Col(content, id="content-col", width=True)
         ], className="g-0"),
-    ], fluid=True)
+    ], fluid=True, id="app-shell", className="app-shell theme-executive-light")
 
     # Callbacks for page routing
     @app.callback(
@@ -168,6 +178,29 @@ def create_dash_app():
             sidebar_style = SIDEBAR_COL_STYLE
         
         return sidebar_style
+
+    @app.callback(
+        Output("theme-store", "data"),
+        Input("theme-selector", "value"),
+        prevent_initial_call=True
+    )
+    def persist_theme(theme_name):
+        return theme_name or "executive-light"
+
+    @app.callback(
+        Output("theme-selector", "value"),
+        Input("theme-store", "data")
+    )
+    def sync_theme_selector(theme_name):
+        return theme_name or "executive-light"
+
+    @app.callback(
+        Output("app-shell", "className"),
+        Input("theme-store", "data")
+    )
+    def apply_theme_class(theme_name):
+        active_theme = theme_name or "executive-light"
+        return f"app-shell theme-{active_theme}"
 
     # No custom CSS or sidebar collapse for now; Bootstrap handles layout and theme
 

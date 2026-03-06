@@ -363,7 +363,7 @@ def get_shape_css(shape):
     return {**base_style, **shape_styles.get(shape, {'borderRadius': '50%'})}
 
 
-def create_node_legend(node_types=None):
+def create_node_legend(node_types=None, theme_name="executive-light"):
     """Create a legend showing node types and their colors
     
     Args:
@@ -374,7 +374,7 @@ def create_node_legend(node_types=None):
         html.Div: Legend component
     """
     # Get node type styles from the stylesheet (single source of truth)
-    all_node_styles = get_node_type_styles()
+    all_node_styles = get_node_type_styles(theme_name=theme_name)
     
     # If no node types specified, show empty state
     if not node_types:
@@ -383,13 +383,11 @@ def create_node_legend(node_types=None):
                 html.I(className="fas fa-info-circle fa-lg mb-2", style={"color": COLOR_GRAY_LIGHTER}),
                 html.P(
                     "Execute a query to see the graph",
-                    className="text-muted mb-2",
-                    style={"fontSize": FONT_SIZE_SMALL}
-                ),
-                html.P(
-                    "Click a node or edge to view details",
-                    className="text-muted mb-0",
-                    style={"fontSize": FONT_SIZE_XSMALL}
+                    className="mb-0",
+                    style={
+                        "fontSize": FONT_SIZE_SMALL,
+                        "color": COLOR_TEXT_SECONDARY
+                    }
                 )
             ], className="text-center", style={"marginTop": "100px"})
         ])
@@ -440,8 +438,7 @@ def create_node_legend(node_types=None):
             html.I(className="fas fa-info-circle me-2", style={"color": COLOR_TEXT_MUTED, "fontSize": FONT_SIZE_XSMALL}),
             html.Span(
                 "Click a node or edge to view details",
-                className="text-muted",
-                style={"fontSize": FONT_SIZE_XSMALL}
+                style={"fontSize": FONT_SIZE_XSMALL, "color": COLOR_TEXT_SECONDARY}
             )
         ], className="text-center")
     ], style={"padding": "20px"})

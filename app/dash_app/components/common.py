@@ -124,12 +124,12 @@ def create_placeholder_section(message: str, features: list, icon: str = "📋")
     ])
 
 
-def create_diamond_icon(color: str = COLOR_NAVY) -> html.Span:
+def create_diamond_icon(color: str | None = None) -> html.Span:
     """
     Create a diamond icon (◆) for visual accents.
     
     Args:
-        color: The color of the diamond (default: COLOR_NAVY)
+        color: The color of the diamond (default: theme accent)
         
     Returns:
         html.Span: A styled diamond icon
@@ -138,10 +138,12 @@ def create_diamond_icon(color: str = COLOR_NAVY) -> html.Span:
         create_diamond_icon()
         create_diamond_icon(COLOR_GRAY_MEDIUM)
     """
+    resolved_color = color or COLOR_NAVY
+
     return html.Span(
         "◆",
         style={
-            "color": color,
+            "color": resolved_color,
             "fontSize": FONT_SIZE_XSMALL,
             "marginRight": SPACING_XXSMALL
         }
@@ -171,14 +173,14 @@ def create_empty_state(message: str, icon: str = "📭") -> html.Div:
     })
 
 
-def create_info_card(title: str, content: str, accent_color: str = COLOR_NAVY) -> html.Div:
+def create_info_card(title: str, content: str, accent_color: str | None = None) -> html.Div:
     """
     Create an informational card with custom accent color.
     
     Args:
         title: The card title
         content: The card content text
-        accent_color: Border accent color (default: COLOR_NAVY)
+        accent_color: Border accent color (default: theme accent)
         
     Returns:
         html.Div: A styled info card component
@@ -190,9 +192,11 @@ def create_info_card(title: str, content: str, accent_color: str = COLOR_NAVY) -
             COLOR_SUCCESS
         )
     """
+    resolved_accent_color = accent_color or COLOR_NAVY
+
     card_style = {
         **FEATURE_CARD_STYLE,
-        "borderLeft": f"3px solid {accent_color}"
+        "borderLeft": f"3px solid {resolved_accent_color}"
     }
     
     return html.Div([
