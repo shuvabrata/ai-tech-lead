@@ -29,7 +29,7 @@ def test_extract_cypher_query_from_fenced_block():
 
 def test_query_neo4j_with_chain_uses_provider_pipeline_when_flag_enabled(monkeypatch):
     """Feature flag should route execution through provider-native pipeline."""
-    monkeypatch.setattr(settings, "NEO4J_USE_PROVIDER_PIPELINE", True)
+    monkeypatch.setattr(settings, "FF_NEO4J_USE_PROVIDER_PIPELINE", True)
     monkeypatch.setattr(neo4j_chain, "get_neo4j_graph", lambda: _FakeGraph())
     monkeypatch.setattr(neo4j_chain, "validate_read_only_query", lambda _: True)
     monkeypatch.setattr(neo4j_chain, "execute_cypher_query", lambda *_args, **_kwargs: [{"count": 3}])
@@ -49,7 +49,7 @@ def test_query_neo4j_with_chain_uses_provider_pipeline_when_flag_enabled(monkeyp
 
 def test_query_neo4j_with_chain_returns_none_for_non_openai_when_flag_disabled(monkeypatch):
     """Without flag, non-OpenAI providers should not use GraphCypherQAChain mode."""
-    monkeypatch.setattr(settings, "NEO4J_USE_PROVIDER_PIPELINE", False)
+    monkeypatch.setattr(settings, "FF_NEO4J_USE_PROVIDER_PIPELINE", False)
     monkeypatch.setattr(neo4j_chain, "get_neo4j_graph", lambda: _FakeGraph())
 
     provider = MagicMock()

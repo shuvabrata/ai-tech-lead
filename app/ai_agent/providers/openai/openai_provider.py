@@ -1,7 +1,7 @@
 """OpenAI LLM Provider implementation.
 
 This module implements the LLM provider interface for OpenAI's API,
-supporting models like GPT-3.5-turbo and GPT-4.
+supporting models like GPT-4o and GPT-5.
 """
 
 import os
@@ -21,11 +21,14 @@ class OpenAIProvider(LLMProvider):
     This provider uses the OpenAI API for chat completions and supports
     native token counting via tiktoken.
     
-    Supported models: gpt-3.5-turbo, gpt-4, gpt-4-turbo, gpt-4o
+    Supported models: gpt-3.5-turbo, gpt-4, gpt-4-turbo, gpt-4o, gpt-5 variants
     """
     
     # Supported OpenAI models
     SUPPORTED_MODELS = {
+        "gpt-5",
+        "gpt-5-mini",
+        "gpt-5-nano",
         "gpt-3.5-turbo",
         "gpt-4",
         "gpt-4-turbo",
@@ -48,7 +51,7 @@ class OpenAIProvider(LLMProvider):
             raise ValueError("OPENAI_API_KEY not found in environment variables")
         
         openai.api_key = api_key
-        self._default_model = os.getenv("LLM_MODEL", "gpt5")
+        self._default_model = os.getenv("LLM_MODEL", "gpt-5")
         logger.info(f"OpenAI provider initialized with model: {self._default_model}")
     
     @property

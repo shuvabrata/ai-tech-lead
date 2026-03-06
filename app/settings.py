@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     FF_NEO4J_USE_PROVIDER_PIPELINE: bool = False
     
     # LLM configuration (provider-agnostic)
-    LLM_MODEL: str = "gpt5"
+    LLM_MODEL: str = "gpt-5"
     OPENAI_API_KEY: str = ""
     
     # HTTP request timeout configuration (in seconds)
