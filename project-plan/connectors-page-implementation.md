@@ -138,7 +138,7 @@ Add a "Connectors" page (after Graph in the sidebar) where users can view and co
 
 Follows the same layered pattern as `app/api/projects/v1/` (router → service → query).
 
-- [ ] **9. Create `app/api/connectors/v1/model.py`** — Pydantic models:
+- [x] **9. Create `app/api/connectors/v1/model.py`** — Pydantic models:
    - **Request models**:
      - `ConnectorConfigUpdateRequest`: `config: Optional[dict]` — body for `PATCH /connectors/{type}` (connector-level JSONB config; `null` clears)
      - Per-connector child item request models (e.g., `GithubConfigItemRequest`, `JiraConfigItemRequest`, etc.) — one per connector type, fields mirror the Phase 1 child table columns; credential fields accepted as plaintext (encrypted in service layer)
@@ -156,7 +156,7 @@ Follows the same layered pattern as `app/api/projects/v1/` (router → service �
      - Per-connector child item response models (e.g., `GithubConfigItem`, `JiraConfigItem`, etc.) — `encrypted_*` fields masked as `"********"` in responses, omitted if empty
      - `TestConnectionResponse`: `success: bool`, `message: str`
 
-- [ ] **10. Create `app/api/connectors/v1/query.py`** — async DB query functions:
+- [x] **10. Create `app/api/connectors/v1/query.py`** — async DB query functions:
    - `get_all_connectors(db)` — returns all 8 connector rows (guaranteed to exist after seed migration)
    - `get_connector(db, connector_type)` — fetch connector row + JSONB config
    - `update_connector_config(db, connector_type, config_dict)` — update JSONB config field
@@ -165,7 +165,7 @@ Follows the same layered pattern as `app/api/projects/v1/` (router → service �
    - `upsert_config_item(db, connector_type, item_id: Optional[int], data)` — create (item_id=None) or update a child config row
    - `delete_config_item(db, connector_type, item_id)` — delete a child config row
 
-- [ ] **11. Create `app/api/connectors/v1/service.py`** — business logic:
+- [x] **11. Create `app/api/connectors/v1/service.py`** — business logic:
     - `list_connectors(db)` — fetches all 8 rows, merges with `CONNECTOR_REGISTRY` for display metadata
     - `get_connector(db, connector_type)` — validates `connector_type`, returns connector row with JSONB config
     - `update_connector_config(db, connector_type, config)` — validates `connector_type`, saves JSONB config (allows `null` to clear)
@@ -175,7 +175,7 @@ Follows the same layered pattern as `app/api/projects/v1/` (router → service �
     - `test_connection(db, connector_type)` — stub: calls `update_connector_status(status="connected", last_tested_at=now(), error=None)`, returns `{success: True, message: "Connection verified (stub)"}`; on simulated failure calls `update_connector_status(status="error", last_tested_at=now(), error="...")` and returns `{success: False, message: "..."}`
     - `delete_all_configs(db, connector_type)` — deletes all child rows, resets status to `not_configured`
 
-- [ ] **12. Create `app/api/connectors/v1/router.py`** — FastAPI routes:
+- [x] **12. Create `app/api/connectors/v1/router.py`** — FastAPI routes:
     - `GET  /connectors/` → list all 8 connectors with status
     - `GET  /connectors/{type}` → get connector-level config
     - `PATCH /connectors/{type}` → update JSONB config
@@ -187,7 +187,7 @@ Follows the same layered pattern as `app/api/projects/v1/` (router → service �
     - `DELETE /connectors/{type}` → delete all configs, reset to `not_configured`
     - Validate `connector_type` against `CONNECTOR_REGISTRY`; unknown types return 404
 
-- [ ] **13. Register router in `app/main.py`**:
+- [x] **13. Register router in `app/main.py`**:
     ```python
     from app.api.connectors.v1.router import router as connectors_router
     app.include_router(connectors_router, prefix="/api/v1")
