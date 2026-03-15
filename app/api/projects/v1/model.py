@@ -1,6 +1,6 @@
 # Project Pydantic models for v1
 from typing import Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 class ProjectBase(BaseModel):
     name: str
@@ -14,6 +14,4 @@ class ProjectUpdate(ProjectBase):
 
 class Project(ProjectBase):
     id: int
-
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
