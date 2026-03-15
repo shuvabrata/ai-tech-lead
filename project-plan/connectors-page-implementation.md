@@ -7,7 +7,7 @@
 ## Progress Summary
 - [x] **Phase 1**: Database Layer (models, migration, seed data)
 - [x] **Phase 2**: Encryption Utility
-- [ ] **Phase 3**: API Layer (router, service, query, models)
+- [x] **Phase 3**: API Layer (router, service, query, models)
 - [ ] **Phase 4**: Frontend (Dash UI — listing page, detail sub-pages, callbacks)
 
 ---
