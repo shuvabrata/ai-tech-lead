@@ -9,6 +9,15 @@
    # Edit .env with your actual configuration (database credentials, API keys, etc.)
    ```
 
+3. **Connector encryption key set** (required for saving connector credentials):
+   ```bash
+   python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+   ```
+   Add the generated value to your `.env` as:
+   ```bash
+   CONNECTOR_ENCRYPTION_KEY=<your_generated_key>
+   ```
+
 ## Starting the Application
 
 ### Start All Services

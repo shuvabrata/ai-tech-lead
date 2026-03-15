@@ -13,6 +13,7 @@ psycopg2-binary
 openai
 tiktoken
 python-dotenv
+cryptography
 langchain
 langchain-openai
 langchain-community

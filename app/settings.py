@@ -14,6 +14,9 @@ class Settings(BaseSettings):
     # LLM configuration (provider-agnostic)
     LLM_MODEL: str = "gpt-5"
     OPENAI_API_KEY: str = ""
+
+    # Connector encryption
+    CONNECTOR_ENCRYPTION_KEY: str = ""
     
     # HTTP request timeout configuration (in seconds)
     HTTP_REQUEST_TIMEOUT: int = 60
