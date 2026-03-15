@@ -6,7 +6,7 @@
 
 ## Progress Summary
 - [x] **Phase 1**: Database Layer (models, migration, seed data)
-- [ ] **Phase 2**: Encryption Utility
+- [x] **Phase 2**: Encryption Utility
 - [ ] **Phase 3**: API Layer (router, service, query, models)
 - [ ] **Phase 4**: Frontend (Dash UI — listing page, detail sub-pages, callbacks)
 
@@ -123,13 +123,13 @@ Add a "Connectors" page (after Graph in the sidebar) where users can view and co
 
 ## Phase 2: Encryption Utility
 
-- [ ] **7. Create `app/common/encryption.py`**
+- [x] **7. Create `app/common/encryption.py`**
    - Uses `cryptography.fernet.Fernet`
    - `encrypt(value: str) -> str` and `decrypt(value: str) -> str`
    - Reads key from `settings.CONNECTOR_ENCRYPTION_KEY`
    - If key is missing/invalid, raises a clear startup error
 
-- [ ] **8. Add `CONNECTOR_ENCRYPTION_KEY`** to `app/settings.py` (optional field with empty default, validated at use time) and document in `.env.example`
+- [x] **8. Add `CONNECTOR_ENCRYPTION_KEY`** to `app/settings.py` (optional field with empty default, validated at use time) and document in `.env.example`
    - To generate a key: `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`
 
 ---
