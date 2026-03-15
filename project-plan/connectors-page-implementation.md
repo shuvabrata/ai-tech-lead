@@ -5,7 +5,7 @@
 **Last Updated**: March 15, 2026
 
 ## Progress Summary
-- [ ] **Phase 1**: Database Layer (models, migration, seed data)
+- [x] **Phase 1**: Database Layer (models, migration, seed data)
 - [ ] **Phase 2**: Encryption Utility
 - [ ] **Phase 3**: API Layer (router, service, query, models)
 - [ ] **Phase 4**: Frontend (Dash UI — listing page, detail sub-pages, callbacks)
@@ -65,7 +65,7 @@ Add a "Connectors" page (after Graph in the sidebar) where users can view and co
 
 ### Implementation steps
 
-- [ ] **1. Create `connectors` SQLAlchemy model** at `app/db/models/connector.py`
+- [x] **1. Create `connectors` SQLAlchemy model** at `app/db/models/connector.py`
    - `connector_type`: `String(50)`, `unique=True`, `nullable=False` — validated by Python `enum.Enum`, not a DB Enum type
    - `status`: `String(20)`, `nullable=False`, `default="not_configured"`
    - `enabled`: `Boolean`, `default=True`
@@ -75,7 +75,7 @@ Add a "Connectors" page (after Graph in the sidebar) where users can view and co
    - `created_at`: `DateTime(timezone=True)`, `server_default=func.now()`
    - `updated_at`: `DateTime(timezone=True)`, `server_default=func.now()`, `onupdate=func.now()`
 
-- [ ] **2. Create 8 `{type}_configs` SQLAlchemy models** at `app/db/models/connector_configs.py`
+- [x] **2. Create 8 `{type}_configs` SQLAlchemy models** at `app/db/models/connector_configs.py`
    - All share: `id` (PK), `connector_id` (FK → connectors.id), `enabled` (Boolean, default True), `created_at`, `updated_at`
    - `github_configs`: adds `url` (String, unique per connector), `encrypted_access_token` (Text), `branch_name_patterns` (JSONB, nullable — array of regex strings), `extraction_sources` (JSONB, nullable — e.g. `["branch", "commit_message"]`)
    - `jira_configs`: adds `url` (String — Jira base URL, e.g. `https://your-company.atlassian.net`), `email` (String), `encrypted_api_token` (Text)
@@ -86,7 +86,7 @@ Add a "Connectors" page (after Graph in the sidebar) where users can view and co
    - `sharepoint_configs`: adds `site_url` (String)
    - `email_configs`: adds `smtp_host`, `smtp_port` (Int), `imap_host`, `imap_port` (Int), `username` (String), `use_tls` (Boolean), `encrypted_password` (Text)
 
-- [ ] **3. Define static connector registry in code** at `app/api/connectors/v1/registry.py`
+- [x] **3. Define static connector registry in code** at `app/api/connectors/v1/registry.py`
    ```python
    CONNECTOR_REGISTRY = {
        "github":      {"display_name": "GitHub",           "icon": "fa-brands fa-github"},
@@ -100,12 +100,12 @@ Add a "Connectors" page (after Graph in the sidebar) where users can view and co
    }
    ```
 
-- [ ] **4. Register all new models** in `app/db/models/__init__.py`
+- [x] **4. Register all new models** in `app/db/models/__init__.py`
 
-- [ ] **5. Generate Alembic schema migration**: `alembic revision --autogenerate -m "add connectors schema"`
+- [x] **5. Generate Alembic schema migration**: `alembic revision --autogenerate -m "add connectors schema"`
    - Produces one migration covering all 9 new tables
 
-- [ ] **6. Add Alembic data migration** (separate revision) to seed the 8 base rows in `connectors`:
+- [x] **6. Add Alembic data migration** (separate revision) to seed the 8 base rows in `connectors`:
    ```python
    def upgrade():
        op.execute("""
