@@ -35,12 +35,6 @@ def get_layout():
                         },
                     ),
                     dcc.Store(id="connectors-store", storage_type="memory"),
-                    dcc.Interval(
-                        id="connectors-load",
-                        interval=500,
-                        n_intervals=0,
-                        max_intervals=1,
-                    ),
                     dcc.Loading(
                         id="connectors-loading",
                         type="circle",

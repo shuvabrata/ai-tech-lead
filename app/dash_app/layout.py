@@ -3,7 +3,7 @@ import dash_bootstrap_components as dbc
 from dash import dcc, html
 from dash.dependencies import Input, Output, State
 
-from .pages import chat, people, progress, settings, graph
+from .pages import chat, people, progress, settings, graph, connectors
 from .styles import (
     SIDEBAR_STYLE,
     NAVBAR_BRAND_STYLE,
@@ -137,11 +137,9 @@ def create_dash_app():
         if pathname == "/app/graph":
             return graph.get_layout()
         if pathname and pathname.startswith("/app/connectors/"):
-            from .pages import connectors
             connector_type = pathname.split("/app/connectors/")[-1]
             return connectors.get_detail_layout(connector_type)
-        if pathname == "/app/connectors":
-            from .pages import connectors
+        if pathname in ("/app/connectors", "/app/connectors/"):
             return connectors.get_layout()
         if pathname == "/app/settings":
             return settings.get_layout()
@@ -193,13 +191,6 @@ def create_dash_app():
         prevent_initial_call=True
     )
     def persist_theme(theme_name):
-        return theme_name or "executive-light"
-
-    @app.callback(
-        Output("theme-selector", "value"),
-        Input("theme-store", "data")
-    )
-    def sync_theme_selector(theme_name):
         return theme_name or "executive-light"
 
     @app.callback(
