@@ -183,6 +183,21 @@
 }
 
 /* ============================================================================= */
+/* Dark Theme Placeholder Text */
+/* ============================================================================= */
+
+.theme-executive-dark .form-control::placeholder,
+.theme-executive-dark textarea::placeholder,
+.theme-executive-dark input::placeholder {
+    color: var(--color-gray-lighter);
+    opacity: 0.9;
+}
+
+.theme-executive-dark .Select-placeholder {
+    color: var(--color-gray-lighter) !important;
+}
+
+/* ============================================================================= */
 /* Chat Page Styling */
 /* ============================================================================= */
 
