@@ -4,11 +4,17 @@ from dash import dcc, html
 import dash_bootstrap_components as dbc
 
 from app.dash_app.components.common import create_page_header
+from app.api.connectors.v1.registry import CONNECTOR_REGISTRY
 from app.dash_app.styles import (
     CARD_CONTAINER_STYLE,
     COLOR_GRAY_MEDIUM,
+    COLOR_CHARCOAL_MEDIUM,
     FONT_SANS,
     FONT_SIZE_SMALL,
+    FONT_SIZE_MEDIUM,
+    FONT_WEIGHT_MEDIUM,
+    COLOR_BORDER,
+    SPACING_XSMALL,
     SPACING_SMALL,
 )
 
@@ -67,9 +73,75 @@ def get_layout():
 
 
 def get_detail_layout(connector_type: str):
+    connector_meta = CONNECTOR_REGISTRY.get(connector_type, {})
+    display_name = connector_meta.get("display_name", connector_type)
+
     return html.Div(
         [
-            html.H2(f"Connector: {connector_type}"),
-            html.P("Connector detail scaffold - coming soon."),
+            create_page_header("Connectors"),
+            html.Div(
+                [
+                    html.Div(
+                        [
+                            dcc.Link(
+                                "Connectors",
+                                href="/app/connectors",
+                                style={
+                                    "fontFamily": FONT_SANS,
+                                    "fontSize": FONT_SIZE_SMALL,
+                                    "color": COLOR_GRAY_MEDIUM,
+                                    "textDecoration": "none",
+                                },
+                            ),
+                            html.Span(
+                                " / ",
+                                style={
+                                    "fontFamily": FONT_SANS,
+                                    "fontSize": FONT_SIZE_SMALL,
+                                    "color": COLOR_GRAY_MEDIUM,
+                                    "margin": f"0 {SPACING_XSMALL}",
+                                },
+                            ),
+                            html.Span(
+                                display_name,
+                                style={
+                                    "fontFamily": FONT_SANS,
+                                    "fontSize": FONT_SIZE_SMALL,
+                                    "color": COLOR_CHARCOAL_MEDIUM,
+                                },
+                            ),
+                        ],
+                        style={"marginBottom": SPACING_SMALL},
+                    ),
+                    html.Div(
+                        display_name,
+                        style={
+                            "fontFamily": FONT_SANS,
+                            "fontSize": FONT_SIZE_MEDIUM,
+                            "fontWeight": FONT_WEIGHT_MEDIUM,
+                            "color": COLOR_CHARCOAL_MEDIUM,
+                            "marginBottom": SPACING_XSMALL,
+                        },
+                    ),
+                    html.Div(
+                        "Connector detail scaffold - coming soon.",
+                        style={
+                            "fontFamily": FONT_SANS,
+                            "fontSize": FONT_SIZE_SMALL,
+                            "color": COLOR_GRAY_MEDIUM,
+                        },
+                    ),
+                    html.Div(
+                        id="connector-detail-root",
+                        children=[],
+                        style={
+                            "marginTop": SPACING_SMALL,
+                            "borderTop": f"1px solid {COLOR_BORDER}",
+                            "paddingTop": SPACING_SMALL,
+                        },
+                    ),
+                ],
+                style=CARD_CONTAINER_STYLE,
+            ),
         ]
     )
