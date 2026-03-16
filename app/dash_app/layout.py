@@ -36,6 +36,7 @@ def create_dash_app():
             dbc.NavLink("People", href="/app/people", active="exact", id="nav-people", className="executive-nav-link"),
             dbc.NavLink("Progress", href="/app/progress", active="exact", id="nav-progress", className="executive-nav-link"),
             dbc.NavLink("Graph", href="/app/graph", active="exact", id="nav-graph", className="executive-nav-link"),
+            dbc.NavLink("Connectors", href="/app/connectors", active="exact", id="nav-connectors", className="executive-nav-link"),
             dbc.NavLink("Settings", href="/app/settings", active="exact", id="nav-settings", className="executive-nav-link"),
         ],
         vertical=True,
@@ -135,6 +136,13 @@ def create_dash_app():
             return progress.get_layout()
         if pathname == "/app/graph":
             return graph.get_layout()
+        if pathname and pathname.startswith("/app/connectors/"):
+            from .pages import connectors
+            connector_type = pathname.split("/app/connectors/")[-1]
+            return connectors.get_detail_layout(connector_type)
+        if pathname == "/app/connectors":
+            from .pages import connectors
+            return connectors.get_layout()
         if pathname == "/app/settings":
             return settings.get_layout()
         if pathname == "/app/chat":
