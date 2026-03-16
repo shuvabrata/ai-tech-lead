@@ -1,5 +1,7 @@
 """Dash layouts for the Connectors pages."""
 
+import uuid
+
 from dash import dcc, html
 import dash_bootstrap_components as dbc
 
@@ -119,6 +121,7 @@ def get_detail_layout(connector_type: str):
                     ),
                     dcc.Store(id="connector-detail-store", storage_type="memory"),
                     dcc.Store(id="connector-items-store", storage_type="memory"),
+                    dcc.Store(id="connector-edit-item", storage_type="memory"),
                     html.Div(
                         [
                             _section_title("Connector Settings"),
@@ -176,7 +179,11 @@ def get_detail_layout(connector_type: str):
                             ),
                         ]
                     ),
-                    html.Div(id="connector-action-feedback", className="mt-2"),
+                    html.Div(
+                        id="connector-action-feedback",
+                        className="mt-2",
+                        key=f"connector-feedback-{connector_type}-{uuid.uuid4()}",
+                    ),
                 ],
                 style=CARD_CONTAINER_STYLE,
             ),

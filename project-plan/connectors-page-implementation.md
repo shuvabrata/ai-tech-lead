@@ -8,12 +8,12 @@
 - [x] **Phase 1**: Database Layer (models, migration, seed data)
 - [x] **Phase 2**: Encryption Utility
 - [x] **Phase 3**: API Layer (router, service, query, models)
-- [ ] **Phase 4**: Frontend (Dash UI — listing page, detail sub-pages, callbacks)
+- [ ] **Phase 4**: Frontend (Dash UI — listing page, detail sub-pages, callbacks; implementation complete, QA pending)
 
 ---
 
 ## TL;DR
-Add a "Connectors" page (after Graph in the sidebar) where users can view and configure 8 external integrations (GitHub, Jira, Slack, Teams, Confluence, Google Docs, SharePoint, Email). Each connector is represented by a card with a visual status indicator. Double-clicking navigates to a dedicated sub-page (`/app/connectors/{type}`) with a config form and a live "Test Connection" button. All config is stored in PostgreSQL across 9 tables; credentials are encrypted at rest using Fernet (local key).
+Add a "Connectors" page (after Graph in the sidebar) where users can view and configure 8 external integrations (GitHub, Jira, Slack, Teams, Confluence, Google Docs, SharePoint, Email). Each connector is represented by a card with a visual status indicator. Clicking a card navigates to a dedicated sub-page (`/app/connectors/{type}`) with a config form and a live "Test Connection" button. All config is stored in PostgreSQL across 9 tables; credentials are encrypted at rest using Fernet (local key).
 
 ---
 
@@ -197,25 +197,25 @@ Follows the same layered pattern as `app/api/projects/v1/` (router → service �
 
 ## Phase 4: Frontend (Dash)
 
-- [ ] **14. Update sidebar in `app/dash_app/layout.py`**:
+- [x] **14. Update sidebar in `app/dash_app/layout.py`**:
     - Add `NavLink("Connectors", href="/app/connectors", ...)` after Graph, before Settings
     - Update `display_page` callback to handle `/app/connectors` and `/app/connectors/*` patterns
 
-- [ ] **15. Create `app/dash_app/pages/connectors/` folder** (modular, following graph page pattern):
+- [x] **15. Create `app/dash_app/pages/connectors/` folder** (modular, following graph page pattern):
     - `__init__.py`
     - `layout.py` — exports `get_layout()` (listing page) and `get_detail_layout(connector_type)` (detail page)
     - `components/connector_card.py` — card factory with Font Awesome icon, connector name, color-coded status badge
     - `components/config_forms.py` — per-connector form field definitions (dict of field specs per type)
     - `callbacks.py` — Dash callbacks for the connectors pages
 
-- [ ] **16. Connectors listing page (`/app/connectors`)**:
+- [x] **16. Connectors listing page (`/app/connectors`)**:
     - Fetches `GET /api/v1/connectors/` on page load
     - Renders 8 cards in a responsive grid (`dbc.Row` + `dbc.Col`)
     - Each card: Font Awesome icon (FA Brands for GitHub/Jira/Slack/Teams/Confluence, generic icons for others), connector name, status badge
-    - Double-click on card triggers `dcc.Location` navigation to `/app/connectors/{type}`
+    - Click on card triggers `dcc.Location` navigation to `/app/connectors/{type}`
     - Status badge: green circle (connected), grey circle (not_configured), red circle (error)
 
-- [ ] **17. Connector detail sub-pages (`/app/connectors/{type}`)**:
+- [x] **17. Connector detail sub-pages (`/app/connectors/{type}`)**:
     - Breadcrumb: Connectors > {Connector Name}
     - Form fields per connector type:
       - Non-credential fields: visible text inputs pre-populated from existing config
@@ -227,7 +227,7 @@ Follows the same layered pattern as `app/api/projects/v1/` (router → service �
     - "Delete Configuration" button → `DELETE /api/v1/connectors/{type}` → redirects back to listing
     - Follows Executive Dashboard aesthetic (match existing `settings.py` style)
 
-- [ ] **18. Wire routing in `app/dash_app/layout.py`**:
+- [x] **18. Wire routing in `app/dash_app/layout.py`**:
     ```python
     elif pathname and pathname.startswith("/app/connectors/"):
         connector_type = pathname.split("/app/connectors/")[-1]
@@ -279,9 +279,27 @@ Follows the same layered pattern as `app/api/projects/v1/` (router → service �
 10. `DELETE /api/v1/connectors/github` — all `github_configs` rows deleted, status resets to `not_configured`
 11. `PATCH /api/v1/connectors/github` with `{"config": null}` — clears connector-level config
 12. Unknown `connector_type` (e.g., `GET /api/v1/connectors/unknown`) returns 404
-11. Navigate to `/app/connectors` — all 8 cards render with grey status badges
-12. Double-click GitHub card → navigates to `/app/connectors/github`
-13. Add a repo via the form → card status badge updates; repo appears in list
+13. Navigate to `/app/connectors` — all 8 cards render with grey status badges
+14. Click GitHub card → navigates to `/app/connectors/github`
+15. Add a repo via the form → card status badge updates; repo appears in list
+
+## Phase 4 Progress Note
+
+- **Phase 4 implementation is complete. UI workflows still need manual testing.**
+
+### UI Test Checklist (Phase 4)
+
+1. `/app/connectors` renders 8 cards with correct names/icons/status badges
+2. Clicking a card navigates to `/app/connectors/{type}` and breadcrumb shows correct name
+3. Connector detail page loads config + items without errors
+4. Save connector-level config (e.g., GitHub `default_organization`) → persists and reload shows saved value
+5. Add new item (e.g., GitHub repo) → appears in item list
+6. Edit item → form pre-populates; update persists; list updates
+7. Delete item → removed from list
+8. Secret fields (token/password) remain masked; editing without re-entering secret does not overwrite
+9. Test Connection button shows success message
+10. Delete Configuration clears items, resets config, and returns to listing
+11. Dark theme placeholder text is readable
 
 ---
 
