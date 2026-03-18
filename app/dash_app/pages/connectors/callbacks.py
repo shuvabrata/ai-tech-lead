@@ -20,6 +20,7 @@ from app.dash_app.styles import (
     FONT_SIZE_SMALL,
     FONT_WEIGHT_MEDIUM,
     SPACING_XSMALL,
+    SPACING_XXXSMALL,
     SPACING_SMALL,
 )
 from .components.connector_card import connector_card
@@ -287,7 +288,7 @@ def render_items_list(store: Dict[str, Any] | None):
                             },
                         ),
                     ],
-                    style={"marginBottom": "4px"},
+                    style={"marginBottom": SPACING_XXXSMALL},
                 )
             )
 
