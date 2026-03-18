@@ -9,15 +9,7 @@ FIELD_MULTISELECT = "multiselect"
 
 CONFIG_FORM_SPECS = {
     "github": {
-        "connector_config": [
-            {
-                "key": "default_organization",
-                "label": "Default Organization",
-                "input_type": FIELD_TEXT,
-                "placeholder": "my-org",
-                "required": False,
-            }
-        ],
+        "connector_config": [],
         "item": {
             "label": "Repository",
             "fields": [
