@@ -96,6 +96,11 @@ cd app
 alembic upgrade head
 cd ..
 ```
+To create a new migration:
+```bash
+docker compose exec app bash -c "cd app && alembic revision --autogenerate -m 'description'"
+```
+
 
 # Run tests
 - Start the server

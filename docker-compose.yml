@@ -48,7 +48,8 @@ services:
       LOG_LEVEL: ${LOG_LEVEL}
       LOG_DIR: /app/logs
       ENABLE_FILE_LOGGING: "1"
-      NEO4J_URI: ${NEO4J_URI}
+      # Override NEO4J_URI to use 'neo4j' service name instead of 'localhost'
+      NEO4J_URI: bolt://neo4j:7687
       NEO4J_USERNAME: ${NEO4J_USERNAME}
       NEO4J_PASSWORD: ${NEO4J_PASSWORD}
       NEO4J_ENABLED: ${NEO4J_ENABLED}
@@ -65,6 +66,66 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      neo4j:
+        condition: service_started
+
+  neo4j:
+    image: neo4j:5.26-community
+    container_name: wba-ai-neo4j
+    ports:
+      - "7474:7474"  # HTTP
+      - "7687:7687"  # Bolt
+    environment:
+      NEO4J_AUTH: ${NEO4J_USERNAME}/${NEO4J_PASSWORD}
+      NEO4J_PLUGINS: '["apoc"]'
+      NEO4J_dbms_security_procedures_unrestricted: apoc.*
+      NEO4J_dbms_memory_pagecache_size: 512M
+      NEO4J_dbms_memory_heap_initial__size: 512M
+      NEO4J_dbms_memory_heap_max__size: 2G
+    volumes:
+      - neo4j_data:/data
+      - neo4j_logs:/logs
+      - neo4j_import:/var/lib/neo4j/import
+      - neo4j_plugins:/plugins
+    restart: unless-stopped
+    networks:
+      - wba-ai-network
+
+  jira-sync:
+    image: enterprise-graph-jira-sync:latest
+    container_name: enterprise-graph-jira-sync
+    command: python modules/jira/main.py
+    env_file:
+      - .env
+    environment:
+      NEO4J_URI: bolt://neo4j:7687
+      PYTHONPATH: /app
+      LOG_DIR: /var/log/enterprise-graph
+    volumes:
+      - ./logs:/var/log/enterprise-graph
+    depends_on:
+      - neo4j
+    restart: "no"  # One-shot execution, run manually via docker compose run
+    networks:
+      - wba-ai-network
+
+  github-sync:
+    image: enterprise-graph-github-sync:latest
+    container_name: enterprise-graph-github-sync
+    command: python modules/github/main.py
+    env_file:
+      - .env
+    environment:
+      NEO4J_URI: bolt://neo4j:7687
+      PYTHONPATH: /app
+      LOG_DIR: /var/log/enterprise-graph
+    volumes:
+      - ./logs:/var/log/enterprise-graph
+    depends_on:
+      - neo4j
+    restart: "no"  # One-shot execution, run manually via docker compose run
+    networks:
+      - wba-ai-network
 
 networks:
   wba-ai-network:
@@ -73,3 +134,7 @@ networks:
 volumes:
   pgdata:
     driver: local
+  neo4j_data:
+  neo4j_logs:
+  neo4j_import:
+  neo4j_plugins:

@@ -3,26 +3,24 @@
 ## Prerequisites
 
 1. **Docker and Docker Compose installed** on your system
-2. **Environment file configured**: Copy `.env.example` to `.env` and update the values:
+2. This project is dependant on docker images for Jira and Github connector. 
+```
+git clone git@github.com:shuvabrata/enterprise-graph.git
+cd enterprise-graph
+docker compose build
+```
+This will build the images locally. No need to follow the guides in that repo.
+3. This project uses databases which are dockerized images in the docker-compose.yml file.
+4. **Environment file configured**: Copy `.env.example` to `.env` and update the values:
    ```bash
    cp .env.example .env
    # Edit .env with your actual configuration (database credentials, API keys, etc.)
    ```
 
-3. **Connector encryption key set** (required for saving connector credentials):
-   ```bash
-   python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
-   ```
-   Add the generated value to your `.env` as:
-   ```bash
-   CONNECTOR_ENCRYPTION_KEY=<your_generated_key>
-   ```
 
 ## Starting the Application
 
 ### Start All Services
-To start both PostgreSQL and the application:
-
 ```bash
 docker compose up -d
 ```
@@ -39,19 +37,6 @@ The `-d` flag runs containers in detached mode (background).
 - FastAPI API: http://localhost:8000/api/hello
 - Dash UI: http://localhost:8000/app
 
-### Start Only PostgreSQL (For Local Development)
-If you want to run the app locally but use PostgreSQL in Docker:
-
-```bash
-docker compose up -d postgres
-```
-
-Then run the app locally:
-```bash
-source .venv/bin/activate
-cd app && alembic upgrade head && cd ..
-uvicorn app.main:app --reload
-```
 
 ## Stopping the Application
 
@@ -60,7 +45,7 @@ uvicorn app.main:app --reload
 docker compose down
 ```
 
-This stops and removes containers, but **preserves data** in the PostgreSQL volume.
+This stops and removes containers, but **preserves data** in the PostgreSQL and neo4j volume.
 
 ### Stop and Remove Volumes (Clean Reset)
 ⚠️ **Warning**: This deletes all database data!
@@ -203,18 +188,6 @@ The `.env` file is mounted read-only into the container at `/app/.env`.
 docker compose restart app
 ```
 
-## Running Database Migrations Manually
-
-If needed, you can run migrations manually:
-
-```bash
-docker compose exec app bash -c "cd app && alembic upgrade head"
-```
-
-To create a new migration:
-```bash
-docker compose exec app bash -c "cd app && alembic revision --autogenerate -m 'description'"
-```
 
 ## Quick Reference
 
