@@ -28,6 +28,7 @@ from .components.config_forms import (
     FIELD_TEXT,
     FIELD_TEXTAREA,
 )
+from .components.tooltips import FIELD_TOOLTIPS
 
 
 def get_layout():
@@ -321,14 +322,37 @@ def _render_field(field: dict, connector_type: str, section: str) -> html.Div:
         "field": field["key"],
     }
 
+    icon_id = f"tooltip-target-{connector_type}-{section}-{field['key']}"
+    tooltip_text = FIELD_TOOLTIPS.get(connector_type, {}).get(field["key"])
+
+    label_children = [html.Span(field.get("label", field["key"]).upper())]
+    
+    if tooltip_text:
+        label_children.append(
+            html.I(
+                className="fas fa-info-circle",
+                id=icon_id,
+                style={"cursor": "help", "marginLeft": "6px", "color": COLOR_GRAY_MEDIUM}
+            )
+        )
+        label_children.append(
+            dbc.Tooltip(
+                tooltip_text,
+                target=icon_id,
+                placement="top",
+            )
+        )
+
     label = html.Div(
-        field.get("label", field["key"]).upper(),
+        label_children,
         style={
             "fontFamily": FONT_SANS,
             "fontSize": FONT_SIZE_SMALL,
             "color": COLOR_GRAY_MEDIUM,
             "marginBottom": SPACING_XSMALL,
             "letterSpacing": "0.5px",
+            "display": "flex",
+            "alignItems": "center",
         },
     )
 
