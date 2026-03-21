@@ -297,14 +297,14 @@ Follows the same layered pattern as `app/api/projects/v1/` (router â†’ service â
 
 **Per-Connector Workflows:**
 
-- [ ] **GitHub**
-  - [ ] Save connector-level config
-  - [ ] Add new item (repo)
-  - [ ] Edit item (pre-populates, persists)
-  - [ ] Delete item (removed from list)
-  - [ ] Secret fields masked (access token)
+- [x] **GitHub**
+  - [x] Save connector-level config
+  - [x] Add new item (repo)
+  - [x] Edit item (pre-populates, persists)
+  - [x] Delete item (removed from list)
+  - [x] Secret fields masked (access token)
   - [ ] Test Connection button shows success
-  - [ ] Delete Configuration clears items
+  - [x] Delete Configuration clears items
 
 - [ ] **Jira**
   - [ ] Save connector-level config
