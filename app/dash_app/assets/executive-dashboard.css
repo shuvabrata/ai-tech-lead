@@ -183,18 +183,73 @@
 }
 
 /* ============================================================================= */
-/* Dark Theme Placeholder Text */
+/* Input Form Styling (Global / Light Theme Defaults) */
 /* ============================================================================= */
+
+.form-control,
+.Select-value-label,
+.Select-value {
+    color: var(--color-charcoal) !important;
+    font-weight: var(--font-weight-medium);
+}
+
+.form-control::placeholder,
+textarea::placeholder,
+input::placeholder {
+    color: var(--color-gray-light) !important;
+    opacity: 1 !important;
+    font-weight: var(--font-weight-normal);
+}
+
+.Select-placeholder {
+    color: var(--color-gray-light) !important;
+    font-weight: var(--font-weight-normal);
+}
+
+.form-control:focus {
+    border-color: var(--color-navy) !important;
+    box-shadow: 0 0 0 2px var(--color-focus-ring) !important;
+    background-color: var(--color-background-white) !important;
+}
+
+/* ============================================================================= */
+/* Dark Theme Form Styling */
+/* ============================================================================= */
+
+.theme-executive-dark .form-control,
+.theme-executive-dark .Select-value-label,
+.theme-executive-dark .Select-value {
+    color: var(--color-text-dark) !important;
+}
+
+/* Fix for multi-select dropdown tags in dark theme */
+.theme-executive-dark .Select--multi .Select-value {
+    background-color: var(--color-surface-active) !important;
+    border-color: var(--color-border-gray) !important;
+}
+
+.theme-executive-dark .Select--multi .Select-value-icon {
+    border-right-color: var(--color-border-gray) !important;
+    color: var(--color-text-dark) !important;
+}
+
+.theme-executive-dark .Select--multi .Select-value-icon:hover {
+    background-color: var(--color-background-light) !important;
+}
 
 .theme-executive-dark .form-control::placeholder,
 .theme-executive-dark textarea::placeholder,
 .theme-executive-dark input::placeholder {
-    color: var(--color-gray-lighter);
-    opacity: 0.9;
+    color: var(--color-gray-dark) !important;
+    opacity: 1 !important;
 }
 
 .theme-executive-dark .Select-placeholder {
-    color: var(--color-gray-lighter) !important;
+    color: var(--color-gray-dark) !important;
+}
+
+.theme-executive-dark .form-control:focus {
+    background-color: var(--color-background-light) !important;
 }
 
 /* ============================================================================= */
