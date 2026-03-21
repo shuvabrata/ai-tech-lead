@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from datetime import datetime
 import time
 from typing import Any, Dict, List
 
@@ -269,11 +270,26 @@ def render_items_list(store: Dict[str, Any] | None):
         
         header_text = label
         if updated_at:
-            if isinstance(updated_at, str) and "T" in updated_at:
-                display_time = updated_at.replace("T", " ").split(".")[0]
+            try:
+                if isinstance(updated_at, str):
+                    # Replace 'Z' with '+00:00' for compatible ISO parsing in Python 3.10 and older
+                    dt_str = updated_at.replace("Z", "+00:00")
+                    dt = datetime.fromisoformat(dt_str)
+                else:
+                    dt = updated_at
+                
+                # Convert to system local timezone and format
+                local_dt = dt.astimezone()
+                fmt = getattr(settings, "UI_DATETIME_FORMAT", "%b %d, %Y %I:%M %p")
+                display_time = local_dt.strftime(fmt)
                 header_text = f"{label}: last configured at {display_time}"
-            else:
-                header_text = f"{label}: last configured at {updated_at}"
+            except (ValueError, TypeError, AttributeError):
+                # Fallback to basic string parsing if datetime parsing fails
+                if isinstance(updated_at, str) and "T" in updated_at:
+                    display_time = updated_at.replace("T", " ").split(".")[0]
+                    header_text = f"{label}: last configured at {display_time}"
+                else:
+                    header_text = f"{label}: last configured at {updated_at}"
 
         fields = [k for k in item.keys() if k not in ("id", "connector_id", "created_at", "updated_at")]
         field_rows = []
