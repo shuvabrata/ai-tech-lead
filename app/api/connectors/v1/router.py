@@ -60,9 +60,14 @@ async def update_connector_config(
 
 
 @router.get("/{connector_type}/configs", response_model=List[Dict[str, Any]])
-async def list_config_items(connector_type: str, db: AsyncSession = Depends(get_async_db)):
+async def list_config_items(
+    connector_type: str,
+    # TODO: This should be based on user permissions, not an explicit query parameter.
+    include_secrets: bool = False,
+    db: AsyncSession = Depends(get_async_db),
+):
     try:
-        return await service.list_config_items(db, connector_type)
+        return await service.list_config_items(db, connector_type, include_secrets=include_secrets)
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 

@@ -3,7 +3,7 @@ from typing import Any, Dict, List, Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.common.encryption import encrypt
+from app.common.encryption import decrypt, encrypt
 from . import query
 from .registry import CONNECTOR_REGISTRY
 
@@ -122,7 +122,12 @@ async def update_connector_config(
     return await get_connector(db, connector_type)
 
 
-async def list_config_items(db: AsyncSession, connector_type: str) -> List[Dict[str, Any]]:
+async def list_config_items(
+    db: AsyncSession, connector_type: str, include_secrets: bool = False
+) -> List[Dict[str, Any]]:
+    # TODO: The 'include_secrets' flag is a temporary measure. This should be
+    # replaced with a proper role-based access control check based on the
+    # authenticated user's permissions. Exposing secrets via a query parameter is not secure.
     _validate_connector_type(connector_type)
     rows = await query.get_configs(db, connector_type)
     encrypted_map = SENSITIVE_FIELDS.get(connector_type, {})
@@ -136,7 +141,11 @@ async def list_config_items(db: AsyncSession, connector_type: str) -> List[Dict[
                 continue
             encrypted_field = encrypted_map.get(field)
             if encrypted_field:
-                row_dict[field] = _mask(getattr(row, encrypted_field))
+                encrypted_value = getattr(row, encrypted_field)
+                if include_secrets:
+                    row_dict[field] = decrypt(encrypted_value) if encrypted_value else None
+                else:
+                    row_dict[field] = _mask(encrypted_value)
             else:
                 row_dict[field] = getattr(row, field)
         results.append(row_dict)
