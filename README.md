@@ -40,6 +40,6 @@ The system analyzes project data from various enterprise productivity tools (suc
 
 ## Documentation Links
 
-- [Quick Start Guide](quick-start.md)
 - [User Guide](USER_GUIDE.md)
+- [Developer Quick Start Guide](developer-quick-start.md)
 - [High Level Design](high-level-design.md)
