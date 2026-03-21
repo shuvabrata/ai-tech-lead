@@ -8,7 +8,7 @@
 - [x] **Phase 1**: Database Layer (models, migration, seed data)
 - [x] **Phase 2**: Encryption Utility
 - [x] **Phase 3**: API Layer (router, service, query, models)
-- [ ] **Phase 4**: Frontend (Dash UI — listing page, detail sub-pages, callbacks; implementation complete, QA pending)
+- [ ] **Phase 4**: Frontend (Dash UI — Github and Jira completed, test connection and other connectors pending)
 
 ---
 
@@ -293,7 +293,7 @@ Follows the same layered pattern as `app/api/projects/v1/` (router → service �
 - [x] 1. `/app/connectors` renders 8 cards with correct names/icons/status badges
 - [x] 2. Clicking a card navigates to `/app/connectors/{type}` and breadcrumb shows correct name
 - [x] 3. Connector detail page loads config + items without errors
-- [ ] 4. Dark theme placeholder text is readable across all forms
+- [x] 4. Dark theme placeholder text is readable across all forms
 
 **Per-Connector Workflows:**
 
@@ -307,13 +307,13 @@ Follows the same layered pattern as `app/api/projects/v1/` (router → service �
   - [x] Delete Configuration clears items
 
 - [ ] **Jira**
-  - [ ] Save connector-level config
-  - [ ] Add new item (account)
-  - [ ] Edit item (pre-populates, persists)
-  - [ ] Delete item
-  - [ ] Secret fields masked (API token)
+  - [x] Save connector-level config
+  - [x] Add new item (account)
+  - [x] Edit item (pre-populates, persists)
+  - [x] Delete item
+  - [x] Secret fields masked (API token)
   - [ ] Test Connection button shows success
-  - [ ] Delete Configuration clears items
+  - [x] Delete Configuration clears items
 
 - [ ] **Slack**
   - [ ] Save connector-level config
