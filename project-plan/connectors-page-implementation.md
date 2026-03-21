@@ -289,17 +289,80 @@ Follows the same layered pattern as `app/api/projects/v1/` (router → service �
 
 ### UI Test Checklist (Phase 4)
 
-1. `/app/connectors` renders 8 cards with correct names/icons/status badges
-2. Clicking a card navigates to `/app/connectors/{type}` and breadcrumb shows correct name
-3. Connector detail page loads config + items without errors
-4. Save connector-level config → persists and reload shows saved value
-5. Add new item (e.g., GitHub repo) → appears in item list
-6. Edit item → form pre-populates; update persists; list updates
-7. Delete item → removed from list
-8. Secret fields (token/password) remain masked; editing without re-entering secret does not overwrite
-9. Test Connection button shows success message
-10. Delete Configuration clears items, resets config, and returns to listing
-11. Dark theme placeholder text is readable
+**Global Checks:**
+- [x] 1. `/app/connectors` renders 8 cards with correct names/icons/status badges
+- [x] 2. Clicking a card navigates to `/app/connectors/{type}` and breadcrumb shows correct name
+- [x] 3. Connector detail page loads config + items without errors
+- [ ] 4. Dark theme placeholder text is readable across all forms
+
+**Per-Connector Workflows:**
+
+- [ ] **GitHub**
+  - [ ] Save connector-level config
+  - [ ] Add new item (repo)
+  - [ ] Edit item (pre-populates, persists)
+  - [ ] Delete item (removed from list)
+  - [ ] Secret fields masked (access token)
+  - [ ] Test Connection button shows success
+  - [ ] Delete Configuration clears items
+
+- [ ] **Jira**
+  - [ ] Save connector-level config
+  - [ ] Add new item (account)
+  - [ ] Edit item (pre-populates, persists)
+  - [ ] Delete item
+  - [ ] Secret fields masked (API token)
+  - [ ] Test Connection button shows success
+  - [ ] Delete Configuration clears items
+
+- [ ] **Slack**
+  - [ ] Save connector-level config
+  - [ ] Add new item (channel)
+  - [ ] Edit item (pre-populates, persists)
+  - [ ] Delete item
+  - [ ] Test Connection button shows success
+  - [ ] Delete Configuration clears items
+
+- [ ] **Microsoft Teams**
+  - [ ] Save connector-level config
+  - [ ] Add new item (channel)
+  - [ ] Edit item (pre-populates, persists)
+  - [ ] Delete item
+  - [ ] Test Connection button shows success
+  - [ ] Delete Configuration clears items
+
+- [ ] **Confluence**
+  - [ ] Save connector-level config
+  - [ ] Add new item (space)
+  - [ ] Edit item (pre-populates, persists)
+  - [ ] Delete item
+  - [ ] Test Connection button shows success
+  - [ ] Delete Configuration clears items
+
+- [ ] **Google Docs**
+  - [ ] Save connector-level config
+  - [ ] Add new item (drive)
+  - [ ] Edit item (pre-populates, persists)
+  - [ ] Delete item
+  - [ ] Test Connection button shows success
+  - [ ] Delete Configuration clears items
+
+- [ ] **SharePoint**
+  - [ ] Save connector-level config
+  - [ ] Add new item (site)
+  - [ ] Edit item (pre-populates, persists)
+  - [ ] Delete item
+  - [ ] Test Connection button shows success
+  - [ ] Delete Configuration clears items
+
+- [ ] **Email**
+  - [ ] Save connector-level config
+  - [ ] Add new item (account)
+  - [ ] Edit item (pre-populates, persists)
+  - [ ] Delete item
+  - [ ] Secret fields masked (password)
+  - [ ] Test Connection button shows success
+  - [ ] Delete Configuration clears items
 
 ---
 
