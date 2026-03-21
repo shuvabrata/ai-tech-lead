@@ -265,7 +265,17 @@ def render_items_list(store: Dict[str, Any] | None):
     cards = []
     for item in items:
         item_id = item.get("id")
-        fields = [k for k in item.keys() if k != "id"]
+        updated_at = item.get("updated_at") or item.get("created_at")
+        
+        header_text = label
+        if updated_at:
+            if isinstance(updated_at, str) and "T" in updated_at:
+                display_time = updated_at.replace("T", " ").split(".")[0]
+                header_text = f"{label}: last configured at {display_time}"
+            else:
+                header_text = f"{label}: last configured at {updated_at}"
+
+        fields = [k for k in item.keys() if k not in ("id", "connector_id", "created_at", "updated_at")]
         field_rows = []
         for key in fields:
             value = _format_display_value(item.get(key))
@@ -297,7 +307,7 @@ def render_items_list(store: Dict[str, Any] | None):
             html.Div(
                 [
                     html.Div(
-                        f"{label} #{item_id}",
+                        header_text,
                         style={
                             "fontFamily": FONT_SANS,
                             "fontSize": FONT_SIZE_SMALL,

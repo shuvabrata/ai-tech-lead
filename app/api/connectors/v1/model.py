@@ -73,6 +73,8 @@ class GithubConfigItem(BaseModel):
     access_token: Optional[str] = None
     branch_name_patterns: Optional[List[str]] = None
     extraction_sources: Optional[List[str]] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -82,6 +84,8 @@ class JiraConfigItem(BaseModel):
     url: str
     email: str
     api_token: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -90,6 +94,8 @@ class SlackConfigItem(BaseModel):
     id: int
     channel_id: str
     channel_name: str
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -98,6 +104,8 @@ class TeamsConfigItem(BaseModel):
     id: int
     channel_id: str
     channel_name: str
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -106,6 +114,8 @@ class ConfluenceConfigItem(BaseModel):
     id: int
     space_key: str
     space_name: str
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -114,6 +124,8 @@ class GoogleDocsConfigItem(BaseModel):
     id: int
     drive_id: str
     drive_name: str
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -121,6 +133,8 @@ class GoogleDocsConfigItem(BaseModel):
 class SharepointConfigItem(BaseModel):
     id: int
     site_url: str
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -134,6 +148,8 @@ class EmailConfigItem(BaseModel):
     username: str
     use_tls: bool
     password: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
 

@@ -34,13 +34,13 @@ REQUEST_FIELDS: Dict[str, List[str]] = {
 }
 
 RESPONSE_FIELDS: Dict[str, List[str]] = {
-    "github": ["id", "url", "access_token", "branch_name_patterns", "extraction_sources"],
-    "jira": ["id", "url", "email", "api_token"],
-    "slack": ["id", "channel_id", "channel_name"],
-    "teams": ["id", "channel_id", "channel_name"],
-    "confluence": ["id", "space_key", "space_name"],
-    "google_docs": ["id", "drive_id", "drive_name"],
-    "sharepoint": ["id", "site_url"],
+    "github": ["id", "url", "access_token", "branch_name_patterns", "extraction_sources", "created_at", "updated_at"],
+    "jira": ["id", "url", "email", "api_token", "created_at", "updated_at"],
+    "slack": ["id", "channel_id", "channel_name", "created_at", "updated_at"],
+    "teams": ["id", "channel_id", "channel_name", "created_at", "updated_at"],
+    "confluence": ["id", "space_key", "space_name", "created_at", "updated_at"],
+    "google_docs": ["id", "drive_id", "drive_name", "created_at", "updated_at"],
+    "sharepoint": ["id", "site_url", "created_at", "updated_at"],
     "email": [
         "id",
         "smtp_host",
@@ -50,6 +50,8 @@ RESPONSE_FIELDS: Dict[str, List[str]] = {
         "username",
         "use_tls",
         "password",
+        "created_at",
+        "updated_at",
     ],
 }
 
