@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import time
 from typing import Any, Dict, List
 
 import requests
@@ -218,7 +219,7 @@ def populate_item_fields(edit_state: Dict[str, Any] | None, field_ids: List[Dict
     if not field_ids:
         return no_update
 
-    if not edit_state:
+    if not edit_state or not edit_state.get("item_id"):
         return [_default_field_value(field_id) for field_id in field_ids]
 
     connector_type = edit_state.get("connector_type")
@@ -237,7 +238,7 @@ def populate_item_fields(edit_state: Dict[str, Any] | None, field_ids: List[Dict
     State({"type": "connector-item-add", "connector_type": MATCH}, "id"),
 )
 def update_item_button_label(edit_state: Dict[str, Any] | None, button_id: Dict[str, Any]):
-    if edit_state and edit_state.get("connector_type") == button_id.get("connector_type"):
+    if edit_state and edit_state.get("item_id") and edit_state.get("connector_type") == button_id.get("connector_type"):
         return "Update Item"
     return "Add Item"
 
@@ -349,6 +350,10 @@ def handle_item_edit(_clicks: List[int | None], ids: List[Dict[str, Any]], store
     triggered = callback_context.triggered_id
     if not isinstance(triggered, dict):
         return no_update
+
+    if not callback_context.triggered or not callback_context.triggered[0].get("value"):
+        return no_update
+
     connector_type = triggered.get("connector_type")
     item_id = triggered.get("item_id")
     if not store or store.get("status") != "ok":
@@ -388,10 +393,11 @@ def handle_item_save(
     if not connector_type:
         return no_update, no_update, no_update
 
-    payload = _build_payload(connector_type, "item", field_ids, field_values, skip_empty_secrets=bool(edit_state))
+    is_update = bool(edit_state and edit_state.get("item_id") and edit_state.get("connector_type") == connector_type)
+    payload = _build_payload(connector_type, "item", field_ids, field_values, skip_empty_secrets=is_update)
     api_base = _get_api_base_url()
     try:
-        if edit_state and edit_state.get("connector_type") == connector_type:
+        if is_update:
             item_id = edit_state.get("item_id")
             response = requests.put(
                 f"{api_base}/api/v1/connectors/{connector_type}/configs/{item_id}",
@@ -415,9 +421,10 @@ def handle_item_save(
             "connector_type": connector_type,
             "items": items_resp.json(),
         }
+        clear_state = {"connector_type": connector_type, "action": "clear", "timestamp": time.time()}
         return (
             updated_store,
-            None,
+            clear_state,
             dbc.Alert("Item saved successfully.", color="success", className="mt-2"),
         )
     except requests.exceptions.RequestException as exc:
@@ -474,9 +481,10 @@ def handle_item_delete(_clicks: List[int | None]):
             "connector_type": connector_type,
             "items": items_resp.json(),
         }
+        clear_state = {"connector_type": connector_type, "action": "clear", "timestamp": time.time()}
         return (
             updated_store,
-            None,
+            clear_state,
             dbc.Alert("Item deleted.", color="success", className="mt-2"),
         )
     except requests.exceptions.RequestException as exc:
@@ -485,6 +493,23 @@ def handle_item_delete(_clicks: List[int | None]):
             no_update,
             dbc.Alert(f"Failed to delete item: {exc}", color="danger", className="mt-2"),
         )
+
+
+@callback(
+    Output("connector-edit-item", "data", allow_duplicate=True),
+    Input({"type": "connector-item-cancel", "connector_type": ALL}, "n_clicks"),
+    prevent_initial_call=True,
+)
+def handle_item_cancel(_clicks: List[int | None]):
+    triggered = callback_context.triggered_id
+    if not isinstance(triggered, dict):
+        return no_update
+    
+    if not callback_context.triggered or not callback_context.triggered[0].get("value"):
+        return no_update
+
+    connector_type = triggered.get("connector_type")
+    return {"connector_type": connector_type, "action": "clear", "timestamp": time.time()}
 
 
 @callback(

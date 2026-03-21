@@ -291,13 +291,24 @@ def _render_item_form(form_spec: dict, connector_type: str) -> html.Div:
                 },
             ),
             dbc.Row(field_components, className="g-3"),
-            dbc.Button(
-                "Add Item",
-                id={"type": "connector-item-add", "connector_type": connector_type},
-                color="primary",
-                size="sm",
-                className="mt-2",
-            ),
+            html.Div(
+                [
+                    dbc.Button(
+                        "Add Item",
+                        id={"type": "connector-item-add", "connector_type": connector_type},
+                        color="primary",
+                        size="sm",
+                        className="me-2",
+                    ),
+                    dbc.Button(
+                        "Clear Form",
+                        id={"type": "connector-item-cancel", "connector_type": connector_type},
+                        color="outline-secondary",
+                        size="sm",
+                    ),
+                ],
+                className="mt-2"
+            )
         ]
     )
 
