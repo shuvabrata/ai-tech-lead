@@ -1,4 +1,4 @@
-# AI Tech Lead - User Guide
+# Work Behavior Analytics AI - User Guide
 
 ## Prerequisites
 
@@ -175,7 +175,7 @@ docker stats
 
 ### Inspect Network Configuration
 ```bash
-docker network inspect ai-tech-lead_ai-tech-lead-network
+docker network inspect wba-ai_wba-ai-network
 ```
 
 ### Remove Everything and Start Fresh

@@ -1,4 +1,4 @@
-# Project Plan: AI Tech Lead Assistant - Phase 5 (Custom UI Reports & Charts)
+# Project Plan: Work Behavior Analytics AI - Phase 5 (Custom UI Reports & Charts)
 
 ## Vision
 Build a comprehensive reporting and visualization layer with custom charts, metrics dashboards, and exportable reports to help tech leads quickly understand project health and team performance.

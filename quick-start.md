@@ -1,4 +1,4 @@
-# ai-tech-lead
+# work-behavior-analytics-ai
 
 # First time dev setup
 Setup python environment

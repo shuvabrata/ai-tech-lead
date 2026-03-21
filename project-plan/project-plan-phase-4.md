@@ -1,4 +1,4 @@
-# Project Plan: AI Tech Lead Assistant - Phase 4 (MCP Servers & Advanced Chains)
+# Project Plan: Work Behavior Analytics AI - Phase 4 (MCP Servers & Advanced Chains)
 
 ## Vision
 Implement Model Context Protocol (MCP) servers and build complex LangChain/LangGraph workflows to enable sophisticated multi-step reasoning, tool usage, and agentic behaviors for the AI assistant.

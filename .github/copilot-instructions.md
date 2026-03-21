@@ -1,4 +1,4 @@
-# GitHub Copilot Instructions - AI Tech Lead Assistant
+# GitHub Copilot Instructions - Work Behavior Analytics AI
 
 Always activate the virual environment before running the application or tests:
 ```bash
@@ -7,7 +7,7 @@ source .venv/bin/activate
 
 ## Project Overview
 
-**AI Tech Lead Assistant** is an AI-powered tool designed to help senior tech leaders make data-driven decisions for project management. The system analyzes project data from various sources (GitHub, Jira, Confluence, etc.) and provides actionable insights through a natural language chat interface.
+**Work Behavior Analytics AI** is an AI-powered tool designed to help senior tech leaders make data-driven decisions for project management. The system analyzes project data from various sources (GitHub, Jira, Confluence, etc.) and provides actionable insights through a natural language chat interface.
 
 ### Core Purpose
 - Assist tech leaders in prioritizing tasks and making objective decisions
@@ -159,8 +159,8 @@ docker compose up -d
 
 ### Docker Deployment
 ```bash
-docker build -t ai-tech-lead .
-docker run -p 8000:8000 ai-tech-lead
+docker build -t wba-ai .
+docker run -p 8000:8000 wba-ai
 ```
 
 ## Project Phases (8-Phase Roadmap)

@@ -1,4 +1,4 @@
-# Project Plan: AI Tech Lead Assistant - Phase 1 (Technical Prototype)
+# Project Plan: Work Behavior Analytics AI - Phase 1 (Technical Prototype)
 
 ## Vision
 Build a technical prototype of an AI-powered assistant for tech leaders, focused on analyzing project data and answering natural language queries via a chat interface. The system should be self-hosted, support user-configurable LLM backends, and provide actionable insights from project data.

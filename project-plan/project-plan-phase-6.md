@@ -1,4 +1,4 @@
-# Project Plan: AI Tech Lead Assistant - Phase 6 (Graph Visualization UI)
+# Project Plan: Work Behavior Analytics AI - Phase 6 (Graph Visualization UI)
 
 ## Vision
 Build interactive graph visualization interfaces to explore employee relationships, code dependencies, and project structures visually. Enable users to run graph queries and see results rendered as interactive network diagrams.

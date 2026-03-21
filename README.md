@@ -7,9 +7,9 @@
                                                                     
 ```
 
-# AI Tech Lead
+# Work Behavior Analytics AI
 
-Welcome to the AI tech Lead project repository.
+Welcome to the Work Behavior Analytics AI project repository.
 
 ## Documentation Links
 

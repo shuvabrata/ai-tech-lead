@@ -1,4 +1,4 @@
-# Project Plan: AI Tech Lead Assistant - Phase 7 (Conversation Persistence)
+# Project Plan: Work Behavior Analytics AI - Phase 7 (Conversation Persistence)
 
 ## Vision
 Implement conversation history and persistence features to enable users to save, search, and continue previous chat sessions. Build context management to maintain conversation continuity and enable long-term interaction patterns.

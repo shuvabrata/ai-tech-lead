@@ -2,7 +2,7 @@
 Common Reusable Components for Executive Dashboard
 
 This module provides factory functions for creating consistent UI components
-across all pages of the AI Tech Lead application.
+across all pages of the Work Behavior Analytics AI application.
 
 Usage:
     from app.dash_app.components.common import create_page_header, create_feature_card

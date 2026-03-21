@@ -1,6 +1,6 @@
 # Executive Dashboard Design System
 
-This document describes the centralized design system for the AI Tech Lead application's frontend. All design tokens, components, and styling patterns are defined in `app/dash_app/styles.py` and `app/dash_app/assets/executive-dashboard.css`.
+This document describes the centralized design system for the Work Behavior Analytics AI application's frontend. All design tokens, components, and styling patterns are defined in `app/dash_app/styles.py` and `app/dash_app/assets/executive-dashboard.css`.
 
 ## Table of Contents
 

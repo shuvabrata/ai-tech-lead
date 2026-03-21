@@ -1,4 +1,4 @@
-# Project Plan: AI Tech Lead Assistant - Phase 2 (Real Data Integration)
+# Project Plan: Work Behavior Analytics AI - Phase 2 (Real Data Integration)
 
 ## Vision
 Extend the Phase 1 prototype by implementing real data connectors for GitHub and Jira. Replace simulated data with live project data to provide accurate, real-time insights for tech leaders.

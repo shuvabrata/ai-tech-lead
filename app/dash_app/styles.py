@@ -1,7 +1,7 @@
 """
 Executive Dashboard Design System
 
-This module provides centralized design tokens for the AI Tech Lead application.
+This module provides centralized design tokens for the Work Behavior Analytics AI application.
 All color values, typography settings, spacing, and common style patterns are
 defined here as the single source of truth for the Executive Dashboard aesthetic.
 

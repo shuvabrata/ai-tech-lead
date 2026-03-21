@@ -1,4 +1,4 @@
-# Project Plan: AI Tech Lead Assistant - Phase 8 (Configuration & Connector Management UI)
+# Project Plan: Work Behavior Analytics AI - Phase 8 (Configuration & Connector Management UI)
 
 ## Vision
 Build a comprehensive settings and configuration interface that allows users to manage all aspects of the system: LLM backends, data connectors, API credentials, sync schedules, user preferences, and system behavior.

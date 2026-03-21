@@ -1,4 +1,4 @@
-# Project Plan: AI Tech Lead Assistant - Phase 3 (Employee Relationship Graph)
+# Project Plan: Work Behavior Analytics AI - Phase 3 (Employee Relationship Graph)
 
 ## Vision
 Build a graph database that models relationships between employees based on their collaboration patterns. Analyze interactions from commits, PR reviews, issue comments, and Jira ticket collaborations to understand team dynamics and communication patterns.

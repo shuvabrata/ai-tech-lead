@@ -27,7 +27,7 @@ def create_dash_app():
         ],
         suppress_callback_exceptions=True  # Required for multi-page apps
     )
-    app.title = "AI Tech Lead"
+    app.title = "Work Behavior Analytics AI"
 
     # Sidebar using Bootstrap Nav - Executive Dashboard style
     sidebar = dbc.Nav(
