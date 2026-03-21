@@ -22,10 +22,13 @@ The system analyzes project data from various enterprise productivity tools (suc
 * **Executive Dashboard UI**: A professional, refined web interface built with Dash for exploring project progress, settings, and visualizing interactive data graphs.
 
 ## Screenshots
+#### Interactive Graph Visualization
 ![alt text](images/image-3.png)
 
+#### Connectors support to get meaningful data
 ![alt text](images/image-1.png)
 
+#### AI chat interface
 ![alt text](images/image-2.png)
 ## Technology Stack
 
