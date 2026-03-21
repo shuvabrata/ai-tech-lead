@@ -8,19 +8,19 @@
 - [x] **Phase 1**: Database Layer (models, migration, seed data)
 - [x] **Phase 2**: Encryption Utility
 - [x] **Phase 3**: API Layer (router, service, query, models)
-- [ ] **Phase 4**: Frontend (Dash UI — listing page, detail sub-pages, callbacks)
+- [ ] **Phase 4**: Frontend (Dash UI — Github and Jira completed, test connection and other connectors pending)
 
 ---
 
 ## TL;DR
-Add a "Connectors" page (after Graph in the sidebar) where users can view and configure 8 external integrations (GitHub, Jira, Slack, Teams, Confluence, Google Docs, SharePoint, Email). Each connector is represented by a card with a visual status indicator. Double-clicking navigates to a dedicated sub-page (`/app/connectors/{type}`) with a config form and a live "Test Connection" button. All config is stored in PostgreSQL across 9 tables; credentials are encrypted at rest using Fernet (local key).
+Add a "Connectors" page (after Graph in the sidebar) where users can view and configure 8 external integrations (GitHub, Jira, Slack, Teams, Confluence, Google Docs, SharePoint, Email). Each connector is represented by a card with a visual status indicator. Clicking a card navigates to a dedicated sub-page (`/app/connectors/{type}`) with a config form and a live "Test Connection" button. All config is stored in PostgreSQL across 9 tables; credentials are encrypted at rest using Fernet (local key).
 
 ---
 
 ## Decisions
 - **Connectors in scope**: GitHub, Jira, Slack, Microsoft Teams, Confluence, Google Docs, SharePoint, Email
 - **DB schema**: 9 tables total — one `connectors` base table (with a `config` JSONB column for connector-level settings) + one `{type}_configs` child table per connector for per-item rows (repos, channels, spaces, etc.)
-- **No separate per-connector config tables**: Connector-level settings (e.g. GitHub default org, Jira base URL) live in a `config` JSONB column on the `connectors` table — no `github_config`, `jira_config`, etc.
+- **No separate per-connector config tables**: Connector-level settings live in a `config` JSONB column on the `connectors` table — no `github_config`, `jira_config`, etc. (currently unused; reserved for future settings)
 - **Child tables follow `{type}_configs` naming**: `github_configs`, `jira_configs`, `slack_configs`, etc. Each stores multiple rows (one per repo/project/channel) with an `encrypted_*` column for per-item credentials
 - **No PostgreSQL native Enum**: `connector_type` and `status` use `String` columns; validation enforced by Python `enum.Enum` in the application layer (avoids painful ALTER TYPE migrations when adding new connectors)
 - **Static connector registry in code**: `display_name` and icon are not stored in the DB — a hardcoded `CONNECTOR_REGISTRY` dict in the service layer maps connector type slugs to display metadata
@@ -54,7 +54,7 @@ Add a "Connectors" page (after Graph in the sidebar) where users can view and co
 
 | id | connector_type | status | enabled | config | last_tested_at | last_test_error |
 |----|---------------|--------|---------|--------|----------------|-----------------|
-| 1 | `github` | `connected` | true | `{"default_organization": "shuvabrata"}` | 2026-03-15 10:00 | null |
+| 1 | `github` | `connected` | true | `null` | 2026-03-15 10:00 | null |
 
 **`github_configs` table** (one row per watched repo):
 
@@ -69,7 +69,7 @@ Add a "Connectors" page (after Graph in the sidebar) where users can view and co
    - `connector_type`: `String(50)`, `unique=True`, `nullable=False` — validated by Python `enum.Enum`, not a DB Enum type
    - `status`: `String(20)`, `nullable=False`, `default="not_configured"`
    - `enabled`: `Boolean`, `default=True`
-   - `config`: `JSONB` (from `sqlalchemy.dialects.postgresql`), `nullable=True` — stores connector-level settings (e.g. `{"default_organization": "shuvabrata"}` for GitHub)
+   - `config`: `JSONB` (from `sqlalchemy.dialects.postgresql`), `nullable=True` — stores connector-level settings (currently unused; reserved for future settings)
    - `last_tested_at`: `DateTime(timezone=True)`, nullable
    - `last_test_error`: `String(1023)`, nullable
    - `created_at`: `DateTime(timezone=True)`, `server_default=func.now()`
@@ -197,25 +197,25 @@ Follows the same layered pattern as `app/api/projects/v1/` (router → service �
 
 ## Phase 4: Frontend (Dash)
 
-- [ ] **14. Update sidebar in `app/dash_app/layout.py`**:
+- [x] **14. Update sidebar in `app/dash_app/layout.py`**:
     - Add `NavLink("Connectors", href="/app/connectors", ...)` after Graph, before Settings
     - Update `display_page` callback to handle `/app/connectors` and `/app/connectors/*` patterns
 
-- [ ] **15. Create `app/dash_app/pages/connectors/` folder** (modular, following graph page pattern):
+- [x] **15. Create `app/dash_app/pages/connectors/` folder** (modular, following graph page pattern):
     - `__init__.py`
     - `layout.py` — exports `get_layout()` (listing page) and `get_detail_layout(connector_type)` (detail page)
     - `components/connector_card.py` — card factory with Font Awesome icon, connector name, color-coded status badge
     - `components/config_forms.py` — per-connector form field definitions (dict of field specs per type)
     - `callbacks.py` — Dash callbacks for the connectors pages
 
-- [ ] **16. Connectors listing page (`/app/connectors`)**:
+- [x] **16. Connectors listing page (`/app/connectors`)**:
     - Fetches `GET /api/v1/connectors/` on page load
     - Renders 8 cards in a responsive grid (`dbc.Row` + `dbc.Col`)
     - Each card: Font Awesome icon (FA Brands for GitHub/Jira/Slack/Teams/Confluence, generic icons for others), connector name, status badge
-    - Double-click on card triggers `dcc.Location` navigation to `/app/connectors/{type}`
+    - Click on card triggers `dcc.Location` navigation to `/app/connectors/{type}`
     - Status badge: green circle (connected), grey circle (not_configured), red circle (error)
 
-- [ ] **17. Connector detail sub-pages (`/app/connectors/{type}`)**:
+- [x] **17. Connector detail sub-pages (`/app/connectors/{type}`)**:
     - Breadcrumb: Connectors > {Connector Name}
     - Form fields per connector type:
       - Non-credential fields: visible text inputs pre-populated from existing config
@@ -227,7 +227,7 @@ Follows the same layered pattern as `app/api/projects/v1/` (router → service �
     - "Delete Configuration" button → `DELETE /api/v1/connectors/{type}` → redirects back to listing
     - Follows Executive Dashboard aesthetic (match existing `settings.py` style)
 
-- [ ] **18. Wire routing in `app/dash_app/layout.py`**:
+- [x] **18. Wire routing in `app/dash_app/layout.py`**:
     ```python
     elif pathname and pathname.startswith("/app/connectors/"):
         connector_type = pathname.split("/app/connectors/")[-1]
@@ -269,7 +269,7 @@ Follows the same layered pattern as `app/api/projects/v1/` (router → service �
 
 1. `alembic upgrade head` — confirm all 9 new tables created + 8 seed rows in `connectors`
 2. `GET /api/v1/connectors/` — returns list of 8 connectors, all `not_configured`, with display names from registry
-3. `PATCH /api/v1/connectors/github` with `{"default_organization": "my-org"}` — confirm `config` JSONB updated
+3. `PATCH /api/v1/connectors/github` with a JSON body that includes a `config` object — confirm `config` JSONB updated
 4. `POST /api/v1/connectors/github/configs` with `{"url": "https://github.com/my-org/*", "access_token": "ghp_..."}` — verify row created in `github_configs`
 5. `SELECT encrypted_access_token FROM github_configs` — confirm value is Fernet ciphertext, not plaintext
 6. `GET /api/v1/connectors/github/configs` — verify `access_token` is masked as `"********"` in response
@@ -279,9 +279,90 @@ Follows the same layered pattern as `app/api/projects/v1/` (router → service �
 10. `DELETE /api/v1/connectors/github` — all `github_configs` rows deleted, status resets to `not_configured`
 11. `PATCH /api/v1/connectors/github` with `{"config": null}` — clears connector-level config
 12. Unknown `connector_type` (e.g., `GET /api/v1/connectors/unknown`) returns 404
-11. Navigate to `/app/connectors` — all 8 cards render with grey status badges
-12. Double-click GitHub card → navigates to `/app/connectors/github`
-13. Add a repo via the form → card status badge updates; repo appears in list
+13. Navigate to `/app/connectors` — all 8 cards render with grey status badges
+14. Click GitHub card → navigates to `/app/connectors/github`
+15. Add a repo via the form → card status badge updates; repo appears in list
+
+## Phase 4 Progress Note
+
+- **Phase 4 implementation is complete. UI workflows still need manual testing.**
+
+### UI Test Checklist (Phase 4)
+
+**Global Checks:**
+- [x] 1. `/app/connectors` renders 8 cards with correct names/icons/status badges
+- [x] 2. Clicking a card navigates to `/app/connectors/{type}` and breadcrumb shows correct name
+- [x] 3. Connector detail page loads config + items without errors
+- [x] 4. Dark theme placeholder text is readable across all forms
+
+**Per-Connector Workflows:**
+
+- [x] **GitHub**
+  - [x] Save connector-level config
+  - [x] Add new item (repo)
+  - [x] Edit item (pre-populates, persists)
+  - [x] Delete item (removed from list)
+  - [x] Secret fields masked (access token)
+  - [ ] Test Connection button shows success
+  - [x] Delete Configuration clears items
+
+- [ ] **Jira**
+  - [x] Save connector-level config
+  - [x] Add new item (account)
+  - [x] Edit item (pre-populates, persists)
+  - [x] Delete item
+  - [x] Secret fields masked (API token)
+  - [ ] Test Connection button shows success
+  - [x] Delete Configuration clears items
+
+- [ ] **Slack**
+  - [ ] Save connector-level config
+  - [ ] Add new item (channel)
+  - [ ] Edit item (pre-populates, persists)
+  - [ ] Delete item
+  - [ ] Test Connection button shows success
+  - [ ] Delete Configuration clears items
+
+- [ ] **Microsoft Teams**
+  - [ ] Save connector-level config
+  - [ ] Add new item (channel)
+  - [ ] Edit item (pre-populates, persists)
+  - [ ] Delete item
+  - [ ] Test Connection button shows success
+  - [ ] Delete Configuration clears items
+
+- [ ] **Confluence**
+  - [ ] Save connector-level config
+  - [ ] Add new item (space)
+  - [ ] Edit item (pre-populates, persists)
+  - [ ] Delete item
+  - [ ] Test Connection button shows success
+  - [ ] Delete Configuration clears items
+
+- [ ] **Google Docs**
+  - [ ] Save connector-level config
+  - [ ] Add new item (drive)
+  - [ ] Edit item (pre-populates, persists)
+  - [ ] Delete item
+  - [ ] Test Connection button shows success
+  - [ ] Delete Configuration clears items
+
+- [ ] **SharePoint**
+  - [ ] Save connector-level config
+  - [ ] Add new item (site)
+  - [ ] Edit item (pre-populates, persists)
+  - [ ] Delete item
+  - [ ] Test Connection button shows success
+  - [ ] Delete Configuration clears items
+
+- [ ] **Email**
+  - [ ] Save connector-level config
+  - [ ] Add new item (account)
+  - [ ] Edit item (pre-populates, persists)
+  - [ ] Delete item
+  - [ ] Secret fields masked (password)
+  - [ ] Test Connection button shows success
+  - [ ] Delete Configuration clears items
 
 ---
 

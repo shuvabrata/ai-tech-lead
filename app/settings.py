@@ -27,6 +27,9 @@ class Settings(BaseSettings):
     # Graph UI configuration
     GRAPH_UI_MAX_NODES_TO_EXPAND: int = 20
     GRAPH_UI_MAX_NODE_LABEL_CHARS: int = 10
+    
+    # UI Configuration
+    UI_DATETIME_FORMAT: str = "%b %d, %Y %I:%M %p"
 
     model_config = SettingsConfigDict(
         env_file=".env",
