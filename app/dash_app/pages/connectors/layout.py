@@ -101,25 +101,6 @@ def get_detail_layout(connector_type: str):
             html.Div(
                 [
                     _breadcrumb(display_name),
-                    html.Div(
-                        display_name,
-                        style={
-                            "fontFamily": FONT_SANS,
-                            "fontSize": FONT_SIZE_MEDIUM,
-                            "fontWeight": FONT_WEIGHT_MEDIUM,
-                            "color": COLOR_CHARCOAL_MEDIUM,
-                            "marginBottom": SPACING_XSMALL,
-                        },
-                    ),
-                    html.Div(
-                        "Configure connector settings and managed items below.",
-                        style={
-                            "fontFamily": FONT_SANS,
-                            "fontSize": FONT_SIZE_SMALL,
-                            "color": COLOR_GRAY_MEDIUM,
-                            "marginBottom": SPACING_SMALL,
-                        },
-                    ),
                     dcc.Store(id="connector-detail-store", storage_type="memory"),
                     dcc.Store(id="connector-items-store", storage_type="memory"),
                     dcc.Store(id="connector-edit-item", storage_type="memory"),
