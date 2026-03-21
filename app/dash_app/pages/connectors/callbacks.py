@@ -722,6 +722,13 @@ def _default_field_value(field_id: Dict[str, Any]) -> Any:
     connector_type = field_id.get("connector_type")
     section = field_id.get("section")
     key = field_id.get("field")
+    
+    if connector_type:
+        spec_fields = _get_spec_fields(connector_type, section)
+        for spec in spec_fields:
+            if spec.get("key") == key and "default" in spec:
+                return _normalize_field_value(connector_type, section, key, spec["default"])
+                
     return _normalize_field_value(connector_type, section, key, None)
 
 

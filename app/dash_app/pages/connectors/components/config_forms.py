@@ -35,6 +35,10 @@ CONFIG_FORM_SPECS = {
                     "placeholder": "One regex per line",
                     "required": False,
                     "is_list": True,
+                    "default": [
+                        r"(?:feature|bugfix|hotfix|release)/([A-Z]{2,}-\d+)",
+                        r"^([A-Z]{2,}-\d+)"
+                    ],
                 },
                 {
                     "key": "extraction_sources",
@@ -46,6 +50,7 @@ CONFIG_FORM_SPECS = {
                         {"label": "Branch", "value": "branch"},
                         {"label": "Commit Message", "value": "commit_message"},
                     ],
+                    "default": ["branch", "commit_message"],
                 },
             ],
         },

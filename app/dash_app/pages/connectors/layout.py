@@ -350,7 +350,7 @@ def _render_field(field: dict, connector_type: str, section: str) -> html.Div:
         control = dbc.Switch(id=field_id, label="", value=False)
     elif input_type == FIELD_MULTISELECT:
         options = field.get("options", [])
-        control = dcc.Dropdown(id=field_id, options=options, value=[], multi=True)
+        control = dcc.Dropdown(id=field_id, options=options, value=field.get("default", []), multi=True)
     else:
         control = dbc.Input(id=field_id, type="text", placeholder=placeholder)
 
