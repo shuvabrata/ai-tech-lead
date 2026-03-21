@@ -475,20 +475,11 @@ def handle_item_delete(_clicks: List[int | None]):
     if not isinstance(triggered, dict):
         return no_update, no_update, no_update
 
+    if not callback_context.triggered or not callback_context.triggered[0].get("value"):
+        return no_update, no_update, no_update
+
     connector_type = triggered.get("connector_type")
     item_id = triggered.get("item_id")
-    # Find the n_clicks value for the triggered button
-    n_clicks = None
-    if _clicks and len(_clicks) > 0:
-        # Try to match the triggered button
-        try:
-            idx = callback_context.inputs_list[0].index(triggered)
-            n_clicks = _clicks[idx]
-        except Exception:
-            n_clicks = _clicks[0]
-    # Only proceed if n_clicks > 0
-    if not n_clicks or n_clicks < 1:
-        return no_update, no_update, no_update
 
     api_base = _get_api_base_url()
     try:
