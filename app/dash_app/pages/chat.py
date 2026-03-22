@@ -2,7 +2,7 @@ import os
 from datetime import datetime
 
 import dash_bootstrap_components as dbc
-from dash import html, dcc, Input, Output, State, callback, clientside_callback
+from dash import html, dcc, Input, Output, State, callback, clientside_callback, no_update
 import requests
 
 from app.settings import settings
@@ -124,6 +124,8 @@ def get_layout():
             
             # Hidden stores and triggers
             dcc.Store(id="session-store", storage_type="session"),
+            dcc.Store(id="pending-send", storage_type="memory"),
+            dcc.Store(id="sending-store", storage_type="memory", data={"sending": False}),
             html.Div(id="scroll-trigger", style={"display": "none"}),
             
             # Refined loading indicator
@@ -188,50 +190,113 @@ def initialize_session(current_data):
     return current_data
 
 
-# Callback to send message and update chat
+# Callback to queue message and update UI immediately
 @callback(
-    [Output("chat-messages", "children"),
+    [Output("chat-messages", "children", allow_duplicate=True),
      Output("chat-input", "value"),
      Output("session-store", "data", allow_duplicate=True),
-     Output("scroll-trigger", "children")],
+     Output("pending-send", "data", allow_duplicate=True),
+     Output("sending-store", "data", allow_duplicate=True),
+     Output("scroll-trigger", "children", allow_duplicate=True)],
     [Input("send-button", "n_clicks")],
     [State("chat-input", "value"),
      State("session-store", "data")],
     prevent_initial_call=True
 )
-def send_message(n_clicks, user_message, session_data):
-    """Send a message to the chat API and update the display"""
+def queue_message(n_clicks, user_message, session_data):
+    """Queue a message for sending and update UI optimistically"""
+    if session_data is None:
+        session_data = {"session_id": None, "messages": []}
     if not user_message or not user_message.strip():
-        # Return current state if no message
         messages = session_data.get("messages", [])
-        return render_messages(messages), "", session_data, ""
-    
+        return render_messages(messages), "", session_data, no_update, no_update, ""
+
     session_id = session_data.get("session_id")
     if not session_id:
         error_msg = session_data.get("error", "Unknown error")
-        return [html.Div(f"Error: Could not create chat session. {error_msg}", 
-                        className="alert alert-danger")], "", session_data, ""
-    
-    # Get API base URL
-    api_base = os.getenv("API_BASE_URL", "http://localhost:8000")
-    
-    # Add user message to history with timestamp
+        messages = session_data.get("messages", [])
+        messages.append({
+            "role": "error",
+            "content": f"Error: Could not create chat session. {error_msg}",
+            "timestamp": datetime.now().strftime("%I:%M %p")
+        })
+        session_data["messages"] = messages
+        return render_messages(messages), "", session_data, no_update, {"sending": False}, datetime.utcnow().isoformat()
+
     messages = session_data.get("messages", [])
     timestamp = datetime.now().strftime("%I:%M %p")
-    messages.append({"role": "user", "content": user_message, "timestamp": timestamp})
-    
+    client_id = f"{datetime.utcnow().strftime('%Y%m%d%H%M%S%f')}-{n_clicks or 0}"
+    messages.append({
+        "role": "user",
+        "content": user_message,
+        "timestamp": timestamp,
+        "status": "pending",
+        "client_id": client_id
+    })
+    messages.append({
+        "role": "assistant_thinking",
+        "content": "",
+        "timestamp": datetime.now().strftime("%I:%M %p"),
+        "client_id": client_id
+    })
+    session_data["messages"] = messages
+
+    pending_payload = {
+        "session_id": session_id,
+        "message": user_message,
+        "client_id": client_id
+    }
+
+    return render_messages(messages), "", session_data, pending_payload, {"sending": True}, datetime.utcnow().isoformat()
+
+
+# Callback to send queued message to API
+@callback(
+    [Output("chat-messages", "children", allow_duplicate=True),
+     Output("session-store", "data", allow_duplicate=True),
+     Output("pending-send", "data", allow_duplicate=True),
+     Output("sending-store", "data", allow_duplicate=True),
+     Output("scroll-trigger", "children", allow_duplicate=True)],
+    Input("pending-send", "data"),
+    State("session-store", "data"),
+    prevent_initial_call=True
+)
+def send_message(pending_send, session_data):
+    """Send a queued message to the chat API and update session data"""
+    if session_data is None:
+        session_data = {"session_id": None, "messages": []}
+    if not pending_send:
+        return no_update, no_update, None, {"sending": False}, ""
+
+    user_message = pending_send.get("message", "")
+    client_id = pending_send.get("client_id")
+    session_id = pending_send.get("session_id") or session_data.get("session_id")
+    if not user_message or not session_id:
+        return no_update, no_update, None, {"sending": False}, ""
+
+    api_base = os.getenv("API_BASE_URL", "http://localhost:8000")
+    messages = session_data.get("messages", [])
+
+    def clear_pending_status():
+        for msg in reversed(messages):
+            if msg.get("role") == "user" and msg.get("client_id") == client_id:
+                msg.pop("status", None)
+                break
+        for idx in range(len(messages) - 1, -1, -1):
+            msg = messages[idx]
+            if msg.get("role") == "assistant_thinking" and msg.get("client_id") == client_id:
+                messages.pop(idx)
+                break
+
     try:
-        # Send message to API
         response = requests.post(
             f"{api_base}/api/v1/chats/{session_id}/messages",
             json={"message": user_message},
             timeout=TIMEOUT_SECONDS
         )
-        
-        # If session not found (404), create new session and retry
+
         if response.status_code == 404:
             try:
-                # Create new session
                 new_session_response = requests.post(
                     f"{api_base}/api/v1/chats",
                     json={"system_prompt": "You are a helpful AI technical assistant."},
@@ -240,12 +305,25 @@ def send_message(n_clicks, user_message, session_data):
                 new_session_response.raise_for_status()
                 new_session_data = new_session_response.json()
                 session_id = new_session_data["session_id"]
-                
-                # Update session data with new session_id and clear old messages
                 session_data["session_id"] = session_id
-                messages = [{"role": "user", "content": user_message}]  # Reset with current message
-                
-                # Retry sending message with new session
+
+                # Reset to only the current message for the new session
+                pending_msg = None
+                for msg in messages:
+                    if msg.get("role") == "user" and msg.get("client_id") == client_id:
+                        pending_msg = msg
+                        break
+                if pending_msg is None:
+                    pending_msg = {
+                        "role": "user",
+                        "content": user_message,
+                        "timestamp": datetime.now().strftime("%I:%M %p"),
+                        "status": "pending",
+                        "client_id": client_id
+                    }
+                messages = [pending_msg]
+                session_data["messages"] = messages
+
                 response = requests.post(
                     f"{api_base}/api/v1/chats/{session_id}/messages",
                     json={"message": user_message},
@@ -253,44 +331,53 @@ def send_message(n_clicks, user_message, session_data):
                 )
                 response.raise_for_status()
             except Exception as retry_error:
+                clear_pending_status()
                 messages.append({
                     "role": "error",
                     "content": f"Session expired and failed to create new session: {str(retry_error)}",
                     "timestamp": datetime.now().strftime("%I:%M %p")
                 })
                 session_data["messages"] = messages
-                return render_messages(messages), "", session_data, str(n_clicks)
-        
+                return render_messages(messages), session_data, None, {"sending": False}, datetime.utcnow().isoformat()
+
         response.raise_for_status()
         data = response.json()
-        
-        # Add AI response to history with timestamp
+
+        clear_pending_status()
         ai_timestamp = datetime.now().strftime("%I:%M %p")
         messages.append({"role": "assistant", "content": data["ai_message"], "timestamp": ai_timestamp})
-        
-        # Update session data
         session_data["messages"] = messages
-        
-        return render_messages(messages), "", session_data, str(n_clicks)
-        
+        return render_messages(messages), session_data, None, {"sending": False}, datetime.utcnow().isoformat()
+
     except requests.exceptions.HTTPError as e:
-        # Add error message
+        clear_pending_status()
         messages.append({
             "role": "error",
             "content": f"HTTP Error: {str(e)}",
             "timestamp": datetime.now().strftime("%I:%M %p")
         })
         session_data["messages"] = messages
-        return render_messages(messages), "", session_data, str(n_clicks)
+        return render_messages(messages), session_data, None, {"sending": False}, datetime.utcnow().isoformat()
     except Exception as e:
-        # Add error message
+        clear_pending_status()
         messages.append({
             "role": "error",
             "content": f"Error: {str(e)}",
             "timestamp": datetime.now().strftime("%I:%M %p")
         })
         session_data["messages"] = messages
-        return render_messages(messages), "", session_data, str(n_clicks)
+        return render_messages(messages), session_data, None, {"sending": False}, datetime.utcnow().isoformat()
+
+
+# Disable input and button while sending
+@callback(
+    [Output("chat-input", "disabled"),
+     Output("send-button", "disabled")],
+    Input("sending-store", "data")
+)
+def toggle_sending_state(sending_data):
+    sending = bool(sending_data and sending_data.get("sending"))
+    return sending, sending
 
 
 def render_messages(messages):
@@ -330,6 +417,10 @@ def render_messages(messages):
         role = msg.get("role", "user")
         content = msg.get("content", "")
         timestamp = msg.get("timestamp", "")
+        is_pending = msg.get("status") == "pending"
+        display_timestamp = timestamp
+        if is_pending:
+            display_timestamp = f"{timestamp} (waiting for response...)" if timestamp else "Waiting for response..."
         
         if role == "user":
             # User message - refined right-aligned design
@@ -355,7 +446,7 @@ def render_messages(messages):
                                 }
                             ),
                             html.Div(
-                                timestamp,
+                                display_timestamp,
                                 style={
                                     "fontFamily": FONT_SANS,
                                     "fontSize": "11px",
@@ -416,6 +507,69 @@ def render_messages(messages):
                                     "lineHeight": "1.8",
                                     "display": "inline-block",
                                     "borderLeft": f"2px solid {COLOR_BORDER}"
+                                }
+                            ),
+                            html.Div(
+                                timestamp,
+                                style={
+                                    "fontFamily": FONT_SANS,
+                                    "fontSize": "11px",
+                                    "color": COLOR_GRAY_LIGHT,
+                                    "marginTop": SPACING_XXSMALL,
+                                    "textAlign": "left",
+                                    "letterSpacing": "0.3px",
+                                    "fontWeight": FONT_WEIGHT_MEDIUM
+                                }
+                            )
+                        ], style={"display": "inline-block", "maxWidth": "75%"})
+                    ], style={
+                        "display": "flex",
+                        "justifyContent": "flex-start",
+                        "marginBottom": SPACING_MEDIUM,
+                        "alignItems": "flex-start"
+                    })
+                ], 
+                className="chat-message-enter",
+                style={"marginBottom": SPACING_SMALL}
+                )
+            )
+        elif role == "assistant_thinking":
+            # Assistant thinking indicator
+            rendered.append(
+                html.Div([
+                    html.Div(
+                        style={
+                            "borderTop": f"1px solid {COLOR_BORDER}",
+                            "marginBottom": "20px",
+                            "marginTop": SPACING_XXSMALL
+                        }
+                    ),
+                    html.Div([
+                        html.Div(
+                            [create_diamond_icon()],
+                            style={
+                                "fontSize": "16px",
+                                "marginRight": SPACING_SMALL,
+                                "marginTop": SPACING_XXXSMALL,
+                                "flexShrink": "0"
+                            }
+                        ),
+                        html.Div([
+                            html.Div(
+                                "Assistant is thinking…",
+                                style={
+                                    "fontFamily": FONT_SANS,
+                                    "backgroundColor": COLOR_BACKGROUND_WHITE,
+                                    "color": COLOR_GRAY_DARK,
+                                    "padding": f"{SPACING_SMALL} 20px",
+                                    "borderRadius": "2px",
+                                    "wordWrap": "break-word",
+                                    "whiteSpace": "pre-wrap",
+                                    "fontSize": FONT_SIZE_LARGE,
+                                    "lineHeight": "1.8",
+                                    "display": "inline-block",
+                                    "borderLeft": f"2px solid {COLOR_BORDER}",
+                                    "fontStyle": "italic"
                                 }
                             ),
                             html.Div(
