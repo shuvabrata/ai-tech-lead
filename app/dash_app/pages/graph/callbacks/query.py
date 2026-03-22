@@ -9,6 +9,7 @@ import dash_bootstrap_components as dbc
 from dash import html, Input, Output, State, callback
 
 from app.settings import settings
+from app.common.logger import logger
 from app.dash_app.styles import (
     VALIDATION_ALERT_STYLE,
     VALIDATION_CODE_STYLE,
@@ -165,6 +166,12 @@ def execute_query(_n_clicks, query_text):
     
     # Track execution time
     start_time = time.time()
+    query_preview = (query_text or "").strip().replace("\n", " ")[:120]
+    logger.info(
+        "[GRAPH-DEBUG][query.execute] start "
+        f"query_len={len((query_text or '').strip())} api_base={api_base} "
+        f"preview='{query_preview}'"
+    )
     
     try:
         # Send query to API
@@ -176,10 +183,23 @@ def execute_query(_n_clicks, query_text):
         
         # Calculate execution time in milliseconds
         execution_time_ms = (time.time() - start_time) * 1000
+        logger.info(
+            "[GRAPH-DEBUG][query.execute] response "
+            f"status={response.status_code} duration_ms={round(execution_time_ms, 2)}"
+        )
         
         # Handle error responses
         if response.status_code != 200:
             error_data = response.json() if response.headers.get('content-type') == 'application/json' else {}
+            error_preview = ""
+            try:
+                error_preview = (response.text or "")[:500]
+            except Exception:
+                error_preview = ""
+            logger.warning(
+                "[GRAPH-DEBUG][query.execute] error "
+                f"status={response.status_code} error_preview='{error_preview}'"
+            )
             
             # Parse error and get user-friendly message
             heading, hint, doc_link, alert_type = parse_error_response(error_data, response.status_code)
@@ -201,6 +221,11 @@ def execute_query(_n_clicks, query_text):
         node_count = len(data.get("nodes", []))
         rel_count = len(data.get("relationships", []))
         result_count = data.get("resultCount", 0)
+        logger.info(
+            "[GRAPH-DEBUG][query.execute] parsed "
+            f"is_graph={is_graph} nodes={node_count} rels={rel_count} "
+            f"result_count={result_count}"
+        )
         
         if is_graph:
             # Transform data to Cytoscape format
@@ -243,6 +268,10 @@ def execute_query(_n_clicks, query_text):
             )
         
     except requests.exceptions.Timeout:
+        logger.error(
+            "[GRAPH-DEBUG][query.execute] timeout "
+            f"timeout_seconds={TIMEOUT_SECONDS} api_base={api_base}"
+        )
         error_display = create_error_alert(
             "",
             alert_type='warning',
@@ -254,6 +283,10 @@ def execute_query(_n_clicks, query_text):
     
     except requests.exceptions.ConnectionError:
         api_url = get_graph_api_base_url()
+        logger.error(
+            "[GRAPH-DEBUG][query.execute] connection_error "
+            f"api_base={api_url}"
+        )
         error_display = create_error_alert(
             "",
             alert_type='danger',
@@ -264,6 +297,7 @@ def execute_query(_n_clicks, query_text):
         return error_response(error_display)
     
     except requests.exceptions.HTTPError as e:
+        logger.error(f"[GRAPH-DEBUG][query.execute] http_error {e}")
         error_display = create_error_alert(
             "",
             alert_type='danger',
@@ -274,6 +308,7 @@ def execute_query(_n_clicks, query_text):
         return error_response(error_display)
     
     except Exception as e:
+        logger.exception(f"[GRAPH-DEBUG][query.execute] unexpected_error {e}")
         error_display = create_error_alert(
             "",
             alert_type='danger',

@@ -126,11 +126,19 @@ def execute_doubleclick_expansion(dblclick_data, current_elements, current_unfil
             success_msg, show_style, "preset")
             
     except requests.exceptions.Timeout:
+        logger.error(
+            "[GRAPH-DEBUG][expand.doubleclick] timeout "
+            f"node_id={node_id} timeout_seconds={TIMEOUT_SECONDS}"
+        )
         error_alert = create_expansion_error_alert("Expansion timed out", error_type="timeout")
         return (current_elements, current_unfiltered, expanded_nodes, loaded_node_ids, updated_debounce,
                error_alert, show_style, current_layout)
     
     except requests.exceptions.ConnectionError:
+        logger.error(
+            "[GRAPH-DEBUG][expand.doubleclick] connection_error "
+            f"node_id={node_id} timeout_seconds={TIMEOUT_SECONDS}"
+        )
         error_alert = create_expansion_error_alert(
             "Could not connect to server. Please check your connection.",
             error_type="connection"
@@ -139,6 +147,7 @@ def execute_doubleclick_expansion(dblclick_data, current_elements, current_unfil
                error_alert, show_style, current_layout)
         
     except Exception as e:
+        logger.exception(f"[GRAPH-DEBUG][expand.doubleclick] unexpected_error {e}")
         error_alert = create_expansion_error_alert(f"Expansion error: {str(e)}")
         return (current_elements, current_unfiltered, expanded_nodes, loaded_node_ids, updated_debounce,
                error_alert, show_style, current_layout)
@@ -260,6 +269,11 @@ def execute_node_expansion(n_clicks, node_id, direction, limit, auto_fit, curren
         return merged_elements, merged_elements, updated_expanded, updated_loaded_ids, False, success_msg, show_style, "preset", fit_count
             
     except requests.exceptions.Timeout:
+        logger.error(
+            "[GRAPH-DEBUG][expand.modal] timeout "
+            f"node_id={node_id} direction={direction} limit={limit} "
+            f"timeout_seconds={TIMEOUT_SECONDS}"
+        )
         error_alert = create_expansion_error_alert(
             "Request timed out. The expansion took too long.",
             error_type="timeout"
@@ -267,6 +281,11 @@ def execute_node_expansion(n_clicks, node_id, direction, limit, auto_fit, curren
         return current_elements, current_unfiltered, expanded_nodes, loaded_node_ids, True, error_alert, show_style, current_layout, fit_count
     
     except requests.exceptions.ConnectionError:
+        logger.error(
+            "[GRAPH-DEBUG][expand.modal] connection_error "
+            f"node_id={node_id} direction={direction} limit={limit} "
+            f"timeout_seconds={TIMEOUT_SECONDS}"
+        )
         error_alert = create_expansion_error_alert(
             "Could not connect to server. Please check your connection.",
             error_type="connection"
@@ -274,5 +293,6 @@ def execute_node_expansion(n_clicks, node_id, direction, limit, auto_fit, curren
         return current_elements, current_unfiltered, expanded_nodes, loaded_node_ids, True, error_alert, show_style, current_layout, fit_count
         
     except Exception as e:
+        logger.exception(f"[GRAPH-DEBUG][expand.modal] unexpected_error {e}")
         error_alert = create_expansion_error_alert(f"Error: {str(e)}")
         return current_elements, current_unfiltered, expanded_nodes, loaded_node_ids, True, error_alert, show_style, current_layout, fit_count

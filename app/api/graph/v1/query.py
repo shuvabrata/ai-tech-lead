@@ -264,6 +264,13 @@ def expand_node_query(
     # Use configured default if limit not provided
     if limit is None:
         limit = settings.GRAPH_UI_MAX_NODES_TO_EXPAND
+
+    logger.info(
+        "[GRAPH-DEBUG][expand.query] params "
+        f"node_id={node_id} direction={direction} limit={limit} offset={offset} "
+        f"relationship_types_count={len(relationship_types or [])} "
+        f"exclude_node_ids_count={len(exclude_node_ids or [])}"
+    )
     
     # Build Cypher query based on direction
     relationship_filter = ""
@@ -406,6 +413,7 @@ def expand_node_query(
             
             # Execute relationships-only query (relationships to already-loaded nodes)
             # Only run if there are excluded nodes
+            rel_only_records = []
             if exclude_node_ids:
                 rel_only_result = session.run(
                     relationships_only_query,
@@ -417,7 +425,10 @@ def expand_node_query(
                 # Merge with main results
                 records.extend(rel_only_records)
             
-            logger.info(f"Node expansion query executed. Returned {len(records)} records, total={total}")
+            logger.info(
+                "[GRAPH-DEBUG][expand.query] executed "
+                f"records={len(records)} rel_only_records={len(rel_only_records)} total={total}"
+            )
             
             return {
                 "records": records,

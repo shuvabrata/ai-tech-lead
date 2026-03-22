@@ -87,6 +87,7 @@ def execute_and_format_query(query: str) -> GraphResponse:
             
             # Add any new relationships we found
             relationship_ids = {rel.id for rel in relationships_list}  # Convert to set for dedup
+            missing_endpoint_count = 0
             for record in relationship_records:
                 if 'r' in record and record['r'] is not None:
                     neo4j_rel = record['r']
@@ -96,8 +97,15 @@ def execute_and_format_query(query: str) -> GraphResponse:
                     if rel.id not in relationship_ids and rel.startNode in nodes_dict and rel.endNode in nodes_dict:
                         relationships_list.append(rel)
                         relationship_ids.add(rel.id)
+                    else:
+                        if rel.startNode not in nodes_dict or rel.endNode not in nodes_dict:
+                            missing_endpoint_count += 1
             
-            logger.info(f"After fetching implicit relationships: {len(relationships_list)} total relationships")
+            logger.info(
+                "After fetching implicit relationships: "
+                f"{len(relationships_list)} total relationships "
+                f"(dropped_missing_endpoints={missing_endpoint_count})"
+            )
         
         return GraphResponse(
             nodes=nodes_list,

@@ -230,6 +230,11 @@ def apply_relationship_filters(selected_node_types, selected_rel_types, weight_t
     else:
         filtered_edges = []
 
+    logger.info(
+        "[GRAPH-DEBUG][filter.apply] edges_after_rel_type_filter "
+        f"visible={len(filtered_edges)} removed={len(edges) - len(filtered_edges)}"
+    )
+
     # Filter edges to only show ones where both endpoints are visible
     filtered_edges = [
         edge for edge in filtered_edges
@@ -244,26 +249,41 @@ def apply_relationship_filters(selected_node_types, selected_rel_types, weight_t
 
     # Filter by weight threshold
     if weight_threshold > 0:
+        before_weight = len(filtered_edges)
         filtered_edges = [
             edge for edge in filtered_edges
             if edge.get("data", {}).get("weight", 0) >= weight_threshold
         ]
+        logger.info(
+            "[GRAPH-DEBUG][filter.apply] edges_after_weight_filter "
+            f"threshold={weight_threshold} visible={len(filtered_edges)} removed={before_weight - len(filtered_edges)}"
+        )
     
     # Apply Top-N limit
     if top_n_mode == "top50":
         # Sort by weight descending, take top 50
+        before_topn = len(filtered_edges)
         filtered_edges = sorted(
             filtered_edges,
             key=lambda e: e.get("data", {}).get("weight", 0),
             reverse=True
         )[:50]
+        logger.info(
+            "[GRAPH-DEBUG][filter.apply] edges_after_topn "
+            f"mode=top50 visible={len(filtered_edges)} removed={before_topn - len(filtered_edges)}"
+        )
     elif top_n_mode == "top100":
         # Sort by weight descending, take top 100
+        before_topn = len(filtered_edges)
         filtered_edges = sorted(
             filtered_edges,
             key=lambda e: e.get("data", {}).get("weight", 0),
             reverse=True
         )[:100]
+        logger.info(
+            "[GRAPH-DEBUG][filter.apply] edges_after_topn "
+            f"mode=top100 visible={len(filtered_edges)} removed={before_topn - len(filtered_edges)}"
+        )
     
     # Combine filtered nodes and filtered edges
     filtered_elements = filtered_nodes + filtered_edges

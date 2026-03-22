@@ -9,6 +9,7 @@ from dash import html, Input, Output, State, callback, clientside_callback, call
 from dash.exceptions import PreventUpdate
 
 from app.settings import settings
+from app.common.logger import logger
 from ..utils import (
     execute_expansion_and_merge,
     create_expansion_success_alert,
@@ -124,6 +125,11 @@ def context_menu_quick_expand(_n_clicks_incoming, _n_clicks_outgoing, rightclick
                 None, hide_style, current_layout)
     
     try:
+        logger.info(
+            "[GRAPH-DEBUG][context.expand] start "
+            f"node_id={node_id} direction={direction} current_elements={len(current_elements or [])} "
+            f"loaded_node_ids={len(loaded_node_ids or [])}"
+        )
         result = execute_expansion_and_merge(
             node_id=node_id,
             direction=direction,
@@ -155,15 +161,28 @@ def context_menu_quick_expand(_n_clicks_incoming, _n_clicks_outgoing, rightclick
             result["has_more"],
         )
 
+        logger.info(
+            "[GRAPH-DEBUG][context.expand] complete "
+            f"node_id={node_id} direction={direction} new_nodes={result['new_nodes_count']} "
+            f"new_relationships={result['new_relationships_count']} merged_total={len(merged_elements)}"
+        )
         return (merged_elements, merged_elements, updated_expanded, updated_loaded_ids, updated_menu_style,
             success_msg, show_style, "preset")
             
     except requests.exceptions.Timeout:
+        logger.error(
+            "[GRAPH-DEBUG][context.expand] timeout "
+            f"node_id={node_id} direction={direction} timeout_seconds={TIMEOUT_SECONDS}"
+        )
         error_alert = create_expansion_error_alert("Expansion timed out", error_type="timeout")
         return (current_elements, current_unfiltered, expanded_nodes, loaded_node_ids, updated_menu_style,
                error_alert, show_style, current_layout)
     
     except requests.exceptions.ConnectionError:
+        logger.error(
+            "[GRAPH-DEBUG][context.expand] connection_error "
+            f"node_id={node_id} direction={direction} timeout_seconds={TIMEOUT_SECONDS}"
+        )
         error_alert = create_expansion_error_alert(
             "Could not connect to server. Please check your connection.",
             error_type="connection"
@@ -172,6 +191,7 @@ def context_menu_quick_expand(_n_clicks_incoming, _n_clicks_outgoing, rightclick
                error_alert, show_style, current_layout)
     
     except Exception as e:
+        logger.exception(f"[GRAPH-DEBUG][context.expand] unexpected_error {e}")
         error_alert = create_expansion_error_alert(f"Expansion error: {str(e)}")
         return (current_elements, current_unfiltered, expanded_nodes, loaded_node_ids, updated_menu_style,
                error_alert, show_style, current_layout)
@@ -262,6 +282,11 @@ def context_menu_remove_node(n_clicks, rightclick_data, current_elements, curren
         filtered_elements.append(elem)
     
     # Success message
+    logger.info(
+        "[GRAPH-DEBUG][context.remove] removed "
+        f"node_id={node_id} removed_count={removed_count} "
+        f"remaining_elements={len(filtered_elements)}"
+    )
     success_msg = dbc.Alert([
         html.I(className="fas fa-trash-alt me-2"),
         f"Removed node and {removed_count - 1} connected relationships from view"

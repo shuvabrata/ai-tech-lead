@@ -70,6 +70,15 @@ def execute_expansion_and_merge(
     if response.status_code != 200:
         error_data = response.json() if response.content else {}
         error_message = error_data.get("detail", {}).get("message", "Unknown error")
+        error_preview = ""
+        try:
+            error_preview = (response.text or "")[:500]
+        except Exception:
+            error_preview = ""
+        logger.warning(
+            "[GRAPH-DEBUG][expand.merge] error "
+            f"status={response.status_code} message='{error_message}' preview='{error_preview}'"
+        )
         return {
             "ok": False,
             "error_message": error_message,
