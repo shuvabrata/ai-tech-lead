@@ -49,6 +49,7 @@ def neo4j_to_cytoscape(graph_response):
         # Create Cytoscape node element
         # IMPORTANT: Set id AFTER spreading properties to prevent property 'id' from overwriting it
         cyto_node = {
+            'group': 'nodes',
             'data': {
                 **node.get('properties', {}),  # Spread properties first
                 'id': node['id'],               # Then set critical fields (can't be overwritten)
@@ -66,6 +67,7 @@ def neo4j_to_cytoscape(graph_response):
         # Create Cytoscape edge element
         # IMPORTANT: Set id/source/target AFTER spreading properties to prevent overwriting
         cyto_edge = {
+            'group': 'edges',
             'data': {
                 **rel.get('properties', {}),  # Spread properties first
                 'id': rel['id'],               # Then set critical fields (can't be overwritten)

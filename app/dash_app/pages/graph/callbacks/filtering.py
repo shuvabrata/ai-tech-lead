@@ -61,15 +61,16 @@ def update_relationship_type_filter(unfiltered_elements, current_values, previou
     previous_available_set = set(previous_available or [])
     current_set = set(current_values or [])
     
-    # If this is the first load (no current values), select all
-    # Otherwise, preserve the current selection
-    if current_values is None or len(current_values) == 0:
+    # Differentiate between first load (None) and user intentionally unchecking all ([])
+    if previous_available is None:
+        # True first load
         values = available_values
-    elif previous_available_set and current_set.issuperset(previous_available_set):
-        # No active relationship-type filtering previously, so include newly discovered types.
+    elif previous_available_set == current_set:
+        # User had EVERYTHING selected previously ("Show All" intent). 
+        # Keep "Show All" behavior for newly discovered types too.
         values = available_values
     else:
-        # Preserve existing selections, but only for types that still exist
+        # User had a specific subset selected (including empty subset). Preserve it.
         values = [v for v in current_values if v in available_set]
 
     logger.info(
@@ -115,15 +116,14 @@ def update_node_type_filter(unfiltered_elements, current_values, previous_availa
     previous_available_set = set(previous_available or [])
     current_set = set(current_values or [])
     
-    # If this is the first load (no current values), select all
-    # Otherwise, preserve the current selection
-    if current_values is None or len(current_values) == 0:
+    if previous_available is None:
+        # True first load
         values = available_values
-    elif previous_available_set and current_set.issuperset(previous_available_set):
-        # No active node-type filtering previously, so include newly discovered types.
+    elif previous_available_set == current_set:
+        # User had EVERYTHING selected previously ("Show All" intent).
         values = available_values
     else:
-        # Preserve existing selections, but only for types that still exist
+        # User had a specific subset selected. Preserve it.
         values = [v for v in current_values if v in available_set]
 
     hidden_types = [t for t in node_types if t not in values]

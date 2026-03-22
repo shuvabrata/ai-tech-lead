@@ -91,7 +91,9 @@ def execute_and_format_query(query: str) -> GraphResponse:
                 if 'r' in record and record['r'] is not None:
                     neo4j_rel = record['r']
                     rel = _transform_relationship(neo4j_rel)
-                    if rel.id not in relationship_ids:
+                    
+                    # Defensive check: Cytoscape will fail to render if startNode or endNode is missing.
+                    if rel.id not in relationship_ids and rel.startNode in nodes_dict and rel.endNode in nodes_dict:
                         relationships_list.append(rel)
                         relationship_ids.add(rel.id)
             
