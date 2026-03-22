@@ -19,6 +19,8 @@ from app.dash_app.styles import (
 def build_cytoscape_stylesheet(theme_name: str = ACTIVE_THEME):
     """Build Cytoscape stylesheet for a specific theme."""
     tokens = get_theme_tokens(theme_name)
+    # Cytoscape.js expects a comma-separated font list without quotes.
+    cyto_font_family = re.sub(r"[\"']", "", FONT_SANS)
 
     # Keep graph labels readable on dark node fills.
     node_label_color = tokens["text.primary"] if theme_name == "executive-light" else "#f4f7fb"
@@ -34,7 +36,7 @@ def build_cytoscape_stylesheet(theme_name: str = ACTIVE_THEME):
                 'color': node_label_color,
                 'text-valign': 'center',
                 'text-halign': 'center',
-                'font-family': FONT_SANS,
+                'font-family': cyto_font_family,
                 'font-size': FONT_SIZE_TINY,
                 'font-weight': FONT_WEIGHT_MEDIUM,
                 'width': '60px',
@@ -113,11 +115,11 @@ def build_cytoscape_stylesheet(theme_name: str = ACTIVE_THEME):
                 'line-color': tokens["graph.edge.default"],
                 'target-arrow-color': tokens["graph.edge.default"],
                 'target-arrow-shape': 'triangle',
-                'target-arrow-scale': 1.0,
+                'arrow-scale': 1.0,
                 'curve-style': 'bezier',
                 'control-point-step-size': 40,
                 'label': 'data(label)',
-                'font-family': FONT_SANS,
+                'font-family': cyto_font_family,
                 'font-size': FONT_SIZE_XXSMALL,
                 'font-weight': FONT_WEIGHT_MEDIUM,
                 'color': tokens["text.secondary"],
@@ -134,7 +136,7 @@ def build_cytoscape_stylesheet(theme_name: str = ACTIVE_THEME):
             'selector': 'edge[weight]',
             'style': {
                 'width': 'mapData(weight, 0, 100, 1, 8)',
-                'target-arrow-scale': 'mapData(weight, 0, 100, 0.8, 2.0)',
+                'arrow-scale': 'mapData(weight, 0, 100, 0.8, 2.0)',
             }
         },
         {

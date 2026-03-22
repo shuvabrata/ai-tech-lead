@@ -147,7 +147,7 @@ def create_graph_container():
                 stylesheet=CYTOSCAPE_STYLESHEET,
                 userZoomingEnabled=True,
                 userPanningEnabled=True,
-                wheelSensitivity=0.2,
+                wheelSensitivity=1.0,
                 minZoom=0.5,
                 maxZoom=3
             )
