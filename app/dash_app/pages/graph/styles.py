@@ -15,6 +15,22 @@ from app.dash_app.styles import (
     FONT_WEIGHT_MEDIUM,
 )
 
+# 10 distinct, accessible fill/border colour pairs for community detection.
+# Ordered to maximise contrast between adjacent communities (Louvain assigns
+# IDs 0-9 deterministically, so neighbours often share IDs).
+COMMUNITY_COLORS = [
+    ("#3B82F6", "#2563EB"),   # 0 – blue
+    ("#10B981", "#059669"),   # 1 – emerald
+    ("#F59E0B", "#D97706"),   # 2 – amber
+    ("#EF4444", "#DC2626"),   # 3 – red
+    ("#8B5CF6", "#7C3AED"),   # 4 – violet
+    ("#EC4899", "#DB2777"),   # 5 – pink
+    ("#14B8A6", "#0D9488"),   # 6 – teal
+    ("#F97316", "#EA580C"),   # 7 – orange
+    ("#84CC16", "#65A30D"),   # 8 – lime
+    ("#6366F1", "#4F46E5"),   # 9 – indigo
+]
+
 
 def build_cytoscape_stylesheet(theme_name: str = ACTIVE_THEME):
     """Build Cytoscape stylesheet for a specific theme."""
@@ -169,7 +185,21 @@ def build_cytoscape_stylesheet(theme_name: str = ACTIVE_THEME):
             'style': {
                 'opacity': 0.3
             }
-        }
+        },
+        # Community colour rules for collaboration network mode.
+        # These appear last so they override nodeType background colours while
+        # preserving shape and size set by the nodeType selectors above.
+        *[
+            {
+                'selector': f'.community-{i}',
+                'style': {
+                    'background-color': fill,
+                    'border-color': border,
+                    'border-width': '2px',
+                }
+            }
+            for i, (fill, border) in enumerate(COMMUNITY_COLORS)
+        ],
     ]
 
 

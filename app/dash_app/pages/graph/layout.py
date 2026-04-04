@@ -529,6 +529,9 @@ def get_layout():
         html.Div with full page layout
     """
     return html.Div([
+        # Collaboration-mode info banner (hidden in normal mode)
+        html.Div(id="collaboration-banner", children=[], style={"display": "none", "padding": "0 16px"}),
+
         # Results Section (graph visualization + details panel)
         create_results_section(),
         
