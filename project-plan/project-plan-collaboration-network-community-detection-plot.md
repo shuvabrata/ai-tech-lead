@@ -8,16 +8,40 @@ Instead of relying on the official org chart (`REPORTS_TO` / `MANAGES`), this vi
 ---
 
 ## ⏸️ Current Status & Next Steps (Paused Here)
-*   **Completed:** Step 1 is fully complete. We defined a 6-scenario Cypher query to extract the "Working Closely" score, handling Neo4j 5.x syntax (`elementId`), a 90-day time window, and bot-filtering.
-*   **Completed:** We established a new modular backend structure at `app/analytics/collaboration/` and wrote a `test_runner.py` that successfully connects to Neo4j, runs the query, and prints the clean list of collaborator pairs.
-*   **Completed:** Step 2 is fully complete.
-    *   `app/analytics/collaboration/algorithm.py` — builds NetworkX graph, runs Louvain, assigns `community_id` and `hub_score` to each person, returns Cytoscape element dicts.
+
+### What's Complete
+*   **Step 1 ✅** — 6-scenario Cypher query (`app/analytics/collaboration/queries/collaboration_score.cypher`) extracts collaboration scores for all person-pairs active in the last 90 days. Handles Neo4j 5.x `elementId` syntax and bot-filtering. `test_runner.py` validates the query against live Neo4j.
+*   **Step 2 ✅** — Full backend pipeline is working and tested against live data (428 people, 1254 pairs, 10 communities, modularity ≈ 0.587):
+    *   `app/analytics/collaboration/algorithm.py` — builds NetworkX graph, runs Louvain, assigns `community_id` and `hub_score`, returns Cytoscape element dicts.
     *   `app/analytics/collaboration/tune.py` — CLI tool for weight tuning (see *Tuning* section below).
-    *   `app/api/graph/v1/router.py` — new `GET /api/v1/graph/collaboration-network` endpoint.
+    *   `app/api/graph/v1/router.py` — `GET /api/v1/graph/collaboration-network` endpoint.
     *   `app/api/graph/v1/service.py` — `get_collaboration_network()` service function.
-    *   `app/api/graph/v1/model.py` — `CollaborationNetworkResponse` Pydantic model.
+    *   `app/api/graph/v1/model.py` — `CollaborationNetworkResponse` Pydantic model with `elements`, `num_people`, `num_pairs`, `num_communities`, `modularity`.
     *   `networkx` and `python-louvain` added to `requirements.txt`.
-*   **Next Step (Start Here):** Begin **Step 3** — wire the graph page to consume the new endpoint when `?mode=collaboration` is in the URL, and add community colour styles to the Cytoscape stylesheet.
+*   **Step 3 ✅** — Dash UI is wired and functional:
+    *   `app/dash_app/pages/graph/callbacks/collaboration.py` — `load_collaboration_network` callback fires on `?mode=collaboration` URL, fetches the API, and populates the Cytoscape graph with community-coloured elements. Uses `prevent_initial_call='initial_duplicate'` to fire correctly on both page load and navigation.
+    *   `app/dash_app/pages/graph/callbacks/__init__.py` — callback registered.
+    *   `app/dash_app/pages/graph/styles.py` — 10 `.community-N` CSS rules added to `CYTOSCAPE_STYLESHEET` for Louvain community colouring.
+    *   `app/dash_app/pages/graph/layout.py` — `collaboration-banner` div added at top of page (hidden in normal mode, shows network stats in collaboration mode).
+    *   `app/dash_app/layout.py` — "Collab Network" nav link added to sidebar (`/app/graph?mode=collaboration`).
+    *   The graph loads, renders, and community colours are visible.
+
+### What Was Attempted and Reverted (Step 4)
+Two visual improvement approaches were tried but reverted due to side effects:
+
+1. **Hairball reduction via median-weight edge filtering** — Added a `min_weight` parameter to `to_cytoscape_elements()` and computed the median edge weight in `service.py` to drop the bottom 50% of edges. **Problem:** nodes whose *all* edges were below median became isolated (no connections), making the graph worse. Needs a different approach.
+
+2. **Custom cose layout via Cytoscape `layout` output** — Added `Output("graph-cytoscape", "layout", allow_duplicate=True)` to the callback and a `_COLLAB_LAYOUT` dict. This introduced a Python `SyntaxError` (dict placed between `@callback` decorator and function definition). Even after fixing the syntax, forcing a specific layout on every URL navigation is fragile with `allow_duplicate`.
+
+### Known Issues (To Address in Next Session)
+1. **Hairball density** — With 428 nodes and 1254 edges rendered at once, three dominant communities form very dense clusters. Fix options to evaluate:
+    - **Percentile filter (not median)** — use the 75th percentile instead of median so fewer but stronger edges are removed; also skip nodes that become isolated *after* filtering (isolated-node fix was already written, just needs the right threshold).
+    - **Top-N edges per node** — keep only the top K strongest edges per node, ensuring every node retains at least one connection.
+    - **Layout tweak** — force the `cose` layout with high `nodeRepulsion` and low `gravity` via the Cytoscape `layout` prop on first load *only* (not on every callback fire), using a `dcc.Store` flag to detect first load.
+2. **Person node shape** — `octagon` is the current shape. `ellipse` or `round-rectangle` would be more readable at high node density.
+
+### Next Step (Start Here)
+Address the hairball issue using the **top-N edges per node** approach — it guarantees no isolated nodes and gives direct control over visual density independent of the weight distribution.
 
 ### Tuning the Weights (CLI Tool)
 Before wiring up the UI, use the CLI tool to validate that the weights produce meaningful community structure:
