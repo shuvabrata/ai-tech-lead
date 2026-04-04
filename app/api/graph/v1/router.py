@@ -3,7 +3,7 @@
 from fastapi import APIRouter, HTTPException
 
 from app.common.logger import logger
-from .model import CypherQueryRequest, GraphResponse, NodeExpansionRequest, NodeExpansionResponse
+from .model import CollaborationNetworkResponse, CypherQueryRequest, GraphResponse, NodeExpansionRequest, NodeExpansionResponse
 from . import service
 
 router = APIRouter(prefix="/graph", tags=["graph"])
@@ -180,6 +180,71 @@ async def expand_node(request: NodeExpansionRequest):
                 "error": "Internal server error",
                 "message": "An unexpected error occurred while expanding the node"
             }
+        ) from e
+
+
+@router.get("/collaboration-network", response_model=CollaborationNetworkResponse)
+async def get_collaboration_network():
+    """
+    Build and return a collaboration network with Louvain community detection.
+
+    This endpoint runs the 6-scenario collaboration score Cypher query (last 90 days),
+    feeds the results through NetworkX + python-louvain community detection, and
+    returns Cytoscape-ready elements enriched with:
+    - **community** (int): Louvain community ID — maps to a colour class in the stylesheet
+    - **hub_score** (float): Weighted degree — maps to node size in the stylesheet
+    - **weight** (float): Collaboration score on edges — maps to line thickness
+
+    Also returns summary statistics (nodes, pairs, communities, modularity score) for
+    the UI banner or debugging.
+
+    Returns:
+        CollaborationNetworkResponse with elements and summary stats
+
+    Raises:
+        HTTPException 503: If Neo4j is not enabled
+        HTTPException 404: If query returns no collaboration data
+        HTTPException 500: If Neo4j execution or community detection fails
+    """
+    try:
+        logger.info("Collaboration network request received.")
+        response = service.get_collaboration_network()
+        logger.info(
+            f"Collaboration network built: people={response.num_people}, "
+            f"pairs={response.num_pairs}, communities={response.num_communities}, "
+            f"modularity={response.modularity}"
+        )
+        return response
+
+    except ValueError as e:
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "error": "No collaboration data",
+                "message": str(e),
+                "hint": "Check that the 90-day window contains activity in Neo4j.",
+            },
+        ) from e
+
+    except RuntimeError as e:
+        logger.error(f"Collaboration network execution error: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error": "Execution failed",
+                "message": str(e),
+                "hint": "Check Neo4j connection and NEO4J_ENABLED setting.",
+            },
+        ) from e
+
+    except Exception as e:
+        logger.error(f"Unexpected error building collaboration network: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error": "Internal server error",
+                "message": "An unexpected error occurred while building the collaboration network.",
+            },
         ) from e
 
 

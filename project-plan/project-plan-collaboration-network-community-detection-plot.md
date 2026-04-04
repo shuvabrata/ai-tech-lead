@@ -8,9 +8,35 @@ Instead of relying on the official org chart (`REPORTS_TO` / `MANAGES`), this vi
 ---
 
 ## ⏸️ Current Status & Next Steps (Paused Here)
-*   **Completed:** Step 1 is fully complete. We defined a 6-scenario Cypher query to extract the "Working Closely" score, handling Neo4j 5.x syntax (`elementId`), a 90-day time window, and bot-filtering. 
+*   **Completed:** Step 1 is fully complete. We defined a 6-scenario Cypher query to extract the "Working Closely" score, handling Neo4j 5.x syntax (`elementId`), a 90-day time window, and bot-filtering.
 *   **Completed:** We established a new modular backend structure at `app/analytics/collaboration/` and wrote a `test_runner.py` that successfully connects to Neo4j, runs the query, and prints the clean list of collaborator pairs.
-*   **Next Step (Start Here):** Begin **Step 2** by creating `app/analytics/collaboration/algorithm.py`. This script should take the query results (edges), load them into a `NetworkX` graph, run `python-louvain` community detection, and assign the resulting `community_id` to each user.
+*   **Completed:** Step 2 is fully complete.
+    *   `app/analytics/collaboration/algorithm.py` — builds NetworkX graph, runs Louvain, assigns `community_id` and `hub_score` to each person, returns Cytoscape element dicts.
+    *   `app/analytics/collaboration/tune.py` — CLI tool for weight tuning (see *Tuning* section below).
+    *   `app/api/graph/v1/router.py` — new `GET /api/v1/graph/collaboration-network` endpoint.
+    *   `app/api/graph/v1/service.py` — `get_collaboration_network()` service function.
+    *   `app/api/graph/v1/model.py` — `CollaborationNetworkResponse` Pydantic model.
+    *   `networkx` and `python-louvain` added to `requirements.txt`.
+*   **Next Step (Start Here):** Begin **Step 3** — wire the graph page to consume the new endpoint when `?mode=collaboration` is in the URL, and add community colour styles to the Cytoscape stylesheet.
+
+### Tuning the Weights (CLI Tool)
+Before wiring up the UI, use the CLI tool to validate that the weights produce meaningful community structure:
+
+```bash
+# From project root with venv active
+python -m app.analytics.collaboration.tune
+
+# With full community member lists
+python -m app.analytics.collaboration.tune --verbose
+```
+
+The report prints:
+1. **Graph Statistics** — node/edge counts, density, and hairball warning if density > 0.4
+2. **Community Detection** — number of communities and modularity score (>0.3 = meaningful)
+3. **Community Size Distribution** — bar chart of sizes, singleton warning
+4. **Top Hubs** — top 15 people by weighted degree (the "glue people")
+
+Tune the `Weight` multipliers in `queries/collaboration_score.cypher` until modularity is >0.3 and community count is between 2 and 10.
 
 ---
 

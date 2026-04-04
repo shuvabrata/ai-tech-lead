@@ -185,6 +185,24 @@ class NodeExpansionRequest(BaseModel):
         }
 
 
+class CollaborationNetworkResponse(BaseModel):
+    """Response model for the collaboration network endpoint.
+
+    Instead of raw Neo4j nodes/relationships, this returns Cytoscape-ready
+    element dicts (produced by the community detection pipeline) plus
+    summary statistics useful for the UI banner.
+    """
+
+    elements: List[Dict[str, Any]] = Field(
+        default_factory=list,
+        description="Cytoscape element dicts (nodes + edges) with community and hub_score attributes",
+    )
+    num_people: int = Field(..., description="Number of Person nodes in the network")
+    num_pairs: int = Field(..., description="Number of collaboration edges")
+    num_communities: int = Field(..., description="Number of Louvain communities detected")
+    modularity: float = Field(..., description="Louvain modularity score (0-1, >0.3 is meaningful)")
+
+
 class PaginationMeta(BaseModel):
     """Pagination metadata for expansion results."""
     
