@@ -3,7 +3,7 @@ import dash_bootstrap_components as dbc
 from dash import dcc, html
 from dash.dependencies import Input, Output, State
 
-from .pages import chat, people, progress, settings, graph, connectors
+from .pages import analytics, chat, people, progress, settings, graph, connectors
 from .styles import (
     SIDEBAR_STYLE,
     NAVBAR_BRAND_STYLE,
@@ -36,6 +36,7 @@ def create_dash_app():
             dbc.NavLink("People", href="/app/people", active="exact", id="nav-people", className="executive-nav-link"),
             dbc.NavLink("Progress", href="/app/progress", active="exact", id="nav-progress", className="executive-nav-link"),
             dbc.NavLink("Graph", href="/app/graph", active="exact", id="nav-graph", className="executive-nav-link"),
+            dbc.NavLink("Analytics", href="/app/analytics", active="exact", id="nav-analytics", className="executive-nav-link"),
             dbc.NavLink("Connectors", href="/app/connectors", active="exact", id="nav-connectors", className="executive-nav-link"),
             dbc.NavLink("Settings", href="/app/settings", active="exact", id="nav-settings", className="executive-nav-link"),
         ],
@@ -130,6 +131,8 @@ def create_dash_app():
         Input("url", "pathname")
     )
     def display_page(pathname):
+        if pathname in ("/app/analytics", "/app/analytics/"):
+            return analytics.get_layout()
         if pathname == "/app/people":
             return people.get_layout()
         if pathname == "/app/progress":

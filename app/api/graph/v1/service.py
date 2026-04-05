@@ -1,17 +1,29 @@
 """Service layer for Graph API v1 - business logic and data transformation."""
 
+from pathlib import Path as FilePath
 from typing import Any, Dict, List, Set
 from neo4j.graph import Node, Path, Relationship
 
 from app.common.logger import logger
 from app.settings import settings
-from .model import GraphNode, GraphRelationship, GraphResponse, NodeExpansionResponse, PaginationMeta
+from app.analytics.collaboration.algorithm import (
+        build_graph,
+        detect_communities,
+        compute_hub_scores,
+        compute_modularity,
+        to_cytoscape_elements,
+    )
+from .model import (
+    CollaborationNetworkResponse, 
+    GraphNode, GraphRelationship, GraphResponse, 
+    NodeExpansionResponse, PaginationMeta
+    )
 from .query import (
     validate_read_only_query, 
     execute_cypher_query, 
     expand_node_query,
     fetch_relationships_between_nodes
-)
+    )
 
 
 def execute_and_format_query(query: str) -> GraphResponse:
@@ -392,4 +404,62 @@ def expand_node(
         relationships=relationships_list,
         expanded_node_id=node_id,
         pagination=pagination
+    )
+
+
+def get_collaboration_network() -> CollaborationNetworkResponse:
+    """Run the collaboration score query and return community-detected Cytoscape elements.
+
+    Steps:
+    1. Load the Cypher query from the collaboration queries directory.
+    2. Execute it against Neo4j (returns tabular person-pair records).
+    3. Pass records through the Louvain community detection pipeline.
+    4. Return Cytoscape-ready elements plus summary statistics.
+
+    Returns:
+        CollaborationNetworkResponse with elements and summary stats.
+
+    Raises:
+        RuntimeError: If Neo4j is not enabled or query execution fails.
+        ValueError: If the query returns no data.
+    """
+
+
+    # Load the Cypher query from the analytics module
+    query_path = (
+        FilePath(__file__).resolve().parent.parent.parent.parent
+        / "analytics" / "collaboration" / "queries" / "collaboration_score.cypher"
+    )
+    query = query_path.read_text()
+
+    logger.info("Running collaboration score query...")
+    records = execute_cypher_query(query, timeout=settings.NEO4J_QUERY_TIMEOUT)
+    logger.info(f"Collaboration query returned {len(records)} pairs.")
+
+    if not records:
+        raise ValueError(
+            "Collaboration query returned no data. "
+            "Check Neo4j connectivity and that the 90-day time window contains activity."
+        )
+
+    # Run community detection pipeline
+    g = build_graph(records)
+    partition = detect_communities(g)
+    hub_scores = compute_hub_scores(g)
+    modularity = compute_modularity(g, partition)
+    elements = to_cytoscape_elements(g, partition, hub_scores)
+
+    num_communities = len(set(partition.values()))
+    logger.info(
+        f"Community detection complete: {g.number_of_nodes()} people, "
+        f"{g.number_of_edges()} pairs, {num_communities} communities, "
+        f"modularity={modularity:.3f}"
+    )
+
+    return CollaborationNetworkResponse(
+        elements=elements,
+        num_people=g.number_of_nodes(),
+        num_pairs=g.number_of_edges(),
+        num_communities=num_communities,
+        modularity=round(modularity, 4),
     )

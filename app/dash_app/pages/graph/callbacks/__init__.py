@@ -27,6 +27,8 @@ from .filtering import (
     clear_all_filters,
     apply_relationship_filters
 )
+from .analytics_mode import toggle_query_panel_for_analytics_mode
+from .collaboration import load_collaboration_network
 
 __all__ = [
     # Query callbacks
@@ -55,4 +57,7 @@ __all__ = [
     'update_weight_threshold_label',
     'clear_all_filters',
     'apply_relationship_filters',
+    'toggle_query_panel_for_analytics_mode',
+    # Collaboration network
+    'load_collaboration_network',
 ]

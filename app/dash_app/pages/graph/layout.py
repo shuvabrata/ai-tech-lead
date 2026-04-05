@@ -148,7 +148,7 @@ def create_graph_container():
                 userZoomingEnabled=True,
                 userPanningEnabled=True,
                 wheelSensitivity=1.0,
-                minZoom=0.5,
+                minZoom=0.1,
                 maxZoom=3
             )
         ]
@@ -437,7 +437,7 @@ def create_query_input_section():
                 style=GRAPH_HELPER_TEXT_STYLE
             )
         ])
-    ], style=GRAPH_QUERY_SECTION_CONTAINER_STYLE)
+    ], id="graph-query-section", style=GRAPH_QUERY_SECTION_CONTAINER_STYLE)
 
 
 def create_stores():
@@ -529,6 +529,9 @@ def get_layout():
         html.Div with full page layout
     """
     return html.Div([
+        # Collaboration-mode info banner (hidden in normal mode)
+        html.Div(id="collaboration-banner", children=[], style={"display": "none", "padding": "0 16px"}),
+
         # Results Section (graph visualization + details panel)
         create_results_section(),
         
