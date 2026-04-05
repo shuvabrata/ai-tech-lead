@@ -37,6 +37,7 @@ from app.analytics.collaboration.algorithm import (
     compute_modularity,
     MAX_COMMUNITY_STYLES,
 )
+from app.analytics.collaboration.config import CollaborationNetworkConfig
 
 # ---------------------------------------------------------------------------
 # Neo4j helpers
@@ -54,10 +55,11 @@ def _load_query() -> str:
 
 def _run_query() -> list:
     query = _load_query()
+    config = CollaborationNetworkConfig()
     driver = GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USERNAME, NEO4J_PASSWORD))
     try:
         with driver.session() as session:
-            result = session.run(query)
+            result = session.run(query, parameters=config.to_cypher_parameters())
             return [dict(r) for r in result]
     finally:
         driver.close()

@@ -1,9 +1,17 @@
 """FastAPI router for Graph API v1 - Cypher query execution endpoints."""
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
+from pydantic import ValidationError
 
+from app.analytics.collaboration.config import CollaborationNetworkConfig
 from app.common.logger import logger
-from .model import CollaborationNetworkResponse, CypherQueryRequest, GraphResponse, NodeExpansionRequest, NodeExpansionResponse
+from .model import (
+    CollaborationNetworkResponse, 
+    CypherQueryRequest, 
+    GraphResponse, 
+    NodeExpansionRequest, 
+    NodeExpansionResponse
+    )
 from . import service
 
 router = APIRouter(prefix="/graph", tags=["graph"])
@@ -184,7 +192,21 @@ async def expand_node(request: NodeExpansionRequest):
 
 
 @router.get("/collaboration-network", response_model=CollaborationNetworkResponse)
-async def get_collaboration_network():
+async def get_collaboration_network(
+    layers: str | None = Query(default=None, description="Comma-separated collaboration layers"),
+    lookback_days: int = Query(default=90, ge=1, le=365),
+    min_pair_score: float = Query(default=1.0, ge=0),
+    top_n_edges_per_node: int = Query(default=0, ge=0, le=200),
+    ensure_min_connection: bool = Query(default=True),
+    exclude_bots: bool = Query(default=True),
+    exclude_suffixes: str | None = Query(default=None, description="Comma-separated file suffixes to ignore"),
+    w_reporter_assignee: float = Query(default=2.0, ge=0),
+    w_pr_reviews: float = Query(default=3.0, ge=0),
+    w_shared_file_commits: float = Query(default=5.0, ge=0),
+    w_sprint_coworkers: float = Query(default=2.0, ge=0),
+    w_explicit_review_requests: float = Query(default=2.0, ge=0),
+    w_epic_overlap: float = Query(default=1.0, ge=0),
+):
     """
     Build and return a collaboration network with Louvain community detection.
 
@@ -208,7 +230,24 @@ async def get_collaboration_network():
     """
     try:
         logger.info("Collaboration network request received.")
-        response = service.get_collaboration_network()
+        config = CollaborationNetworkConfig.from_query_values(
+            {
+                "layers": layers,
+                "lookback_days": lookback_days,
+                "min_pair_score": min_pair_score,
+                "top_n_edges_per_node": top_n_edges_per_node,
+                "ensure_min_connection": ensure_min_connection,
+                "exclude_bots": exclude_bots,
+                "exclude_suffixes": exclude_suffixes,
+                "w_reporter_assignee": w_reporter_assignee,
+                "w_pr_reviews": w_pr_reviews,
+                "w_shared_file_commits": w_shared_file_commits,
+                "w_sprint_coworkers": w_sprint_coworkers,
+                "w_explicit_review_requests": w_explicit_review_requests,
+                "w_epic_overlap": w_epic_overlap,
+            }
+        )
+        response = service.get_collaboration_network(config=config)
         logger.info(
             f"Collaboration network built: people={response.num_people}, "
             f"pairs={response.num_pairs}, communities={response.num_communities}, "
@@ -216,7 +255,24 @@ async def get_collaboration_network():
         )
         return response
 
+    except ValidationError as e:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "error": "Invalid collaboration configuration",
+                "message": str(e),
+            },
+        ) from e
+
     except ValueError as e:
+        if "No collaboration data" not in str(e) and "returned no data" not in str(e):
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "error": "Invalid collaboration configuration",
+                    "message": str(e),
+                },
+            ) from e
         raise HTTPException(
             status_code=404,
             detail={

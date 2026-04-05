@@ -11,8 +11,10 @@ from app.analytics.collaboration.algorithm import (
         detect_communities,
         compute_hub_scores,
         compute_modularity,
+    filter_top_edges_per_node,
         to_cytoscape_elements,
     )
+from app.analytics.collaboration.config import CollaborationNetworkConfig
 from .model import (
     CollaborationNetworkResponse, 
     GraphNode, GraphRelationship, GraphResponse, 
@@ -407,9 +409,11 @@ def expand_node(
     )
 
 
-def get_collaboration_network() -> CollaborationNetworkResponse:
+def get_collaboration_network(
+    config: CollaborationNetworkConfig | None = None,
+) -> CollaborationNetworkResponse:
     """Run the collaboration score query and return community-detected Cytoscape elements.
-
+    config = config or CollaborationNetworkConfig()
     Steps:
     1. Load the Cypher query from the collaboration queries directory.
     2. Execute it against Neo4j (returns tabular person-pair records).
@@ -433,7 +437,11 @@ def get_collaboration_network() -> CollaborationNetworkResponse:
     query = query_path.read_text()
 
     logger.info("Running collaboration score query...")
-    records = execute_cypher_query(query, timeout=settings.NEO4J_QUERY_TIMEOUT)
+    records = execute_cypher_query(
+        query,
+        timeout=settings.NEO4J_QUERY_TIMEOUT,
+        parameters=config.to_cypher_parameters(),
+    )
     logger.info(f"Collaboration query returned {len(records)} pairs.")
 
     if not records:
@@ -444,6 +452,12 @@ def get_collaboration_network() -> CollaborationNetworkResponse:
 
     # Run community detection pipeline
     g = build_graph(records)
+    if config.top_n_edges_per_node > 0:
+        g = filter_top_edges_per_node(
+            g,
+            top_n=config.top_n_edges_per_node,
+            ensure_min_connection=config.ensure_min_connection,
+        )
     partition = detect_communities(g)
     hub_scores = compute_hub_scores(g)
     modularity = compute_modularity(g, partition)
@@ -462,4 +476,5 @@ def get_collaboration_network() -> CollaborationNetworkResponse:
         num_pairs=g.number_of_edges(),
         num_communities=num_communities,
         modularity=round(modularity, 4),
+        config=config.to_summary(),
     )

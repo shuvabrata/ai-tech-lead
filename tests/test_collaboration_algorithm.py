@@ -14,6 +14,7 @@ from app.analytics.collaboration.algorithm import (
     compute_hub_scores,
     compute_modularity,
     detect_communities,
+    filter_top_edges_per_node,
     process_collaboration_network,
     to_cytoscape_elements,
 )
@@ -133,6 +134,46 @@ class TestComputeHubScores:
         g = build_graph(SIMPLE_RECORDS)
         hub_scores = compute_hub_scores(g)
         assert all(s >= 0 for s in hub_scores.values())
+
+
+# ---------------------------------------------------------------------------
+# filter_top_edges_per_node
+# ---------------------------------------------------------------------------
+
+class TestFilterTopEdgesPerNode:
+    def test_top_n_zero_returns_copy(self):
+        g = build_graph(SIMPLE_RECORDS)
+        filtered = filter_top_edges_per_node(g, top_n=0)
+
+        assert filtered is not g
+        assert filtered.number_of_nodes() == g.number_of_nodes()
+        assert filtered.number_of_edges() == g.number_of_edges()
+
+    def test_keeps_strongest_edge_per_node(self):
+        records = [
+            {"person1": "alice", "person2": "bob", "total_collaboration_score": 10},
+            {"person1": "alice", "person2": "carol", "total_collaboration_score": 3},
+            {"person1": "alice", "person2": "dave", "total_collaboration_score": 1},
+        ]
+        g = build_graph(records)
+        filtered = filter_top_edges_per_node(g, top_n=1)
+
+        assert filtered.has_edge("alice", "bob")
+        assert filtered.number_of_edges() >= 1
+
+    def test_ensure_min_connection_keeps_all_connected_nodes(self):
+        records = [
+            {"person1": "a", "person2": "b", "total_collaboration_score": 10},
+            {"person1": "a", "person2": "c", "total_collaboration_score": 9},
+            {"person1": "a", "person2": "d", "total_collaboration_score": 8},
+            {"person1": "b", "person2": "c", "total_collaboration_score": 1},
+        ]
+        g = build_graph(records)
+        filtered = filter_top_edges_per_node(g, top_n=1, ensure_min_connection=True)
+
+        for node in g.nodes():
+            if g.degree(node) > 0:
+                assert filtered.degree(node) > 0
 
 
 # ---------------------------------------------------------------------------

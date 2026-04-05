@@ -75,6 +75,68 @@ def compute_hub_scores(g: nx.Graph) -> Dict[str, float]:
     return dict(g.degree(weight="weight"))
 
 
+def filter_top_edges_per_node(
+    g: nx.Graph,
+    top_n: int,
+    ensure_min_connection: bool = True,
+) -> nx.Graph:
+    """Return a graph filtered to strongest edges per node.
+
+    For each node, keep only its top-N weighted edges. Final edge set is the union
+    across all nodes so a strong edge survives if selected by either endpoint.
+
+    Args:
+        g: Source undirected weighted graph.
+        top_n: Maximum number of strongest edges to keep per node. Values <= 0
+               disable filtering and return a shallow copy of the original graph.
+        ensure_min_connection: If True, guarantees each node with at least one
+                               original edge keeps at least one edge.
+
+    Returns:
+        Filtered graph containing all original nodes and selected edges.
+    """
+    if top_n <= 0 or g.number_of_edges() == 0:
+        return g.copy()
+
+    selected_edges: set[tuple[str, str]] = set()
+
+    for node in g.nodes():
+        neighbors = sorted(
+            g.edges(node, data=True),
+            key=lambda edge: edge[2].get("weight", 0),
+            reverse=True,
+        )
+        if not neighbors:
+            continue
+
+        chosen = neighbors[:top_n]
+        if ensure_min_connection and not chosen:
+            chosen = [neighbors[0]]
+
+        for source, target, _ in chosen:
+            selected_edges.add(tuple(sorted((source, target))))
+
+    filtered = nx.Graph()
+    filtered.add_nodes_from(g.nodes(data=True))
+
+    for source, target in selected_edges:
+        if g.has_edge(source, target):
+            filtered.add_edge(source, target, **g[source][target])
+
+    if ensure_min_connection:
+        for node in g.nodes():
+            if g.degree(node) == 0 or filtered.degree(node) > 0:
+                continue
+            strongest = max(
+                g.edges(node, data=True),
+                key=lambda edge: edge[2].get("weight", 0),
+            )
+            source, target, _ = strongest
+            filtered.add_edge(source, target, **g[source][target])
+
+    return filtered
+
+
 def to_cytoscape_elements(
     g: nx.Graph,
     partition: Dict[str, int],
