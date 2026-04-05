@@ -201,6 +201,10 @@ class CollaborationNetworkResponse(BaseModel):
     num_pairs: int = Field(..., description="Number of collaboration edges")
     num_communities: int = Field(..., description="Number of Louvain communities detected")
     modularity: float = Field(..., description="Louvain modularity score (0-1, >0.3 is meaningful)")
+    config: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Applied collaboration configuration (layers, weights, filters)",
+    )
 
 
 class PaginationMeta(BaseModel):

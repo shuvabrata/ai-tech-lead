@@ -72,7 +72,11 @@ def validate_read_only_query(query: str) -> bool:
     return True
 
 
-def execute_cypher_query(query: str, timeout: int = 30) -> List[Dict[str, Any]]:
+def execute_cypher_query(
+    query: str,
+    timeout: int = 30,
+    parameters: Dict[str, Any] | None = None,
+) -> List[Dict[str, Any]]:
     """Execute a Cypher query against Neo4j and return raw results.
     
     This function creates a native Neo4j driver connection, executes the query
@@ -115,7 +119,7 @@ def execute_cypher_query(query: str, timeout: int = 30) -> List[Dict[str, Any]]:
         
         # Execute query with timeout
         with driver.session() as session:
-            result = session.run(query, timeout=timeout)
+            result = session.run(query, parameters=parameters or {}, timeout=timeout)
             
             # Convert to list of dictionaries
             # Neo4j driver returns Record objects that act like dicts
