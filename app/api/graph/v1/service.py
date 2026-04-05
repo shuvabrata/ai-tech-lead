@@ -413,7 +413,7 @@ def get_collaboration_network(
     config: CollaborationNetworkConfig | None = None,
 ) -> CollaborationNetworkResponse:
     """Run the collaboration score query and return community-detected Cytoscape elements.
-    config = config or CollaborationNetworkConfig()
+
     Steps:
     1. Load the Cypher query from the collaboration queries directory.
     2. Execute it against Neo4j (returns tabular person-pair records).
@@ -427,7 +427,7 @@ def get_collaboration_network(
         RuntimeError: If Neo4j is not enabled or query execution fails.
         ValueError: If the query returns no data.
     """
-
+    config = config or CollaborationNetworkConfig()
 
     # Load the Cypher query from the analytics module
     query_path = (

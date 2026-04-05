@@ -42,7 +42,7 @@ def _render_query(query: str, parameters: dict[str, Any]) -> str:
 
 
 @pytest.mark.skipif(
-    (not settings.NEO4J_ENABLED) or (os.getenv("RUN_COLLAB_DB_VALIDATION", "0") != "0"),
+    (not settings.NEO4J_ENABLED) or (os.getenv("RUN_COLLAB_DB_VALIDATION", "0") != "1"),
     reason=(
         "Requires live Neo4j and explicit opt-in. "
         "Set NEO4J_ENABLED=true and RUN_COLLAB_DB_VALIDATION=1 to run."
