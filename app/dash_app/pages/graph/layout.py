@@ -437,7 +437,7 @@ def create_query_input_section():
                 style=GRAPH_HELPER_TEXT_STYLE
             )
         ])
-    ], style=GRAPH_QUERY_SECTION_CONTAINER_STYLE)
+    ], id="graph-query-section", style=GRAPH_QUERY_SECTION_CONTAINER_STYLE)
 
 
 def create_stores():

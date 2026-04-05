@@ -4,9 +4,12 @@ Handles auto-loading the collaboration network visualization when the graph
 page is accessed with ?mode=collaboration in the URL query string.
 """
 
+from urllib.parse import parse_qs
+
 import dash_bootstrap_components as dbc
 from dash import Input, Output, callback, html, no_update
 
+from app.analytics.registry import COLLABORATION_NETWORK_ANALYTIC
 from app.common.logger import logger
 from app.dash_app.styles import GRAPH_DETAILS_PANEL_STYLE
 from app.api.graph.v1.service import get_collaboration_network
@@ -29,8 +32,11 @@ from app.api.graph.v1.service import get_collaboration_network
     prevent_initial_call='initial_duplicate',
 )
 def load_collaboration_network(search: str | None, pathname: str | None):
-    """Fetch and render the collaboration network when ?mode=collaboration is active."""
-    if pathname != "/app/graph" or search != "?mode=collaboration":
+    """Fetch and render the collaboration network when collaboration analytics mode is active."""
+    params = parse_qs((search or "").lstrip("?"))
+    mode = params.get("mode", [None])[0]
+
+    if pathname != "/app/graph" or mode not in {"collaboration", COLLABORATION_NETWORK_ANALYTIC.key}:
         return [no_update] * 11
 
     logger.info("[COLLABORATION] Loading collaboration network")

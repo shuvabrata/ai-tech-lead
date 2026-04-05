@@ -19,20 +19,30 @@ Instead of relying on the official org chart (`REPORTS_TO` / `MANAGES`), this vi
     *   `app/api/graph/v1/model.py` — `CollaborationNetworkResponse` Pydantic model with `elements`, `num_people`, `num_pairs`, `num_communities`, `modularity`.
     *   `networkx` and `python-louvain` added to `requirements.txt`.
 *   **Step 3 ✅** — Dash UI is wired and functional:
-    *   `app/dash_app/pages/graph/callbacks/collaboration.py` — `load_collaboration_network` callback fires on `?mode=collaboration` URL, fetches the API, and populates the Cytoscape graph with community-coloured elements. Uses `prevent_initial_call='initial_duplicate'` to fire correctly on both page load and navigation.
+  *   `app/dash_app/pages/graph/callbacks/collaboration.py` — `load_collaboration_network` callback fires when the graph page is opened in collaboration analytics mode (canonical route: `?mode=collaboration_network`), fetches the API, and populates the Cytoscape graph with community-coloured elements. Uses `prevent_initial_call='initial_duplicate'` to fire correctly on both page load and navigation.
     *   `app/dash_app/pages/graph/callbacks/__init__.py` — callback registered.
     *   `app/dash_app/pages/graph/styles.py` — 20 `.community-N` CSS rules in `CYTOSCAPE_STYLESHEET` for Louvain community colouring (increased from 10; colours ordered for maximum contrast at low community counts).
     *   `app/dash_app/pages/graph/layout.py` — `collaboration-banner` div added at top of page (hidden in normal mode, shows network stats in collaboration mode).
-    *   `app/dash_app/layout.py` — "Collab Network" nav link added to sidebar (`/app/graph?mode=collaboration`).
+  *   `app/dash_app/layout.py` + `app/dash_app/pages/analytics.py` — pre-built graph analytics are launched from a single Analytics gallery page rather than separate sidebar links.
     *   The graph loads, renders, and community colours are visible.
+*   **Step 4 ✅ (Scope Decision)** — The UX for pre-built graph analytics is being generalized so it scales beyond a single visualization:
+  *   Add a single sidebar entry for an **Analytics** page instead of one sidebar link per graph analytic.
+  *   Add an analytics registry as the single source of truth for graph-based out-of-the-box visualizations (key, title, description, route mode, and future metadata such as icon/tags).
+  *   Build an Analytics gallery page that lists the available graph analytics with short descriptions.
+  *   Clicking an analytics card navigates to the generic graph page using the query-string route pattern (`/app/graph?mode=<analytic-key>`).
+  *   The generic graph page becomes explicitly dual-mode:
+    *   **Query mode** — existing Cypher query console for ad-hoc graph exploration.
+    *   **Analytics mode** — pre-built visualization loader selected by `mode` in the URL.
+  *   In analytics mode, the Cypher query panel should be hidden so the page behaves like a focused visualization surface rather than a mixed-purpose query console.
 *   **Bug fix ✅** — `num_communities` and modularity returned by the API were inaccurate when Louvain detected more than 10 communities, because community IDs were clamped before analytics. Fix: `detect_communities()` now returns raw Louvain IDs; clamping to `[0, MAX_COMMUNITY_STYLES - 1]` for the CSS class name happens only inside `to_cytoscape_elements()`. `MAX_COMMUNITY_STYLES` raised to 20.
 
 ### Known Issues (To Address in Next Session)
 1. **Hairball density** — With 428 nodes and 1254 edges rendered at once, three dominant communities form very dense clusters. Preferred approach: **top-N edges per node** — keep only the top K strongest edges per node, ensuring every node retains at least one connection. This gives direct control over visual density independent of the weight distribution.
 2. **Person node shape** — `octagon` is the current shape. `ellipse` or `round-rectangle` would be more readable at high node density.
+3. **Analytics extensibility** — New pre-built graph analytics should be plug-in friendly: ideally each new analytic requires only a registry entry plus its own loader callback/service implementation, without additional sidebar or routing changes.
 
 ### Next Step (Start Here)
-Address the hairball issue using the **top-N edges per node** approach.
+Implement the **Analytics page + registry + graph analytics mode** foundation, then return to the hairball issue using the **top-N edges per node** approach.
 
 ### Tuning the Weights (CLI Tool)
 Before wiring up the UI, use the CLI tool to validate that the weights produce meaningful community structure:
