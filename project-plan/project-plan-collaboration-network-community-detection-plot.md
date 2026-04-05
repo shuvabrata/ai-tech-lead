@@ -21,10 +21,11 @@ Instead of relying on the official org chart (`REPORTS_TO` / `MANAGES`), this vi
 *   **Step 3 ✅** — Dash UI is wired and functional:
     *   `app/dash_app/pages/graph/callbacks/collaboration.py` — `load_collaboration_network` callback fires on `?mode=collaboration` URL, fetches the API, and populates the Cytoscape graph with community-coloured elements. Uses `prevent_initial_call='initial_duplicate'` to fire correctly on both page load and navigation.
     *   `app/dash_app/pages/graph/callbacks/__init__.py` — callback registered.
-    *   `app/dash_app/pages/graph/styles.py` — 10 `.community-N` CSS rules added to `CYTOSCAPE_STYLESHEET` for Louvain community colouring.
+    *   `app/dash_app/pages/graph/styles.py` — 20 `.community-N` CSS rules in `CYTOSCAPE_STYLESHEET` for Louvain community colouring (increased from 10; colours ordered for maximum contrast at low community counts).
     *   `app/dash_app/pages/graph/layout.py` — `collaboration-banner` div added at top of page (hidden in normal mode, shows network stats in collaboration mode).
     *   `app/dash_app/layout.py` — "Collab Network" nav link added to sidebar (`/app/graph?mode=collaboration`).
     *   The graph loads, renders, and community colours are visible.
+*   **Bug fix ✅** — `num_communities` and modularity returned by the API were inaccurate when Louvain detected more than 10 communities, because community IDs were clamped before analytics. Fix: `detect_communities()` now returns raw Louvain IDs; clamping to `[0, MAX_COMMUNITY_STYLES - 1]` for the CSS class name happens only inside `to_cytoscape_elements()`. `MAX_COMMUNITY_STYLES` raised to 20.
 
 ### What Was Attempted and Reverted (Step 4)
 Two visual improvement approaches were tried but reverted due to side effects:
@@ -60,7 +61,7 @@ The report prints:
 3. **Community Size Distribution** — bar chart of sizes, singleton warning
 4. **Top Hubs** — top 15 people by weighted degree (the "glue people")
 
-Tune the `Weight` multipliers in `queries/collaboration_score.cypher` until modularity is >0.3 and community count is between 2 and 10.
+Tune the `Weight` multipliers in `queries/collaboration_score.cypher` until modularity is >0.3 and community count is between 2 and 20.
 
 ---
 

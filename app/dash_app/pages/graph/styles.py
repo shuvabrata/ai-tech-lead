@@ -15,20 +15,32 @@ from app.dash_app.styles import (
     FONT_WEIGHT_MEDIUM,
 )
 
-# 10 distinct, accessible fill/border colour pairs for community detection.
-# Ordered to maximise contrast between adjacent communities (Louvain assigns
-# IDs 0-9 deterministically, so neighbours often share IDs).
+# 20 distinct, accessible fill/border colour pairs for community detection.
+# Ordering strategy: the first N entries are maximally hue-distinct so that
+# graphs with few communities (2-5) still display clearly different colours.
+# Pairs are interleaved across warm/cool/neutral hues rather than listed by
+# hue family, so community-0 and community-1 are never similar-looking.
 COMMUNITY_COLORS = [
-    ("#3B82F6", "#2563EB"),   # 0 – blue
-    ("#10B981", "#059669"),   # 1 – emerald
-    ("#F59E0B", "#D97706"),   # 2 – amber
-    ("#EF4444", "#DC2626"),   # 3 – red
-    ("#8B5CF6", "#7C3AED"),   # 4 – violet
-    ("#EC4899", "#DB2777"),   # 5 – pink
-    ("#14B8A6", "#0D9488"),   # 6 – teal
-    ("#F97316", "#EA580C"),   # 7 – orange
-    ("#84CC16", "#65A30D"),   # 8 – lime
-    ("#6366F1", "#4F46E5"),   # 9 – indigo
+    ("#3B82F6", "#2563EB"),   #  0 – blue          (cool)
+    ("#EF4444", "#DC2626"),   #  1 – red            (warm)
+    ("#10B981", "#059669"),   #  2 – emerald        (cool)
+    ("#F59E0B", "#D97706"),   #  3 – amber          (warm)
+    ("#8B5CF6", "#7C3AED"),   #  4 – violet         (cool)
+    ("#F97316", "#EA580C"),   #  5 – orange         (warm)
+    ("#14B8A6", "#0D9488"),   #  6 – teal           (cool)
+    ("#EC4899", "#DB2777"),   #  7 – pink           (warm)
+    ("#84CC16", "#65A30D"),   #  8 – lime           (mid)
+    ("#6366F1", "#4F46E5"),   #  9 – indigo         (cool)
+    ("#06B6D4", "#0891B2"),   # 10 – cyan           (cool)
+    ("#F43F5E", "#E11D48"),   # 11 – rose           (warm)
+    ("#0EA5E9", "#0284C7"),   # 12 – sky            (cool)
+    ("#EAB308", "#CA8A04"),   # 13 – yellow         (warm)
+    ("#A855F7", "#9333EA"),   # 14 – purple         (cool)
+    ("#D946EF", "#C026D3"),   # 15 – fuchsia        (warm)
+    ("#22C55E", "#16A34A"),   # 16 – green          (mid)
+    ("#64748B", "#475569"),   # 17 – slate          (neutral)
+    ("#B45309", "#92400E"),   # 18 – brown-amber    (warm)
+    ("#0F766E", "#115E59"),   # 19 – dark-teal      (cool)
 ]
 
 

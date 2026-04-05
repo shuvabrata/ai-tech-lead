@@ -16,7 +16,7 @@ import community.community_louvain as community_louvain
 
 # Number of distinct community colours supported in the Cytoscape stylesheet.
 # Community IDs are clamped to this range so we never exceed the defined styles.
-MAX_COMMUNITY_STYLES = 10
+MAX_COMMUNITY_STYLES = 20
 
 
 def build_graph(records: List[Dict[str, Any]]) -> nx.Graph:
@@ -50,15 +50,14 @@ def detect_communities(g: nx.Graph) -> Dict[str, int]:
         g: Undirected weighted NetworkX graph.
 
     Returns:
-        Dict mapping node name -> community integer ID (0-indexed).
-        Community IDs are clamped to [0, MAX_COMMUNITY_STYLES - 1] so the
-        Cytoscape stylesheet always has a matching colour rule.
+        Dict mapping node name -> raw community integer ID (0-indexed).
+        IDs are NOT clamped here so callers get the true community count.
+        Clamping to [0, MAX_COMMUNITY_STYLES - 1] for stylesheet classes
+        is done inside to_cytoscape_elements.
     """
     if g.number_of_nodes() == 0:
         return {}
-    partition = community_louvain.best_partition(g, weight="weight")
-    # Clamp IDs to prevent going beyond defined stylesheet classes
-    return {node: cid % MAX_COMMUNITY_STYLES for node, cid in partition.items()}
+    return community_louvain.best_partition(g, weight="weight")
 
 
 def compute_hub_scores(g: nx.Graph) -> Dict[str, float]:
@@ -84,13 +83,14 @@ def to_cytoscape_elements(
     """Convert a NetworkX graph with community data into Cytoscape element dicts.
 
     Produces the list format expected by dash-cytoscape's 'elements' prop:
-      - Each node carries: id, label, nodeType, community, hub_score
-      - Each node gets a class string 'community-N' for CSS-like colour assignment
+      - Each node carries: id, label, nodeType, community (raw ID), hub_score
+      - Each node gets a class string 'community-N' where N is the raw ID clamped
+        to [0, MAX_COMMUNITY_STYLES - 1] for stylesheet lookup
       - Each edge carries: source, target, weight (maps to line thickness in stylesheet)
 
     Args:
         g: Undirected weighted NetworkX graph.
-        partition: Dict mapping node name -> community ID (from detect_communities).
+        partition: Dict mapping node name -> raw community ID (from detect_communities).
         hub_scores: Dict mapping node name -> weighted degree (from compute_hub_scores).
 
     Returns:
@@ -100,6 +100,7 @@ def to_cytoscape_elements(
 
     for node in g.nodes():
         community_id = partition.get(node, 0)
+        style_id = community_id % MAX_COMMUNITY_STYLES
         elements.append({
             "data": {
                 "id": node,
@@ -110,7 +111,7 @@ def to_cytoscape_elements(
                 "hub_score": hub_scores.get(node, 0.0),
                 "elementType": "node",
             },
-            "classes": f"community-{community_id}",
+            "classes": f"community-{style_id}",
         })
 
     for source, target, edge_data in g.edges(data=True):
