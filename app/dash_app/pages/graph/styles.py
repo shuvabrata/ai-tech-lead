@@ -51,7 +51,10 @@ def build_cytoscape_stylesheet(theme_name: str = ACTIVE_THEME):
     cyto_font_family = re.sub(r"[\"']", "", FONT_SANS)
 
     # Keep graph labels readable on dark node fills.
+    # Default (untyped) nodes use text.primary on light to contrast against the
+    # neutral gray fill.  Vivid typed-node fills use the shared label token.
     node_label_color = tokens["text.primary"] if theme_name == "executive-light" else "#f4f7fb"
+    typed_node_label_color = tokens["graph.node.label"]
     edge_label_bg = tokens["surface.base"]
 
     return [
@@ -81,6 +84,7 @@ def build_cytoscape_stylesheet(theme_name: str = ACTIVE_THEME):
                 'shape': 'round-rectangle',
                 'background-color': tokens["graph.node.project"],
                 'border-color': tokens["graph.node.project.border"],
+                'color': typed_node_label_color,
                 'width': '70px',
                 'height': '70px'
             }
@@ -91,6 +95,7 @@ def build_cytoscape_stylesheet(theme_name: str = ACTIVE_THEME):
                 'shape': 'octagon',
                 'background-color': tokens["graph.node.person"],
                 'border-color': tokens["graph.node.person.border"],
+                'color': typed_node_label_color,
                 'width': '65px',
                 'height': '65px'
             }
@@ -101,6 +106,7 @@ def build_cytoscape_stylesheet(theme_name: str = ACTIVE_THEME):
                 'shape': 'diamond',
                 'background-color': tokens["graph.node.branch"],
                 'border-color': tokens["graph.node.branch.border"],
+                'color': typed_node_label_color,
                 'width': '55px',
                 'height': '55px'
             }
@@ -111,6 +117,7 @@ def build_cytoscape_stylesheet(theme_name: str = ACTIVE_THEME):
                 'shape': 'hexagon',
                 'background-color': tokens["graph.node.epic"],
                 'border-color': tokens["graph.node.epic.border"],
+                'color': typed_node_label_color,
                 'width': '65px',
                 'height': '65px'
             }
@@ -121,7 +128,7 @@ def build_cytoscape_stylesheet(theme_name: str = ACTIVE_THEME):
                 'shape': 'triangle',
                 'background-color': tokens["graph.node.issue"],
                 'border-color': tokens["graph.node.issue.border"],
-                'color': node_label_color,
+                'color': typed_node_label_color,
                 'width': '55px',
                 'height': '55px'
             }
@@ -132,6 +139,7 @@ def build_cytoscape_stylesheet(theme_name: str = ACTIVE_THEME):
                 'shape': 'rectangle',
                 'background-color': tokens["graph.node.repository"],
                 'border-color': tokens["graph.node.repository.border"],
+                'color': typed_node_label_color,
                 'width': '65px',
                 'height': '65px'
             }
