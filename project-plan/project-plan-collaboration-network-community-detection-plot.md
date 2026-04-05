@@ -27,22 +27,12 @@ Instead of relying on the official org chart (`REPORTS_TO` / `MANAGES`), this vi
     *   The graph loads, renders, and community colours are visible.
 *   **Bug fix ✅** — `num_communities` and modularity returned by the API were inaccurate when Louvain detected more than 10 communities, because community IDs were clamped before analytics. Fix: `detect_communities()` now returns raw Louvain IDs; clamping to `[0, MAX_COMMUNITY_STYLES - 1]` for the CSS class name happens only inside `to_cytoscape_elements()`. `MAX_COMMUNITY_STYLES` raised to 20.
 
-### What Was Attempted and Reverted (Step 4)
-Two visual improvement approaches were tried but reverted due to side effects:
-
-1. **Hairball reduction via median-weight edge filtering** — Added a `min_weight` parameter to `to_cytoscape_elements()` and computed the median edge weight in `service.py` to drop the bottom 50% of edges. **Problem:** nodes whose *all* edges were below median became isolated (no connections), making the graph worse. Needs a different approach.
-
-2. **Custom cose layout via Cytoscape `layout` output** — Added `Output("graph-cytoscape", "layout", allow_duplicate=True)` to the callback and a `_COLLAB_LAYOUT` dict. This introduced a Python `SyntaxError` (dict placed between `@callback` decorator and function definition). Even after fixing the syntax, forcing a specific layout on every URL navigation is fragile with `allow_duplicate`.
-
 ### Known Issues (To Address in Next Session)
-1. **Hairball density** — With 428 nodes and 1254 edges rendered at once, three dominant communities form very dense clusters. Fix options to evaluate:
-    - **Percentile filter (not median)** — use the 75th percentile instead of median so fewer but stronger edges are removed; also skip nodes that become isolated *after* filtering (isolated-node fix was already written, just needs the right threshold).
-    - **Top-N edges per node** — keep only the top K strongest edges per node, ensuring every node retains at least one connection.
-    - **Layout tweak** — force the `cose` layout with high `nodeRepulsion` and low `gravity` via the Cytoscape `layout` prop on first load *only* (not on every callback fire), using a `dcc.Store` flag to detect first load.
+1. **Hairball density** — With 428 nodes and 1254 edges rendered at once, three dominant communities form very dense clusters. Preferred approach: **top-N edges per node** — keep only the top K strongest edges per node, ensuring every node retains at least one connection. This gives direct control over visual density independent of the weight distribution.
 2. **Person node shape** — `octagon` is the current shape. `ellipse` or `round-rectangle` would be more readable at high node density.
 
 ### Next Step (Start Here)
-Address the hairball issue using the **top-N edges per node** approach — it guarantees no isolated nodes and gives direct control over visual density independent of the weight distribution.
+Address the hairball issue using the **top-N edges per node** approach.
 
 ### Tuning the Weights (CLI Tool)
 Before wiring up the UI, use the CLI tool to validate that the weights produce meaningful community structure:
