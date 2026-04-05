@@ -4,16 +4,12 @@ Handles auto-loading the collaboration network visualization when the graph
 page is accessed with ?mode=collaboration in the URL query string.
 """
 
-import requests
 import dash_bootstrap_components as dbc
 from dash import Input, Output, callback, html, no_update
 
-from app.settings import settings
 from app.common.logger import logger
 from app.dash_app.styles import GRAPH_DETAILS_PANEL_STYLE
-from ..utils import get_graph_api_base_url
-
-TIMEOUT_SECONDS = settings.HTTP_REQUEST_TIMEOUT
+from app.api.graph.v1.service import get_collaboration_network
 
 
 @callback(
@@ -37,29 +33,18 @@ def load_collaboration_network(search: str | None, pathname: str | None):
     if pathname != "/app/graph" or search != "?mode=collaboration":
         return [no_update] * 11
 
-    api_base = get_graph_api_base_url()
-    logger.info("[COLLABORATION] Loading collaboration network from %s", api_base)
+    logger.info("[COLLABORATION] Loading collaboration network")
 
     hide = {"display": "none"}
     show_block = {"display": "block"}
     banner_padding = {"display": "block", "padding": "0 16px"}
 
     try:
-        response = requests.get(
-            f"{api_base}/api/v1/graph/collaboration-network",
-            timeout=TIMEOUT_SECONDS,
-        )
-
-        if response.status_code != 200:
-            logger.warning("[COLLABORATION] API returned %s", response.status_code)
-            banner = _error_banner(f"Failed to load collaboration network (HTTP {response.status_code}).")
-            return ([], hide, None, hide, hide, [], [], {}, {}, [banner], banner_padding)
-
-        data = response.json()
-        elements = data.get("elements", [])
+        data = get_collaboration_network()
+        elements = data.elements
 
         if not elements:
-            logger.warning("[COLLABORATION] No elements returned from API")
+            logger.warning("[COLLABORATION] No elements returned")
             empty_msg = html.Div(
                 "No collaboration data found for the last 90 days.",
                 style={"textAlign": "center", "padding": "40px", "color": "var(--color-text-secondary)"},
@@ -69,10 +54,10 @@ def load_collaboration_network(search: str | None, pathname: str | None):
                 hide, [], [], {}, {}, [], hide,
             )
 
-        num_people = data.get("num_people", 0)
-        num_pairs = data.get("num_pairs", 0)
-        num_communities = data.get("num_communities", 0)
-        modularity = data.get("modularity", 0.0)
+        num_people = data.num_people
+        num_pairs = data.num_pairs
+        num_communities = data.num_communities
+        modularity = data.modularity
 
         banner_children = dbc.Alert(
             [
@@ -106,14 +91,14 @@ def load_collaboration_network(search: str | None, pathname: str | None):
             banner_padding,            # banner visible
         )
 
-    except requests.exceptions.ConnectionError:
-        logger.error("[COLLABORATION] Connection error — is the backend running?")
-        banner = _error_banner("Cannot connect to the backend API. Ensure the server is running.")
+    except ValueError as exc:
+        logger.warning("[COLLABORATION] No data: %s", exc)
+        banner = _error_banner("No collaboration data found for the last 90 days.")
         return ([], hide, None, hide, hide, [], [], {}, {}, [banner], banner_padding)
 
     except Exception as exc:  # pylint: disable=broad-except
         logger.exception("[COLLABORATION] Unexpected error: %s", exc)
-        banner = _error_banner(f"An unexpected error occurred: {exc}")
+        banner = _error_banner("An unexpected error occurred while loading the collaboration network.")
         return ([], hide, None, hide, hide, [], [], {}, {}, [banner], banner_padding)
 
 

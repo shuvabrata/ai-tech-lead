@@ -36,7 +36,7 @@ def create_dash_app():
             dbc.NavLink("People", href="/app/people", active="exact", id="nav-people", className="executive-nav-link"),
             dbc.NavLink("Progress", href="/app/progress", active="exact", id="nav-progress", className="executive-nav-link"),
             dbc.NavLink("Graph", href="/app/graph", active="exact", id="nav-graph", className="executive-nav-link"),
-            dbc.NavLink("Collab Network", href="/app/graph?mode=collaboration", active="exact", id="nav-collab", className="executive-nav-link"),
+            dbc.NavLink("Collab Network", href="/app/graph?mode=collaboration", id="nav-collab", className="executive-nav-link"),
             dbc.NavLink("Connectors", href="/app/connectors", active="exact", id="nav-connectors", className="executive-nav-link"),
             dbc.NavLink("Settings", href="/app/settings", active="exact", id="nav-settings", className="executive-nav-link"),
         ],

@@ -19,5 +19,5 @@ langchain-openai
 langchain-community
 langchain-neo4j
 requests
-networkx
-python-louvain
+networkx>=3.6
+python-louvain>=0.16

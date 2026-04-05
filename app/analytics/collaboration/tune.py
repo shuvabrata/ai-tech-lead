@@ -25,14 +25,12 @@ from dotenv import load_dotenv
 from neo4j import GraphDatabase
 
 # ---------------------------------------------------------------------------
-# Path setup — allow running as a module from the project root
+# Environment setup
 # ---------------------------------------------------------------------------
 project_root = Path(__file__).resolve().parent.parent.parent.parent
-sys.path.insert(0, str(project_root))
 load_dotenv(project_root / ".env")
 
-# Import must come after sys.path adjustment
-from app.analytics.collaboration.algorithm import (  # noqa: E402
+from app.analytics.collaboration.algorithm import (
     build_graph,
     detect_communities,
     compute_hub_scores,
