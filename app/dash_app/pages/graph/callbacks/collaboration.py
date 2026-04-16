@@ -7,7 +7,7 @@ page is accessed with ?mode=collaboration in the URL query string.
 from urllib.parse import parse_qs
 
 import dash_bootstrap_components as dbc
-from dash import Input, Output, callback, html, no_update
+from dash import Input, Output, State, callback, html, no_update
 
 from app.analytics.collaboration.config import CollaborationNetworkConfig
 from app.analytics.registry import COLLABORATION_NETWORK_ANALYTIC
@@ -27,18 +27,37 @@ from app.api.graph.v1.service import get_collaboration_network
      Output("expanded-nodes", "data", allow_duplicate=True),
      Output("expansion-debounce-store", "data", allow_duplicate=True),
      Output("collaboration-banner", "children"),
-     Output("collaboration-banner", "style")],
+     Output("collaboration-banner", "style"),
+     Output("graph-cytoscape", "layout", allow_duplicate=True)],
     [Input("url", "search"),
      Input("url", "pathname")],
+    [State("graph-layout-selector", "value")],
     prevent_initial_call='initial_duplicate',
 )
-def load_collaboration_network(search: str | None, pathname: str | None):
+def load_collaboration_network(
+    search: str | None,
+    pathname: str | None,
+    selected_layout: str | None,
+):
     """Fetch and render the collaboration network when collaboration analytics mode is active."""
     params = parse_qs((search or "").lstrip("?"))
     mode = params.get("mode", [None])[0]
+    is_collaboration_mode = mode in {"collaboration", COLLABORATION_NETWORK_ANALYTIC.key}
 
-    if pathname != "/app/graph" or mode not in {"collaboration", COLLABORATION_NETWORK_ANALYTIC.key}:
-        return [no_update] * 11
+    def selector_to_layout(layout_name: str | None):
+        name = layout_name or "cose"
+        if name == "preset":
+            return {"name": "preset", "fit": False, "animate": False, "padding": 30}
+        return {"name": name, "animate": True}
+
+    collaboration_layout = {"name": "preset", "fit": True, "animate": False, "padding": 30}
+
+    if pathname != "/app/graph":
+        return [no_update] * 12
+
+    if not is_collaboration_mode:
+        # Keep generic graph behavior tied to the user's selected layout.
+        return [no_update] * 11 + [selector_to_layout(selected_layout)]
 
     logger.info("[COLLABORATION] Loading collaboration network")
 
@@ -53,6 +72,8 @@ def load_collaboration_network(search: str | None, pathname: str | None):
                 "lookback_days": params.get("lookback_days", [None])[0],
                 "min_pair_score": params.get("min_pair_score", [None])[0],
                 "top_n_edges_per_node": params.get("top_n_edges_per_node", [None])[0],
+                "community_gap_x": params.get("community_gap_x", [None])[0],
+                "community_gap_y": params.get("community_gap_y", [None])[0],
                 "ensure_min_connection": params.get("ensure_min_connection", [None])[0],
                 "exclude_bots": params.get("exclude_bots", [None])[0],
                 "exclude_suffixes": params.get("exclude_suffixes", [None])[0],
@@ -76,7 +97,7 @@ def load_collaboration_network(search: str | None, pathname: str | None):
             )
             return (
                 [], hide, empty_msg, {"minHeight": "300px", "padding": "16px"},
-                hide, [], [], {}, {}, [], hide,
+                hide, [], [], {}, {}, [], hide, collaboration_layout,
             )
 
         num_people = data.num_people
@@ -123,17 +144,18 @@ def load_collaboration_network(search: str | None, pathname: str | None):
             {},                        # reset expansion-debounce
             [banner_children],         # banner content
             banner_padding,            # banner visible
+            collaboration_layout,      # use deterministic preset positions
         )
 
     except ValueError as exc:
         logger.warning("[COLLABORATION] No data: %s", exc)
         banner = _error_banner(str(exc))
-        return ([], hide, None, hide, hide, [], [], {}, {}, [banner], banner_padding)
+        return ([], hide, None, hide, hide, [], [], {}, {}, [banner], banner_padding, collaboration_layout)
 
     except Exception as exc:  # pylint: disable=broad-except
         logger.exception("[COLLABORATION] Unexpected error: %s", exc)
         banner = _error_banner("An unexpected error occurred while loading the collaboration network.")
-        return ([], hide, None, hide, hide, [], [], {}, {}, [banner], banner_padding)
+        return ([], hide, None, hide, hide, [], [], {}, {}, [banner], banner_padding, collaboration_layout)
 
 
 def _error_banner(message: str):

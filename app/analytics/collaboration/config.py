@@ -38,6 +38,8 @@ DEFAULT_TOP_N_EDGES_PER_NODE = 0
 DEFAULT_EXCLUDE_BOTS = True
 DEFAULT_ENSURE_MIN_CONNECTION = True
 DEFAULT_EXCLUDED_FILE_SUFFIXES = [".json", ".md", ".lock"]
+DEFAULT_COMMUNITY_GAP_X = 1560.0
+DEFAULT_COMMUNITY_GAP_Y = 1170.0
 
 
 class CollaborationNetworkConfig(BaseModel):
@@ -48,6 +50,8 @@ class CollaborationNetworkConfig(BaseModel):
     lookback_days: int = Field(default=DEFAULT_LOOKBACK_DAYS, ge=1, le=365)
     min_pair_score: float = Field(default=DEFAULT_MIN_PAIR_SCORE, ge=0)
     top_n_edges_per_node: int = Field(default=DEFAULT_TOP_N_EDGES_PER_NODE, ge=0, le=200)
+    community_gap_x: float = Field(default=DEFAULT_COMMUNITY_GAP_X, ge=200, le=10000)
+    community_gap_y: float = Field(default=DEFAULT_COMMUNITY_GAP_Y, ge=200, le=10000)
     ensure_min_connection: bool = Field(default=DEFAULT_ENSURE_MIN_CONNECTION)
     exclude_bots: bool = Field(default=DEFAULT_EXCLUDE_BOTS)
     excluded_file_suffixes: list[str] = Field(default_factory=lambda: list(DEFAULT_EXCLUDED_FILE_SUFFIXES))
@@ -104,6 +108,8 @@ class CollaborationNetworkConfig(BaseModel):
             "lookback_days": self.lookback_days,
             "min_pair_score": self.min_pair_score,
             "top_n_edges_per_node": self.top_n_edges_per_node,
+            "community_gap_x": self.community_gap_x,
+            "community_gap_y": self.community_gap_y,
             "ensure_min_connection": self.ensure_min_connection,
             "exclude_bots": self.exclude_bots,
             "excluded_file_suffixes": self.excluded_file_suffixes,
@@ -162,6 +168,8 @@ class CollaborationNetworkConfig(BaseModel):
             "lookback_days": _as_int(values.get("lookback_days"), DEFAULT_LOOKBACK_DAYS),
             "min_pair_score": _as_float(values.get("min_pair_score"), DEFAULT_MIN_PAIR_SCORE),
             "top_n_edges_per_node": _as_int(values.get("top_n_edges_per_node"), DEFAULT_TOP_N_EDGES_PER_NODE),
+            "community_gap_x": _as_float(values.get("community_gap_x"), DEFAULT_COMMUNITY_GAP_X),
+            "community_gap_y": _as_float(values.get("community_gap_y"), DEFAULT_COMMUNITY_GAP_Y),
             "ensure_min_connection": _as_bool(values.get("ensure_min_connection"), DEFAULT_ENSURE_MIN_CONNECTION),
             "exclude_bots": _as_bool(values.get("exclude_bots"), DEFAULT_EXCLUDE_BOTS),
             "excluded_file_suffixes": excluded_suffixes or list(DEFAULT_EXCLUDED_FILE_SUFFIXES),

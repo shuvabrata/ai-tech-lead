@@ -4,6 +4,8 @@ import pytest
 
 from app.analytics.collaboration.config import (
     CollaborationNetworkConfig,
+    DEFAULT_COMMUNITY_GAP_X,
+    DEFAULT_COMMUNITY_GAP_Y,
     DEFAULT_LAYER_WEIGHTS,
     LAYER_ORDER,
 )
@@ -14,6 +16,8 @@ def test_default_config_enables_all_layers_and_default_weights():
 
     assert config.enabled_layers == LAYER_ORDER
     assert config.weights == DEFAULT_LAYER_WEIGHTS
+    assert config.community_gap_x == DEFAULT_COMMUNITY_GAP_X
+    assert config.community_gap_y == DEFAULT_COMMUNITY_GAP_Y
 
 
 def test_from_query_values_parses_layers_and_overrides_weights():
@@ -24,6 +28,8 @@ def test_from_query_values_parses_layers_and_overrides_weights():
             "lookback_days": "60",
             "min_pair_score": "2",
             "top_n_edges_per_node": "3",
+            "community_gap_x": "2000",
+            "community_gap_y": "1500",
             "exclude_bots": "false",
         }
     )
@@ -33,6 +39,8 @@ def test_from_query_values_parses_layers_and_overrides_weights():
     assert config.lookback_days == 60
     assert config.min_pair_score == 2
     assert config.top_n_edges_per_node == 3
+    assert config.community_gap_x == 2000
+    assert config.community_gap_y == 1500
     assert config.exclude_bots is False
 
 

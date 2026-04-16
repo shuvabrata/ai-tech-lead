@@ -13,18 +13,26 @@ Instead of relying on the official org chart (`REPORTS_TO` / `MANAGES`), this vi
 *   **Step 1 ✅** — 6-scenario Cypher query (`app/analytics/collaboration/queries/collaboration_score.cypher`) extracts collaboration scores for all person-pairs active in the last 90 days. Handles Neo4j 5.x `elementId` syntax and bot-filtering. `test_runner.py` validates the query against live Neo4j.
 *   **Step 2 ✅** — Full backend pipeline is working and tested against live data (428 people, 1254 pairs, 10 communities, modularity ≈ 0.587):
     *   `app/analytics/collaboration/algorithm.py` — builds NetworkX graph, runs Louvain, assigns `community_id` and `hub_score`, returns Cytoscape element dicts.
+    *   Collaboration layout positions are now generated server-side per community (deterministic preset coordinates with separated community centroids).
+    *   Community centroid spacing is configurable (`community_gap_x`, `community_gap_y`) instead of hard-coded.
+    *   `app/analytics/collaboration/config.py` includes and validates community gap defaults/ranges, and exposes them in config summary.
     *   `app/analytics/collaboration/tune.py` — CLI tool for weight tuning (see *Tuning* section below).
     *   `app/api/graph/v1/router.py` — `GET /api/v1/graph/collaboration-network` endpoint.
-    *   `app/api/graph/v1/service.py` — `get_collaboration_network()` service function.
+    *   `app/api/graph/v1/service.py` — `get_collaboration_network()` service function now passes configured community gaps into Cytoscape element generation.
     *   `app/api/graph/v1/model.py` — `CollaborationNetworkResponse` Pydantic model with `elements`, `num_people`, `num_pairs`, `num_communities`, `modularity`.
     *   `networkx` and `python-louvain` added to `requirements.txt`.
 *   **Step 3 ✅** — Dash UI is wired and functional:
   *   `app/dash_app/pages/graph/callbacks/collaboration.py` — `load_collaboration_network` callback fires when the graph page is opened in collaboration analytics mode (canonical route: `?mode=collaboration_network`), fetches the API, and populates the Cytoscape graph with community-coloured elements. Uses `prevent_initial_call='initial_duplicate'` to fire correctly on both page load and navigation.
+    *   Collaboration mode now explicitly uses Cytoscape `preset` layout (from server-provided positions).
+    *   Non-collaboration graph mode restores selector-driven generic layout behavior (no change to generic plotting).
+    *   Callback parses `community_gap_x` / `community_gap_y` from query params and forwards them into config.
     *   `app/dash_app/pages/graph/callbacks/__init__.py` — callback registered.
     *   `app/dash_app/pages/graph/styles.py` — 20 `.community-N` CSS rules in `CYTOSCAPE_STYLESHEET` for Louvain community colouring (increased from 10; colours ordered for maximum contrast at low community counts).
     *   `app/dash_app/pages/graph/layout.py` — `collaboration-banner` div added at top of page (hidden in normal mode, shows network stats in collaboration mode).
   *   `app/dash_app/layout.py` + `app/dash_app/pages/analytics.py` — pre-built graph analytics are launched from a single Analytics gallery page rather than separate sidebar links.
     *   The graph loads, renders, and community colours are visible.
+    *   Analytics options now include configurable `Community Gap X` and `Community Gap Y` controls.
+    *   A helper tip was added to guide practical gap ranges for dense networks.
 *   **Step 4 ✅** — Scalable Analytics navigation foundation is implemented:
     *   `app/analytics/registry.py` defines the analytics registry (single source of truth for graph analytics metadata and route key).
     *   `app/dash_app/pages/analytics.py` provides the Analytics gallery page with launch cards.
@@ -35,12 +43,13 @@ Instead of relying on the official org chart (`REPORTS_TO` / `MANAGES`), this vi
 *   **Bug fix ✅** — `num_communities` and modularity returned by the API were inaccurate when Louvain detected more than 10 communities, because community IDs were clamped before analytics. Fix: `detect_communities()` now returns raw Louvain IDs; clamping to `[0, MAX_COMMUNITY_STYLES - 1]` for the CSS class name happens only inside `to_cytoscape_elements()`. `MAX_COMMUNITY_STYLES` raised to 20.
 
 ### Known Issues (To Address in Next Session)
-1. **Hairball density** — With 428 nodes and 1254 edges rendered at once, three dominant communities form very dense clusters. Preferred approach: **top-N edges per node** — keep only the top K strongest edges per node, ensuring every node retains at least one connection. This gives direct control over visual density independent of the weight distribution.
+1. **Intra-community density still possible** — Inter-community overlap is now controllable via configurable gaps, but very dense communities can still look busy internally. Keep tuning `top_n_edges_per_node` and optionally node radius/ring spacing for large clusters.
 2. **Person node shape** — `octagon` is the current shape. `ellipse` or `round-rectangle` would be more readable at high node density.
-3. **Analytics onboarding workflow** — Document and standardize the plug-in checklist for adding a new graph analytic (registry entry, loader callback, service/query implementation, tests).
+3. **Node size by hub score not yet wired** — `hub_score` is computed and included in element data, but Cytoscape node width/height are still fixed by `nodeType` selectors.
+4. **Analytics onboarding workflow** — Document and standardize the plug-in checklist for adding a new graph analytic (registry entry, loader callback, service/query implementation, tests).
 
 ### Next Step (Start Here)
-Address the hairball issue using the **top-N edges per node** approach. In parallel, finalize a short onboarding checklist for adding new analytics via the registry pattern.
+Finalize readability improvements inside dense communities (top-N defaults and optional ring-spacing tuning), then wire node size to `hub_score`. In parallel, finalize a short onboarding checklist for adding new analytics via the registry pattern.
 
 ### Tuning the Weights (CLI Tool)
 Before wiring up the UI, use the CLI tool to validate that the weights produce meaningful community structure:
