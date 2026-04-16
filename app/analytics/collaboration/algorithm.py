@@ -8,6 +8,8 @@ This module takes the raw output of the collaboration score Cypher query
   4. Returns Cytoscape-compatible element dicts ready for rendering.
 """
 
+import math
+from collections import defaultdict
 from typing import Any, Dict, List
 
 import networkx as nx
@@ -141,6 +143,8 @@ def to_cytoscape_elements(
     g: nx.Graph,
     partition: Dict[str, int],
     hub_scores: Dict[str, float],
+    community_gap_x: float = 1560.0,
+    community_gap_y: float = 1170.0,
 ) -> List[Dict[str, Any]]:
     """Convert a NetworkX graph with community data into Cytoscape element dicts.
 
@@ -159,6 +163,12 @@ def to_cytoscape_elements(
         List of Cytoscape element dicts (nodes first, then edges).
     """
     elements: List[Dict[str, Any]] = []
+    positions = _compute_community_preset_positions(
+        partition,
+        hub_scores,
+        community_gap_x=community_gap_x,
+        community_gap_y=community_gap_y,
+    )
 
     for node in g.nodes():
         community_id = partition.get(node, 0)
@@ -174,6 +184,7 @@ def to_cytoscape_elements(
                 "elementType": "node",
             },
             "classes": f"community-{style_id}",
+            "position": positions.get(node, {"x": 0.0, "y": 0.0}),
         })
 
     for source, target, edge_data in g.edges(data=True):
@@ -189,6 +200,58 @@ def to_cytoscape_elements(
         })
 
     return elements
+
+
+def _compute_community_preset_positions(
+    partition: Dict[str, int],
+    hub_scores: Dict[str, float],
+    community_gap_x: float,
+    community_gap_y: float,
+) -> Dict[str, Dict[str, float]]:
+    """Generate deterministic node positions grouped by community for preset layout.
+
+    Communities are placed on a coarse grid so clusters are spatially separated.
+    Members within each community are placed in concentric rings, with high hub
+    score nodes closest to the community center.
+    """
+    if not partition:
+        return {}
+
+    communities: dict[int, list[str]] = defaultdict(list)
+    for node, community_id in partition.items():
+        communities[community_id].append(node)
+
+    sorted_communities = sorted(communities.items(), key=lambda item: item[0])
+
+    positions: Dict[str, Dict[str, float]] = {}
+
+    cols = max(1, math.ceil(math.sqrt(len(sorted_communities))))
+
+    for idx, (_community_id, members) in enumerate(sorted_communities):
+        col = idx % cols
+        row = idx // cols
+        center_x = col * community_gap_x
+        center_y = row * community_gap_y
+
+        sorted_members = sorted(members, key=lambda n: (-hub_scores.get(n, 0.0), n))
+
+        # Place the first node at center, then concentric rings around it.
+        for member_index, node in enumerate(sorted_members):
+            if member_index == 0:
+                positions[node] = {"x": center_x, "y": center_y}
+                continue
+
+            ring = math.floor(math.sqrt(member_index))
+            radius = 140.0 * ring
+            slots = max(6, ring * 8)
+            angle = 2 * math.pi * ((member_index - 1) % slots) / slots
+
+            positions[node] = {
+                "x": center_x + radius * math.cos(angle),
+                "y": center_y + radius * math.sin(angle),
+            }
+
+    return positions
 
 
 def compute_modularity(g: nx.Graph, partition: Dict[str, int]) -> float:

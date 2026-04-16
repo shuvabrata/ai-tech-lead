@@ -461,7 +461,13 @@ def get_collaboration_network(
     partition = detect_communities(g)
     hub_scores = compute_hub_scores(g)
     modularity = compute_modularity(g, partition)
-    elements = to_cytoscape_elements(g, partition, hub_scores)
+    elements = to_cytoscape_elements(
+        g,
+        partition,
+        hub_scores,
+        community_gap_x=config.community_gap_x,
+        community_gap_y=config.community_gap_y,
+    )
 
     num_communities = len(set(partition.values()))
     logger.info(

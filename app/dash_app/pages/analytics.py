@@ -9,6 +9,8 @@ from app.analytics.collaboration.config import (
     CollaborationNetworkConfig,
     DEFAULT_EXCLUDE_BOTS,
     DEFAULT_ENSURE_MIN_CONNECTION,
+    DEFAULT_COMMUNITY_GAP_X,
+    DEFAULT_COMMUNITY_GAP_Y,
     DEFAULT_LAYER_WEIGHTS,
     DEFAULT_LOOKBACK_DAYS,
     DEFAULT_MIN_PAIR_SCORE,
@@ -178,6 +180,41 @@ def _create_collaboration_controls() -> html.Div:
                         [
                             dbc.Col(
                                 [
+                                    html.Label("Community Gap X", style={"fontSize": FONT_SIZE_SMALL, "fontFamily": FONT_SANS}),
+                                    dbc.Input(
+                                        id="collab-community-gap-x",
+                                        type="number",
+                                        min=200,
+                                        max=10000,
+                                        step=10,
+                                        value=DEFAULT_COMMUNITY_GAP_X,
+                                        size="sm",
+                                    ),
+                                ],
+                                md=6,
+                            ),
+                            dbc.Col(
+                                [
+                                    html.Label("Community Gap Y", style={"fontSize": FONT_SIZE_SMALL, "fontFamily": FONT_SANS}),
+                                    dbc.Input(
+                                        id="collab-community-gap-y",
+                                        type="number",
+                                        min=200,
+                                        max=10000,
+                                        step=10,
+                                        value=DEFAULT_COMMUNITY_GAP_Y,
+                                        size="sm",
+                                    ),
+                                ],
+                                md=6,
+                            ),
+                        ],
+                        className="g-2 mb-2",
+                    ),
+                    dbc.Row(
+                        [
+                            dbc.Col(
+                                [
                                     html.Label("Lookback Days", style={"fontSize": FONT_SIZE_SMALL, "fontFamily": FONT_SANS}),
                                     dbc.Input(id="collab-lookback-days", type="number", min=1, max=365, step=1, value=DEFAULT_LOOKBACK_DAYS, size="sm"),
                                 ],
@@ -199,6 +236,16 @@ def _create_collaboration_controls() -> html.Div:
                             ),
                         ],
                         className="g-2 mb-2",
+                    ),
+                    html.Div(
+                        "Tip: For dense networks, start with X=1400-2400 and Y=1000-1800. Higher values increase spacing between communities.",
+                        style={
+                            "fontFamily": FONT_SANS,
+                            "fontSize": "11px",
+                            "color": COLOR_GRAY_MEDIUM,
+                            "marginTop": "-4px",
+                            "marginBottom": SPACING_XSMALL,
+                        },
                     ),
                     dbc.Row(
                         [
@@ -264,6 +311,8 @@ def _weight_input(layer: str) -> html.Div:
         Input("collab-lookback-days", "value"),
         Input("collab-min-pair-score", "value"),
         Input("collab-top-n-edges", "value"),
+        Input("collab-community-gap-x", "value"),
+        Input("collab-community-gap-y", "value"),
         Input("collab-exclude-bots", "value"),
         Input("collab-ensure-min-connection", "value"),
         Input("collab-weight-reporter_assignee", "value"),
@@ -279,6 +328,8 @@ def build_collaboration_href(
     lookback_days,
     min_pair_score,
     top_n_edges_per_node,
+    community_gap_x,
+    community_gap_y,
     exclude_bots,
     ensure_min_connection,
     w_reporter_assignee,
@@ -294,6 +345,8 @@ def build_collaboration_href(
         "lookback_days": lookback_days,
         "min_pair_score": min_pair_score,
         "top_n_edges_per_node": top_n_edges_per_node,
+        "community_gap_x": community_gap_x,
+        "community_gap_y": community_gap_y,
         "exclude_bots": exclude_bots,
         "ensure_min_connection": ensure_min_connection,
         "w_reporter_assignee": w_reporter_assignee,
@@ -315,6 +368,8 @@ def build_collaboration_href(
         "lookback_days": config.lookback_days,
         "min_pair_score": config.min_pair_score,
         "top_n_edges_per_node": config.top_n_edges_per_node,
+        "community_gap_x": config.community_gap_x,
+        "community_gap_y": config.community_gap_y,
         "exclude_bots": str(config.exclude_bots).lower(),
         "ensure_min_connection": str(config.ensure_min_connection).lower(),
         "w_reporter_assignee": config.weights["reporter_assignee"],
