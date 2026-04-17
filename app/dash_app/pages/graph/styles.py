@@ -176,6 +176,16 @@ def build_cytoscape_stylesheet(theme_name: str = ACTIVE_THEME):
             }
         },
         {
+            'selector': 'edge.collaboration-edge',
+            'style': {
+                # Collaboration scores are symmetric, so hide directional arrows.
+                'target-arrow-shape': 'none',
+                'source-arrow-shape': 'none',
+                'mid-target-arrow-shape': 'none',
+                'mid-source-arrow-shape': 'none',
+            }
+        },
+        {
             'selector': 'node:selected',
             'style': {
                 'border-width': '2px',

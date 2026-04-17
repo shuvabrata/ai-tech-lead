@@ -196,7 +196,10 @@ def to_cytoscape_elements(
                 "label": "COLLABORATES",
                 "relType": "COLLABORATES",
                 "elementType": "edge",
-            }
+            },
+            # Collaboration links are conceptually symmetric; keep canonical
+            # source/target IDs for data consistency but render as undirected.
+            "classes": "collaboration-edge",
         })
 
     return elements
