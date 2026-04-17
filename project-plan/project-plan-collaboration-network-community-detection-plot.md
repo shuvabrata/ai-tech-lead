@@ -41,15 +41,19 @@ Instead of relying on the official org chart (`REPORTS_TO` / `MANAGES`), this vi
     *   `app/dash_app/pages/graph/callbacks/analytics_mode.py` hides the Cypher query panel whenever graph analytics mode is active.
     *   Collaboration loader supports the canonical mode key (`collaboration_network`) and legacy compatibility (`collaboration`).
 *   **Bug fix ✅** — `num_communities` and modularity returned by the API were inaccurate when Louvain detected more than 10 communities, because community IDs were clamped before analytics. Fix: `detect_communities()` now returns raw Louvain IDs; clamping to `[0, MAX_COMMUNITY_STYLES - 1]` for the CSS class name happens only inside `to_cytoscape_elements()`. `MAX_COMMUNITY_STYLES` raised to 20.
+*   **Variable node size ✅** — `hub_score` is now mapped to Cytoscape node size via a pre-compute pipeline:
+    *   `app/common/node_size.py` — new shared module (`BASE_NODE_SIZES` dict + `apply_node_size()`) placed in `app/common/` to avoid a circular import between the analytics and Dash layers.
+    *   `algorithm.py` — log-normalizes hub scores to a `_node_size` multiplier in `[0.25, 2.0]` (using `log(score + 1)` to compress outliers), then calls `apply_node_size()` to write `_render_size_px` onto each node element.
+    *   `styles.py` — added `node[_render_size_px]` Cytoscape selector that sets `width`/`height` from the pre-computed pixel value; added `edge.collaboration-edge` selector to suppress directional arrows (collaboration scores are symmetric).
+    *   `data_transform.py` — calls `apply_node_size()` in `neo4j_to_cytoscape()` so the mechanism is also available for the generic graph (no-op when `_node_size` is absent).
 
 ### Known Issues (To Address in Next Session)
 1. **Intra-community density still possible** — Inter-community overlap is now controllable via configurable gaps, but very dense communities can still look busy internally. Keep tuning `top_n_edges_per_node` and optionally node radius/ring spacing for large clusters.
 2. **Person node shape** — `octagon` is the current shape. `ellipse` or `round-rectangle` would be more readable at high node density.
-3. **Node size by hub score not yet wired** — `hub_score` is computed and included in element data, but Cytoscape node width/height are still fixed by `nodeType` selectors.
-4. **Analytics onboarding workflow** — Document and standardize the plug-in checklist for adding a new graph analytic (registry entry, loader callback, service/query implementation, tests).
+3. **Analytics onboarding workflow** — Document and standardize the plug-in checklist for adding a new graph analytic (registry entry, loader callback, service/query implementation, tests).
 
 ### Next Step (Start Here)
-Finalize readability improvements inside dense communities (top-N defaults and optional ring-spacing tuning), then wire node size to `hub_score`. In parallel, finalize a short onboarding checklist for adding new analytics via the registry pattern.
+Finalize readability improvements inside dense communities (top-N defaults and optional ring-spacing tuning). In parallel, finalize a short onboarding checklist for adding new analytics via the registry pattern.
 
 ### Tuning the Weights (CLI Tool)
 Before wiring up the UI, use the CLI tool to validate that the weights produce meaningful community structure:
@@ -233,8 +237,9 @@ A generic network graph can easily become a visual "hairball." To make this char
 
 1. **Color (The "Groups"):** Color nodes based on their mathematically detected community. Implemented in Cytoscape via dynamic `classes` (e.g., `community-0`, `community-1`) mapped to distinct colors in the stylesheet.
    * *Insight:* Compare this to the official org chart. You might find a frontend and backend developer officially on different teams, but the algorithm colors them the same because they constantly collaborate.
-2. **Node Size (The "Hubs"):** Proportional to their total degree (number of connections). Implemented via Cytoscape `mapData(hub_score, min, max, minSize, maxSize)` for node `width` and `height`.
-   * *Insight:* Large nodes highlight the "Glue People" or "Knowledge Hubs." If a massive node leaves the company, that structural team might fracture.
+2. **Node Size (The "Hubs"):** Proportional to `hub_score`, which is each person's **weighted degree** — the sum of all their collaboration scores across every edge they hold. Computed in `algorithm.py` as `dict(g.degree(weight="weight"))`. A person who reviews a lot of code, co-edits many files, and shares many sprints will have a large `hub_score` because each of those interactions adds weight to their edges. `hub_score` is log-normalized to a `_node_size` multiplier in `[0.25, 2.0]`, which is multiplied by the nodeType's base pixel size and written as `_render_size_px`; the Cytoscape stylesheet applies it via `node[_render_size_px]`.
+   * *Insight:* Large nodes highlight the "Glue People" or "Knowledge Hubs." If such a person leaves the company, that structural team might fracture because they were the connective tissue bridging multiple sub-groups.
+   * *Also drives layout:* Within each community cluster, nodes are sorted descending by `hub_score` before positions are assigned. The highest-scoring person is placed at the community centroid; others radiate outward in concentric rings.
 3. **Edge Thickness (The "Bonds"):** Mapped to the `collaboration_score`. Implemented via Cytoscape `mapData(weight, min, max, minWidth, maxWidth)`.
    * *Insight:* Thick lines show strong pairings (e.g., pairs that always review each other's code). 
 4. **Tooltips (The "Details"):** Contextual stats on hover.

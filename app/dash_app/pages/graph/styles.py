@@ -16,10 +16,6 @@ from app.dash_app.styles import (
 )
 
 # 20 distinct, accessible fill/border colour pairs for community detection.
-# Ordering strategy: the first N entries are maximally hue-distinct so that
-# graphs with few communities (2-5) still display clearly different colours.
-# Pairs are interleaved across warm/cool/neutral hues rather than listed by
-# hue family, so community-0 and community-1 are never similar-looking.
 COMMUNITY_COLORS = [
     ("#3B82F6", "#2563EB"),   #  0 – blue          (cool)
     ("#EF4444", "#DC2626"),   #  1 – red            (warm)
@@ -47,18 +43,13 @@ COMMUNITY_COLORS = [
 def build_cytoscape_stylesheet(theme_name: str = ACTIVE_THEME):
     """Build Cytoscape stylesheet for a specific theme."""
     tokens = get_theme_tokens(theme_name)
-    # Cytoscape.js expects a comma-separated font list without quotes.
     cyto_font_family = re.sub(r"[\"']", "", FONT_SANS)
 
-    # Keep graph labels readable on dark node fills.
-    # Default (untyped) nodes use text.primary on light to contrast against the
-    # neutral gray fill.  Vivid typed-node fills use the shared label token.
     node_label_color = tokens["text.primary"] if theme_name == "executive-light" else "#f4f7fb"
     typed_node_label_color = tokens["graph.node.label"]
     edge_label_bg = tokens["surface.base"]
 
     return [
-        # Default node style
         {
             'selector': 'node',
             'style': {
@@ -186,6 +177,16 @@ def build_cytoscape_stylesheet(theme_name: str = ACTIVE_THEME):
             }
         },
         {
+            # Dynamic node size: overrides fixed nodeType sizes when a caller
+            # has pre-computed _render_size_px (= BASE_NODE_SIZES[type] * _node_size).
+            # Absent on generic graph nodes -> fixed nodeType selectors remain in effect.
+            'selector': 'node[_render_size_px]',
+            'style': {
+                'width': 'data(_render_size_px)',
+                'height': 'data(_render_size_px)',
+            }
+        },
+        {
             'selector': 'node:selected',
             'style': {
                 'border-width': '2px',
@@ -237,34 +238,31 @@ CYTOSCAPE_STYLESHEET = build_cytoscape_stylesheet()
 
 
 def get_node_type_styles(theme_name: str = ACTIVE_THEME, stylesheet=None):
-    """Extract node type styling information from the stylesheet
-    
+    """Extract node type styling information from the stylesheet.
+
     Parses CYTOSCAPE_STYLESHEET to extract node types and their colors.
     Returns a dictionary mapping node types to their styling information.
-    
+
     Returns:
         dict: Mapping of node type to style info, e.g.,
               {
-                  "Project": {"color": COLOR_GRAPH_NODE_PROJECT, "border": COLOR_GRAPH_NODE_PROJECT_BORDER, "shape": "round-rectangle"},
-                  "Person": {"color": COLOR_GRAPH_NODE_PERSON, "border": COLOR_GRAPH_NODE_PERSON_BORDER, "shape": "octagon"},
+                  "Project": {"color": ..., "border": ..., "shape": "round-rectangle"},
+                  "Person":  {"color": ..., "border": ..., "shape": "octagon"},
                   ...
               }
               Also includes "default" for nodes without specific types.
     """
     node_styles = {}
-    
-    # Pattern to match node[nodeType = "TypeName"]
-    node_type_pattern = re.compile(r'node\[nodeType\s*=\s*"([^"]+)"\]')
-    
-    stylesheet_to_parse = stylesheet or build_cytoscape_stylesheet(theme_name)
 
+    node_type_pattern = re.compile(r'node\[nodeType\s*=\s*"([^"]+)"\]')
+
+    stylesheet_to_parse = stylesheet or build_cytoscape_stylesheet(theme_name)
     tokens = get_theme_tokens(theme_name)
 
     for style_item in stylesheet_to_parse:
         selector = style_item.get('selector', '')
         style = style_item.get('style', {})
-        
-        # Check if this is a node type selector
+
         match = node_type_pattern.search(selector)
         if match:
             node_type = match.group(1)
@@ -273,12 +271,11 @@ def get_node_type_styles(theme_name: str = ACTIVE_THEME, stylesheet=None):
                 'border': style.get('border-color', tokens["graph.node.default.border"]),
                 'shape': style.get('shape', 'ellipse')
             }
-        # Check for default node style
         elif selector == 'node':
             node_styles['default'] = {
                 'color': style.get('background-color', tokens["graph.node.default"]),
                 'border': style.get('border-color', tokens["graph.node.default.border"]),
                 'shape': style.get('shape', 'ellipse')
             }
-    
+
     return node_styles
