@@ -4,6 +4,7 @@ Functions for converting between Neo4j format and Cytoscape format,
 and parsing error responses from the backend API.
 """
 
+from app.common.node_size import apply_node_size 
 from app.settings import settings
 
 
@@ -60,6 +61,7 @@ def neo4j_to_cytoscape(graph_response):
                 'elementType': 'node'
             }
         }
+        apply_node_size(cyto_node)
         elements.append(cyto_node)
     
     # Transform relationships

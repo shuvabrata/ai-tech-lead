@@ -15,6 +15,8 @@ from typing import Any, Dict, List
 import networkx as nx
 import community.community_louvain as community_louvain
 
+from app.common.node_size import apply_node_size
+
 
 # Number of distinct community colours supported in the Cytoscape stylesheet.
 # Community IDs are clamped to this range so we never exceed the defined styles.
@@ -170,22 +172,40 @@ def to_cytoscape_elements(
         community_gap_y=community_gap_y,
     )
 
+    # Pre-compute log-normalized _node_size multipliers in [0.25, 2.0].
+    # log(score + 1) compresses large outlier scores so hubs don't dwarf peers.
+    _NODE_SIZE_MIN = 0.25
+    _NODE_SIZE_MAX = 2.0
+    log_scores = {node: math.log(hub_scores.get(node, 0.0) + 1) for node in g.nodes()}
+    ls_min = min(log_scores.values(), default=0.0)
+    ls_max = max(log_scores.values(), default=0.0)
+    ls_range = ls_max - ls_min
+
+    def _node_size_for(node: str) -> float:
+        """Return a _node_size multiplier in [0.25, 2.0] for the given node."""
+        if ls_range == 0:
+            return 1.0
+        return _NODE_SIZE_MIN + (log_scores[node] - ls_min) / ls_range * (_NODE_SIZE_MAX - _NODE_SIZE_MIN)
+
     for node in g.nodes():
         community_id = partition.get(node, 0)
         style_id = community_id % MAX_COMMUNITY_STYLES
-        elements.append({
+        element = {
             "data": {
                 "id": node,
                 "label": node,
-                "displayLabel": node[:12] + "…" if len(node) > 12 else node,
+                "displayLabel": node[:12] + "\u2026" if len(node) > 12 else node,
                 "nodeType": "Person",
                 "community": community_id,
                 "hub_score": hub_scores.get(node, 0.0),
+                "_node_size": _node_size_for(node),
                 "elementType": "node",
             },
             "classes": f"community-{style_id}",
             "position": positions.get(node, {"x": 0.0, "y": 0.0}),
-        })
+        }
+        apply_node_size(element)
+        elements.append(element)
 
     for source, target, edge_data in g.edges(data=True):
         elements.append({
