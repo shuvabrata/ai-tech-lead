@@ -9,7 +9,7 @@
 **Goal**: Find and focus on relevant subgraphs  
 **Timeline**: 2-3 weeks  
 **Priority**: High (P1)  
-**Status**: Planned ⏳ (Filtering plan updated)
+**Status**: In Progress 🔄 (2.1.A complete, 2.1.B mostly complete, 2.1.C started)
 
 **Scope Note**: This document now makes a concrete implementation decision for the **filtering** part of Phase 2.  
 **Search strategy is intentionally left as-is for now** and will be revisited later.
@@ -34,7 +34,6 @@
 
 - ⏳ Property-based local filtering UI
 - ⏳ Full filter query-builder translation into Cypher
-- ⏳ Metadata/introspection endpoint
 - ⏳ Advanced server-side property/date filtering coverage
 - ⏳ Automatic size-threshold fallback
 
@@ -101,7 +100,7 @@
 #### Next recommended slice
 
 - `Option A`: local property filtering UI
-- `Option B`: continue backend server-side filtering (`2.1.C` thresholds/fallback + `2.1.2` Cypher query builder)
+- `Option B`: continue backend server-side filtering (`2.1.C` thresholds/fallback + `2.1.2` Cypher query builder) ✅ **active now**
 
 ### 2.1.B Initial Backend Slice (Implemented)
 
@@ -139,7 +138,38 @@
 
 - ⏳ Current implementation applies validated filters in service logic after base graph retrieval
 - ⏳ Full `2.1.2` query-builder translation (validated filter specs to Cypher fragments) is still pending
-- ⏳ Metadata/introspection endpoint (`2.1.3`) is still pending
+- ✅ Metadata/introspection endpoint (`2.1.3`) implemented
+
+### 2.1.3 Graph Metadata / Introspection Endpoint (Implemented)
+
+#### Exact coding checklist completed
+
+- ✅ Added `GET /api/v1/graph/filter/metadata` endpoint
+- ✅ Added optional `baseQuery` support for live graph discovery
+- ✅ Added merged metadata response:
+  - discovered labels/types/properties
+  - registry-backed server filterability metadata
+  - merged property capabilities for frontend filter construction
+- ✅ Added validation for non-graph `baseQuery` payloads
+- ✅ Added focused tests for service and router behavior
+
+#### Code areas updated
+
+- `app/api/graph/v1/model.py` (metadata response models)
+- `app/api/graph/v1/service.py` (metadata discovery + merge logic)
+- `app/api/graph/v1/router.py` (new `/graph/filter/metadata` route)
+- `tests/test_graph_filter_metadata_service.py` (new unit tests)
+- `tests/test_graph_router.py` (metadata endpoint coverage)
+
+#### Verification status
+
+- Commands run:
+  - `pytest -q tests/test_graph_filter_metadata_service.py`
+  - `pytest -q tests/test_graph_router.py -k filter_metadata_endpoint_without_base_query`
+  - `pytest tests/`
+- Result:
+  - ✅ metadata tests passing
+  - ✅ full suite passing
 
 ---
 
@@ -326,7 +356,7 @@ Implement filtering in **two layers**:
 
 ### Backend Tasks
 
-- [ ] **2.1.1 Filter Models and Contracts**
+- [x] **2.1.1 Filter Models and Contracts**
   - Add explicit request/response models for server-side filtering
   - Introduce:
     - `POST /api/v1/graph/filter`
@@ -358,7 +388,7 @@ Implement filtering in **two layers**:
     - `GraphResponse`
     - plus optional metadata for applied filters, truncation, and execution mode
 
-- [ ] **2.1.1a Filter Property Registry**
+- [x] **2.1.1a Filter Property Registry**
   - Introduce a backend-owned filter registry defining which properties are officially filterable
   - Recommended location:
     - `app/api/graph/v1/filter_registry.py`
@@ -419,7 +449,7 @@ Implement filtering in **two layers**:
   - Treat `baseQuery` as the graph-producing source query, then apply validated filters to the resulting graph scope
   - Only generate server-side predicates for properties defined in the filter registry
 
-- [ ] **2.1.3 Graph Metadata / Introspection Endpoint**
+- [x] **2.1.3 Graph Metadata / Introspection Endpoint**
   - Add endpoint for filter UI metadata, for example:
     - available node labels in current graph
     - relationship types in current graph
@@ -525,7 +555,7 @@ Implement filtering in **two layers**:
     - weighted-edge gating for weight controls
     - unweighted-graph guard for stale weight / top-N selections
 
-- [ ] **2.1.B Phase 2 - Add server-side filter API for database-backed filtering**
+- [x] **2.1.B Phase 2 - Add server-side filter API for database-backed filtering**
   - Introduce `/api/v1/graph/filter`
   - Add validated filter models
   - Add backend filter registry as the initial source of truth for server-filterable fields
@@ -547,6 +577,25 @@ Implement filtering in **two layers**:
     - recommend database filtering at about **5,000 elements**
     - recommend server-side/density reduction at about **1-2 MB** estimated payload
   - Record threshold hits in logs for tuning
+  - **Current state**:
+    - ✅ server-side threshold warnings are already emitted in filter metadata
+    - ⏳ automatic mode-switch/fallback behavior and frontend banner wiring are pending
+
+#### 2.1.C Active Next Slice (Now)
+
+- [x] Add explicit threshold reason fields for frontend consumption
+- [ ] Surface threshold recommendation/status in graph filter UI banner
+- [ ] Add automatic recommendation/switch rules for local vs database mode
+- [ ] Add focused tests for threshold-triggered recommendation/fallback behavior
+
+#### 2.1.C Progress Update
+
+- ✅ Added structured threshold status in filter execution metadata:
+  - element and payload severities (`none`/`soft`/`high`)
+  - recommended mode (`local` or `database`)
+  - explicit machine-readable threshold reasons
+- ✅ Added focused service tests validating threshold status and recommendations
+- ⏳ Remaining work is primarily frontend wiring and automatic mode-switch UX behavior
 
 - [ ] **2.1.D Phase 4 - Collaboration-specific optimization**
   - Move collaboration density controls into a more explicit server-backed filter workflow

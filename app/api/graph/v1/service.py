@@ -249,7 +249,13 @@ def execute_and_filter_query(request: GraphFilterRequest) -> GraphFilterResponse
         relationships=filtered_relationships,
     )
 
+    element_severity: str = "none"
+    payload_severity: str = "none"
+    threshold_reasons: List[str] = []
+
     if total_elements >= GRAPH_RECOMMEND_SERVER_FILTER_THRESHOLD:
+        element_severity = "high"
+        threshold_reasons.append("element_count_high")
         warnings.append(
             "Large graph detected (>5000 elements). Prefer database-side filtering and/or stronger narrowing filters."
         )
@@ -258,6 +264,8 @@ def execute_and_filter_query(request: GraphFilterRequest) -> GraphFilterResponse
             f"elements={total_elements} threshold={GRAPH_RECOMMEND_SERVER_FILTER_THRESHOLD}"
         )
     elif total_elements >= GRAPH_SOFT_WARNING_ELEMENT_THRESHOLD:
+        element_severity = "soft"
+        threshold_reasons.append("element_count_soft")
         warnings.append(
             "Graph size is moderately high (>2000 elements). Local interactions may become sluggish."
         )
@@ -267,6 +275,8 @@ def execute_and_filter_query(request: GraphFilterRequest) -> GraphFilterResponse
         )
 
     if payload_bytes >= GRAPH_PAYLOAD_RECOMMEND_SERVER_BYTES:
+        payload_severity = "high"
+        threshold_reasons.append("payload_bytes_high")
         warnings.append(
             "Estimated payload is large (>2MB). Prefer server-side filtering or density reduction."
         )
@@ -275,6 +285,8 @@ def execute_and_filter_query(request: GraphFilterRequest) -> GraphFilterResponse
             f"payload_bytes={payload_bytes} threshold={GRAPH_PAYLOAD_RECOMMEND_SERVER_BYTES}"
         )
     elif payload_bytes >= GRAPH_PAYLOAD_WARNING_BYTES:
+        payload_severity = "soft"
+        threshold_reasons.append("payload_bytes_soft")
         warnings.append(
             "Estimated payload is high (>1MB). UI responsiveness may degrade."
         )
@@ -282,6 +294,12 @@ def execute_and_filter_query(request: GraphFilterRequest) -> GraphFilterResponse
             "[GRAPH-DEBUG][filter.threshold] payload_threshold_soft "
             f"payload_bytes={payload_bytes} threshold={GRAPH_PAYLOAD_WARNING_BYTES}"
         )
+
+    recommended_mode = (
+        "database"
+        if element_severity == "high" or payload_severity == "high"
+        else "local"
+    )
 
     metadata = GraphFilterExecutionMetadata(
         mode=request.mode,
@@ -295,6 +313,14 @@ def execute_and_filter_query(request: GraphFilterRequest) -> GraphFilterResponse
         },
         truncated=truncated,
         warnings=warnings,
+        thresholdStatus=GraphFilterExecutionMetadata.ThresholdStatus(
+            elementCount=total_elements,
+            payloadBytes=payload_bytes,
+            elementSeverity=element_severity,
+            payloadSeverity=payload_severity,
+            recommendedMode=recommended_mode,
+            reasons=threshold_reasons,
+        ),
     )
 
     return GraphFilterResponse(

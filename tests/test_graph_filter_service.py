@@ -163,6 +163,9 @@ def test_execute_and_filter_query_adds_soft_element_threshold_warning(monkeypatc
         "moderately high (>2000 elements)" in warning
         for warning in response.metadata.warnings
     )
+    assert response.metadata.thresholdStatus.elementSeverity == "soft"
+    assert response.metadata.thresholdStatus.recommendedMode == "local"
+    assert "element_count_soft" in response.metadata.thresholdStatus.reasons
 
 
 def test_execute_and_filter_query_adds_payload_threshold_warning(monkeypatch):
@@ -192,6 +195,41 @@ def test_execute_and_filter_query_adds_payload_threshold_warning(monkeypatch):
         or "Estimated payload is large (>2MB)" in warning
         for warning in response.metadata.warnings
     )
+    assert response.metadata.thresholdStatus.payloadSeverity in {"soft", "high"}
+
+
+def test_execute_and_filter_query_sets_database_recommendation_for_high_threshold(monkeypatch):
+    """Should recommend database mode when high threshold is reached."""
+    high_volume_response = GraphResponse(
+        nodes=[
+            GraphNode(
+                id=f"n{i}",
+                labels=["Person"],
+                properties={"name": f"Person {i}"},
+            )
+            for i in range(5200)
+        ],
+        relationships=[],
+        rawResults=[],
+        isGraph=True,
+        resultCount=5200,
+    )
+    monkeypatch.setattr(service, "execute_and_format_query", lambda _q: high_volume_response)
+
+    request = GraphFilterRequest(
+        baseQuery="MATCH (n) RETURN n LIMIT 6000",
+        resultOptions={
+            "limitNodes": 10000,
+            "limitRelationships": 5000,
+            "includeImplicitRelationships": True,
+        },
+    )
+
+    response = service.execute_and_filter_query(request)
+
+    assert response.metadata.thresholdStatus.elementSeverity == "high"
+    assert response.metadata.thresholdStatus.recommendedMode == "database"
+    assert "element_count_high" in response.metadata.thresholdStatus.reasons
 
 
 def test_execute_and_filter_query_surfaces_pushdown_validation_error(monkeypatch):

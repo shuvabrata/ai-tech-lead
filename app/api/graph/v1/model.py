@@ -371,11 +371,22 @@ class GraphFilterRequest(BaseModel):
 class GraphFilterExecutionMetadata(BaseModel):
     """Execution metadata for filtered graph responses."""
 
+    class ThresholdStatus(BaseModel):
+        """Structured threshold evaluation status for mode recommendation."""
+
+        elementCount: int = Field(default=0)
+        payloadBytes: int = Field(default=0)
+        elementSeverity: Literal["none", "soft", "high"] = Field(default="none")
+        payloadSeverity: Literal["none", "soft", "high"] = Field(default="none")
+        recommendedMode: Literal["local", "database"] = Field(default="local")
+        reasons: List[str] = Field(default_factory=list)
+
     mode: str = Field(..., description="Execution mode used")
     baseResultCounts: Dict[str, int] = Field(default_factory=dict)
     filteredResultCounts: Dict[str, int] = Field(default_factory=dict)
     truncated: bool = Field(default=False)
     warnings: List[str] = Field(default_factory=list)
+    thresholdStatus: ThresholdStatus = Field(default_factory=ThresholdStatus)
 
 
 class GraphFilterResponse(GraphResponse):
