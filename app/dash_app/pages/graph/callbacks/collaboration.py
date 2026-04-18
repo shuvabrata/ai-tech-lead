@@ -23,7 +23,6 @@ from app.api.graph.v1.service import get_collaboration_network
      Output("graph-results-container", "style", allow_duplicate=True),
      Output("graph-details-panel", "style", allow_duplicate=True),
      Output("unfiltered-elements-store", "data", allow_duplicate=True),
-    Output("original-unfiltered-elements-store", "data", allow_duplicate=True),
      Output("loaded-node-ids", "data", allow_duplicate=True),
      Output("expanded-nodes", "data", allow_duplicate=True),
      Output("expansion-debounce-store", "data", allow_duplicate=True),
@@ -54,11 +53,11 @@ def load_collaboration_network(
     collaboration_layout = {"name": "preset", "fit": True, "animate": False, "padding": 30}
 
     if pathname != "/app/graph":
-        return [no_update] * 13
+        return [no_update] * 12
 
     if not is_collaboration_mode:
         # Keep generic graph behavior tied to the user's selected layout.
-        return [no_update] * 12 + [selector_to_layout(selected_layout)]
+        return [no_update] * 11 + [selector_to_layout(selected_layout)]
 
     logger.info("[COLLABORATION] Loading collaboration network")
 
@@ -98,7 +97,7 @@ def load_collaboration_network(
             )
             return (
                 [], hide, empty_msg, {"minHeight": "300px", "padding": "16px"},
-                hide, [], [], [], {}, {}, [], hide, collaboration_layout,
+                hide, [], [], {}, {}, [], hide, collaboration_layout,
             )
 
         num_people = data.num_people
@@ -140,7 +139,6 @@ def load_collaboration_network(
             hide,                      # hide empty-state container
             GRAPH_DETAILS_PANEL_STYLE, # show details panel
             elements,                  # sync unfiltered baseline
-            elements,                  # preserve original baseline for restore
             [],                        # reset loaded-node-ids
             {},                        # reset expanded-nodes
             {},                        # reset expansion-debounce
@@ -152,12 +150,12 @@ def load_collaboration_network(
     except ValueError as exc:
         logger.warning("[COLLABORATION] No data: %s", exc)
         banner = _error_banner(str(exc))
-        return ([], hide, None, hide, hide, [], [], [], {}, {}, [banner], banner_padding, collaboration_layout)
+        return ([], hide, None, hide, hide, [], [], {}, {}, [banner], banner_padding, collaboration_layout)
 
     except Exception as exc:  # pylint: disable=broad-except
         logger.exception("[COLLABORATION] Unexpected error: %s", exc)
         banner = _error_banner("An unexpected error occurred while loading the collaboration network.")
-        return ([], hide, None, hide, hide, [], [], [], {}, {}, [banner], banner_padding, collaboration_layout)
+        return ([], hide, None, hide, hide, [], [], {}, {}, [banner], banner_padding, collaboration_layout)
 
 
 def _error_banner(message: str):

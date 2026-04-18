@@ -10,7 +10,6 @@ Run with: pytest tests/test_graph_router.py -v
 import pytest
 import httpx
 
-from app.main import app
 from app.settings import settings
 
 
@@ -194,24 +193,6 @@ class TestGraphRouterEndpoints:
 @pytest.mark.asyncio
 class TestGraphRouterValidation:
     """Tests for query validation and error handling."""
-
-    async def test_filter_metadata_endpoint_without_base_query(self):
-        """Test GET /api/v1/graph/filter/metadata returns registry-backed payload."""
-        transport = httpx.ASGITransport(app=app)
-        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
-            response = await client.get("/api/v1/graph/filter/metadata")
-
-            assert response.status_code == 200
-            data = response.json()
-
-            assert "sourceQueryApplied" in data
-            assert data["sourceQueryApplied"] is False
-            assert "discovered" in data
-            assert "registry" in data
-            assert "mergedNodeProperties" in data
-            assert "mergedRelationshipProperties" in data
-            assert "Person" in data["mergedNodeProperties"]
-            assert "name" in data["mergedNodeProperties"]["Person"]
     
     async def test_reject_create_query(self):
         """Test that CREATE queries are rejected with 400 error."""

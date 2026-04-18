@@ -1,18 +1,15 @@
 """Filtering Callbacks (Phase 1.2.4)
 
-Callbacks for relationship filtering UI controls.
+Callbacks for local graph refinement UI controls.
 """
 
 import json
-import requests
-from urllib.parse import parse_qs
 
 import dash_bootstrap_components as dbc
 from dash import Input, Output, State, callback, html
 from dash.exceptions import PreventUpdate
 from app.common.logger import logger
-from app.settings import settings
-from ..utils import get_graph_api_base_url, is_edge_data, is_node_data, neo4j_to_cytoscape
+from ..utils import is_edge_data, is_node_data
 
 
 class FilteringDataValidationError(ValueError):
@@ -20,10 +17,9 @@ class FilteringDataValidationError(ValueError):
 
 
 GRAPH_SOFT_WARNING_ELEMENT_THRESHOLD = 2000
-GRAPH_RECOMMEND_SERVER_FILTER_THRESHOLD = 5000
+GRAPH_HIGH_WARNING_ELEMENT_THRESHOLD = 5000
 GRAPH_PAYLOAD_WARNING_BYTES = 1_000_000
-GRAPH_PAYLOAD_RECOMMEND_SERVER_BYTES = 2_000_000
-TIMEOUT_SECONDS = settings.HTTP_REQUEST_TIMEOUT
+GRAPH_HIGH_WARNING_BYTES = 2_000_000
 
 
 def _split_elements(elements):
@@ -139,66 +135,36 @@ def _estimate_elements_payload_bytes(elements):
     return len(json.dumps(elements or [], default=str).encode("utf-8"))
 
 
-def _build_threshold_status_alert(filtered_elements, unfiltered_elements, auto_switch_enabled=False):
-    """Return a browser-visible recommendation banner for local vs database filtering."""
+def _build_threshold_status_alert(filtered_elements, unfiltered_elements):
+    """Return a browser-visible local-only size warning banner."""
     if not unfiltered_elements:
-        return None, {"display": "none"}, {
-            "recommendedMode": "local",
-            "elementSeverity": "none",
-            "payloadSeverity": "none",
-            "reasons": [],
-        }
+        return None, {"display": "none"}
 
     total_elements = len(filtered_elements)
     payload_bytes = _estimate_elements_payload_bytes(filtered_elements)
 
     if (
-        total_elements >= GRAPH_RECOMMEND_SERVER_FILTER_THRESHOLD
-        or payload_bytes >= GRAPH_PAYLOAD_RECOMMEND_SERVER_BYTES
+        total_elements >= GRAPH_HIGH_WARNING_ELEMENT_THRESHOLD
+        or payload_bytes >= GRAPH_HIGH_WARNING_BYTES
     ):
         reasons = []
-        if total_elements >= GRAPH_RECOMMEND_SERVER_FILTER_THRESHOLD:
+        if total_elements >= GRAPH_HIGH_WARNING_ELEMENT_THRESHOLD:
             reasons.append(f"{total_elements} visible elements")
-        if payload_bytes >= GRAPH_PAYLOAD_RECOMMEND_SERVER_BYTES:
+        if payload_bytes >= GRAPH_HIGH_WARNING_BYTES:
             reasons.append(f"~{round(payload_bytes / 1_000_000, 2)} MB payload")
 
-        if auto_switch_enabled:
-            alert = dbc.Alert(
-                [
-                    html.Div("Auto-switch ON: Applying to Database", className="fw-semibold mb-1"),
-                    html.Div(
-                        "Filters are being applied server-side"
-                        + (f" ({', '.join(reasons)})." if reasons else ".")
-                    ),
-                ],
-                color="success",
-                className="mb-0 py-2 px-3",
-            )
-        else:
-            alert = dbc.Alert(
-                [
-                    html.Div("Recommended mode: Apply to Database", className="fw-semibold mb-1"),
-                    html.Div(
-                        "This loaded graph is large enough that local filtering may feel sluggish"
-                        + (f" ({', '.join(reasons)})." if reasons else ".")
-                    ),
-                ],
-                color="warning",
-                className="mb-0 py-2 px-3",
-            )
-        return alert, {"display": "block"}, {
-            "recommendedMode": "database",
-            "elementSeverity": "high" if total_elements >= GRAPH_RECOMMEND_SERVER_FILTER_THRESHOLD else "none",
-            "payloadSeverity": "high" if payload_bytes >= GRAPH_PAYLOAD_RECOMMEND_SERVER_BYTES else "none",
-            "reasons": [
-                reason
-                for reason in [
-                    "element_count_high" if total_elements >= GRAPH_RECOMMEND_SERVER_FILTER_THRESHOLD else None,
-                    "payload_bytes_high" if payload_bytes >= GRAPH_PAYLOAD_RECOMMEND_SERVER_BYTES else None,
-                ]
-                if reason is not None
+        alert = dbc.Alert(
+            [
+                html.Div("Large graph warning", className="fw-semibold mb-1"),
+                html.Div(
+                    "This loaded graph is large enough that local filtering may feel sluggish"
+                    + (f" ({', '.join(reasons)})." if reasons else ".")
+                ),
             ],
-        }
+            color="warning",
+            className="mb-0 py-2 px-3",
+        )
+        return alert, {"display": "block"}
 
     if (
         total_elements >= GRAPH_SOFT_WARNING_ELEMENT_THRESHOLD
@@ -221,60 +187,9 @@ def _build_threshold_status_alert(filtered_elements, unfiltered_elements, auto_s
             color="info",
             className="mb-0 py-2 px-3",
         )
-        return alert, {"display": "block"}, {
-            "recommendedMode": "local",
-            "elementSeverity": "soft" if total_elements >= GRAPH_SOFT_WARNING_ELEMENT_THRESHOLD else "none",
-            "payloadSeverity": "soft" if payload_bytes >= GRAPH_PAYLOAD_WARNING_BYTES else "none",
-            "reasons": [
-                reason
-                for reason in [
-                    "element_count_soft" if total_elements >= GRAPH_SOFT_WARNING_ELEMENT_THRESHOLD else None,
-                    "payload_bytes_soft" if payload_bytes >= GRAPH_PAYLOAD_WARNING_BYTES else None,
-                ]
-                if reason is not None
-            ],
-        }
+        return alert, {"display": "block"}
 
-    return None, {"display": "none"}, {
-        "recommendedMode": "local",
-        "elementSeverity": "none",
-        "payloadSeverity": "none",
-        "reasons": [],
-    }
-
-
-def _resolve_filter_mode_label(recommended_mode, auto_switch_enabled):
-    """Resolve user-facing execution mode label from recommendation and toggle state."""
-    if auto_switch_enabled and recommended_mode == "database":
-        return "Applying to database (auto-switch ON)"
-    if recommended_mode == "database":
-        return "Refining loaded graph (recommended: Apply to Database)"
-    return "Refining loaded graph"
-
-
-def _should_apply_database_filters(threshold_status, auto_switch_enabled):
-    """Return True when auto-switch is enabled and threshold recommends database mode."""
-    status = threshold_status or {}
-    return bool(auto_switch_enabled) and status.get("recommendedMode") == "database"
-
-
-def _is_collaboration_mode(search):
-    """Return True when current URL search indicates collaboration mode."""
-    params = parse_qs((search or "").lstrip("?"))
-    mode = (params.get("mode") or [None])[0]
-    return mode in {"collaboration", "collaboration_network"}
-
-
-def _extract_node_ids(elements):
-    """Extract node ids from Cytoscape elements for loaded-node tracking."""
-    node_ids = []
-    for elem in elements or []:
-        data = elem.get("data", {})
-        if is_node_data(data):
-            element_id = data.get("id")
-            if element_id is not None:
-                node_ids.append(str(element_id))
-    return node_ids
+    return None, {"display": "none"}
 
 
 def _compute_filtered_graph(
@@ -543,7 +458,6 @@ def update_weight_threshold_label(threshold):
      Output("filter-active-chips", "children"),
      Output("filter-threshold-status", "children"),
      Output("filter-threshold-status", "style"),
-     Output("filter-threshold-status-store", "data"),
      Output("weight-based-filter-group", "style"),
      Output("weight-filter-unavailable-note", "style")],
     [Input("unfiltered-elements-store", "data"),
@@ -552,7 +466,6 @@ def update_weight_threshold_label(threshold):
      Input("weight-threshold-slider", "value"),
      Input("top-n-toggle", "value"),
      Input("filter-display-mode", "value"),
-     Input("filter-auto-switch-toggle", "value"),
      Input("node-type-filter", "options"),
      Input("relationship-type-filter", "options")]
 )
@@ -563,7 +476,6 @@ def update_filter_panel_feedback(
     weight_threshold,
     top_n_mode,
     _display_mode,
-    auto_switch_enabled,
     node_type_options,
     rel_type_options,
 ):
@@ -587,10 +499,9 @@ def update_filter_panel_feedback(
         rel_type_options,
         has_weighted_edges,
     )
-    threshold_alert, threshold_style, threshold_status = _build_threshold_status_alert(
+    threshold_alert, threshold_style = _build_threshold_status_alert(
         logical_filtered_elements,
         unfiltered_elements or [],
-        bool(auto_switch_enabled),
     )
 
     weight_group_style = {} if has_weighted_edges else {"display": "none"}
@@ -601,124 +512,9 @@ def update_filter_panel_feedback(
         chips,
         threshold_alert,
         threshold_style,
-        threshold_status,
         weight_group_style,
         weight_note_style,
     )
-
-
-@callback(
-    Output("filter-mode-label", "children"),
-    [Input("filter-threshold-status-store", "data"),
-     Input("filter-auto-switch-toggle", "value")],
-)
-def update_filter_mode_label(threshold_status, auto_switch_enabled):
-    """Update execution mode label with safe recommendation-only default UX."""
-    status = threshold_status or {}
-    recommended_mode = status.get("recommendedMode", "local")
-    return _resolve_filter_mode_label(recommended_mode, bool(auto_switch_enabled))
-
-
-@callback(
-    [Output("graph-cytoscape", "elements", allow_duplicate=True),
-     Output("unfiltered-elements-store", "data", allow_duplicate=True),
-     Output("loaded-node-ids", "data", allow_duplicate=True),
-     Output("expanded-nodes", "data", allow_duplicate=True),
-     Output("expansion-debounce-store", "data", allow_duplicate=True)],
-    [Input("node-type-filter", "value"),
-     Input("relationship-type-filter", "value"),
-     Input("filter-auto-switch-toggle", "value")],
-    [State("filter-threshold-status-store", "data"),
-     State("graph-query-input", "value"),
-     State("url", "search")],
-    prevent_initial_call=True,
-)
-def apply_database_filters_when_recommended(
-    selected_node_types,
-    selected_rel_types,
-    auto_switch_enabled,
-    threshold_status,
-    base_query,
-    url_search,
-):
-    """Apply server-side filtering and replace the working baseline when auto-switch is active."""
-    if not _should_apply_database_filters(threshold_status, auto_switch_enabled):
-        raise PreventUpdate
-
-    if _is_collaboration_mode(url_search):
-        logger.info(
-            "[GRAPH-DEBUG][filter.server] skipped: collaboration mode uses analytics pipeline, not /graph/filter"
-        )
-        raise PreventUpdate
-
-    if not base_query or not base_query.strip():
-        logger.warning(
-            "[GRAPH-DEBUG][filter.server] skipped: missing base query while auto-switch requested"
-        )
-        raise PreventUpdate
-
-    api_base = get_graph_api_base_url()
-    payload = {
-        "baseQuery": base_query,
-        "mode": "database",
-        "nodeTypeFilters": selected_node_types or [],
-        "relationshipTypeFilters": selected_rel_types or [],
-        "nodePropertyFilters": [],
-        "relationshipPropertyFilters": [],
-        "dateRangeFilters": [],
-        "resultOptions": {
-            "limitNodes": 1000,
-            "limitRelationships": 5000,
-            "includeImplicitRelationships": True,
-        },
-    }
-
-    try:
-        response = requests.post(
-            f"{api_base}/api/v1/graph/filter",
-            json=payload,
-            timeout=TIMEOUT_SECONDS,
-        )
-        if response.status_code != 200:
-            logger.warning(
-                "[GRAPH-DEBUG][filter.server] request_failed "
-                f"status={response.status_code} body_preview='{(response.text or '')[:500]}'"
-            )
-            raise PreventUpdate
-
-        data = response.json()
-        elements = neo4j_to_cytoscape(data)
-        node_ids = _extract_node_ids(elements)
-
-        logger.info(
-            "[GRAPH-DEBUG][filter.server] applied "
-            f"elements={len(elements)} node_ids={len(node_ids)}"
-        )
-
-        return elements, elements, node_ids, {}, {}
-
-    except requests.exceptions.RequestException as exc:
-        logger.warning(f"[GRAPH-DEBUG][filter.server] request_exception {exc}")
-        raise PreventUpdate from exc
-
-
-@callback(
-    [Output("graph-cytoscape", "elements", allow_duplicate=True),
-     Output("unfiltered-elements-store", "data", allow_duplicate=True),
-     Output("loaded-node-ids", "data", allow_duplicate=True),
-     Output("expanded-nodes", "data", allow_duplicate=True),
-     Output("expansion-debounce-store", "data", allow_duplicate=True)],
-    Input("filter-restore-original-btn", "n_clicks"),
-    State("original-unfiltered-elements-store", "data"),
-    prevent_initial_call=True,
-)
-def restore_original_graph_baseline(n_clicks, original_unfiltered_elements):
-    """Restore the original loaded graph baseline captured before server-side filtering."""
-    if not n_clicks or not original_unfiltered_elements:
-        raise PreventUpdate
-
-    node_ids = _extract_node_ids(original_unfiltered_elements)
-    return original_unfiltered_elements, original_unfiltered_elements, node_ids, {}, {}
 
 
 @callback(

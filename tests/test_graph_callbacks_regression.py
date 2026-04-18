@@ -94,20 +94,17 @@ def test_execute_query_repeated_runs_refresh_baseline_and_filters(monkeypatch):
     # Output indices from execute_query callback contract
     ELEMENTS = 1
     UNFILTERED_STORE = 13
-    ORIGINAL_UNFILTERED_STORE = 14
-    NODE_FILTER = 15
-    REL_FILTER = 16
-    WEIGHT_FILTER = 17
-    TOP_N_FILTER = 18
+    NODE_FILTER = 14
+    REL_FILTER = 15
+    WEIGHT_FILTER = 16
+    TOP_N_FILTER = 17
 
     # Baseline and rendered elements should match each run
     assert result_a[ELEMENTS] == cyto_a
     assert result_a[UNFILTERED_STORE] == cyto_a
-    assert result_a[ORIGINAL_UNFILTERED_STORE] == cyto_a
 
     assert result_b[ELEMENTS] == cyto_b
     assert result_b[UNFILTERED_STORE] == cyto_b
-    assert result_b[ORIGINAL_UNFILTERED_STORE] == cyto_b
 
     # Critical regression assertion: second execute must overwrite first baseline
     assert result_b[UNFILTERED_STORE] != result_a[UNFILTERED_STORE]

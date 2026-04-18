@@ -97,14 +97,13 @@ def test_update_filter_panel_feedback_hides_weight_controls_for_unweighted_graph
         {"data": {"id": "e1", "source": "n1", "target": "n2", "relType": "KNOWS", "elementType": "edge"}},
     ]
 
-    summary, chips, threshold_alert, threshold_style, threshold_status, weight_group_style, weight_note_style = filtering_callbacks.update_filter_panel_feedback(
+    summary, chips, threshold_alert, threshold_style, weight_group_style, weight_note_style = filtering_callbacks.update_filter_panel_feedback(
         unfiltered_elements=unfiltered_elements,
         selected_node_types=["Person"],
         selected_rel_types=["KNOWS"],
         weight_threshold=0,
         top_n_mode="all",
         _display_mode="hide",
-        auto_switch_enabled=False,
         node_type_options=[{"label": "Person (2)", "value": "Person"}],
         rel_type_options=[{"label": "KNOWS (1)", "value": "KNOWS"}],
     )
@@ -113,7 +112,6 @@ def test_update_filter_panel_feedback_hides_weight_controls_for_unweighted_graph
     assert chips[0].children == "No active filters"
     assert threshold_alert is None
     assert threshold_style == {"display": "none"}
-    assert threshold_status["recommendedMode"] == "local"
     assert weight_group_style == {"display": "none"}
     assert weight_note_style == {"display": "block"}
 
@@ -126,14 +124,13 @@ def test_update_filter_panel_feedback_uses_logical_counts_in_dim_mode():
         {"data": {"id": "e1", "source": "n1", "target": "n2", "relType": "WORKS_ON", "elementType": "edge"}},
     ]
 
-    summary, chips, threshold_alert, threshold_style, threshold_status, _weight_group_style, weight_note_style = filtering_callbacks.update_filter_panel_feedback(
+    summary, chips, threshold_alert, threshold_style, _weight_group_style, weight_note_style = filtering_callbacks.update_filter_panel_feedback(
         unfiltered_elements=unfiltered_elements,
         selected_node_types=["Person"],
         selected_rel_types=["WORKS_ON"],
         weight_threshold=0,
         top_n_mode="all",
         _display_mode="dim",
-        auto_switch_enabled=False,
         node_type_options=[
             {"label": "Person (1)", "value": "Person"},
             {"label": "Repository (1)", "value": "Repository"},
@@ -145,7 +142,6 @@ def test_update_filter_panel_feedback_uses_logical_counts_in_dim_mode():
     assert chips[0].children == "Node types: Person"
     assert threshold_alert is None
     assert threshold_style == {"display": "none"}
-    assert threshold_status["recommendedMode"] == "local"
     assert weight_note_style == {"display": "block"}
 
 
@@ -156,14 +152,13 @@ def test_update_filter_panel_feedback_shows_soft_threshold_recommendation():
         for i in range(2101)
     ]
 
-    summary, _chips, threshold_alert, threshold_style, threshold_status, _weight_group_style, _weight_note_style = filtering_callbacks.update_filter_panel_feedback(
+    summary, _chips, threshold_alert, threshold_style, _weight_group_style, _weight_note_style = filtering_callbacks.update_filter_panel_feedback(
         unfiltered_elements=unfiltered_elements,
         selected_node_types=["Person"],
         selected_rel_types=[],
         weight_threshold=0,
         top_n_mode="all",
         _display_mode="hide",
-        auto_switch_enabled=False,
         node_type_options=[{"label": f"Person ({len(unfiltered_elements)})", "value": "Person"}],
         rel_type_options=[],
     )
@@ -171,125 +166,33 @@ def test_update_filter_panel_feedback_shows_soft_threshold_recommendation():
     assert "Showing 2101 nodes / 0 edges" in summary
     assert threshold_style == {"display": "block"}
     assert threshold_alert.color == "info"
-    assert threshold_status["recommendedMode"] == "local"
     alert_text = str(threshold_alert.children)
     assert "Local filtering warning" in alert_text
 
 
-def test_update_filter_panel_feedback_shows_database_recommendation_for_high_threshold():
-    """Very large graphs should recommend Apply to Database in the filter panel."""
+def test_update_filter_panel_feedback_shows_high_warning_for_large_graph():
+    """Very large graphs should show a stronger local-only warning in the filter panel."""
     unfiltered_elements = [
         {"data": {"id": f"n{i}", "nodeType": "Person", "elementType": "node"}}
         for i in range(5201)
     ]
 
-    _summary, _chips, threshold_alert, threshold_style, threshold_status, _weight_group_style, _weight_note_style = filtering_callbacks.update_filter_panel_feedback(
+    _summary, _chips, threshold_alert, threshold_style, _weight_group_style, _weight_note_style = filtering_callbacks.update_filter_panel_feedback(
         unfiltered_elements=unfiltered_elements,
         selected_node_types=["Person"],
         selected_rel_types=[],
         weight_threshold=0,
         top_n_mode="all",
         _display_mode="hide",
-        auto_switch_enabled=False,
         node_type_options=[{"label": f"Person ({len(unfiltered_elements)})", "value": "Person"}],
         rel_type_options=[],
     )
 
     assert threshold_style == {"display": "block"}
     assert threshold_alert.color == "warning"
-    assert threshold_status["recommendedMode"] == "database"
     alert_text = str(threshold_alert.children)
-    assert "Recommended mode: Apply to Database" in alert_text
-
-
-def test_update_filter_panel_feedback_auto_switch_on_changes_banner_to_success():
-    """With auto-switch ON and high threshold, banner should flip to success color and confirmation text."""
-    unfiltered_elements = [
-        {"data": {"id": f"n{i}", "nodeType": "Person", "elementType": "node"}}
-        for i in range(5201)
-    ]
-
-    _summary, _chips, threshold_alert, threshold_style, threshold_status, _weight_group_style, _weight_note_style = filtering_callbacks.update_filter_panel_feedback(
-        unfiltered_elements=unfiltered_elements,
-        selected_node_types=["Person"],
-        selected_rel_types=[],
-        weight_threshold=0,
-        top_n_mode="all",
-        _display_mode="hide",
-        auto_switch_enabled=True,
-        node_type_options=[{"label": f"Person ({len(unfiltered_elements)})", "value": "Person"}],
-        rel_type_options=[],
-    )
-
-    assert threshold_style == {"display": "block"}
-    assert threshold_alert.color == "success"
-    assert threshold_status["recommendedMode"] == "database"
-    alert_text = str(threshold_alert.children)
-    assert "Auto-switch ON: Applying to Database" in alert_text
-
-
-def test_resolve_filter_mode_label_recommendation_only_default():
-    """Default UX should keep local mode label while showing database recommendation text."""
-    label = filtering_callbacks._resolve_filter_mode_label(
-        recommended_mode="database",
-        auto_switch_enabled=False,
-    )
-
-    assert label == "Refining loaded graph (recommended: Apply to Database)"
-
-
-def test_resolve_filter_mode_label_opt_in_auto_switch():
-    """Opt-in auto-switch should move mode label to database when recommendation is high."""
-    label = filtering_callbacks._resolve_filter_mode_label(
-        recommended_mode="database",
-        auto_switch_enabled=True,
-    )
-
-    assert label == "Applying to database (auto-switch ON)"
-
-
-def test_should_apply_database_filters_requires_toggle_and_database_recommendation():
-    """Server filtering should trigger only when both toggle and recommendation conditions are met."""
-    assert filtering_callbacks._should_apply_database_filters(
-        {"recommendedMode": "database"},
-        True,
-    ) is True
-    assert filtering_callbacks._should_apply_database_filters(
-        {"recommendedMode": "database"},
-        False,
-    ) is False
-    assert filtering_callbacks._should_apply_database_filters(
-        {"recommendedMode": "local"},
-        True,
-    ) is False
-
-
-def test_is_collaboration_mode_detects_url_flag():
-    """Collaboration graph routes should be detected to avoid invalid server-filter fallback."""
-    assert filtering_callbacks._is_collaboration_mode("?mode=collaboration") is True
-    assert filtering_callbacks._is_collaboration_mode("?mode=collaboration_network") is True
-    assert filtering_callbacks._is_collaboration_mode("?mode=other") is False
-    assert filtering_callbacks._is_collaboration_mode("") is False
-
-
-def test_restore_original_graph_baseline_restores_elements_and_resets_expansion_state():
-    """Restore action should replace working baseline and clear expansion state."""
-    original = [
-        {"data": {"id": "n1", "nodeType": "Person", "elementType": "node"}},
-        {"data": {"id": "n2", "nodeType": "Repository", "elementType": "node"}},
-        {"data": {"id": "e1", "source": "n1", "target": "n2", "relType": "WORKS_ON", "elementType": "edge"}},
-    ]
-
-    elements, unfiltered, loaded_ids, expanded_nodes, debounce_store = filtering_callbacks.restore_original_graph_baseline(
-        n_clicks=1,
-        original_unfiltered_elements=original,
-    )
-
-    assert elements == original
-    assert unfiltered == original
-    assert loaded_ids == ["n1", "n2"]
-    assert expanded_nodes == {}
-    assert debounce_store == {}
+    assert "Large graph warning" in alert_text
+    assert "local filtering may feel sluggish" in alert_text
 
 
 @pytest.mark.xfail(reason="Known Dim mode issue: stale dimmed class not removed on re-selection. See Phase 2 doc: Dim mode + edge hover interaction conflict")

@@ -230,27 +230,6 @@ def create_filter_panel():
                     ),
 
                     html.Div([
-                        dbc.Switch(
-                            id="filter-auto-switch-toggle",
-                            label="Auto-switch to database recommendation",
-                            value=False,
-                            className="graph-filter-auto-switch",
-                        ),
-                        html.Small(
-                            "Default: recommendation-only (no automatic mode changes).",
-                            className="graph-filter-help-note d-block mt-1"
-                        ),
-                        dbc.Button(
-                            "Restore original graph",
-                            id="filter-restore-original-btn",
-                            color="secondary",
-                            size="sm",
-                            className="mt-2",
-                            outline=True,
-                        ),
-                    ], className="mb-3"),
-
-                    html.Div([
                         html.Label(
                             "Display Filtered Items:",
                             style={
@@ -570,9 +549,6 @@ def create_stores():
         # Store for unfiltered graph elements (backup for reset)
         dcc.Store(id="unfiltered-elements-store", data=[]),
 
-        # Store for original loaded graph elements (pre server-filter fallback baseline)
-        dcc.Store(id="original-unfiltered-elements-store", data=[]),
-
         # Store for live Cytoscape node positions (captured clientside)
         dcc.Store(id="node-positions-store", data={}),
 
@@ -583,9 +559,6 @@ def create_stores():
         # during expansion and keep "no active filtering" behavior intuitive.
         dcc.Store(id="node-type-available-store", data=[]),
         dcc.Store(id="relationship-type-available-store", data=[]),
-
-        # Threshold recommendation state for filter execution-mode UX.
-        dcc.Store(id="filter-threshold-status-store", data={}),
     ]
 
 

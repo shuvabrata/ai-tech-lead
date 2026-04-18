@@ -8,9 +8,6 @@ from app.common.logger import logger
 from .model import (
     CollaborationNetworkResponse, 
     CypherQueryRequest, 
-    GraphFilterMetadataResponse,
-    GraphFilterRequest,
-    GraphFilterResponse,
     GraphResponse, 
     NodeExpansionRequest, 
     NodeExpansionResponse
@@ -89,87 +86,6 @@ async def execute_query(request: CypherQueryRequest):
                 "error": "Internal server error",
                 "message": "An unexpected error occurred while processing your query"
             }
-        ) from e
-
-
-@router.post("/filter", response_model=GraphFilterResponse)
-async def filter_graph(request: GraphFilterRequest):
-    """Execute base query and apply validated server-side filters."""
-    try:
-        logger.info(
-            "Received graph filter request: "
-            f"nodeTypeFilters={len(request.nodeTypeFilters)} "
-            f"relationshipTypeFilters={len(request.relationshipTypeFilters)} "
-            f"nodePropertyFilters={len(request.nodePropertyFilters)} "
-            f"relationshipPropertyFilters={len(request.relationshipPropertyFilters)} "
-            f"dateRangeFilters={len(request.dateRangeFilters)}"
-        )
-        response = service.execute_and_filter_query(request)
-        logger.info(
-            "Graph filter executed successfully. "
-            f"nodes={len(response.nodes)} rels={len(response.relationships)} "
-            f"truncated={response.metadata.truncated}"
-        )
-        return response
-
-    except ValueError as e:
-        logger.warning(f"Graph filter validation error: {e}")
-        raise HTTPException(
-            status_code=400,
-            detail={
-                "error": "Graph filter validation failed",
-                "message": str(e),
-            },
-        ) from e
-
-    except Exception as e:
-        logger.error(f"Unexpected error filtering graph: {e}", exc_info=True)
-        raise HTTPException(
-            status_code=500,
-            detail={
-                "error": "Internal server error",
-                "message": "An unexpected error occurred while filtering the graph",
-            },
-        ) from e
-
-
-@router.get("/filter/metadata", response_model=GraphFilterMetadataResponse)
-async def get_filter_metadata(
-    base_query: str | None = Query(
-        default=None,
-        alias="baseQuery",
-        min_length=1,
-        max_length=10000,
-        description="Optional read-only Cypher base query for live metadata discovery",
-    )
-):
-    """Return graph filter metadata from registry and optional live graph discovery."""
-    try:
-        response = service.get_graph_filter_metadata(base_query=base_query)
-        logger.info(
-            "Graph filter metadata generated successfully. "
-            f"sourceQueryApplied={response.sourceQueryApplied}"
-        )
-        return response
-
-    except ValueError as e:
-        logger.warning(f"Graph filter metadata validation error: {e}")
-        raise HTTPException(
-            status_code=400,
-            detail={
-                "error": "Graph filter metadata validation failed",
-                "message": str(e),
-            },
-        ) from e
-
-    except Exception as e:
-        logger.error(f"Unexpected error building graph filter metadata: {e}", exc_info=True)
-        raise HTTPException(
-            status_code=500,
-            detail={
-                "error": "Internal server error",
-                "message": "An unexpected error occurred while building graph filter metadata",
-            },
         ) from e
 
 

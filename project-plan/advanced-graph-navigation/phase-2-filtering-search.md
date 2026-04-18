@@ -100,76 +100,39 @@
 #### Next recommended slice
 
 - `Option A`: local property filtering UI
-- `Option B`: continue backend server-side filtering (`2.1.C` thresholds/fallback + `2.1.2` Cypher query builder) ✅ **active now**
+- `Option B`: collaboration density reduction and weighted-edge pruning before render
 
-### 2.1.B Initial Backend Slice (Implemented)
+### 2.1.B Backend Filtering Experiment (Rolled Back)
 
-#### Exact coding checklist completed
+This slice was implemented experimentally and then removed after validation showed it did not improve the actual user experience. The main bottleneck remained Cytoscape rendering of large payloads, so the active plan no longer includes backend filtering.
 
-- ✅ Added backend filter property registry skeleton
-- ✅ Added server-side filter request/response contracts
-- ✅ Added `POST /api/v1/graph/filter` endpoint
-- ✅ Added server-side validation against registry-supported fields/operators
-- ✅ Added initial server-side filtering logic for:
-  - node type filters
-  - relationship type filters
-  - node property filters
-  - relationship property filters
-  - date range filters
-- ✅ Added filter execution metadata (before/after counts, truncation, warnings)
-- ✅ Added focused service-level tests for filter behavior
+#### Outcome
+
+- Code and tests for backend filtering have been removed from the active codebase
+- The graph page now uses local-only filtering on the loaded graph
+- Future performance work should focus on reducing graph payload size before rendering, especially for collaboration graphs
 
 #### Code areas updated
 
-- `app/api/graph/v1/filter_registry.py` (new backend-owned filter registry)
-- `app/api/graph/v1/model.py` (new filter request/response models)
-- `app/api/graph/v1/service.py` (new server-side filtering business logic)
-- `app/api/graph/v1/router.py` (new `/api/v1/graph/filter` route)
-- `tests/test_graph_filter_service.py` (new unit tests)
+- Backend filter-specific files and tests were removed during rollback
 
 #### Verification status
 
-- Command run:
-  - `source .venv/bin/activate && pytest -q tests/test_graph_filter_service.py`
-- Result:
-  - ✅ `5 passed`
+- Verified by focused graph callback, query regression, router, and service tests after rollback
 
-#### Remaining gaps in 2.1.B
+#### Status
 
-- ⏳ Current implementation applies validated filters in service logic after base graph retrieval
-- ⏳ Full `2.1.2` query-builder translation (validated filter specs to Cypher fragments) is still pending
-- ✅ Metadata/introspection endpoint (`2.1.3`) implemented
+- Archived. Do not extend this path further.
 
-### 2.1.3 Graph Metadata / Introspection Endpoint (Implemented)
+### 2.1.3 Graph Metadata / Introspection Endpoint (Removed)
 
-#### Exact coding checklist completed
+The temporary metadata endpoint created to support backend filtering was also removed as part of the rollback.
 
-- ✅ Added `GET /api/v1/graph/filter/metadata` endpoint
-- ✅ Added optional `baseQuery` support for live graph discovery
-- ✅ Added merged metadata response:
-  - discovered labels/types/properties
-  - registry-backed server filterability metadata
-  - merged property capabilities for frontend filter construction
-- ✅ Added validation for non-graph `baseQuery` payloads
-- ✅ Added focused tests for service and router behavior
+#### Outcome
 
-#### Code areas updated
+- Filter metadata responsibilities are no longer part of the active graph API surface
+- Any future schema/introspection work should be scoped to local UI affordances or search, not backend filter execution
 
-- `app/api/graph/v1/model.py` (metadata response models)
-- `app/api/graph/v1/service.py` (metadata discovery + merge logic)
-- `app/api/graph/v1/router.py` (new `/graph/filter/metadata` route)
-- `tests/test_graph_filter_metadata_service.py` (new unit tests)
-- `tests/test_graph_router.py` (metadata endpoint coverage)
-
-#### Verification status
-
-- Commands run:
-  - `pytest -q tests/test_graph_filter_metadata_service.py`
-  - `pytest -q tests/test_graph_router.py -k filter_metadata_endpoint_without_base_query`
-  - `pytest tests/`
-- Result:
-  - ✅ metadata tests passing
-  - ✅ full suite passing
 
 ---
 
@@ -180,11 +143,11 @@
 ### ✅ **Q9. Filter Execution Model**
 - **Status**: ANSWERED ✅
 - **Phase**: 2.1 (Node Filtering)
-- **Decision**: **(c) Hybrid**
+- **Decision**: **(a) Local-only**
 - **Decision Summary**:
-  - Use **client-side filtering** for fast refinement of the **already-loaded graph** in the browser
-  - Use **server-side filtering** when the user wants to filter the **database-backed graph**, when filters depend on indexed properties/date ranges, or when the loaded graph is too large for smooth browser interaction
-  - Keep the graph page usable for the current Cypher-console workflow while adding a backend path for scalable filtering
+  - Use **client-side filtering** for refinement of the **already-loaded graph** in the browser
+  - Keep graph filtering scoped to visible data and avoid extra backend filter APIs
+  - Focus performance work on loading smaller graphs and pruning collaboration payloads before Cytoscape render
 
 #### Findings Behind This Decision
 
@@ -193,12 +156,12 @@
   - Existing graph filters already derive the rendered graph from that local baseline
   - The graph query console currently encourages users to load manageable subgraphs rather than the whole database
 
-- **Current backend architecture does not yet have a dedicated filter/search API**
+- **Current graph architecture already centers on loaded-graph interaction**
   - Today the graph flow is centered around:
     - `POST /api/v1/graph/query`
     - node expansion
     - collaboration graph loading
-  - That means a fully server-side filtering system would be a meaningful architectural addition, not a minor extension
+  - This fits local refinement naturally and avoids maintaining a second filter execution path
 
 - **Observed Neo4j graph size is too large for browser-only filtering at full scale**
   - Raw graph observed at approximately:
@@ -220,21 +183,16 @@
     - `p99` degree ~130
     - max observed degree ~**14,105**
 
-- **The raw graph is property-rich and index-rich, which makes server-side filtering valuable**
-  - Neo4j already has many useful `RANGE` indexes for common fields such as:
-    - `Person.name`, `Person.email`, `Person.role`, `Person.title`
-    - `File.path`, `File.extension`, `File.language`
-    - `PullRequest.state`, `PullRequest.created_at`, `PullRequest.merged_at`
-    - `Issue.status`, `Issue.type`, `Issue.created_at`
-    - `Branch.name`, `Branch.is_default`, `Branch.is_protected`
-  - This strongly supports a server-side path for property/date filtering
+- **Large-graph pain comes primarily from render density, not just query size**
+  - Manual validation showed that returning a server-filtered graph still felt slow when Cytoscape had to render a large edge set
+  - That makes density reduction and query scoping more valuable than maintaining a separate backend filter API
 
 - **The raw graph does not have a universal edge-weight concept**
   - The generic raw graph relationships do **not** have a shared `weight` property
   - That means the current weight slider / top-N relationship controls are not universally meaningful for arbitrary graph-query results
 
-- **The collaboration graph is a special weighted case**
-  - The collaboration graph is derived, weighted, and much more suitable for density filtering
+- **The collaboration graph is the special weighted case**
+  - The collaboration graph is derived, weighted, and still the strongest place to invest in density filtering
   - Observed collaboration graph size:
     - about **1,050 people**
     - about **22,418 weighted collaboration edges**
@@ -243,35 +201,25 @@
     - top-5 per node: about **0.96 MB**
     - top-10 per node: about **1.34 MB**
     - top-20 per node: about **1.90 MB**
-  - This is a strong signal that collaboration density controls should remain a first-class server-backed filtering path
+  - This is a strong signal that collaboration density controls should prune payloads before render, not that the generic graph page needs a separate backend filter API
 
-#### Why Not Pure Client-Side?
+#### Why Local-Only Fits Better
 
-- Can only filter what is already loaded into the browser
-- Does not solve full-graph discovery
-- Breaks down on large or hub-heavy graph results
-- Cannot cleanly support scalable property/date filtering against the source graph
-
-#### Why Not Pure Server-Side?
-
-- Adds latency for simple interactive toggles
-- Fights the current local-baseline graph page design
-- Would make small graph refinement feel heavier than necessary
-- Requires a larger upfront API/query-builder investment
+- Matches the existing loaded-graph baseline design
+- Keeps interaction fast and predictable once a graph is loaded
+- Avoids a second API/model/query-builder surface that did not pay for its complexity
+- Keeps future optimization effort focused on graph loading strategy and collaboration pruning
 
 #### Practical Conclusion
 
-- **Client-side only** is too limited for this data size and graph variety
-- **Server-side only** is too heavy for the current interaction model
-- **Hybrid** best matches:
-  - the existing app architecture
-  - the observed Neo4j data
-  - the weighted collaboration graph use case
+- Use local filtering for the current graph page
+- Load narrower graphs when working with raw Neo4j data
+- Optimize collaboration payload size before render for the weighted graph use case
 
 #### Execution Rule of Thumb
 
-- If the user is refining the **currently loaded graph**, prefer **client-side**
-- If the user is narrowing the **database result set**, applying property/date filters, or working with an oversized graph, prefer **server-side**
+- If the user is refining the **currently loaded graph**, use **local filtering**
+- If the graph is too large, reduce it at query/load time rather than trying to introduce a separate backend filter workflow
 
 ### ❓ **Q10. Search Match Highlighting Strategy**
 - **Status**: UNANSWERED ❓
@@ -295,17 +243,12 @@
 
 ### Implementation Direction
 
-Implement filtering in **two layers**:
+Implement filtering in **one layer**:
 
 1. **Local Graph Filters (client-side)**
-   - Operate on the currently loaded `unfiltered-elements-store`
-   - Fast, interactive, no network round-trip
-   - Best for graph refinement after a query, expansion, or collaboration graph load
-
-2. **Database Filters (server-side)**
-   - Operate by applying filters in Neo4j before the graph payload is returned
-   - Best for property/date filtering, larger result sets, and intentional narrowing of the source graph
-   - Required for scalable filtering beyond the current viewport/subgraph
+  - Operate on the currently loaded `unfiltered-elements-store`
+  - Fast, interactive, no network round-trip
+  - Best for graph refinement after a query, expansion, or collaboration graph load
 
 ### Recommended Execution Rules
 
@@ -316,157 +259,51 @@ Implement filtering in **two layers**:
   - active filter chips/counts
   - lightweight filtering of a small already-loaded graph
 
-- **Prefer server-side**
-  - property-based filtering on the source graph
-  - date/time range filtering
-  - high-cardinality text filtering
-  - filtering that should apply to the full database-backed result rather than the visible subset
-  - collaboration graph density reduction before large Cytoscape payloads are shipped
-
-- **Fallback to or recommend server-side when**
-  - loaded graph exceeds roughly **2,000-5,000 elements**
-  - estimated payload exceeds roughly **1-2 MB**
-  - local graph interaction becomes noticeably sluggish
-  - the user explicitly chooses **Apply to Database**
+- **When local filtering is not enough**
+  - narrow the source Cypher query before loading
+  - rely on node expansion instead of loading larger subgraphs up front
+  - reduce collaboration density before render with top-N, thresholds, or layer-specific pruning
 
 ### Property Exposure Policy
 
 - **All discovered properties are not automatically first-class filters**
 - The filtering system should distinguish between:
-  - **Discoverable properties**
-    - properties seen in the currently loaded graph or returned by metadata introspection
-    - useful for display, inspection, and limited local filtering on small graphs
-  - **Supported server-filterable properties**
-    - a curated backend-owned subset that is validated, typed, and safe to translate into database filters
-    - generally backed by known semantics and preferably by indexes
+  - properties that are practical for local UI controls on the loaded graph
+  - properties that are better handled by writing a narrower source query before loading results
 
 - **Phase 2 rule**
   - all discovered properties may be surfaced for inspection
-  - only **whitelisted / registry-backed properties** are server-filterable
-  - the supported subset expands intentionally as new node types and indexes are introduced
+  - local controls should stay bounded and purposeful
+  - if a property needs heavy-duty filtering semantics, revisit it as part of query authoring or search, not a generic backend filter system
 
 ### UX Model
 
-- The filter panel should distinguish between:
-  - **Refine Loaded Graph**
-  - **Apply to Database**
-- Avoid silent execution-mode switching when possible
-- If automatic fallback happens, show a small banner or status message explaining why
+- The filter panel should explicitly present itself as **Refine Loaded Graph**
+- Avoid dual-mode behavior or execution-mode switching
+- Show a warning/banner when the loaded graph is too large for smooth local interaction
 - Search UI remains out of scope for this filtering update
 
 ### Backend Tasks
 
-- [x] **2.1.1 Filter Models and Contracts**
-  - Add explicit request/response models for server-side filtering
-  - Introduce:
-    - `POST /api/v1/graph/filter`
-  - Initial request shape:
-    ```json
-    {
-      "baseQuery": "MATCH (n)-[r]->(m) RETURN n, r, m LIMIT 500",
-      "mode": "database",
-      "nodeTypeFilters": ["Person", "PullRequest"],
-      "relationshipTypeFilters": ["REVIEWED_BY", "AUTHORED_BY"],
-      "nodePropertyFilters": [
-        {"label": "Person", "property": "name", "operator": "CONTAINS", "value": "john"},
-        {"label": "Issue", "property": "status", "operator": "IN", "value": ["In Progress", "To Do"]}
-      ],
-      "relationshipPropertyFilters": [
-        {"type": "REVIEWED_BY", "property": "state", "operator": "=", "value": "APPROVED"}
-      ],
-      "dateRangeFilters": [
-        {"scope": "node", "label": "PullRequest", "property": "created_at", "from": "2025-01-01", "to": "2025-03-31"}
-      ],
-      "resultOptions": {
-        "limitNodes": 1000,
-        "limitRelationships": 5000,
-        "includeImplicitRelationships": true
-      }
-    }
-    ```
-  - Response:
-    - `GraphResponse`
-    - plus optional metadata for applied filters, truncation, and execution mode
+- [ ] **2.1.1 Local Property Filter UX Review**
+  - Decide which loaded-graph properties deserve first-class local controls
+  - Keep the control set intentionally small and understandable
 
-- [x] **2.1.1a Filter Property Registry**
-  - Introduce a backend-owned filter registry defining which properties are officially filterable
-  - Recommended location:
-    - `app/api/graph/v1/filter_registry.py`
-  - Registry responsibilities:
-    - define supported node labels and relationship types
-    - define supported properties for each label/type
-    - define property type information:
-      - string
-      - number
-      - boolean
-      - date/datetime
-      - enum/list-like
-    - define allowed operators per property
-    - define whether the property is:
-      - local-filterable
-      - server-filterable
-      - indexed / preferred
-    - define optional UI hints:
-      - widget type
-      - display label
-      - suggested sort order
-      - enum options when known
-  - Example shape:
-    ```python
-    FILTER_REGISTRY = {
-        "nodes": {
-            "Person": {
-                "name": {"type": "string", "operators": ["=", "CONTAINS", "STARTS WITH"], "server": True, "indexed": True},
-                "email": {"type": "string", "operators": ["=", "CONTAINS"], "server": True, "indexed": True},
-                "role": {"type": "string", "operators": ["=", "IN"], "server": True, "indexed": True},
-                "is_manager": {"type": "boolean", "operators": ["="], "server": False, "local": True}
-            },
-            "File": {
-                "path": {"type": "string", "operators": ["=", "CONTAINS", "STARTS WITH"], "server": True, "indexed": True},
-                "extension": {"type": "string", "operators": ["=", "IN"], "server": True, "indexed": True},
-                "language": {"type": "string", "operators": ["=", "IN"], "server": True, "indexed": True},
-                "is_test": {"type": "boolean", "operators": ["="], "server": True, "indexed": True}
-            }
-        },
-        "relationships": {
-            "REVIEWED_BY": {
-                "state": {"type": "string", "operators": ["="], "server": True}
-            }
-        }
-    }
-    ```
-  - This registry becomes the source of truth for **server-side filterability**
-
-- [ ] **2.1.2 Filter Query Builder**
+- [ ] **2.1.2 Query Narrowing Guidance**
+  - Improve the graph page guidance for writing narrower Cypher before load
+  - Prefer better query templates, examples, and expansion workflows over generic backend filter execution
   - Build server-side filter translation from validated filter specs to Cypher fragments
   - Support:
     - node label/type filters
     - relationship type filters
     - property predicates
-    - date range predicates
-  - Preserve read-only guarantees
-  - Avoid raw user Cypher injection
-  - Treat `baseQuery` as the graph-producing source query, then apply validated filters to the resulting graph scope
-  - Only generate server-side predicates for properties defined in the filter registry
-
-- [x] **2.1.3 Graph Metadata / Introspection Endpoint**
-  - Add endpoint for filter UI metadata, for example:
-    - available node labels in current graph
-    - relationship types in current graph
-    - property keys by label/type
-    - primitive type hints when inferable
-  - Purpose:
-    - avoid guessing filter forms in the frontend
-    - support richer filter UIs for both loaded-graph and database modes
-  - Metadata response should merge two sources:
-    - **live discovery** from the current graph / database sample
-    - **registry metadata** for officially supported server-side filters
-  - This lets the UI distinguish:
-    - “property exists”
-    - “property is supported for server filtering”
+- [ ] **2.1.3 Graph Property Discovery for Local UX**
+  - Improve local filter affordances using the properties already present in the loaded graph
+  - Surface only the information needed to build useful local controls
+  - Avoid introducing a dedicated metadata endpoint unless a future search feature actually requires it
 
 - [ ] **2.1.4 Collaboration Density Filtering**
-  - Keep collaboration-specific density controls as a first-class server-side filtering path
+  - Keep collaboration-specific density controls as a first-class optimization path
   - Extend the collaboration endpoint and/or pipeline to support:
     - `top_n_edges_per_node`
     - optional minimum weight threshold
@@ -477,13 +314,12 @@ Implement filtering in **two layers**:
 - [ ] **2.1.5 Result Metadata**
   - Include metadata on whether results were:
     - client-refined locally
-    - filtered server-side
     - truncated due to safety limits
   - Include counts such as:
     - nodes before/after
     - relationships before/after
     - execution time
-    - any threshold-triggered fallback reason
+    - any threshold-triggered warning reason
 
 ### Frontend Tasks
 
@@ -493,29 +329,18 @@ Implement filtering in **two layers**:
     - **Node Type Filter**: Multi-select checkboxes for labels
     - **Property Filters**: Dynamic form based on node properties
     - **Relationship Filter**: Show/hide relationship types
-    - **Advanced**: Cypher WHERE clause input
-  - Add execution-mode grouping:
-    - **Refine Loaded Graph**
-    - **Apply to Database**
-  - Add status text showing current mode and whether fallback occurred
+  - Add status text showing loaded-graph size and local refinement scope
 
 - [ ] **2.1.7 Property-Based Filtering**
-  - Auto-detect properties from loaded nodes and/or metadata endpoint
+  - Auto-detect properties from loaded nodes
   - Operators:
     - `=`, `!=`, `>`, `<`, `>=`, `<=`, `CONTAINS`, `STARTS WITH`, `IN`
   - Property types:
     - String, Number, Boolean, Date, List
   - Add date range picker for temporal properties
   - Add multi-select for categorical properties
-  - Prefer server-side execution for:
-    - date ranges
-    - high-cardinality text fields
-    - indexed properties when filtering the full graph
-  - Keep simple local property filtering only for small loaded graphs
-  - UI should clearly mark whether a property is:
-    - available only for local filtering
-    - fully supported for database filtering
-  - Avoid exposing “Apply to Database” for properties not present in the backend registry
+  - Keep property filtering bounded to practical loaded-graph cases
+  - For larger source-graph narrowing, rely on the initial Cypher query instead of a separate filter execution mode
 
 - [ ] **2.1.8 Visual Filter Feedback**
   - Dim filtered-out nodes (opacity: 0.3)
@@ -555,118 +380,82 @@ Implement filtering in **two layers**:
     - weighted-edge gating for weight controls
     - unweighted-graph guard for stale weight / top-N selections
 
-- [x] **2.1.B Phase 2 - Add server-side filter API for database-backed filtering**
-  - Introduce `/api/v1/graph/filter`
-  - Add validated filter models
-  - Add backend filter registry as the initial source of truth for server-filterable fields
-  - Support node/relationship type filters and a minimal property/date filter subset first
-  - Start with indexed/high-value fields:
-    - `Person.name`, `Person.email`, `Person.role`, `Person.title`
-    - `File.path`, `File.extension`, `File.language`, `File.is_test`
-    - `PullRequest.state`, `PullRequest.created_at`, `PullRequest.merged_at`
-    - `Issue.status`, `Issue.type`, `Issue.created_at`
-    - `Branch.name`, `Branch.is_default`, `Branch.is_protected`
+- [x] **2.1.B Phase 2 - Simplify to local-only filtering**
+  - Remove the experimental alternate filtering path
+  - Remove no-longer-used models, service code, registry, and tests
+  - Keep graph filtering local-only
 
 - [ ] **2.1.C Phase 3 - Add execution thresholds and automatic fallback**
-  - Introduce heuristics for switching/recommending database mode when:
+  - Keep heuristics only as local warning banners when:
     - graph element count is too high
-    - payload estimate is too large
     - local interaction latency becomes poor
   - Suggested starting thresholds:
     - soft warning at about **2,000 elements**
-    - recommend database filtering at about **5,000 elements**
-    - recommend server-side/density reduction at about **1-2 MB** estimated payload
-  - Record threshold hits in logs for tuning
+    - high warning at about **5,000 elements**
+  - Record threshold hits in logs for tuning if needed
   - **Current state**:
-    - ✅ server-side threshold warnings are already emitted in filter metadata
-    - ✅ frontend threshold banner shows recommendation/status with correct colors
-    - ✅ auto-switch toggle changes banner and mode label atomically
-    - ✅ actual database-backed filter execution now runs when auto-switch is ON (graph-query mode)
-    - ✅ collaboration-mode safeguard prevents invalid generic fallback in `mode=collaboration` and `mode=collaboration_network`
-    - ⏳ UI rendering performance remains the dominant bottleneck for large collaboration payloads
+    - ✅ local-only threshold warning banner remains available for large loaded graphs
+    - ✅ no auto-switch or dual-mode controls remain in the graph UI
 
-#### 2.1.C Active Next Slice (Now)
+#### 2.1.C Current Progress
 
-- [x] Add explicit threshold reason fields for frontend consumption
-- [x] Surface threshold recommendation/status in graph filter UI banner
-- [x] Add automatic recommendation/switch rules for local vs database mode
-- [x] Add focused tests for threshold-triggered recommendation/fallback behavior
-- [x] Auto-switch toggle flips banner color/text (warning → success) and mode label atomically
-- [x] Added focused tests for auto-switch ON banner state
-- [x] Wire auto-switch ON to actual database filter execution (`POST /api/v1/graph/filter`)
+- [x] Remove the alternate filtering callback path
+- [x] Remove auto-switch / restore-original filter UI controls
+- [x] Remove extra fallback-only stores from graph layout/query/collaboration callback contracts
+- [x] Simplify threshold feedback to local-only warning banners
+- [x] Realign local filtering callback tests and query callback regression tests
+- [x] Remove unused API/model/service/query-builder code tied to the alternate path
+- [x] Rewrite remaining Phase 2 plan sections around a local-only strategy
 
 #### 2.1.C Progress Update
 
-- ✅ Added structured threshold status in filter execution metadata:
-  - element and payload severities (`none`/`soft`/`high`)
-  - recommended mode (`local` or `database`)
-  - explicit machine-readable threshold reasons
-- ✅ Added focused service tests validating threshold status and recommendations
-- ✅ Added frontend filter-panel threshold banner/status for loaded-graph refinement
-- ✅ Added focused callback tests for soft-warning and database-recommendation banner states
-- ✅ Added safe UX mode behavior:
-  - default recommendation-only label behavior
-  - opt-in auto-switch toggle for database recommendation mode
-- ✅ Added focused callback tests for recommendation-only vs auto-switch paths
-- ✅ Auto-switch toggle now changes banner **color and text** atomically:
-  - toggle OFF → yellow warning: "Recommended mode: Apply to Database"
-  - toggle ON → green confirmation: "Auto-switch ON: Applying to Database"
-- ✅ Mode label also updates in sync via the threshold store
-- ✅ Added focused test for auto-switch ON banner state (`test_update_filter_panel_feedback_auto_switch_on_changes_banner_to_success`)
-- ✅ Auto-switch ON now triggers server-side filtering via `POST /api/v1/graph/filter`
-- ✅ Server filter response now replaces the working graph baseline (`unfiltered-elements-store`)
-- ✅ Added preserved original baseline store (`original-unfiltered-elements-store`) for rollback safety
-- ✅ Added "Restore original graph" action to return to the pre-server-filter baseline
-- ✅ Added collaboration-mode routing guard so generic `/api/v1/graph/filter` fallback is skipped for:
-  - `?mode=collaboration`
-  - `?mode=collaboration_network`
-- ✅ Added focused callback test coverage for collaboration mode detection and guard behavior
-- ⚠️ Observed in manual validation: server-side fallback alone does not solve lag when Cytoscape still renders very large edge sets
+- ✅ Large-graph threshold feedback remains as local-only UI guidance
+- ✅ Dual-mode UI and auto-switching have been removed
+- ✅ Query and collaboration callbacks are back to a single working baseline contract
+- ✅ Removed API, model, service, and dedicated test code for the discarded alternate path
+- ⚠️ Observed in manual validation: reducing query work alone does not solve lag when Cytoscape still renders very large edge sets
 - ➡️ Practical next target moved to `2.1.D`: collaboration-specific payload reduction before render (top-N/weight/layer pruning)
 
 #### 2.1.C Known Limitation
 
-- Generic auto-switch fallback (`POST /api/v1/graph/filter`) is intentionally **disabled** in collaboration analytics mode (`?mode=collaboration` and `?mode=collaboration_network`).
-- Reason: collaboration graph payloads are produced by a separate analytics pipeline and should not be replaced by generic base-query filter results.
-- Implication: performance improvements for large collaboration graphs must come from collaboration-specific reduction controls (planned in `2.1.D`), not generic fallback switching.
+- The remaining large-graph banner is informational only; it does not trigger any alternate execution mode.
 
 - [ ] **2.1.D Phase 4 - Collaboration-specific optimization**
-  - Move collaboration density controls into a more explicit server-backed filter workflow
+  - Keep collaboration density controls focused on payload reduction before render
   - Preserve existing `top_n_edges_per_node`
   - Add optional minimum weight threshold and layer toggles
   - Evaluate pruning earlier in Cypher or earlier in the analytics pipeline to avoid always processing the largest pair set
 
 - [ ] **2.1.E Phase 5 - Presets and URL state**
-  - Save and share hybrid filter states
-  - Persist whether a preset is intended for local refinement or database-backed filtering
+  - Save and share local filter states
+  - Persist only the state needed to recreate the loaded-graph refinement view
 
 ### Risks and Mitigations
 
-- **Risk: confusing dual-mode UX**
+- **Risk: local filtering applied to a graph that is already too large**
   - Mitigation:
-    - explicitly label local vs database actions
-    - show current execution mode
-    - show fallback banner when mode changes automatically
+    - explicitly label the panel as loaded-graph refinement
+    - show warning banners for large loaded graphs
+    - encourage narrower queries and expansion-driven exploration
 
-- **Risk: trying to support arbitrary Cypher + arbitrary server-side filtering too early**
+- **Risk: trying to turn the filter panel into a generic query builder**
   - Mitigation:
-    - start with validated filter models and a bounded property whitelist
-    - keep advanced raw Cypher filtering as a later phase
+    - keep local controls bounded and purposeful
+    - use the Cypher console for advanced source-graph narrowing
 
 - **Risk: future node types appear in the graph but have no useful filters**
   - Mitigation:
     - allow discovery of new labels/properties automatically
-    - add server-side support by extending the backend filter registry
-    - make registry updates part of onboarding new graph entities
+    - add or adjust local controls only when they materially improve the UX
 
 - **Risk: weight-based controls appear broken on generic graph queries**
   - Mitigation:
     - hide or disable weight-specific controls unless the current graph contains weighted edges
     - keep collaboration density controls as a separate, well-labeled weighted-graph use case
 
-- **Risk: backend complexity grows quickly**
+- **Risk: collaboration graphs still ship too much data**
   - Mitigation:
-    - stage rollout
+    - prioritize pruning earlier in the collaboration pipeline
     - prioritize indexed properties and common labels first
     - instrument execution time and payload size from day one
 
