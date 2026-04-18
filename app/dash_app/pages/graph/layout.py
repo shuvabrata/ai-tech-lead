@@ -193,6 +193,7 @@ def create_filter_panel():
                             html.Div([
                                 html.Small(
                                     "Refining loaded graph",
+                                    id="filter-mode-label",
                                     className="graph-filter-mode-label d-block"
                                 ),
                                 html.Small(

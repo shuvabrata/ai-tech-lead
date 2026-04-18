@@ -1,6 +1,6 @@
 """Filtering Callbacks (Phase 1.2.4)
 
-Callbacks for relationship filtering UI controls.
+Callbacks for local graph refinement UI controls.
 """
 
 import dash_bootstrap_components as dbc
@@ -431,7 +431,12 @@ def update_filter_panel_feedback(
     weight_group_style = {} if has_weighted_edges else {"display": "none"}
     weight_note_style = {"display": "none"} if has_weighted_edges or not unfiltered_elements else {"display": "block"}
 
-    return summary, chips, weight_group_style, weight_note_style
+    return (
+        summary,
+        chips,
+        weight_group_style,
+        weight_note_style,
+    )
 
 
 @callback(

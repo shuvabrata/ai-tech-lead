@@ -64,7 +64,7 @@ async def execute_query(request: CypherQueryRequest):
                 "query": request.query[:200]  # Truncate for safety
             }
         ) from e
-        
+
     except RuntimeError as e:
         # Execution errors: Neo4j connection, query execution, timeouts
         logger.error(f"Query execution error: {e}")
@@ -76,7 +76,7 @@ async def execute_query(request: CypherQueryRequest):
                 "hint": "Check Neo4j connection and query syntax"
             }
         ) from e
-        
+
     except Exception as e:
         # Unexpected errors
         logger.error(f"Unexpected error executing query: {e}", exc_info=True)

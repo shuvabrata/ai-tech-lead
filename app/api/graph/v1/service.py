@@ -65,8 +65,19 @@ def execute_and_format_query(query: str) -> GraphResponse:
     # Step 2: Execute query
     logger.info(f"Executing query: {query[:100]}...")
     raw_results = execute_cypher_query(query, timeout=settings.NEO4J_QUERY_TIMEOUT)
-    
-    # Step 3: Detect result type and transform
+
+    return _format_query_results(
+        raw_results=raw_results,
+        include_implicit_relationships=True,
+    )
+
+
+def _format_query_results(
+    raw_results: List[Dict[str, Any]],
+    include_implicit_relationships: bool,
+) -> GraphResponse:
+    """Format raw Neo4j records as GraphResponse (graph or tabular)."""
+    # Detect result type and transform
     nodes_dict: Dict[str, GraphNode] = {}  # Keyed by element_id for deduplication
     relationships_list: List[GraphRelationship] = []
     relationship_ids: Set[str] = set()  # For deduplication
@@ -95,7 +106,7 @@ def execute_and_format_query(query: str) -> GraphResponse:
         # Step 4.5: Fetch relationships between the loaded nodes
         # This ensures that if nodes have relationships between them, those relationships
         # are also loaded, even if they weren't explicitly returned by the query
-        if len(nodes_list) > 0:
+        if include_implicit_relationships and len(nodes_list) > 0:
             node_ids = [node.id for node in nodes_list]
             relationship_records = fetch_relationships_between_nodes(node_ids)
             
