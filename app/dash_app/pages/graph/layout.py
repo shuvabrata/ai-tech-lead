@@ -189,8 +189,18 @@ def create_filter_panel():
             children=[
                 dbc.Card([
                     dbc.CardBody([
-                        # Clear button
                         html.Div([
+                            html.Div([
+                                html.Small(
+                                    "Refining loaded graph",
+                                    className="graph-filter-mode-label d-block"
+                                ),
+                                html.Small(
+                                    id="filter-results-summary",
+                                    children="Load a graph to refine it locally.",
+                                    className="graph-filter-summary d-block"
+                                )
+                            ]),
                             dbc.Button(
                                 "Clear All",
                                 id="clear-filters-btn",
@@ -199,7 +209,42 @@ def create_filter_panel():
                                 className="ms-auto",
                                 style={"fontSize": "11px", "padding": "0", "textDecoration": "none"}
                             )
-                        ], className="d-flex justify-content-end mb-3"),
+                        ], className="d-flex justify-content-between align-items-start mb-3"),
+
+                    html.Div(
+                        id="filter-active-chips",
+                        className="graph-filter-chip-list mb-3",
+                        children=[
+                            html.Span(
+                                "No active filters",
+                                className="graph-filter-empty-state"
+                            )
+                        ]
+                    ),
+
+                    html.Div([
+                        html.Label(
+                            "Display Filtered Items:",
+                            style={
+                                "fontSize": "11px",
+                                "fontWeight": FONT_WEIGHT_SEMIBOLD,
+                                "color": COLOR_GRAY_DARK,
+                                "marginBottom": "8px",
+                                "display": "block"
+                            }
+                        ),
+                        dbc.RadioItems(
+                            id="filter-display-mode",
+                            options=[
+                                {"label": "Hide", "value": "hide"},
+                                {"label": "Dim", "value": "dim"}
+                            ],
+                            value="hide",
+                            inline=True,
+                            className="graph-filter-radio",
+                            style={"fontSize": "12px"}
+                        )
+                    ], className="mb-3"),
                     
                     # Node Type Checkboxes
                     html.Div([
@@ -245,62 +290,74 @@ def create_filter_panel():
                         )
                     ], className="mb-3"),
                     
-                    # Weight Threshold Slider
-                    html.Div([
-                        html.Label(
-                            "Weight Threshold:",
-                            style={
-                                "fontSize": "11px",
-                                "fontWeight": FONT_WEIGHT_SEMIBOLD,
-                                "color": COLOR_GRAY_DARK,
-                                "marginBottom": "8px",
-                                "display": "block"
-                            }
-                        ),
-                        html.Div([
-                            dcc.Slider(
-                                id="weight-threshold-slider",
-                                min=0,
-                                max=100,
-                                step=1,
-                                value=0,
-                                marks={0: '0', 25: '25', 50: '50', 75: '75', 100: '100'},
-                                tooltip={"placement": "bottom", "always_visible": False}
-                            ),
-                            html.Small(
-                                id="weight-threshold-label",
-                                children="Show edges with weight ≥ 0",
-                                className="d-block mt-1",
-                                style={"fontSize": "10px", "color": "var(--color-text-secondary)"}
-                            )
-                        ])
-                    ], className="mb-3"),
-                    
-                    # Top-N Toggle
-                    html.Div([
-                        html.Label(
-                            "Edge Limit:",
-                            style={
-                                "fontSize": "11px",
-                                "fontWeight": FONT_WEIGHT_SEMIBOLD,
-                                "color": COLOR_GRAY_DARK,
-                                "marginBottom": "8px",
-                                "display": "block"
-                            }
-                        ),
-                        dbc.RadioItems(
-                            id="top-n-toggle",
-                            options=[
-                                {"label": "Show All", "value": "all"},
-                                {"label": "Top 50 Edges", "value": "top50"},
-                                {"label": "Top 100 Edges", "value": "top100"}
-                            ],
-                            value="all",
-                            inline=False,
-                            className="graph-filter-radio",
-                            style={"fontSize": "12px"}
-                        )
-                    ])
+                    html.Div(
+                        id="weight-based-filter-group",
+                        children=[
+                            # Weight Threshold Slider
+                            html.Div([
+                                html.Label(
+                                    "Weight Threshold:",
+                                    style={
+                                        "fontSize": "11px",
+                                        "fontWeight": FONT_WEIGHT_SEMIBOLD,
+                                        "color": COLOR_GRAY_DARK,
+                                        "marginBottom": "8px",
+                                        "display": "block"
+                                    }
+                                ),
+                                html.Div([
+                                    dcc.Slider(
+                                        id="weight-threshold-slider",
+                                        min=0,
+                                        max=100,
+                                        step=1,
+                                        value=0,
+                                        marks={0: '0', 25: '25', 50: '50', 75: '75', 100: '100'},
+                                        tooltip={"placement": "bottom", "always_visible": False}
+                                    ),
+                                    html.Small(
+                                        id="weight-threshold-label",
+                                        children="Show edges with weight ≥ 0",
+                                        className="d-block mt-1",
+                                        style={"fontSize": "10px", "color": "var(--color-text-secondary)"}
+                                    )
+                                ])
+                            ], className="mb-3"),
+                            
+                            # Top-N Toggle
+                            html.Div([
+                                html.Label(
+                                    "Edge Limit:",
+                                    style={
+                                        "fontSize": "11px",
+                                        "fontWeight": FONT_WEIGHT_SEMIBOLD,
+                                        "color": COLOR_GRAY_DARK,
+                                        "marginBottom": "8px",
+                                        "display": "block"
+                                    }
+                                ),
+                                dbc.RadioItems(
+                                    id="top-n-toggle",
+                                    options=[
+                                        {"label": "Show All", "value": "all"},
+                                        {"label": "Top 50 Edges", "value": "top50"},
+                                        {"label": "Top 100 Edges", "value": "top100"}
+                                    ],
+                                    value="all",
+                                    inline=False,
+                                    className="graph-filter-radio",
+                                    style={"fontSize": "12px"}
+                                )
+                            ])
+                        ]
+                    ),
+
+                    html.Div(
+                        id="weight-filter-unavailable-note",
+                        className="graph-filter-help-note",
+                        style={"display": "none"},
+                        children="Weight-based controls are available for weighted graphs only."
+                    )
                 ], className="graph-filter-card-body", style={"padding": "12px"})
             ], className="graph-filter-card", style={"border": f"1px solid {COLOR_GRAY_LIGHTER}", "borderRadius": "4px"})
             ]

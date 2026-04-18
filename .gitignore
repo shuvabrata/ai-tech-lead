@@ -213,3 +213,4 @@ app/ai_agent/providers/custom/
 # Application logs
 logs/
 *.log
+.codex

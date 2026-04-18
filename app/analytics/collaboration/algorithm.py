@@ -208,10 +208,13 @@ def to_cytoscape_elements(
         elements.append(element)
 
     for source, target, edge_data in g.edges(data=True):
+        canonical_source, canonical_target = sorted((source, target))
+        edge_id = f"collab:{canonical_source}:{canonical_target}"
         elements.append({
             "data": {
-                "source": source,
-                "target": target,
+                "id": edge_id,
+                "source": canonical_source,
+                "target": canonical_target,
                 "weight": edge_data.get("weight", 1),
                 "label": "COLLABORATES",
                 "relType": "COLLABORATES",

@@ -226,11 +226,13 @@ class TestToCytoscapeElements:
     def test_edge_data_fields(self):
         edge = next(e for e in self.elements if "source" in e["data"])
         data = edge["data"]
+        assert "id" in data
         assert "source" in data
         assert "target" in data
         assert "weight" in data
         assert "relType" in data
         assert data["relType"] == "COLLABORATES"
+        assert data["id"] == f"collab:{data['source']}:{data['target']}"
 
     def test_display_label_truncated_at_12_chars(self):
         long_name_records = [
