@@ -581,7 +581,9 @@ Implement filtering in **two layers**:
     - ✅ server-side threshold warnings are already emitted in filter metadata
     - ✅ frontend threshold banner shows recommendation/status with correct colors
     - ✅ auto-switch toggle changes banner and mode label atomically
-    - ⏳ actual database-backed filter execution when auto-switch is ON is still pending
+    - ✅ actual database-backed filter execution now runs when auto-switch is ON (graph-query mode)
+    - ✅ collaboration-mode safeguard prevents invalid generic fallback in `mode=collaboration` and `mode=collaboration_network`
+    - ⏳ UI rendering performance remains the dominant bottleneck for large collaboration payloads
 
 #### 2.1.C Active Next Slice (Now)
 
@@ -615,6 +617,18 @@ Implement filtering in **two layers**:
 - ✅ Server filter response now replaces the working graph baseline (`unfiltered-elements-store`)
 - ✅ Added preserved original baseline store (`original-unfiltered-elements-store`) for rollback safety
 - ✅ Added "Restore original graph" action to return to the pre-server-filter baseline
+- ✅ Added collaboration-mode routing guard so generic `/api/v1/graph/filter` fallback is skipped for:
+  - `?mode=collaboration`
+  - `?mode=collaboration_network`
+- ✅ Added focused callback test coverage for collaboration mode detection and guard behavior
+- ⚠️ Observed in manual validation: server-side fallback alone does not solve lag when Cytoscape still renders very large edge sets
+- ➡️ Practical next target moved to `2.1.D`: collaboration-specific payload reduction before render (top-N/weight/layer pruning)
+
+#### 2.1.C Known Limitation
+
+- Generic auto-switch fallback (`POST /api/v1/graph/filter`) is intentionally **disabled** in collaboration analytics mode (`?mode=collaboration` and `?mode=collaboration_network`).
+- Reason: collaboration graph payloads are produced by a separate analytics pipeline and should not be replaced by generic base-query filter results.
+- Implication: performance improvements for large collaboration graphs must come from collaboration-specific reduction controls (planned in `2.1.D`), not generic fallback switching.
 
 - [ ] **2.1.D Phase 4 - Collaboration-specific optimization**
   - Move collaboration density controls into a more explicit server-backed filter workflow
