@@ -3,8 +3,6 @@
 Callbacks for local graph refinement UI controls.
 """
 
-import json
-
 import dash_bootstrap_components as dbc
 from dash import Input, Output, State, callback, html
 from dash.exceptions import PreventUpdate
@@ -14,12 +12,6 @@ from ..utils import is_edge_data, is_node_data
 
 class FilteringDataValidationError(ValueError):
     """Raised when loaded graph elements violate callback assumptions."""
-
-
-GRAPH_SOFT_WARNING_ELEMENT_THRESHOLD = 2000
-GRAPH_HIGH_WARNING_ELEMENT_THRESHOLD = 5000
-GRAPH_PAYLOAD_WARNING_BYTES = 1_000_000
-GRAPH_HIGH_WARNING_BYTES = 2_000_000
 
 
 def _split_elements(elements):
@@ -128,68 +120,6 @@ def _build_active_filter_chips(
         )
         for label in labels
     ]
-
-
-def _estimate_elements_payload_bytes(elements):
-    """Estimate JSON payload size for the currently rendered graph subset."""
-    return len(json.dumps(elements or [], default=str).encode("utf-8"))
-
-
-def _build_threshold_status_alert(filtered_elements, unfiltered_elements):
-    """Return a browser-visible local-only size warning banner."""
-    if not unfiltered_elements:
-        return None, {"display": "none"}
-
-    total_elements = len(filtered_elements)
-    payload_bytes = _estimate_elements_payload_bytes(filtered_elements)
-
-    if (
-        total_elements >= GRAPH_HIGH_WARNING_ELEMENT_THRESHOLD
-        or payload_bytes >= GRAPH_HIGH_WARNING_BYTES
-    ):
-        reasons = []
-        if total_elements >= GRAPH_HIGH_WARNING_ELEMENT_THRESHOLD:
-            reasons.append(f"{total_elements} visible elements")
-        if payload_bytes >= GRAPH_HIGH_WARNING_BYTES:
-            reasons.append(f"~{round(payload_bytes / 1_000_000, 2)} MB payload")
-
-        alert = dbc.Alert(
-            [
-                html.Div("Large graph warning", className="fw-semibold mb-1"),
-                html.Div(
-                    "This loaded graph is large enough that local filtering may feel sluggish"
-                    + (f" ({', '.join(reasons)})." if reasons else ".")
-                ),
-            ],
-            color="warning",
-            className="mb-0 py-2 px-3",
-        )
-        return alert, {"display": "block"}
-
-    if (
-        total_elements >= GRAPH_SOFT_WARNING_ELEMENT_THRESHOLD
-        or payload_bytes >= GRAPH_PAYLOAD_WARNING_BYTES
-    ):
-        reasons = []
-        if total_elements >= GRAPH_SOFT_WARNING_ELEMENT_THRESHOLD:
-            reasons.append(f"{total_elements} visible elements")
-        if payload_bytes >= GRAPH_PAYLOAD_WARNING_BYTES:
-            reasons.append(f"~{round(payload_bytes / 1_000_000, 2)} MB payload")
-
-        alert = dbc.Alert(
-            [
-                html.Div("Local filtering warning", className="fw-semibold mb-1"),
-                html.Div(
-                    "This graph is moderately large; local refinement should still work but may slow down"
-                    + (f" ({', '.join(reasons)})." if reasons else ".")
-                ),
-            ],
-            color="info",
-            className="mb-0 py-2 px-3",
-        )
-        return alert, {"display": "block"}
-
-    return None, {"display": "none"}
 
 
 def _compute_filtered_graph(
@@ -456,8 +386,6 @@ def update_weight_threshold_label(threshold):
 @callback(
     [Output("filter-results-summary", "children"),
      Output("filter-active-chips", "children"),
-     Output("filter-threshold-status", "children"),
-     Output("filter-threshold-status", "style"),
      Output("weight-based-filter-group", "style"),
      Output("weight-filter-unavailable-note", "style")],
     [Input("unfiltered-elements-store", "data"),
@@ -499,10 +427,6 @@ def update_filter_panel_feedback(
         rel_type_options,
         has_weighted_edges,
     )
-    threshold_alert, threshold_style = _build_threshold_status_alert(
-        logical_filtered_elements,
-        unfiltered_elements or [],
-    )
 
     weight_group_style = {} if has_weighted_edges else {"display": "none"}
     weight_note_style = {"display": "none"} if has_weighted_edges or not unfiltered_elements else {"display": "block"}
@@ -510,8 +434,6 @@ def update_filter_panel_feedback(
     return (
         summary,
         chips,
-        threshold_alert,
-        threshold_style,
         weight_group_style,
         weight_note_style,
     )

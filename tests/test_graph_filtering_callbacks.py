@@ -97,7 +97,7 @@ def test_update_filter_panel_feedback_hides_weight_controls_for_unweighted_graph
         {"data": {"id": "e1", "source": "n1", "target": "n2", "relType": "KNOWS", "elementType": "edge"}},
     ]
 
-    summary, chips, threshold_alert, threshold_style, weight_group_style, weight_note_style = filtering_callbacks.update_filter_panel_feedback(
+    summary, chips, weight_group_style, weight_note_style = filtering_callbacks.update_filter_panel_feedback(
         unfiltered_elements=unfiltered_elements,
         selected_node_types=["Person"],
         selected_rel_types=["KNOWS"],
@@ -110,8 +110,6 @@ def test_update_filter_panel_feedback_hides_weight_controls_for_unweighted_graph
 
     assert summary == "Showing 2 nodes / 1 edges from 2 nodes / 1 edges"
     assert chips[0].children == "No active filters"
-    assert threshold_alert is None
-    assert threshold_style == {"display": "none"}
     assert weight_group_style == {"display": "none"}
     assert weight_note_style == {"display": "block"}
 
@@ -124,7 +122,7 @@ def test_update_filter_panel_feedback_uses_logical_counts_in_dim_mode():
         {"data": {"id": "e1", "source": "n1", "target": "n2", "relType": "WORKS_ON", "elementType": "edge"}},
     ]
 
-    summary, chips, threshold_alert, threshold_style, _weight_group_style, weight_note_style = filtering_callbacks.update_filter_panel_feedback(
+    summary, chips, _weight_group_style, weight_note_style = filtering_callbacks.update_filter_panel_feedback(
         unfiltered_elements=unfiltered_elements,
         selected_node_types=["Person"],
         selected_rel_types=["WORKS_ON"],
@@ -140,59 +138,7 @@ def test_update_filter_panel_feedback_uses_logical_counts_in_dim_mode():
 
     assert summary == "Showing 1 nodes / 0 edges from 2 nodes / 1 edges"
     assert chips[0].children == "Node types: Person"
-    assert threshold_alert is None
-    assert threshold_style == {"display": "none"}
     assert weight_note_style == {"display": "block"}
-
-
-def test_update_filter_panel_feedback_shows_soft_threshold_recommendation():
-    """Moderately large graphs should show a soft local filtering warning."""
-    unfiltered_elements = [
-        {"data": {"id": f"n{i}", "nodeType": "Person", "elementType": "node"}}
-        for i in range(2101)
-    ]
-
-    summary, _chips, threshold_alert, threshold_style, _weight_group_style, _weight_note_style = filtering_callbacks.update_filter_panel_feedback(
-        unfiltered_elements=unfiltered_elements,
-        selected_node_types=["Person"],
-        selected_rel_types=[],
-        weight_threshold=0,
-        top_n_mode="all",
-        _display_mode="hide",
-        node_type_options=[{"label": f"Person ({len(unfiltered_elements)})", "value": "Person"}],
-        rel_type_options=[],
-    )
-
-    assert "Showing 2101 nodes / 0 edges" in summary
-    assert threshold_style == {"display": "block"}
-    assert threshold_alert.color == "info"
-    alert_text = str(threshold_alert.children)
-    assert "Local filtering warning" in alert_text
-
-
-def test_update_filter_panel_feedback_shows_high_warning_for_large_graph():
-    """Very large graphs should show a stronger local-only warning in the filter panel."""
-    unfiltered_elements = [
-        {"data": {"id": f"n{i}", "nodeType": "Person", "elementType": "node"}}
-        for i in range(5201)
-    ]
-
-    _summary, _chips, threshold_alert, threshold_style, _weight_group_style, _weight_note_style = filtering_callbacks.update_filter_panel_feedback(
-        unfiltered_elements=unfiltered_elements,
-        selected_node_types=["Person"],
-        selected_rel_types=[],
-        weight_threshold=0,
-        top_n_mode="all",
-        _display_mode="hide",
-        node_type_options=[{"label": f"Person ({len(unfiltered_elements)})", "value": "Person"}],
-        rel_type_options=[],
-    )
-
-    assert threshold_style == {"display": "block"}
-    assert threshold_alert.color == "warning"
-    alert_text = str(threshold_alert.children)
-    assert "Large graph warning" in alert_text
-    assert "local filtering may feel sluggish" in alert_text
 
 
 @pytest.mark.xfail(reason="Known Dim mode issue: stale dimmed class not removed on re-selection. See Phase 2 doc: Dim mode + edge hover interaction conflict")

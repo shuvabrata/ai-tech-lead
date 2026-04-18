@@ -223,12 +223,6 @@ def create_filter_panel():
                         ]
                     ),
 
-                    html.Div(
-                        id="filter-threshold-status",
-                        style={"display": "none"},
-                        className="mb-3"
-                    ),
-
                     html.Div([
                         html.Label(
                             "Display Filtered Items:",
