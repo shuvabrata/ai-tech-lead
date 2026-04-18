@@ -1,6 +1,9 @@
 import pytest
 import httpx
 
+
+pytestmark = [pytest.mark.integration, pytest.mark.server]
+
 @pytest.mark.asyncio
 async def test_projects_crud():
     base_url = "http://localhost:8000"

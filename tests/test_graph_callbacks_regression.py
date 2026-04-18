@@ -6,7 +6,12 @@ stale graph data to reappear after repeated Execute actions.
 
 from dataclasses import dataclass
 
+import pytest
+
 from app.dash_app.pages.graph.callbacks import query as query_callbacks
+
+
+pytestmark = pytest.mark.unit
 
 
 @dataclass

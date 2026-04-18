@@ -16,6 +16,9 @@ from app.settings import settings
 BASE_URL = "http://localhost:8000"
 
 
+pytestmark = [pytest.mark.integration, pytest.mark.server, pytest.mark.neo4j]
+
+
 @pytest.mark.asyncio
 @pytest.mark.skipif(
     not settings.NEO4J_ENABLED,

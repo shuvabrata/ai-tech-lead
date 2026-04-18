@@ -5,6 +5,9 @@ from app.common import encryption
 from app.settings import settings
 
 
+pytestmark = pytest.mark.unit
+
+
 def test_encrypt_decrypt_roundtrip(monkeypatch):
     key = Fernet.generate_key().decode()
     monkeypatch.setattr(settings, "CONNECTOR_ENCRYPTION_KEY", key)
