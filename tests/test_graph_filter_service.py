@@ -223,6 +223,35 @@ def test_execute_and_filter_query_surfaces_pushdown_validation_error(monkeypatch
         service.execute_and_filter_query(request)
 
 
+def test_execute_and_filter_query_surfaces_unexpected_pushdown_exception(monkeypatch):
+    """Unexpected pushdown exceptions should propagate rather than silently fallback."""
+
+    def _raise_unexpected(*_args, **_kwargs):
+        raise KeyError("unexpected pushdown state")
+
+    monkeypatch.setattr(service, "execute_filtered_cypher_query", _raise_unexpected)
+    monkeypatch.setattr(
+        service,
+        "execute_and_format_query",
+        lambda _q: (_ for _ in ()).throw(AssertionError("fallback path should not execute")),
+    )
+
+    request = GraphFilterRequest(
+        baseQuery="MATCH (n)-[r]->(m) RETURN n, r, m",
+        nodePropertyFilters=[
+            {
+                "label": "Person",
+                "property": "name",
+                "operator": "CONTAINS",
+                "value": "Ali",
+            }
+        ],
+    )
+
+    with pytest.raises(KeyError, match="unexpected pushdown state"):
+        service.execute_and_filter_query(request)
+
+
 def test_execute_and_filter_query_pushdown_path_uses_or_grouped_builder(monkeypatch):
     """Service should use pushdown builder output with OR-grouped node/relationship filters."""
     from app.api.graph.v1.query import build_filtered_cypher_query

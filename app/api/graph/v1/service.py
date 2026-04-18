@@ -192,10 +192,7 @@ def execute_and_filter_query(request: GraphFilterRequest) -> GraphFilterResponse
         )
         if not base_response.isGraph:
             raise RuntimeError("pushdown path returned non-graph payload")
-    except ValueError:
-        # Validation and query-construction errors must be visible to callers.
-        raise
-    except Exception as exc:
+    except RuntimeError as exc:
         logger.warning(
             "[GRAPH-DEBUG][filter.pushdown] failed falling back to in-memory path: "
             f"{exc}"
