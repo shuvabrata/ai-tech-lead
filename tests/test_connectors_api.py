@@ -8,6 +8,9 @@ BASE_URL = "http://localhost:8000"
 CONNECTOR_TYPE = "github"
 
 
+pytestmark = [pytest.mark.integration, pytest.mark.server]
+
+
 def _marker_value() -> str:
     return f"integration-{uuid.uuid4()}"
 

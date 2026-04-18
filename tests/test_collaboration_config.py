@@ -11,6 +11,9 @@ from app.analytics.collaboration.config import (
 )
 
 
+pytestmark = pytest.mark.unit
+
+
 def test_default_config_enables_all_layers_and_default_weights():
     config = CollaborationNetworkConfig()
 

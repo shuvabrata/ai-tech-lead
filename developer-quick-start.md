@@ -103,11 +103,26 @@ docker compose exec app bash -c "cd app && alembic revision --autogenerate -m 'd
 
 
 # Run tests
-- Start the server
+- Unit tests only (no external dependencies)
+```bash
+pytest -m unit tests -q
 ```
+
+- Integration tests that require app server
+```bash
 uvicorn app.main:app --reload
 ```
-In another window
+In another window:
+```bash
+pytest -m "integration and server" tests -q
 ```
- pytest ./tests/test_projects.py
+
+- Neo4j integration tests (requires live Neo4j)
+```bash
+pytest -m "integration and neo4j" tests -q
+```
+
+- Full local run (unit + integration)
+```bash
+pytest tests -q
 ```

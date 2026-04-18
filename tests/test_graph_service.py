@@ -11,6 +11,9 @@ from app.api.graph.v1.model import GraphResponse
 from app.settings import settings
 
 
+pytestmark = [pytest.mark.integration, pytest.mark.neo4j]
+
+
 @pytest.mark.skipif(
     not settings.NEO4J_ENABLED,
     reason="Neo4j is not enabled (NEO4J_ENABLED=false)"

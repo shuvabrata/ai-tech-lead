@@ -5,6 +5,9 @@ import pytest
 from app.dash_app.pages.graph.callbacks import filtering as filtering_callbacks
 
 
+pytestmark = pytest.mark.unit
+
+
 def test_apply_relationship_filters_ignores_weight_controls_for_unweighted_graph():
     """Unweighted graphs should not be truncated by stale weight/top-N selections."""
     unfiltered_elements = [

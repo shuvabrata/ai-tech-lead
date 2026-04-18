@@ -2,8 +2,13 @@
 
 from unittest.mock import MagicMock
 
+import pytest
+
 from app.ai_agent.chains import neo4j_chain
 from app.settings import settings
+
+
+pytestmark = pytest.mark.unit
 
 
 class _FakeGraph:

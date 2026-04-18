@@ -16,6 +16,9 @@ from app.api.graph.v1.query import execute_cypher_query
 from app.settings import settings
 
 
+pytestmark = [pytest.mark.integration, pytest.mark.neo4j]
+
+
 def _to_cypher_literal(value: Any) -> str:
     """Convert Python values to Cypher literal syntax for debug rendering."""
     if isinstance(value, bool):
