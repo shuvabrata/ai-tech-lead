@@ -221,6 +221,30 @@ def create_filter_panel():
                             )
                         ]
                     ),
+
+                    html.Div([
+                        html.Label(
+                            "Display Filtered Items:",
+                            style={
+                                "fontSize": "11px",
+                                "fontWeight": FONT_WEIGHT_SEMIBOLD,
+                                "color": COLOR_GRAY_DARK,
+                                "marginBottom": "8px",
+                                "display": "block"
+                            }
+                        ),
+                        dbc.RadioItems(
+                            id="filter-display-mode",
+                            options=[
+                                {"label": "Hide", "value": "hide"},
+                                {"label": "Dim", "value": "dim"}
+                            ],
+                            value="hide",
+                            inline=True,
+                            className="graph-filter-radio",
+                            style={"fontSize": "12px"}
+                        )
+                    ], className="mb-3"),
                     
                     # Node Type Checkboxes
                     html.Div([

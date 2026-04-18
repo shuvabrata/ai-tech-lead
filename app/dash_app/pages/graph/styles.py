@@ -217,6 +217,20 @@ def build_cytoscape_stylesheet(theme_name: str = ACTIVE_THEME):
                 'opacity': 0.3
             }
         },
+        {
+            'selector': 'node.dimmed',
+            'style': {
+                'text-opacity': 0.35,
+                'z-index': 1,
+            }
+        },
+        {
+            'selector': 'edge.dimmed',
+            'style': {
+                'text-opacity': 0.0,
+                'z-index': 1,
+            }
+        },
         # Community colour rules for collaboration network mode.
         # These appear last so they override nodeType background colours while
         # preserving shape and size set by the nodeType selectors above.

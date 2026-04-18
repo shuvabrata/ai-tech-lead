@@ -10,6 +10,10 @@ from app.common.logger import logger
 from ..utils import is_edge_data, is_node_data
 
 
+class FilteringDataValidationError(ValueError):
+    """Raised when loaded graph elements violate callback assumptions."""
+
+
 def _split_elements(elements):
     """Return node and edge lists from a Cytoscape element collection."""
     nodes = []
@@ -32,6 +36,18 @@ def _has_weighted_edges(elements):
         if is_edge_data(data) and data.get("weight") is not None:
             return True
     return False
+
+
+def _require_element_ids(elements):
+    """Validate that all nodes and edges carry stable ids."""
+    for elem in elements or []:
+        data = elem.get("data", {})
+        element_kind = "edge" if is_edge_data(data) else "node"
+        element_id = data.get("id")
+        if element_id is None:
+            raise FilteringDataValidationError(
+                f"Graph {element_kind} is missing required 'id' field for filtering/dimming"
+            )
 
 
 def _format_counts_summary(filtered_elements, unfiltered_elements):
@@ -104,6 +120,130 @@ def _build_active_filter_chips(
         )
         for label in labels
     ]
+
+
+def _compute_filtered_graph(
+    selected_node_types,
+    selected_rel_types,
+    weight_threshold,
+    top_n_mode,
+    unfiltered_elements,
+):
+    """Compute the visible graph subset from the loaded baseline."""
+    _require_element_ids(unfiltered_elements)
+    nodes, edges = _split_elements(unfiltered_elements)
+    has_weighted_edges = _has_weighted_edges(unfiltered_elements)
+
+    # Filter nodes by type
+    if selected_node_types:
+        visible_nodes = [
+            node for node in nodes
+            if node.get("data", {}).get("nodeType", "Unknown") in selected_node_types
+        ]
+    else:
+        visible_nodes = []
+
+    # Create set of visible node IDs for edge filtering
+    visible_node_ids = {node.get("data", {}).get("id") for node in visible_nodes}
+
+    # Filter edges by relationship type
+    if selected_rel_types:
+        visible_edges = [
+            edge for edge in edges
+            if edge.get("data", {}).get("relType", edge.get("data", {}).get("label", "Unknown")) in selected_rel_types
+        ]
+    else:
+        visible_edges = []
+
+    # Filter edges to only show ones where both endpoints are visible
+    visible_edges = [
+        edge for edge in visible_edges
+        if edge.get("data", {}).get("source") in visible_node_ids
+        and edge.get("data", {}).get("target") in visible_node_ids
+    ]
+
+    # Filter by weight threshold
+    if has_weighted_edges and weight_threshold > 0:
+        visible_edges = [
+            edge for edge in visible_edges
+            if edge.get("data", {}).get("weight", 0) >= weight_threshold
+        ]
+
+    # Apply Top-N limit
+    if has_weighted_edges and top_n_mode == "top50":
+        visible_edges = sorted(
+            visible_edges,
+            key=lambda e: e.get("data", {}).get("weight", 0),
+            reverse=True
+        )[:50]
+    elif has_weighted_edges and top_n_mode == "top100":
+        visible_edges = sorted(
+            visible_edges,
+            key=lambda e: e.get("data", {}).get("weight", 0),
+            reverse=True
+        )[:100]
+
+    return {
+        "all_nodes": nodes,
+        "all_edges": edges,
+        "visible_nodes": visible_nodes,
+        "visible_edges": visible_edges,
+        "has_weighted_edges": has_weighted_edges,
+    }
+
+
+def _append_class(element, class_name):
+    """Return an element copy with an additional Cytoscape class name."""
+    updated = dict(element)
+    existing_classes = updated.get("classes", "")
+
+    if not existing_classes:
+        updated["classes"] = class_name
+        return updated
+
+    class_tokens = existing_classes.split()
+    if class_name not in class_tokens:
+        updated["classes"] = f"{existing_classes} {class_name}"
+
+    return updated
+
+
+def _element_key(element):
+    """Return a stable identity key for nodes and edges."""
+    data = element.get("data", {})
+    element_id = data.get("id")
+    if element_id is None:
+        element_kind = "edge" if is_edge_data(data) else "node"
+        raise FilteringDataValidationError(
+            f"Graph {element_kind} is missing required 'id' field for rendering"
+        )
+
+    if is_edge_data(data):
+        return ("edge-id", element_id)
+    return ("node", element_id)
+
+
+def _build_rendered_elements(filtered_graph, display_mode):
+    """Return Cytoscape elements for either hide or dim display mode."""
+    visible_nodes = filtered_graph["visible_nodes"]
+    visible_edges = filtered_graph["visible_edges"]
+
+    if display_mode != "dim":
+        return visible_nodes + visible_edges
+
+    visible_node_keys = {_element_key(node) for node in visible_nodes}
+    visible_edge_keys = {_element_key(edge) for edge in visible_edges}
+
+    rendered_nodes = [
+        node if _element_key(node) in visible_node_keys else _append_class(node, "dimmed")
+        for node in filtered_graph["all_nodes"]
+    ]
+    rendered_edges = [
+        edge if _element_key(edge) in visible_edge_keys else _append_class(edge, "dimmed")
+        for edge in filtered_graph["all_edges"]
+    ]
+
+    return rendered_nodes + rendered_edges
 
 
 @callback(
@@ -248,28 +388,36 @@ def update_weight_threshold_label(threshold):
      Output("filter-active-chips", "children"),
      Output("weight-based-filter-group", "style"),
      Output("weight-filter-unavailable-note", "style")],
-    [Input("graph-cytoscape", "elements"),
-     Input("unfiltered-elements-store", "data"),
+    [Input("unfiltered-elements-store", "data"),
      Input("node-type-filter", "value"),
      Input("relationship-type-filter", "value"),
      Input("weight-threshold-slider", "value"),
      Input("top-n-toggle", "value"),
+     Input("filter-display-mode", "value"),
      Input("node-type-filter", "options"),
      Input("relationship-type-filter", "options")]
 )
 def update_filter_panel_feedback(
-    current_elements,
     unfiltered_elements,
     selected_node_types,
     selected_rel_types,
     weight_threshold,
     top_n_mode,
+    _display_mode,
     node_type_options,
     rel_type_options,
 ):
     """Update local-only filter feedback, chips, and weighted-control visibility."""
-    has_weighted_edges = _has_weighted_edges(unfiltered_elements)
-    summary = _format_counts_summary(current_elements or [], unfiltered_elements or [])
+    filtered_graph = _compute_filtered_graph(
+        selected_node_types,
+        selected_rel_types,
+        weight_threshold,
+        top_n_mode,
+        unfiltered_elements or [],
+    )
+    logical_filtered_elements = filtered_graph["visible_nodes"] + filtered_graph["visible_edges"]
+    has_weighted_edges = filtered_graph["has_weighted_edges"]
+    summary = _format_counts_summary(logical_filtered_elements, unfiltered_elements or [])
     chips = _build_active_filter_chips(
         selected_node_types,
         selected_rel_types,
@@ -315,113 +463,76 @@ def clear_all_filters(n_clicks, node_type_options, rel_type_options):
     [Input("node-type-filter", "value"),
      Input("relationship-type-filter", "value"),
      Input("weight-threshold-slider", "value"),
-     Input("top-n-toggle", "value")],
+     Input("top-n-toggle", "value"),
+     Input("filter-display-mode", "value")],
     State("unfiltered-elements-store", "data"),
     prevent_initial_call=True
 )
-def apply_relationship_filters(selected_node_types, selected_rel_types, weight_threshold, top_n_mode, unfiltered_elements):
+def apply_relationship_filters(
+    selected_node_types,
+    selected_rel_types,
+    weight_threshold,
+    top_n_mode,
+    display_mode,
+    unfiltered_elements,
+):
     """Apply all filters (node types, relationship types, weight, top-N) to graph elements"""
     if not unfiltered_elements:
         raise PreventUpdate
-    
-    # Separate nodes and edges
-    nodes, edges = _split_elements(unfiltered_elements)
-    has_weighted_edges = _has_weighted_edges(unfiltered_elements)
+
+    filtered_graph = _compute_filtered_graph(
+        selected_node_types,
+        selected_rel_types,
+        weight_threshold,
+        top_n_mode,
+        unfiltered_elements,
+    )
+    nodes = filtered_graph["all_nodes"]
+    edges = filtered_graph["all_edges"]
+    filtered_nodes = filtered_graph["visible_nodes"]
+    filtered_edges = filtered_graph["visible_edges"]
+    has_weighted_edges = filtered_graph["has_weighted_edges"]
 
     logger.info(
         "[GRAPH-DEBUG][filter.apply] start "
         f"nodes={len(nodes)} edges={len(edges)} selected_node_types={selected_node_types} "
         f"selected_rel_types={selected_rel_types} weight_threshold={weight_threshold} "
-        f"top_n_mode={top_n_mode} has_weighted_edges={has_weighted_edges}"
+        f"top_n_mode={top_n_mode} display_mode={display_mode} has_weighted_edges={has_weighted_edges}"
     )
-
-    # Filter nodes by type
-    if selected_node_types:
-        filtered_nodes = [
-            node for node in nodes
-            if node.get("data", {}).get("nodeType", "Unknown") in selected_node_types
-        ]
-    else:
-        filtered_nodes = []
 
     logger.info(
         "[GRAPH-DEBUG][filter.apply] nodes_after_type_filter "
         f"visible={len(filtered_nodes)} removed={len(nodes) - len(filtered_nodes)}"
     )
 
-    # Create set of visible node IDs for edge filtering
-    visible_node_ids = {node.get("data", {}).get("id") for node in filtered_nodes}
-    
-    # Filter edges by relationship type
-    if selected_rel_types:
-        filtered_edges = [
-            edge for edge in edges
-            if edge.get("data", {}).get("relType", edge.get("data", {}).get("label", "Unknown")) in selected_rel_types
-        ]
-    else:
-        filtered_edges = []
-
     logger.info(
         "[GRAPH-DEBUG][filter.apply] edges_after_rel_type_filter "
         f"visible={len(filtered_edges)} removed={len(edges) - len(filtered_edges)}"
     )
-
-    # Filter edges to only show ones where both endpoints are visible
-    filtered_edges = [
-        edge for edge in filtered_edges
-        if edge.get("data", {}).get("source") in visible_node_ids
-        and edge.get("data", {}).get("target") in visible_node_ids
-    ]
 
     logger.info(
         "[GRAPH-DEBUG][filter.apply] edges_after_visibility_filter "
         f"visible={len(filtered_edges)}"
     )
 
-    # Filter by weight threshold
     if has_weighted_edges and weight_threshold > 0:
-        before_weight = len(filtered_edges)
-        filtered_edges = [
-            edge for edge in filtered_edges
-            if edge.get("data", {}).get("weight", 0) >= weight_threshold
-        ]
         logger.info(
             "[GRAPH-DEBUG][filter.apply] edges_after_weight_filter "
-            f"threshold={weight_threshold} visible={len(filtered_edges)} removed={before_weight - len(filtered_edges)}"
+            f"threshold={weight_threshold} visible={len(filtered_edges)}"
         )
-    
-    # Apply Top-N limit
-    if has_weighted_edges and top_n_mode == "top50":
-        # Sort by weight descending, take top 50
-        before_topn = len(filtered_edges)
-        filtered_edges = sorted(
-            filtered_edges,
-            key=lambda e: e.get("data", {}).get("weight", 0),
-            reverse=True
-        )[:50]
+
+    if has_weighted_edges and top_n_mode in {"top50", "top100"}:
         logger.info(
             "[GRAPH-DEBUG][filter.apply] edges_after_topn "
-            f"mode=top50 visible={len(filtered_edges)} removed={before_topn - len(filtered_edges)}"
+            f"mode={top_n_mode} visible={len(filtered_edges)}"
         )
-    elif has_weighted_edges and top_n_mode == "top100":
-        # Sort by weight descending, take top 100
-        before_topn = len(filtered_edges)
-        filtered_edges = sorted(
-            filtered_edges,
-            key=lambda e: e.get("data", {}).get("weight", 0),
-            reverse=True
-        )[:100]
-        logger.info(
-            "[GRAPH-DEBUG][filter.apply] edges_after_topn "
-            f"mode=top100 visible={len(filtered_edges)} removed={before_topn - len(filtered_edges)}"
-        )
-    
-    # Combine filtered nodes and filtered edges
-    filtered_elements = filtered_nodes + filtered_edges
+
+    filtered_elements = _build_rendered_elements(filtered_graph, display_mode)
 
     logger.info(
         "[GRAPH-DEBUG][filter.apply] final "
-        f"elements={len(filtered_elements)} nodes={len(filtered_nodes)} edges={len(filtered_edges)}"
+        f"elements={len(filtered_elements)} visible_nodes={len(filtered_nodes)} "
+        f"visible_edges={len(filtered_edges)}"
     )
     
     return filtered_elements

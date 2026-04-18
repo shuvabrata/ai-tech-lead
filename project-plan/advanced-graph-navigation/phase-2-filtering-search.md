@@ -24,6 +24,7 @@
 - ✅ Added a local filter mode label (`Refining loaded graph`)
 - ✅ Added live before/after counts for visible vs loaded nodes/edges
 - ✅ Added active filter chips for current local filter state
+- ✅ Added **Hide vs Dim** display behavior for filtered-out elements *(with known hover interaction issue in Dim mode)*
 - ✅ Hid weight-based controls when the current graph has no weighted edges
 - ✅ Added a small explanatory note when weight-based controls are unavailable
 - ✅ Updated local filtering logic so unweighted graphs ignore stale weight / top-N selections
@@ -31,7 +32,6 @@
 
 ### What is still intentionally not implemented yet
 
-- ⏳ Hide-vs-dim rendering mode
 - ⏳ Property-based local filtering UI
 - ⏳ Backend filter registry
 - ⏳ Metadata/introspection endpoint
@@ -43,7 +43,66 @@
 
 - The first slice reduced current UX ambiguity without changing architecture
 - It gives a stable local-filtering baseline for manual testing
-- It keeps the next iteration focused on **rendering behavior** (`Hide` vs `Dim`) before introducing backend complexity
+- It keeps the next iteration focused on **property filtering and backend scaffolding** after completing `Hide` vs `Dim`
+
+### Hide vs Dim Slice (Implemented)
+
+#### Exact coding checklist completed
+
+- ✅ Added a local-only display mode control to the filter panel
+- ✅ Refactored filter logic so one shared helper computes the logical visible subset
+- ✅ Kept `Hide` mode returning only visible elements
+- ✅ Added `Dim` mode returning all loaded elements while tagging non-visible ones with a dimming class
+- ✅ Preserved existing Cytoscape classes when dimming, including collaboration graph classes
+- ✅ Made dimming work for edges with and without explicit edge ids
+- ✅ Kept summary counts based on the logical visible subset, not the rendered element count
+- ✅ Added stylesheet rules for dimmed nodes/edges
+- ✅ Added focused tests for:
+  - `Hide` mode
+  - `Dim` mode
+  - unweighted graph behavior
+  - logical counts in `Dim` mode
+  - edge dimming when edge ids are absent
+
+#### Code areas updated
+
+- `app/dash_app/layout.py` (added `Hide | Dim` display-mode control)
+- `app/dash_app/pages/graph/filtering.py` (shared logical visibility helper + `Dim` rendering behavior)
+- `app/dash_app/styles.py` (dimming stylesheet rules)
+- `tests/test_graph_filtering_callbacks.py` (focused filtering behavior tests)
+
+#### Verification status
+
+- Command run:
+  - `PYTHONPATH=. pytest tests/test_graph_filtering_callbacks.py tests/test_graph_callbacks_regression.py`
+- Result:
+  - ✅ `6 passed`
+
+#### Manual test checklist
+
+- [x] Load a normal graph query and switch between `Hide` and `Dim`
+- [x] Apply node/relationship filters and confirm:
+  - `Hide` removes non-matches
+  - `Dim` keeps non-matches faintly visible
+- [x] Load collaboration mode and confirm:
+  - community colors still show
+  - dimming layers on top without breaking styling
+- [x] Toggle filters while in `Dim` mode and confirm summary counts still reflect visible matches, not total rendered elements
+- [x] Use `Clear All` and confirm graph returns to unfiltered state while selected display mode remains unchanged
+
+#### Known Issues
+
+**Issue: Dim mode + edge hover interaction conflict**
+- **Description**: When hovering over edges in `Dim` mode, if the connected nodes are dimmed (filtered), the hover highlighting interacts poorly with the filter dimming. Attempting to preserve the dimmed class during hover causes unexpected visual behavior.
+- **Root Cause**: The clientside edge hover callback and the filter dimming CSS class are not properly separated. The hover interaction applies/removes classes globally without distinguishing between filter-applied dimming and interaction-state highlighting.
+- **Workaround**: Use `Hide` mode instead of `Dim` to avoid the interaction, or avoid hovering over edges connected to dimmed nodes.
+- **Future Fix Strategy**: Requires refactoring the hover highlighting to use a separate state mechanism (e.g., CSS pseudo-classes, data attributes, or a distinct interaction class) that doesn't conflict with the filter dimming class.
+- **Priority**: Nice-to-have; current core filtering functionality works correctly in both `Hide` and `Dim` modes when not interacting via hover.
+
+#### Next recommended slice
+
+- `Option A`: local property filtering UI
+- `Option B`: backend filter registry skeleton (without wiring full `/api/v1/graph/filter` yet)
 
 ---
 
@@ -412,7 +471,6 @@ Implement filtering in **two layers**:
 
 ### Concrete Rollout Plan
 
-- [ ] **2.1.A Phase 1 - Stabilize and clarify existing local filtering**
 - [x] **2.1.A Phase 1 - Stabilize and clarify existing local filtering**
   - Keep current node type / relationship type / weight / top-N controls
   - Make the current panel explicitly a **loaded-graph refinement** tool
@@ -424,12 +482,11 @@ Implement filtering in **two layers**:
     - collaboration graphs do
   - **Implemented so far**:
     - explicit loaded-graph refinement label
+    - `Hide` vs `Dim` display mode
     - active-filter chips
     - before/after counts
     - weighted-edge gating for weight controls
     - unweighted-graph guard for stale weight / top-N selections
-  - **Remaining within this phase**:
-    - add `Hide` vs `Dim` display mode
 
 - [ ] **2.1.B Phase 2 - Add server-side filter API for database-backed filtering**
   - Introduce `/api/v1/graph/filter`
