@@ -1,6 +1,7 @@
 """Service layer for Graph API v1 - business logic and data transformation."""
 
 from datetime import datetime
+import json
 from pathlib import Path as FilePath
 from typing import Any, Dict, List, Set
 from neo4j.graph import Node, Path, Relationship
@@ -31,6 +32,13 @@ from .query import (
     expand_node_query,
     fetch_relationships_between_nodes
     )
+
+
+# Phase 2.1.C threshold heuristics (initial server-side instrumentation slice).
+GRAPH_SOFT_WARNING_ELEMENT_THRESHOLD = 2000
+GRAPH_RECOMMEND_SERVER_FILTER_THRESHOLD = 5000
+GRAPH_PAYLOAD_WARNING_BYTES = 1_000_000
+GRAPH_PAYLOAD_RECOMMEND_SERVER_BYTES = 2_000_000
 
 
 def execute_and_format_query(query: str) -> GraphResponse:
@@ -206,6 +214,12 @@ def execute_and_filter_query(request: GraphFilterRequest) -> GraphFilterResponse
         warnings=warnings,
     )
 
+    _apply_threshold_warnings(
+        metadata=metadata,
+        nodes=filtered_nodes,
+        relationships=filtered_relationships,
+    )
+
     return GraphFilterResponse(
         nodes=filtered_nodes,
         relationships=filtered_relationships,
@@ -214,6 +228,62 @@ def execute_and_filter_query(request: GraphFilterRequest) -> GraphFilterResponse
         resultCount=len(filtered_nodes) + len(filtered_relationships),
         metadata=metadata,
     )
+
+
+def _apply_threshold_warnings(
+    metadata: GraphFilterExecutionMetadata,
+    nodes: List[GraphNode],
+    relationships: List[GraphRelationship],
+) -> None:
+    """Append warnings and logs when graph size/payload thresholds are exceeded."""
+    total_elements = len(nodes) + len(relationships)
+    payload_bytes = _estimate_graph_payload_bytes(nodes=nodes, relationships=relationships)
+
+    if total_elements >= GRAPH_RECOMMEND_SERVER_FILTER_THRESHOLD:
+        metadata.warnings.append(
+            "Large graph detected (>5000 elements). Prefer database-side filtering and/or stronger narrowing filters."
+        )
+        logger.info(
+            "[GRAPH-DEBUG][filter.threshold] element_threshold_high "
+            f"elements={total_elements} threshold={GRAPH_RECOMMEND_SERVER_FILTER_THRESHOLD}"
+        )
+    elif total_elements >= GRAPH_SOFT_WARNING_ELEMENT_THRESHOLD:
+        metadata.warnings.append(
+            "Graph size is moderately high (>2000 elements). Local interactions may become sluggish."
+        )
+        logger.info(
+            "[GRAPH-DEBUG][filter.threshold] element_threshold_soft "
+            f"elements={total_elements} threshold={GRAPH_SOFT_WARNING_ELEMENT_THRESHOLD}"
+        )
+
+    if payload_bytes >= GRAPH_PAYLOAD_RECOMMEND_SERVER_BYTES:
+        metadata.warnings.append(
+            "Estimated payload is large (>2MB). Prefer server-side filtering or density reduction."
+        )
+        logger.info(
+            "[GRAPH-DEBUG][filter.threshold] payload_threshold_high "
+            f"payload_bytes={payload_bytes} threshold={GRAPH_PAYLOAD_RECOMMEND_SERVER_BYTES}"
+        )
+    elif payload_bytes >= GRAPH_PAYLOAD_WARNING_BYTES:
+        metadata.warnings.append(
+            "Estimated payload is high (>1MB). UI responsiveness may degrade."
+        )
+        logger.info(
+            "[GRAPH-DEBUG][filter.threshold] payload_threshold_soft "
+            f"payload_bytes={payload_bytes} threshold={GRAPH_PAYLOAD_WARNING_BYTES}"
+        )
+
+
+def _estimate_graph_payload_bytes(
+    nodes: List[GraphNode],
+    relationships: List[GraphRelationship],
+) -> int:
+    """Estimate JSON payload size for returned graph elements."""
+    payload = {
+        "nodes": [node.model_dump() for node in nodes],
+        "relationships": [relationship.model_dump() for relationship in relationships],
+    }
+    return len(json.dumps(payload, default=str).encode("utf-8"))
 
 
 def _validate_filters_against_registry(request: GraphFilterRequest) -> None:

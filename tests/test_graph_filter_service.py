@@ -116,3 +116,66 @@ def test_execute_and_filter_query_enforces_result_limits(monkeypatch):
     assert len(response.relationships) == 1
     assert response.metadata.truncated is True
     assert len(response.metadata.warnings) == 2
+
+
+def test_execute_and_filter_query_adds_soft_element_threshold_warning(monkeypatch):
+    """Should add soft warning when filtered graph exceeds 2k elements."""
+    large_response = GraphResponse(
+        nodes=[
+            GraphNode(
+                id=f"n{i}",
+                labels=["Person"],
+                properties={"name": f"Person {i}"},
+            )
+            for i in range(2101)
+        ],
+        relationships=[],
+        rawResults=[],
+        isGraph=True,
+        resultCount=2101,
+    )
+    monkeypatch.setattr(service, "execute_and_format_query", lambda _q: large_response)
+
+    request = GraphFilterRequest(
+        baseQuery="MATCH (n) RETURN n LIMIT 5000",
+        resultOptions={
+            "limitNodes": 5000,
+            "limitRelationships": 5000,
+            "includeImplicitRelationships": True,
+        },
+    )
+    response = service.execute_and_filter_query(request)
+
+    assert any(
+        "moderately high (>2000 elements)" in warning
+        for warning in response.metadata.warnings
+    )
+
+
+def test_execute_and_filter_query_adds_payload_threshold_warning(monkeypatch):
+    """Should add payload warning when estimated response exceeds 1MB."""
+    big_text = "x" * 6000
+    payload_heavy_response = GraphResponse(
+        nodes=[
+            GraphNode(
+                id=f"n{i}",
+                labels=["File"],
+                properties={"path": f"/tmp/{i}", "blob": big_text},
+            )
+            for i in range(220)
+        ],
+        relationships=[],
+        rawResults=[],
+        isGraph=True,
+        resultCount=220,
+    )
+    monkeypatch.setattr(service, "execute_and_format_query", lambda _q: payload_heavy_response)
+
+    request = GraphFilterRequest(baseQuery="MATCH (n) RETURN n LIMIT 500")
+    response = service.execute_and_filter_query(request)
+
+    assert any(
+        "Estimated payload is high (>1MB)" in warning
+        or "Estimated payload is large (>2MB)" in warning
+        for warning in response.metadata.warnings
+    )
