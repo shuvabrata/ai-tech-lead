@@ -276,7 +276,7 @@ def build_filtered_cypher_query(request: GraphFilterRequest) -> Tuple[str, Dict[
         where_sql = "\nWHERE " + "\n  AND ".join(where_clauses)
 
     query = (
-        "CALL {\n"
+        "CALL () {\n"
         f"{base_query}\n"
         "}\n"
         "WITH *"

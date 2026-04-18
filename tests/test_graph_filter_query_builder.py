@@ -31,7 +31,7 @@ def test_build_filtered_cypher_query_includes_core_clauses():
 
     query, params = build_filtered_cypher_query(request)
 
-    assert "CALL {" in query
+    assert "CALL () {" in query
     assert "MATCH (n)-[r]->(m) RETURN n, r, m LIMIT 500" in query
     assert "WHERE" in query
     assert "labels(n)" in query
@@ -55,7 +55,7 @@ def test_build_filtered_cypher_query_without_filters_returns_passthrough_shape()
 
     query, params = build_filtered_cypher_query(request)
 
-    assert "CALL {" in query
+    assert "CALL () {" in query
     assert "MATCH (n) RETURN n LIMIT 10" in query
     assert "RETURN *" in query
     assert "WHERE" not in query
