@@ -193,6 +193,7 @@ def create_filter_panel():
                             html.Div([
                                 html.Small(
                                     "Refining loaded graph",
+                                    id="filter-mode-label",
                                     className="graph-filter-mode-label d-block"
                                 ),
                                 html.Small(
@@ -227,6 +228,19 @@ def create_filter_panel():
                         style={"display": "none"},
                         className="mb-3"
                     ),
+
+                    html.Div([
+                        dbc.Switch(
+                            id="filter-auto-switch-toggle",
+                            label="Auto-switch to database recommendation",
+                            value=False,
+                            className="graph-filter-auto-switch",
+                        ),
+                        html.Small(
+                            "Default: recommendation-only (no automatic mode changes).",
+                            className="graph-filter-help-note d-block mt-1"
+                        ),
+                    ], className="mb-3"),
 
                     html.Div([
                         html.Label(
@@ -558,6 +572,9 @@ def create_stores():
         # during expansion and keep "no active filtering" behavior intuitive.
         dcc.Store(id="node-type-available-store", data=[]),
         dcc.Store(id="relationship-type-available-store", data=[]),
+
+        # Threshold recommendation state for filter execution-mode UX.
+        dcc.Store(id="filter-threshold-status-store", data={}),
     ]
 
 

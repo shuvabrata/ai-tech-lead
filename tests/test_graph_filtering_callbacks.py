@@ -97,7 +97,7 @@ def test_update_filter_panel_feedback_hides_weight_controls_for_unweighted_graph
         {"data": {"id": "e1", "source": "n1", "target": "n2", "relType": "KNOWS", "elementType": "edge"}},
     ]
 
-    summary, chips, threshold_alert, threshold_style, weight_group_style, weight_note_style = filtering_callbacks.update_filter_panel_feedback(
+    summary, chips, threshold_alert, threshold_style, threshold_status, weight_group_style, weight_note_style = filtering_callbacks.update_filter_panel_feedback(
         unfiltered_elements=unfiltered_elements,
         selected_node_types=["Person"],
         selected_rel_types=["KNOWS"],
@@ -112,6 +112,7 @@ def test_update_filter_panel_feedback_hides_weight_controls_for_unweighted_graph
     assert chips[0].children == "No active filters"
     assert threshold_alert is None
     assert threshold_style == {"display": "none"}
+    assert threshold_status["recommendedMode"] == "local"
     assert weight_group_style == {"display": "none"}
     assert weight_note_style == {"display": "block"}
 
@@ -124,7 +125,7 @@ def test_update_filter_panel_feedback_uses_logical_counts_in_dim_mode():
         {"data": {"id": "e1", "source": "n1", "target": "n2", "relType": "WORKS_ON", "elementType": "edge"}},
     ]
 
-    summary, chips, threshold_alert, threshold_style, _weight_group_style, weight_note_style = filtering_callbacks.update_filter_panel_feedback(
+    summary, chips, threshold_alert, threshold_style, threshold_status, _weight_group_style, weight_note_style = filtering_callbacks.update_filter_panel_feedback(
         unfiltered_elements=unfiltered_elements,
         selected_node_types=["Person"],
         selected_rel_types=["WORKS_ON"],
@@ -142,6 +143,7 @@ def test_update_filter_panel_feedback_uses_logical_counts_in_dim_mode():
     assert chips[0].children == "Node types: Person"
     assert threshold_alert is None
     assert threshold_style == {"display": "none"}
+    assert threshold_status["recommendedMode"] == "local"
     assert weight_note_style == {"display": "block"}
 
 
@@ -152,7 +154,7 @@ def test_update_filter_panel_feedback_shows_soft_threshold_recommendation():
         for i in range(2101)
     ]
 
-    summary, _chips, threshold_alert, threshold_style, _weight_group_style, _weight_note_style = filtering_callbacks.update_filter_panel_feedback(
+    summary, _chips, threshold_alert, threshold_style, threshold_status, _weight_group_style, _weight_note_style = filtering_callbacks.update_filter_panel_feedback(
         unfiltered_elements=unfiltered_elements,
         selected_node_types=["Person"],
         selected_rel_types=[],
@@ -166,6 +168,7 @@ def test_update_filter_panel_feedback_shows_soft_threshold_recommendation():
     assert "Showing 2101 nodes / 0 edges" in summary
     assert threshold_style == {"display": "block"}
     assert threshold_alert.color == "info"
+    assert threshold_status["recommendedMode"] == "local"
     alert_text = str(threshold_alert.children)
     assert "Local filtering warning" in alert_text
 
@@ -177,7 +180,7 @@ def test_update_filter_panel_feedback_shows_database_recommendation_for_high_thr
         for i in range(5201)
     ]
 
-    _summary, _chips, threshold_alert, threshold_style, _weight_group_style, _weight_note_style = filtering_callbacks.update_filter_panel_feedback(
+    _summary, _chips, threshold_alert, threshold_style, threshold_status, _weight_group_style, _weight_note_style = filtering_callbacks.update_filter_panel_feedback(
         unfiltered_elements=unfiltered_elements,
         selected_node_types=["Person"],
         selected_rel_types=[],
@@ -190,8 +193,29 @@ def test_update_filter_panel_feedback_shows_database_recommendation_for_high_thr
 
     assert threshold_style == {"display": "block"}
     assert threshold_alert.color == "warning"
+    assert threshold_status["recommendedMode"] == "database"
     alert_text = str(threshold_alert.children)
     assert "Recommended mode: Apply to Database" in alert_text
+
+
+def test_resolve_filter_mode_label_recommendation_only_default():
+    """Default UX should keep local mode label while showing database recommendation text."""
+    label = filtering_callbacks._resolve_filter_mode_label(
+        recommended_mode="database",
+        auto_switch_enabled=False,
+    )
+
+    assert label == "Refining loaded graph (recommended: Apply to Database)"
+
+
+def test_resolve_filter_mode_label_opt_in_auto_switch():
+    """Opt-in auto-switch should move mode label to database when recommendation is high."""
+    label = filtering_callbacks._resolve_filter_mode_label(
+        recommended_mode="database",
+        auto_switch_enabled=True,
+    )
+
+    assert label == "Applying to database (auto-switch ON)"
 
 
 @pytest.mark.xfail(reason="Known Dim mode issue: stale dimmed class not removed on re-selection. See Phase 2 doc: Dim mode + edge hover interaction conflict")

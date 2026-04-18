@@ -585,8 +585,8 @@ Implement filtering in **two layers**:
 
 - [x] Add explicit threshold reason fields for frontend consumption
 - [x] Surface threshold recommendation/status in graph filter UI banner
-- [ ] Add automatic recommendation/switch rules for local vs database mode
-- [ ] Add focused tests for threshold-triggered recommendation/fallback behavior
+- [x] Add automatic recommendation/switch rules for local vs database mode
+- [x] Add focused tests for threshold-triggered recommendation/fallback behavior
 
 #### 2.1.C Progress Update
 
@@ -597,7 +597,10 @@ Implement filtering in **two layers**:
 - ✅ Added focused service tests validating threshold status and recommendations
 - ✅ Added frontend filter-panel threshold banner/status for loaded-graph refinement
 - ✅ Added focused callback tests for soft-warning and database-recommendation banner states
-- ⏳ Remaining work is primarily frontend wiring and automatic mode-switch UX behavior
+- ✅ Added safe UX mode behavior:
+  - default recommendation-only label behavior
+  - opt-in auto-switch toggle for database recommendation mode
+- ✅ Added focused callback tests for recommendation-only vs auto-switch paths
 
 - [ ] **2.1.D Phase 4 - Collaboration-specific optimization**
   - Move collaboration density controls into a more explicit server-backed filter workflow

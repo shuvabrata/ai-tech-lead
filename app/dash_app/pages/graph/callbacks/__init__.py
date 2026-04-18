@@ -24,6 +24,7 @@ from .filtering import (
     toggle_filter_panel,
     update_relationship_type_filter,
     update_filter_panel_feedback,
+    update_filter_mode_label,
     update_weight_threshold_label,
     clear_all_filters,
     apply_relationship_filters
@@ -56,6 +57,7 @@ __all__ = [
     'toggle_filter_panel',
     'update_relationship_type_filter',
     'update_filter_panel_feedback',
+    'update_filter_mode_label',
     'update_weight_threshold_label',
     'clear_all_filters',
     'apply_relationship_filters',

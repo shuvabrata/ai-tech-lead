@@ -138,7 +138,12 @@ def _estimate_elements_payload_bytes(elements):
 def _build_threshold_status_alert(filtered_elements, unfiltered_elements):
     """Return a browser-visible recommendation banner for local vs database filtering."""
     if not unfiltered_elements:
-        return None, {"display": "none"}
+        return None, {"display": "none"}, {
+            "recommendedMode": "local",
+            "elementSeverity": "none",
+            "payloadSeverity": "none",
+            "reasons": [],
+        }
 
     total_elements = len(filtered_elements)
     payload_bytes = _estimate_elements_payload_bytes(filtered_elements)
@@ -164,7 +169,19 @@ def _build_threshold_status_alert(filtered_elements, unfiltered_elements):
             color="warning",
             className="mb-0 py-2 px-3",
         )
-        return alert, {"display": "block"}
+        return alert, {"display": "block"}, {
+            "recommendedMode": "database",
+            "elementSeverity": "high" if total_elements >= GRAPH_RECOMMEND_SERVER_FILTER_THRESHOLD else "none",
+            "payloadSeverity": "high" if payload_bytes >= GRAPH_PAYLOAD_RECOMMEND_SERVER_BYTES else "none",
+            "reasons": [
+                reason
+                for reason in [
+                    "element_count_high" if total_elements >= GRAPH_RECOMMEND_SERVER_FILTER_THRESHOLD else None,
+                    "payload_bytes_high" if payload_bytes >= GRAPH_PAYLOAD_RECOMMEND_SERVER_BYTES else None,
+                ]
+                if reason is not None
+            ],
+        }
 
     if (
         total_elements >= GRAPH_SOFT_WARNING_ELEMENT_THRESHOLD
@@ -187,9 +204,35 @@ def _build_threshold_status_alert(filtered_elements, unfiltered_elements):
             color="info",
             className="mb-0 py-2 px-3",
         )
-        return alert, {"display": "block"}
+        return alert, {"display": "block"}, {
+            "recommendedMode": "local",
+            "elementSeverity": "soft" if total_elements >= GRAPH_SOFT_WARNING_ELEMENT_THRESHOLD else "none",
+            "payloadSeverity": "soft" if payload_bytes >= GRAPH_PAYLOAD_WARNING_BYTES else "none",
+            "reasons": [
+                reason
+                for reason in [
+                    "element_count_soft" if total_elements >= GRAPH_SOFT_WARNING_ELEMENT_THRESHOLD else None,
+                    "payload_bytes_soft" if payload_bytes >= GRAPH_PAYLOAD_WARNING_BYTES else None,
+                ]
+                if reason is not None
+            ],
+        }
 
-    return None, {"display": "none"}
+    return None, {"display": "none"}, {
+        "recommendedMode": "local",
+        "elementSeverity": "none",
+        "payloadSeverity": "none",
+        "reasons": [],
+    }
+
+
+def _resolve_filter_mode_label(recommended_mode, auto_switch_enabled):
+    """Resolve user-facing execution mode label from recommendation and toggle state."""
+    if auto_switch_enabled and recommended_mode == "database":
+        return "Applying to database (auto-switch ON)"
+    if recommended_mode == "database":
+        return "Refining loaded graph (recommended: Apply to Database)"
+    return "Refining loaded graph"
 
 
 def _compute_filtered_graph(
@@ -458,6 +501,7 @@ def update_weight_threshold_label(threshold):
      Output("filter-active-chips", "children"),
     Output("filter-threshold-status", "children"),
     Output("filter-threshold-status", "style"),
+    Output("filter-threshold-status-store", "data"),
      Output("weight-based-filter-group", "style"),
      Output("weight-filter-unavailable-note", "style")],
     [Input("unfiltered-elements-store", "data"),
@@ -499,7 +543,7 @@ def update_filter_panel_feedback(
         rel_type_options,
         has_weighted_edges,
     )
-    threshold_alert, threshold_style = _build_threshold_status_alert(
+    threshold_alert, threshold_style, threshold_status = _build_threshold_status_alert(
         logical_filtered_elements,
         unfiltered_elements or [],
     )
@@ -507,7 +551,27 @@ def update_filter_panel_feedback(
     weight_group_style = {} if has_weighted_edges else {"display": "none"}
     weight_note_style = {"display": "none"} if has_weighted_edges or not unfiltered_elements else {"display": "block"}
 
-    return summary, chips, threshold_alert, threshold_style, weight_group_style, weight_note_style
+    return (
+        summary,
+        chips,
+        threshold_alert,
+        threshold_style,
+        threshold_status,
+        weight_group_style,
+        weight_note_style,
+    )
+
+
+@callback(
+    Output("filter-mode-label", "children"),
+    [Input("filter-threshold-status-store", "data"),
+     Input("filter-auto-switch-toggle", "value")],
+)
+def update_filter_mode_label(threshold_status, auto_switch_enabled):
+    """Update execution mode label with safe recommendation-only default UX."""
+    status = threshold_status or {}
+    recommended_mode = status.get("recommendedMode", "local")
+    return _resolve_filter_mode_label(recommended_mode, bool(auto_switch_enabled))
 
 
 @callback(
