@@ -23,6 +23,7 @@ from .navigation import handle_keyboard_shortcuts
 from .filtering import (
     toggle_filter_panel,
     update_relationship_type_filter,
+    update_filter_panel_feedback,
     update_weight_threshold_label,
     clear_all_filters,
     apply_relationship_filters
@@ -54,6 +55,7 @@ __all__ = [
     # Filtering callbacks (Phase 1.2.4)
     'toggle_filter_panel',
     'update_relationship_type_filter',
+    'update_filter_panel_feedback',
     'update_weight_threshold_label',
     'clear_all_filters',
     'apply_relationship_filters',

@@ -3,10 +3,107 @@
 Callbacks for relationship filtering UI controls.
 """
 
-from dash import Input, Output, State, callback
+import dash_bootstrap_components as dbc
+from dash import Input, Output, State, callback, html
 from dash.exceptions import PreventUpdate
 from app.common.logger import logger
 from ..utils import is_edge_data, is_node_data
+
+
+def _split_elements(elements):
+    """Return node and edge lists from a Cytoscape element collection."""
+    nodes = []
+    edges = []
+
+    for elem in elements or []:
+        data = elem.get("data", {})
+        if is_edge_data(data):
+            edges.append(elem)
+        else:
+            nodes.append(elem)
+
+    return nodes, edges
+
+
+def _has_weighted_edges(elements):
+    """Return True when the current graph contains edge weights."""
+    for elem in elements or []:
+        data = elem.get("data", {})
+        if is_edge_data(data) and data.get("weight") is not None:
+            return True
+    return False
+
+
+def _format_counts_summary(filtered_elements, unfiltered_elements):
+    """Build a compact before/after summary for the current filter state."""
+    if not unfiltered_elements:
+        return "Load a graph to refine it locally."
+
+    filtered_nodes, filtered_edges = _split_elements(filtered_elements)
+    all_nodes, all_edges = _split_elements(unfiltered_elements)
+
+    return (
+        f"Showing {len(filtered_nodes)} nodes / {len(filtered_edges)} edges "
+        f"from {len(all_nodes)} nodes / {len(all_edges)} edges"
+    )
+
+
+def _summarize_selection(selected_values, option_values, label):
+    """Return a compact chip label for a checklist selection, or None if unfiltered."""
+    available = option_values or []
+    selected = selected_values or []
+
+    if not available or set(selected) == set(available):
+        return None
+
+    if not selected:
+        return f"{label}: none"
+
+    if len(selected) <= 2:
+        return f"{label}: {', '.join(sorted(selected))}"
+
+    return f"{label}: {len(selected)}/{len(available)}"
+
+
+def _build_active_filter_chips(
+    selected_node_types,
+    selected_rel_types,
+    weight_threshold,
+    top_n_mode,
+    node_type_options,
+    rel_type_options,
+    has_weighted_edges,
+):
+    """Return badge components for the currently active filters."""
+    node_option_values = [opt["value"] for opt in (node_type_options or [])]
+    rel_option_values = [opt["value"] for opt in (rel_type_options or [])]
+
+    labels = [
+        _summarize_selection(selected_node_types, node_option_values, "Node types"),
+        _summarize_selection(selected_rel_types, rel_option_values, "Relationship types"),
+    ]
+
+    if has_weighted_edges and weight_threshold > 0:
+        labels.append(f"Weight ≥ {weight_threshold}")
+
+    if has_weighted_edges and top_n_mode == "top50":
+        labels.append("Top 50 edges")
+    elif has_weighted_edges and top_n_mode == "top100":
+        labels.append("Top 100 edges")
+
+    labels = [label for label in labels if label]
+
+    if not labels:
+        return [html.Span("No active filters", className="graph-filter-empty-state")]
+
+    return [
+        dbc.Badge(
+            label,
+            color="light",
+            className="graph-filter-chip me-1 mb-1",
+        )
+        for label in labels
+    ]
 
 
 @callback(
@@ -147,6 +244,49 @@ def update_weight_threshold_label(threshold):
 
 
 @callback(
+    [Output("filter-results-summary", "children"),
+     Output("filter-active-chips", "children"),
+     Output("weight-based-filter-group", "style"),
+     Output("weight-filter-unavailable-note", "style")],
+    [Input("graph-cytoscape", "elements"),
+     Input("unfiltered-elements-store", "data"),
+     Input("node-type-filter", "value"),
+     Input("relationship-type-filter", "value"),
+     Input("weight-threshold-slider", "value"),
+     Input("top-n-toggle", "value"),
+     Input("node-type-filter", "options"),
+     Input("relationship-type-filter", "options")]
+)
+def update_filter_panel_feedback(
+    current_elements,
+    unfiltered_elements,
+    selected_node_types,
+    selected_rel_types,
+    weight_threshold,
+    top_n_mode,
+    node_type_options,
+    rel_type_options,
+):
+    """Update local-only filter feedback, chips, and weighted-control visibility."""
+    has_weighted_edges = _has_weighted_edges(unfiltered_elements)
+    summary = _format_counts_summary(current_elements or [], unfiltered_elements or [])
+    chips = _build_active_filter_chips(
+        selected_node_types,
+        selected_rel_types,
+        weight_threshold,
+        top_n_mode,
+        node_type_options,
+        rel_type_options,
+        has_weighted_edges,
+    )
+
+    weight_group_style = {} if has_weighted_edges else {"display": "none"}
+    weight_note_style = {"display": "none"} if has_weighted_edges or not unfiltered_elements else {"display": "block"}
+
+    return summary, chips, weight_group_style, weight_note_style
+
+
+@callback(
     [Output("node-type-filter", "value", allow_duplicate=True),
      Output("relationship-type-filter", "value", allow_duplicate=True),
      Output("weight-threshold-slider", "value"),
@@ -184,24 +324,15 @@ def apply_relationship_filters(selected_node_types, selected_rel_types, weight_t
     if not unfiltered_elements:
         raise PreventUpdate
     
-    # Start with all elements
-    filtered_elements = []
-    
     # Separate nodes and edges
-    nodes = []
-    edges = []
-    
-    for elem in unfiltered_elements:
-        data = elem.get("data", {})
-        if is_edge_data(data):
-            edges.append(elem)
-        else:
-            nodes.append(elem)
+    nodes, edges = _split_elements(unfiltered_elements)
+    has_weighted_edges = _has_weighted_edges(unfiltered_elements)
 
     logger.info(
         "[GRAPH-DEBUG][filter.apply] start "
         f"nodes={len(nodes)} edges={len(edges)} selected_node_types={selected_node_types} "
-        f"selected_rel_types={selected_rel_types} weight_threshold={weight_threshold} top_n_mode={top_n_mode}"
+        f"selected_rel_types={selected_rel_types} weight_threshold={weight_threshold} "
+        f"top_n_mode={top_n_mode} has_weighted_edges={has_weighted_edges}"
     )
 
     # Filter nodes by type
@@ -248,7 +379,7 @@ def apply_relationship_filters(selected_node_types, selected_rel_types, weight_t
     )
 
     # Filter by weight threshold
-    if weight_threshold > 0:
+    if has_weighted_edges and weight_threshold > 0:
         before_weight = len(filtered_edges)
         filtered_edges = [
             edge for edge in filtered_edges
@@ -260,7 +391,7 @@ def apply_relationship_filters(selected_node_types, selected_rel_types, weight_t
         )
     
     # Apply Top-N limit
-    if top_n_mode == "top50":
+    if has_weighted_edges and top_n_mode == "top50":
         # Sort by weight descending, take top 50
         before_topn = len(filtered_edges)
         filtered_edges = sorted(
@@ -272,7 +403,7 @@ def apply_relationship_filters(selected_node_types, selected_rel_types, weight_t
             "[GRAPH-DEBUG][filter.apply] edges_after_topn "
             f"mode=top50 visible={len(filtered_edges)} removed={before_topn - len(filtered_edges)}"
         )
-    elif top_n_mode == "top100":
+    elif has_weighted_edges and top_n_mode == "top100":
         # Sort by weight descending, take top 100
         before_topn = len(filtered_edges)
         filtered_edges = sorted(
