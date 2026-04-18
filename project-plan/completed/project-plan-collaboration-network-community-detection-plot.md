@@ -7,7 +7,7 @@ Instead of relying on the official org chart (`REPORTS_TO` / `MANAGES`), this vi
 
 ---
 
-## ⏸️ Current Status & Next Steps (Paused Here)
+## ✅ Current Status (Complete)
 
 ### What's Complete
 *   **Step 1 ✅** — 6-scenario Cypher query (`app/analytics/collaboration/queries/collaboration_score.cypher`) extracts collaboration scores for all person-pairs active in the last 90 days. Handles Neo4j 5.x `elementId` syntax and bot-filtering. `test_runner.py` validates the query against live Neo4j.
@@ -46,17 +46,17 @@ Instead of relying on the official org chart (`REPORTS_TO` / `MANAGES`), this vi
     *   `algorithm.py` — log-normalizes hub scores to a `_node_size` multiplier in `[0.25, 2.0]` (using `log(score + 1)` to compress outliers), then calls `apply_node_size()` to write `_render_size_px` onto each node element.
     *   `styles.py` — added `node[_render_size_px]` Cytoscape selector that sets `width`/`height` from the pre-computed pixel value; added `edge.collaboration-edge` selector to suppress directional arrows (collaboration scores are symmetric).
     *   `data_transform.py` — calls `apply_node_size()` in `neo4j_to_cytoscape()` so the mechanism is also available for the generic graph (no-op when `_node_size` is absent).
+*   **Dense-community readability tuning ✅** — `top_n_edges_per_node` defaults are finalized and no longer user-configurable.
+*   **Person node shape decision ✅** — `octagon` is retained as the final shape for person nodes.
 
 ### Known Issues (To Address in Next Session)
-1. **Intra-community density still possible** — Inter-community overlap is now controllable via configurable gaps, but very dense communities can still look busy internally. Keep tuning `top_n_edges_per_node` and optionally node radius/ring spacing for large clusters.
-2. **Person node shape** — `octagon` is the current shape. `ellipse` or `round-rectangle` would be more readable at high node density.
-3. **Analytics onboarding workflow** — Document and standardize the plug-in checklist for adding a new graph analytic (registry entry, loader callback, service/query implementation, tests).
+No open issues currently tracked in this plan.
 
 ### Next Step (Start Here)
-Finalize readability improvements inside dense communities (top-N defaults and optional ring-spacing tuning). In parallel, finalize a short onboarding checklist for adding new analytics via the registry pattern.
+Collaboration network community detection workstream is complete for the current scope.
 
-### Tuning the Weights (CLI Tool)
-Before wiring up the UI, use the CLI tool to validate that the weights produce meaningful community structure:
+### Tuning Reference (Closed)
+Weight tuning is complete for the current scope, and the defaults are finalized. This section is retained as an operational reference if future data-shape changes require re-validation.
 
 ```bash
 # From project root with venv active
@@ -72,7 +72,7 @@ The report prints:
 3. **Community Size Distribution** — bar chart of sizes, singleton warning
 4. **Top Hubs** — top 15 people by weighted degree (the "glue people")
 
-Tune the `Weight` multipliers in `queries/collaboration_score.cypher` until modularity is >0.3 and community count is between 2 and 20.
+No active tuning task is pending in this plan.
 
 ---
 
