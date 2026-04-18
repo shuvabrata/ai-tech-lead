@@ -33,6 +33,8 @@ _FILTER_OPERATOR_MAP = {
     "<=": "<=",
 }
 
+_PROPERTY_IDENTIFIER_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+
 
 def validate_read_only_query(query: str) -> bool:
     """Validate that a Cypher query is read-only (no write operations).
@@ -192,51 +194,46 @@ def build_filtered_cypher_query(request: GraphFilterRequest) -> Tuple[str, Dict[
     relationship_type_predicates: Dict[str, List[str]] = {}
 
     for idx, node_filter in enumerate(request.nodePropertyFilters):
-        prop_key_param = f"node_prop_key_{idx}"
         prop_val_param = f"node_prop_val_{idx}"
         label_param = f"node_prop_label_{idx}"
-        params[prop_key_param] = node_filter.property
         params[prop_val_param] = node_filter.value
         params[label_param] = node_filter.label
 
         predicate = _build_property_predicate(
             entity="n",
-            property_key_param=prop_key_param,
+            property_name=node_filter.property,
             property_value_param=prop_val_param,
             operator=node_filter.operator,
         )
         node_label_predicates.setdefault(node_filter.label, []).append(predicate)
 
     for idx, rel_filter in enumerate(request.relationshipPropertyFilters):
-        prop_key_param = f"rel_prop_key_{idx}"
         prop_val_param = f"rel_prop_val_{idx}"
         type_param = f"rel_prop_type_{idx}"
-        params[prop_key_param] = rel_filter.property
         params[prop_val_param] = rel_filter.value
         params[type_param] = rel_filter.type
 
         predicate = _build_property_predicate(
             entity="r",
-            property_key_param=prop_key_param,
+            property_name=rel_filter.property,
             property_value_param=prop_val_param,
             operator=rel_filter.operator,
         )
         relationship_type_predicates.setdefault(rel_filter.type, []).append(predicate)
 
     for idx, date_filter in enumerate(request.dateRangeFilters):
-        key_param = f"date_prop_key_{idx}"
-        params[key_param] = date_filter.property
         entity = "n" if date_filter.scope == "node" else "r"
+        property_ref = _build_property_reference(entity=entity, property_name=date_filter.property)
 
         range_predicates: List[str] = []
         if date_filter.from_value is not None:
             start_param = f"date_start_{idx}"
             params[start_param] = date_filter.from_value
-            range_predicates.append(f"toString({entity}[${key_param}]) >= ${start_param}")
+            range_predicates.append(f"toString({property_ref}) >= ${start_param}")
         if date_filter.to is not None:
             end_param = f"date_end_{idx}"
             params[end_param] = date_filter.to
-            range_predicates.append(f"toString({entity}[${key_param}]) <= ${end_param}")
+            range_predicates.append(f"toString({property_ref}) <= ${end_param}")
 
         if not range_predicates:
             continue
@@ -311,12 +308,12 @@ def execute_filtered_cypher_query(
 
 def _build_property_predicate(
     entity: str,
-    property_key_param: str,
+    property_name: str,
     property_value_param: str,
     operator: str,
 ) -> str:
     """Build a Cypher-safe predicate for one property operator."""
-    entity_prop_ref = f"{entity}[${property_key_param}]"
+    entity_prop_ref = _build_property_reference(entity=entity, property_name=property_name)
 
     if operator in _FILTER_OPERATOR_MAP:
         return f"{entity_prop_ref} {_FILTER_OPERATOR_MAP[operator]} ${property_value_param}"
@@ -328,6 +325,15 @@ def _build_property_predicate(
         return f"{entity_prop_ref} IN ${property_value_param}"
 
     raise ValueError(f"Unsupported filter operator for query builder: {operator}")
+
+
+def _build_property_reference(entity: str, property_name: str) -> str:
+    """Build a validated static Cypher property reference like `n.name`."""
+    if not _PROPERTY_IDENTIFIER_PATTERN.match(property_name):
+        raise ValueError(
+            f"Unsupported property identifier for query builder: {property_name}"
+        )
+    return f"{entity}.{property_name}"
 
 
 def fetch_relationships_between_nodes(node_ids: List[str]) -> List[Dict[str, Any]]:

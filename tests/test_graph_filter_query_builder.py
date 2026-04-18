@@ -1,5 +1,7 @@
 """Unit tests for graph filter query builder pushdown logic."""
 
+import pytest
+
 from app.api.graph.v1.model import GraphFilterRequest
 from app.api.graph.v1.query import build_filtered_cypher_query
 
@@ -34,18 +36,15 @@ def test_build_filtered_cypher_query_includes_core_clauses():
     assert "WHERE" in query
     assert "labels(n)" in query
     assert "type(r) IN $relationship_type_filters" in query
-    assert "toString(n[$node_prop_key_0]) CONTAINS" in query
-    assert "r[$rel_prop_key_0] = $rel_prop_val_0" in query
-    assert "toString(n[$date_prop_key_0]) >= $date_start_0" in query
+    assert "toString(n.name) CONTAINS" in query
+    assert "r.state = $rel_prop_val_0" in query
+    assert "toString(n.created_at) >= $date_start_0" in query
     assert " OR " in query
 
     assert params["node_type_filters"] == ["Person"]
     assert params["relationship_type_filters"] == ["WORKS_ON"]
-    assert params["node_prop_key_0"] == "name"
     assert params["node_prop_val_0"] == "ali"
-    assert params["rel_prop_key_0"] == "state"
     assert params["rel_prop_val_0"] == "APPROVED"
-    assert params["date_prop_key_0"] == "created_at"
 
 
 def test_build_filtered_cypher_query_without_filters_returns_passthrough_shape():
@@ -154,10 +153,27 @@ def test_build_filtered_cypher_query_relationship_date_range_scope_generates_exp
     query, params = build_filtered_cypher_query(request)
 
     assert "r IS NOT NULL AND type(r) = $relationship_group_type_0" in query
-    assert "toString(r[$date_prop_key_0]) >= $date_start_0" in query
-    assert "toString(r[$date_prop_key_0]) <= $date_end_0" in query
+    assert "toString(r.reviewed_at) >= $date_start_0" in query
+    assert "toString(r.reviewed_at) <= $date_end_0" in query
     assert params["relationship_group_type_0"] == "REVIEWED_BY"
-    assert params["date_prop_key_0"] == "reviewed_at"
+
+
+def test_build_filtered_cypher_query_rejects_invalid_property_identifier():
+    """Builder should fail fast when a property name is not a valid Cypher identifier."""
+    request = GraphFilterRequest(
+        baseQuery="MATCH (n)-[r]->(m) RETURN n, r, m",
+        nodePropertyFilters=[
+            {
+                "label": "Person",
+                "property": "name;DROP",
+                "operator": "CONTAINS",
+                "value": "ali",
+            }
+        ],
+    )
+
+    with pytest.raises(ValueError, match="Unsupported property identifier"):
+        build_filtered_cypher_query(request)
 
 
 def test_build_filtered_cypher_query_should_not_overconstrain_mismatched_relationship_types():
