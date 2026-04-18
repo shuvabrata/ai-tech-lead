@@ -29,6 +29,7 @@ from .model import (
 from .query import (
     validate_read_only_query, 
     execute_cypher_query, 
+    execute_filtered_cypher_query,
     expand_node_query,
     fetch_relationships_between_nodes
     )
@@ -78,8 +79,19 @@ def execute_and_format_query(query: str) -> GraphResponse:
     # Step 2: Execute query
     logger.info(f"Executing query: {query[:100]}...")
     raw_results = execute_cypher_query(query, timeout=settings.NEO4J_QUERY_TIMEOUT)
-    
-    # Step 3: Detect result type and transform
+
+    return _format_query_results(
+        raw_results=raw_results,
+        include_implicit_relationships=True,
+    )
+
+
+def _format_query_results(
+    raw_results: List[Dict[str, Any]],
+    include_implicit_relationships: bool,
+) -> GraphResponse:
+    """Format raw Neo4j records as GraphResponse (graph or tabular)."""
+    # Detect result type and transform
     nodes_dict: Dict[str, GraphNode] = {}  # Keyed by element_id for deduplication
     relationships_list: List[GraphRelationship] = []
     relationship_ids: Set[str] = set()  # For deduplication
@@ -108,7 +120,7 @@ def execute_and_format_query(query: str) -> GraphResponse:
         # Step 4.5: Fetch relationships between the loaded nodes
         # This ensures that if nodes have relationships between them, those relationships
         # are also loaded, even if they weren't explicitly returned by the query
-        if len(nodes_list) > 0:
+        if include_implicit_relationships and len(nodes_list) > 0:
             node_ids = [node.id for node in nodes_list]
             relationship_records = fetch_relationships_between_nodes(node_ids)
             
@@ -165,11 +177,33 @@ def execute_and_format_query(query: str) -> GraphResponse:
 
 def execute_and_filter_query(request: GraphFilterRequest) -> GraphFilterResponse:
     """Execute base query and apply validated server-side filter specs."""
-    base_response = execute_and_format_query(request.baseQuery)
-    if not base_response.isGraph:
-        raise ValueError("baseQuery must return graph data (nodes/relationships)")
+    pushdown_fallback_warning: str | None = None
 
     _validate_filters_against_registry(request)
+
+    try:
+        pushdown_records = execute_filtered_cypher_query(
+            request=request,
+            timeout=settings.NEO4J_QUERY_TIMEOUT,
+        )
+        base_response = _format_query_results(
+            raw_results=pushdown_records,
+            include_implicit_relationships=request.resultOptions.includeImplicitRelationships,
+        )
+        if not base_response.isGraph:
+            raise RuntimeError("pushdown path returned non-graph payload")
+    except Exception as exc:
+        logger.warning(
+            "[GRAPH-DEBUG][filter.pushdown] failed falling back to in-memory path: "
+            f"{exc}"
+        )
+        pushdown_fallback_warning = (
+            "Filter pushdown query-builder path was not applied; used in-memory filtering fallback."
+        )
+        base_response = execute_and_format_query(request.baseQuery)
+
+    if not base_response.isGraph:
+        raise ValueError("baseQuery must return graph data (nodes/relationships)")
 
     filtered_nodes = _filter_nodes(
         nodes=base_response.nodes,
@@ -200,6 +234,49 @@ def execute_and_filter_query(request: GraphFilterRequest) -> GraphFilterResponse
         truncated = True
         warnings.append("Relationship results were truncated by resultOptions.limitRelationships")
 
+    if pushdown_fallback_warning is not None:
+        warnings.append(pushdown_fallback_warning)
+
+    total_elements = len(filtered_nodes) + len(filtered_relationships)
+    payload_bytes = _estimate_graph_payload_bytes(
+        nodes=filtered_nodes,
+        relationships=filtered_relationships,
+    )
+
+    if total_elements >= GRAPH_RECOMMEND_SERVER_FILTER_THRESHOLD:
+        warnings.append(
+            "Large graph detected (>5000 elements). Prefer database-side filtering and/or stronger narrowing filters."
+        )
+        logger.info(
+            "[GRAPH-DEBUG][filter.threshold] element_threshold_high "
+            f"elements={total_elements} threshold={GRAPH_RECOMMEND_SERVER_FILTER_THRESHOLD}"
+        )
+    elif total_elements >= GRAPH_SOFT_WARNING_ELEMENT_THRESHOLD:
+        warnings.append(
+            "Graph size is moderately high (>2000 elements). Local interactions may become sluggish."
+        )
+        logger.info(
+            "[GRAPH-DEBUG][filter.threshold] element_threshold_soft "
+            f"elements={total_elements} threshold={GRAPH_SOFT_WARNING_ELEMENT_THRESHOLD}"
+        )
+
+    if payload_bytes >= GRAPH_PAYLOAD_RECOMMEND_SERVER_BYTES:
+        warnings.append(
+            "Estimated payload is large (>2MB). Prefer server-side filtering or density reduction."
+        )
+        logger.info(
+            "[GRAPH-DEBUG][filter.threshold] payload_threshold_high "
+            f"payload_bytes={payload_bytes} threshold={GRAPH_PAYLOAD_RECOMMEND_SERVER_BYTES}"
+        )
+    elif payload_bytes >= GRAPH_PAYLOAD_WARNING_BYTES:
+        warnings.append(
+            "Estimated payload is high (>1MB). UI responsiveness may degrade."
+        )
+        logger.info(
+            "[GRAPH-DEBUG][filter.threshold] payload_threshold_soft "
+            f"payload_bytes={payload_bytes} threshold={GRAPH_PAYLOAD_WARNING_BYTES}"
+        )
+
     metadata = GraphFilterExecutionMetadata(
         mode=request.mode,
         baseResultCounts={
@@ -214,12 +291,6 @@ def execute_and_filter_query(request: GraphFilterRequest) -> GraphFilterResponse
         warnings=warnings,
     )
 
-    _apply_threshold_warnings(
-        metadata=metadata,
-        nodes=filtered_nodes,
-        relationships=filtered_relationships,
-    )
-
     return GraphFilterResponse(
         nodes=filtered_nodes,
         relationships=filtered_relationships,
@@ -228,50 +299,6 @@ def execute_and_filter_query(request: GraphFilterRequest) -> GraphFilterResponse
         resultCount=len(filtered_nodes) + len(filtered_relationships),
         metadata=metadata,
     )
-
-
-def _apply_threshold_warnings(
-    metadata: GraphFilterExecutionMetadata,
-    nodes: List[GraphNode],
-    relationships: List[GraphRelationship],
-) -> None:
-    """Append warnings and logs when graph size/payload thresholds are exceeded."""
-    total_elements = len(nodes) + len(relationships)
-    payload_bytes = _estimate_graph_payload_bytes(nodes=nodes, relationships=relationships)
-
-    if total_elements >= GRAPH_RECOMMEND_SERVER_FILTER_THRESHOLD:
-        metadata.warnings.append(
-            "Large graph detected (>5000 elements). Prefer database-side filtering and/or stronger narrowing filters."
-        )
-        logger.info(
-            "[GRAPH-DEBUG][filter.threshold] element_threshold_high "
-            f"elements={total_elements} threshold={GRAPH_RECOMMEND_SERVER_FILTER_THRESHOLD}"
-        )
-    elif total_elements >= GRAPH_SOFT_WARNING_ELEMENT_THRESHOLD:
-        metadata.warnings.append(
-            "Graph size is moderately high (>2000 elements). Local interactions may become sluggish."
-        )
-        logger.info(
-            "[GRAPH-DEBUG][filter.threshold] element_threshold_soft "
-            f"elements={total_elements} threshold={GRAPH_SOFT_WARNING_ELEMENT_THRESHOLD}"
-        )
-
-    if payload_bytes >= GRAPH_PAYLOAD_RECOMMEND_SERVER_BYTES:
-        metadata.warnings.append(
-            "Estimated payload is large (>2MB). Prefer server-side filtering or density reduction."
-        )
-        logger.info(
-            "[GRAPH-DEBUG][filter.threshold] payload_threshold_high "
-            f"payload_bytes={payload_bytes} threshold={GRAPH_PAYLOAD_RECOMMEND_SERVER_BYTES}"
-        )
-    elif payload_bytes >= GRAPH_PAYLOAD_WARNING_BYTES:
-        metadata.warnings.append(
-            "Estimated payload is high (>1MB). UI responsiveness may degrade."
-        )
-        logger.info(
-            "[GRAPH-DEBUG][filter.threshold] payload_threshold_soft "
-            f"payload_bytes={payload_bytes} threshold={GRAPH_PAYLOAD_WARNING_BYTES}"
-        )
 
 
 def _estimate_graph_payload_bytes(

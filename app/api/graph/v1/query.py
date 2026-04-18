@@ -1,12 +1,13 @@
 """Query layer for Neo4j graph database operations."""
 
 import re
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Tuple
 from neo4j import GraphDatabase
 from neo4j.exceptions import Neo4jError, ServiceUnavailable
 
 from app.settings import settings
 from app.common.logger import logger
+from .model import GraphFilterRequest
 
 
 # Read-only Cypher keywords (case-insensitive)
@@ -21,6 +22,16 @@ WRITE_KEYWORDS = [
     'CREATE', 'MERGE', 'DELETE', 'DETACH', 'SET', 
     'REMOVE', 'DROP', 'FOREACH'
 ]
+
+
+_FILTER_OPERATOR_MAP = {
+    "=": "=",
+    "!=": "<>",
+    ">": ">",
+    "<": "<",
+    ">=": ">=",
+    "<=": "<=",
+}
 
 
 def validate_read_only_query(query: str) -> bool:
@@ -150,6 +161,173 @@ def execute_cypher_query(
     finally:
         if driver:
             driver.close()
+
+
+def build_filtered_cypher_query(request: GraphFilterRequest) -> Tuple[str, Dict[str, Any]]:
+    """Build a read-only Cypher query with validated filter predicates pushed down.
+
+    The builder assumes the base query returns graph variables `n`, `r`, and `m`
+    (the common graph query shape used by the graph page).
+    """
+    base_query = request.baseQuery.strip()
+
+    where_clauses: List[str] = []
+    params: Dict[str, Any] = {}
+
+    node_group_clauses: List[str] = []
+    if request.nodeTypeFilters:
+        params["node_type_filters"] = request.nodeTypeFilters
+        node_group_clauses.append(
+            "(n IS NOT NULL AND any(lbl IN labels(n) WHERE lbl IN $node_type_filters))"
+        )
+
+    relationship_group_clauses: List[str] = []
+    if request.relationshipTypeFilters:
+        params["relationship_type_filters"] = request.relationshipTypeFilters
+        relationship_group_clauses.append(
+            "(r IS NOT NULL AND type(r) IN $relationship_type_filters)"
+        )
+
+    node_label_predicates: Dict[str, List[str]] = {}
+    relationship_type_predicates: Dict[str, List[str]] = {}
+
+    for idx, node_filter in enumerate(request.nodePropertyFilters):
+        prop_key_param = f"node_prop_key_{idx}"
+        prop_val_param = f"node_prop_val_{idx}"
+        label_param = f"node_prop_label_{idx}"
+        params[prop_key_param] = node_filter.property
+        params[prop_val_param] = node_filter.value
+        params[label_param] = node_filter.label
+
+        predicate = _build_property_predicate(
+            entity="n",
+            property_key_param=prop_key_param,
+            property_value_param=prop_val_param,
+            operator=node_filter.operator,
+        )
+        node_label_predicates.setdefault(node_filter.label, []).append(predicate)
+
+    for idx, rel_filter in enumerate(request.relationshipPropertyFilters):
+        prop_key_param = f"rel_prop_key_{idx}"
+        prop_val_param = f"rel_prop_val_{idx}"
+        type_param = f"rel_prop_type_{idx}"
+        params[prop_key_param] = rel_filter.property
+        params[prop_val_param] = rel_filter.value
+        params[type_param] = rel_filter.type
+
+        predicate = _build_property_predicate(
+            entity="r",
+            property_key_param=prop_key_param,
+            property_value_param=prop_val_param,
+            operator=rel_filter.operator,
+        )
+        relationship_type_predicates.setdefault(rel_filter.type, []).append(predicate)
+
+    for idx, date_filter in enumerate(request.dateRangeFilters):
+        key_param = f"date_prop_key_{idx}"
+        params[key_param] = date_filter.property
+        entity = "n" if date_filter.scope == "node" else "r"
+
+        range_predicates: List[str] = []
+        if date_filter.from_value is not None:
+            start_param = f"date_start_{idx}"
+            params[start_param] = date_filter.from_value
+            range_predicates.append(f"toString({entity}[${key_param}]) >= ${start_param}")
+        if date_filter.to is not None:
+            end_param = f"date_end_{idx}"
+            params[end_param] = date_filter.to
+            range_predicates.append(f"toString({entity}[${key_param}]) <= ${end_param}")
+
+        if not range_predicates:
+            continue
+
+        if date_filter.scope == "node":
+            if date_filter.label is not None:
+                node_label_predicates.setdefault(date_filter.label, []).extend(range_predicates)
+        else:
+            if date_filter.type is not None:
+                relationship_type_predicates.setdefault(date_filter.type, []).extend(range_predicates)
+
+    for idx, (label, predicates) in enumerate(node_label_predicates.items()):
+        label_param = f"node_group_label_{idx}"
+        params[label_param] = label
+        clause = (
+            "(n IS NOT NULL "
+            f"AND any(lbl IN labels(n) WHERE lbl = ${label_param}) "
+            f"AND {' AND '.join(predicates)})"
+        )
+        node_group_clauses.append(clause)
+
+    for idx, (rel_type, predicates) in enumerate(relationship_type_predicates.items()):
+        rel_type_param = f"relationship_group_type_{idx}"
+        params[rel_type_param] = rel_type
+        clause = (
+            "(r IS NOT NULL "
+            f"AND type(r) = ${rel_type_param} "
+            f"AND {' AND '.join(predicates)})"
+        )
+        relationship_group_clauses.append(clause)
+
+    if node_group_clauses:
+        where_clauses.append("(" + " OR ".join(node_group_clauses) + ")")
+
+    if relationship_group_clauses:
+        where_clauses.append("(" + " OR ".join(relationship_group_clauses) + ")")
+
+    where_sql = ""
+    if where_clauses:
+        where_sql = "\nWHERE " + "\n  AND ".join(where_clauses)
+
+    query = (
+        "CALL {\n"
+        f"{base_query}\n"
+        "}\n"
+        "WITH *"
+        f"{where_sql}\n"
+        "RETURN *"
+    )
+
+    return query, params
+
+
+def execute_filtered_cypher_query(
+    request: GraphFilterRequest,
+    timeout: int = 30,
+) -> List[Dict[str, Any]]:
+    """Execute a query with pushed-down filters generated from request metadata."""
+    if not validate_read_only_query(request.baseQuery):
+        raise ValueError(
+            "Query validation failed: Write operations are not allowed. "
+            "Only read-only queries (MATCH, RETURN, etc.) are permitted."
+        )
+
+    filtered_query, parameters = build_filtered_cypher_query(request)
+    return execute_cypher_query(
+        filtered_query,
+        timeout=timeout,
+        parameters=parameters,
+    )
+
+
+def _build_property_predicate(
+    entity: str,
+    property_key_param: str,
+    property_value_param: str,
+    operator: str,
+) -> str:
+    """Build a Cypher-safe predicate for one property operator."""
+    entity_prop_ref = f"{entity}[${property_key_param}]"
+
+    if operator in _FILTER_OPERATOR_MAP:
+        return f"{entity_prop_ref} {_FILTER_OPERATOR_MAP[operator]} ${property_value_param}"
+    if operator == "CONTAINS":
+        return f"toString({entity_prop_ref}) CONTAINS toString(${property_value_param})"
+    if operator == "STARTS WITH":
+        return f"toString({entity_prop_ref}) STARTS WITH toString(${property_value_param})"
+    if operator == "IN":
+        return f"{entity_prop_ref} IN ${property_value_param}"
+
+    raise ValueError(f"Unsupported filter operator for query builder: {operator}")
 
 
 def fetch_relationships_between_nodes(node_ids: List[str]) -> List[Dict[str, Any]]:

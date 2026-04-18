@@ -1,5 +1,7 @@
 """Unit tests for graph filter service logic."""
 
+import pytest
+
 from app.api.graph.v1.model import (
     GraphFilterRequest,
     GraphNode,
@@ -7,6 +9,16 @@ from app.api.graph.v1.model import (
     GraphResponse,
 )
 from app.api.graph.v1 import service
+
+
+@pytest.fixture(autouse=True)
+def _mock_pushdown_path(monkeypatch):
+    """Keep service tests unit-level by disabling live pushdown execution."""
+
+    def _raise_pushdown_unavailable(*_args, **_kwargs):
+        raise RuntimeError("pushdown disabled in service unit tests")
+
+    monkeypatch.setattr(service, "execute_filtered_cypher_query", _raise_pushdown_unavailable)
 
 
 def _sample_graph_response() -> GraphResponse:
@@ -115,7 +127,8 @@ def test_execute_and_filter_query_enforces_result_limits(monkeypatch):
     assert len(response.nodes) == 1
     assert len(response.relationships) == 1
     assert response.metadata.truncated is True
-    assert len(response.metadata.warnings) == 2
+    assert any("Node results were truncated" in warning for warning in response.metadata.warnings)
+    assert any("Relationship results were truncated" in warning for warning in response.metadata.warnings)
 
 
 def test_execute_and_filter_query_adds_soft_element_threshold_warning(monkeypatch):
@@ -179,3 +192,50 @@ def test_execute_and_filter_query_adds_payload_threshold_warning(monkeypatch):
         or "Estimated payload is large (>2MB)" in warning
         for warning in response.metadata.warnings
     )
+
+
+def test_execute_and_filter_query_pushdown_path_uses_or_grouped_builder(monkeypatch):
+    """Service should use pushdown builder output with OR-grouped node/relationship filters."""
+    from app.api.graph.v1.query import build_filtered_cypher_query
+
+    captured_query = {"text": ""}
+
+    def _fake_pushdown(request, timeout):
+        query, _ = build_filtered_cypher_query(request)
+        captured_query["text"] = query
+        return [{"sentinel": 1}]
+
+    monkeypatch.setattr(service, "execute_filtered_cypher_query", _fake_pushdown)
+    monkeypatch.setattr(
+        service,
+        "_format_query_results",
+        lambda raw_results, include_implicit_relationships: _sample_graph_response(),
+    )
+    monkeypatch.setattr(
+        service,
+        "execute_and_format_query",
+        lambda _q: (_ for _ in ()).throw(AssertionError("fallback path should not execute")),
+    )
+
+    request = GraphFilterRequest(
+        baseQuery="MATCH (n)-[r]->(m) RETURN n, r, m",
+        nodeTypeFilters=["Project"],
+        relationshipTypeFilters=["WORKS_ON"],
+        nodePropertyFilters=[
+            {"label": "Person", "property": "name", "operator": "CONTAINS", "value": "Ali"}
+        ],
+        relationshipPropertyFilters=[
+            {"type": "REVIEWED_BY", "property": "state", "operator": "=", "value": "APPROVED"}
+        ],
+    )
+
+    response = service.execute_and_filter_query(request)
+
+    query_text = captured_query["text"]
+    assert query_text
+    assert "node_type_filters" in query_text
+    assert "relationship_type_filters" in query_text
+    assert "node_group_label_0" in query_text
+    assert "relationship_group_type_0" in query_text
+    assert " OR " in query_text
+    assert not any("pushdown query-builder path was not applied" in w for w in response.metadata.warnings)
