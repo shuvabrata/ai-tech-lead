@@ -87,6 +87,7 @@ def validate_query(query_text):
      Output("expanded-nodes", "data"),
     Output("expansion-debounce-store", "data"),
     Output("unfiltered-elements-store", "data"),
+    Output("original-unfiltered-elements-store", "data"),
     Output("node-type-filter", "value", allow_duplicate=True),
     Output("relationship-type-filter", "value", allow_duplicate=True),
     Output("weight-threshold-slider", "value", allow_duplicate=True),
@@ -134,6 +135,7 @@ def execute_query(_n_clicks, query_text):
             [],
             {},
             {},
+            unfiltered_elements,
             unfiltered_elements,
             *default_filters,
         )

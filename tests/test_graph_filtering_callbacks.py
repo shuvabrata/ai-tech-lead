@@ -248,6 +248,50 @@ def test_resolve_filter_mode_label_opt_in_auto_switch():
     assert label == "Applying to database (auto-switch ON)"
 
 
+def test_should_apply_database_filters_requires_toggle_and_database_recommendation():
+    """Server filtering should trigger only when both toggle and recommendation conditions are met."""
+    assert filtering_callbacks._should_apply_database_filters(
+        {"recommendedMode": "database"},
+        True,
+    ) is True
+    assert filtering_callbacks._should_apply_database_filters(
+        {"recommendedMode": "database"},
+        False,
+    ) is False
+    assert filtering_callbacks._should_apply_database_filters(
+        {"recommendedMode": "local"},
+        True,
+    ) is False
+
+
+def test_is_collaboration_mode_detects_url_flag():
+    """Collaboration graph routes should be detected to avoid invalid server-filter fallback."""
+    assert filtering_callbacks._is_collaboration_mode("?mode=collaboration") is True
+    assert filtering_callbacks._is_collaboration_mode("?mode=collaboration_network") is True
+    assert filtering_callbacks._is_collaboration_mode("?mode=other") is False
+    assert filtering_callbacks._is_collaboration_mode("") is False
+
+
+def test_restore_original_graph_baseline_restores_elements_and_resets_expansion_state():
+    """Restore action should replace working baseline and clear expansion state."""
+    original = [
+        {"data": {"id": "n1", "nodeType": "Person", "elementType": "node"}},
+        {"data": {"id": "n2", "nodeType": "Repository", "elementType": "node"}},
+        {"data": {"id": "e1", "source": "n1", "target": "n2", "relType": "WORKS_ON", "elementType": "edge"}},
+    ]
+
+    elements, unfiltered, loaded_ids, expanded_nodes, debounce_store = filtering_callbacks.restore_original_graph_baseline(
+        n_clicks=1,
+        original_unfiltered_elements=original,
+    )
+
+    assert elements == original
+    assert unfiltered == original
+    assert loaded_ids == ["n1", "n2"]
+    assert expanded_nodes == {}
+    assert debounce_store == {}
+
+
 @pytest.mark.xfail(reason="Known Dim mode issue: stale dimmed class not removed on re-selection. See Phase 2 doc: Dim mode + edge hover interaction conflict")
 def test_apply_relationship_filters_dim_mode_un_dims_reselected_elements_with_stale_class():
     """Visible elements should have stale dimmed class removed when they become selected again."""

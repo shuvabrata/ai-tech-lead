@@ -591,7 +591,7 @@ Implement filtering in **two layers**:
 - [x] Add focused tests for threshold-triggered recommendation/fallback behavior
 - [x] Auto-switch toggle flips banner color/text (warning → success) and mode label atomically
 - [x] Added focused tests for auto-switch ON banner state
-- [ ] Wire auto-switch ON to actual database filter execution (`POST /api/v1/graph/filter`)
+- [x] Wire auto-switch ON to actual database filter execution (`POST /api/v1/graph/filter`)
 
 #### 2.1.C Progress Update
 
@@ -611,7 +611,10 @@ Implement filtering in **two layers**:
   - toggle ON → green confirmation: "Auto-switch ON: Applying to Database"
 - ✅ Mode label also updates in sync via the threshold store
 - ✅ Added focused test for auto-switch ON banner state (`test_update_filter_panel_feedback_auto_switch_on_changes_banner_to_success`)
-- ⏳ Actual database filter execution (sending `POST /api/v1/graph/filter` when auto-switch is ON) is the remaining 2.1.C task
+- ✅ Auto-switch ON now triggers server-side filtering via `POST /api/v1/graph/filter`
+- ✅ Server filter response now replaces the working graph baseline (`unfiltered-elements-store`)
+- ✅ Added preserved original baseline store (`original-unfiltered-elements-store`) for rollback safety
+- ✅ Added "Restore original graph" action to return to the pre-server-filter baseline
 
 - [ ] **2.1.D Phase 4 - Collaboration-specific optimization**
   - Move collaboration density controls into a more explicit server-backed filter workflow

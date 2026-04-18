@@ -240,6 +240,14 @@ def create_filter_panel():
                             "Default: recommendation-only (no automatic mode changes).",
                             className="graph-filter-help-note d-block mt-1"
                         ),
+                        dbc.Button(
+                            "Restore original graph",
+                            id="filter-restore-original-btn",
+                            color="secondary",
+                            size="sm",
+                            className="mt-2",
+                            outline=True,
+                        ),
                     ], className="mb-3"),
 
                     html.Div([
@@ -561,6 +569,9 @@ def create_stores():
         # --- Phase 1.2.4: Relationship Filtering ---
         # Store for unfiltered graph elements (backup for reset)
         dcc.Store(id="unfiltered-elements-store", data=[]),
+
+        # Store for original loaded graph elements (pre server-filter fallback baseline)
+        dcc.Store(id="original-unfiltered-elements-store", data=[]),
 
         # Store for live Cytoscape node positions (captured clientside)
         dcc.Store(id="node-positions-store", data={}),
