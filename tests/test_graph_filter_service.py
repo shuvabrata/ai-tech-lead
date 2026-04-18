@@ -194,6 +194,35 @@ def test_execute_and_filter_query_adds_payload_threshold_warning(monkeypatch):
     )
 
 
+def test_execute_and_filter_query_surfaces_pushdown_validation_error(monkeypatch):
+    """ValueError from pushdown path should be raised, not silently downgraded to fallback."""
+
+    def _raise_validation_error(*_args, **_kwargs):
+        raise ValueError("Unsupported property identifier for query builder: bad-name")
+
+    monkeypatch.setattr(service, "execute_filtered_cypher_query", _raise_validation_error)
+    monkeypatch.setattr(
+        service,
+        "execute_and_format_query",
+        lambda _q: (_ for _ in ()).throw(AssertionError("fallback path should not execute")),
+    )
+
+    request = GraphFilterRequest(
+        baseQuery="MATCH (n)-[r]->(m) RETURN n, r, m",
+        nodePropertyFilters=[
+            {
+                "label": "Person",
+                "property": "name",
+                "operator": "CONTAINS",
+                "value": "Ali",
+            }
+        ],
+    )
+
+    with pytest.raises(ValueError, match="Unsupported property identifier"):
+        service.execute_and_filter_query(request)
+
+
 def test_execute_and_filter_query_pushdown_path_uses_or_grouped_builder(monkeypatch):
     """Service should use pushdown builder output with OR-grouped node/relationship filters."""
     from app.api.graph.v1.query import build_filtered_cypher_query
