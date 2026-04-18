@@ -9,6 +9,8 @@ jobs:
     runs-on: ubuntu-latest
     env:
       PYTHONPATH: ${{ github.workspace }}
+      DATABASE_URL: postgresql+asyncpg://username:pwd@localhost:5432/postgres
+      NEO4J_ENABLED: "false"
 
     steps:
       - name: Checkout
