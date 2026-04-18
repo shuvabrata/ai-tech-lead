@@ -1,5 +1,6 @@
 """Service layer for Graph API v1 - business logic and data transformation."""
 
+from datetime import datetime
 from pathlib import Path as FilePath
 from typing import Any, Dict, List, Set
 from neo4j.graph import Node, Path, Relationship
@@ -15,8 +16,12 @@ from app.analytics.collaboration.algorithm import (
         to_cytoscape_elements,
     )
 from app.analytics.collaboration.config import CollaborationNetworkConfig
+from .filter_registry import get_node_property_config, get_relationship_property_config
 from .model import (
     CollaborationNetworkResponse, 
+    GraphFilterExecutionMetadata,
+    GraphFilterRequest,
+    GraphFilterResponse,
     GraphNode, GraphRelationship, GraphResponse, 
     NodeExpansionResponse, PaginationMeta
     )
@@ -148,6 +153,263 @@ def execute_and_format_query(query: str) -> GraphResponse:
             isGraph=False,
             resultCount=len(serializable_results)
         )
+
+
+def execute_and_filter_query(request: GraphFilterRequest) -> GraphFilterResponse:
+    """Execute base query and apply validated server-side filter specs."""
+    base_response = execute_and_format_query(request.baseQuery)
+    if not base_response.isGraph:
+        raise ValueError("baseQuery must return graph data (nodes/relationships)")
+
+    _validate_filters_against_registry(request)
+
+    filtered_nodes = _filter_nodes(
+        nodes=base_response.nodes,
+        node_type_filters=request.nodeTypeFilters,
+        node_property_filters=request.nodePropertyFilters,
+        date_range_filters=request.dateRangeFilters,
+    )
+    filtered_node_ids = {node.id for node in filtered_nodes}
+
+    filtered_relationships = _filter_relationships(
+        relationships=base_response.relationships,
+        relationship_type_filters=request.relationshipTypeFilters,
+        relationship_property_filters=request.relationshipPropertyFilters,
+        date_range_filters=request.dateRangeFilters,
+        allowed_node_ids=filtered_node_ids,
+    )
+
+    warnings: List[str] = []
+    truncated = False
+
+    if len(filtered_nodes) > request.resultOptions.limitNodes:
+        filtered_nodes = filtered_nodes[: request.resultOptions.limitNodes]
+        truncated = True
+        warnings.append("Node results were truncated by resultOptions.limitNodes")
+
+    if len(filtered_relationships) > request.resultOptions.limitRelationships:
+        filtered_relationships = filtered_relationships[: request.resultOptions.limitRelationships]
+        truncated = True
+        warnings.append("Relationship results were truncated by resultOptions.limitRelationships")
+
+    metadata = GraphFilterExecutionMetadata(
+        mode=request.mode,
+        baseResultCounts={
+            "nodes": len(base_response.nodes),
+            "relationships": len(base_response.relationships),
+        },
+        filteredResultCounts={
+            "nodes": len(filtered_nodes),
+            "relationships": len(filtered_relationships),
+        },
+        truncated=truncated,
+        warnings=warnings,
+    )
+
+    return GraphFilterResponse(
+        nodes=filtered_nodes,
+        relationships=filtered_relationships,
+        rawResults=[],
+        isGraph=True,
+        resultCount=len(filtered_nodes) + len(filtered_relationships),
+        metadata=metadata,
+    )
+
+
+def _validate_filters_against_registry(request: GraphFilterRequest) -> None:
+    """Validate filter specs against server-supported property registry."""
+    for node_filter in request.nodePropertyFilters:
+        config = get_node_property_config(node_filter.label, node_filter.property)
+        if not config or not config.get("server", False):
+            raise ValueError(
+                f"Unsupported server-side node property filter: {node_filter.label}.{node_filter.property}"
+            )
+        if node_filter.operator not in config.get("operators", []):
+            raise ValueError(
+                "Unsupported operator for node filter "
+                f"{node_filter.label}.{node_filter.property}: {node_filter.operator}"
+            )
+
+    for relationship_filter in request.relationshipPropertyFilters:
+        config = get_relationship_property_config(relationship_filter.type, relationship_filter.property)
+        if not config or not config.get("server", False):
+            raise ValueError(
+                "Unsupported server-side relationship property filter: "
+                f"{relationship_filter.type}.{relationship_filter.property}"
+            )
+        if relationship_filter.operator not in config.get("operators", []):
+            raise ValueError(
+                "Unsupported operator for relationship filter "
+                f"{relationship_filter.type}.{relationship_filter.property}: {relationship_filter.operator}"
+            )
+
+
+def _filter_nodes(
+    nodes: List[GraphNode],
+    node_type_filters: List[str],
+    node_property_filters,
+    date_range_filters,
+) -> List[GraphNode]:
+    """Filter node list by type, property predicates, and date ranges."""
+    output: List[GraphNode] = []
+    for node in nodes:
+        if node_type_filters and not any(label in node.labels for label in node_type_filters):
+            continue
+
+        if not _matches_node_property_filters(node, node_property_filters):
+            continue
+
+        if not _matches_node_date_range_filters(node, date_range_filters):
+            continue
+
+        output.append(node)
+
+    return output
+
+
+def _filter_relationships(
+    relationships: List[GraphRelationship],
+    relationship_type_filters: List[str],
+    relationship_property_filters,
+    date_range_filters,
+    allowed_node_ids: Set[str],
+) -> List[GraphRelationship]:
+    """Filter relationship list by type/property/date and current node subset."""
+    output: List[GraphRelationship] = []
+    for rel in relationships:
+        if rel.startNode not in allowed_node_ids or rel.endNode not in allowed_node_ids:
+            continue
+
+        if relationship_type_filters and rel.type not in relationship_type_filters:
+            continue
+
+        if not _matches_relationship_property_filters(rel, relationship_property_filters):
+            continue
+
+        if not _matches_relationship_date_range_filters(rel, date_range_filters):
+            continue
+
+        output.append(rel)
+
+    return output
+
+
+def _matches_node_property_filters(node: GraphNode, node_property_filters) -> bool:
+    """Return whether a node satisfies all applicable node property filters."""
+    for property_filter in node_property_filters:
+        if property_filter.label not in node.labels:
+            continue
+        node_value = node.properties.get(property_filter.property)
+        if not _evaluate_filter_operator(node_value, property_filter.operator, property_filter.value):
+            return False
+    return True
+
+
+def _matches_relationship_property_filters(
+    relationship: GraphRelationship,
+    relationship_property_filters,
+) -> bool:
+    """Return whether a relationship satisfies all applicable property filters."""
+    for property_filter in relationship_property_filters:
+        if property_filter.type != relationship.type:
+            continue
+        rel_value = relationship.properties.get(property_filter.property)
+        if not _evaluate_filter_operator(rel_value, property_filter.operator, property_filter.value):
+            return False
+    return True
+
+
+def _matches_node_date_range_filters(node: GraphNode, date_range_filters) -> bool:
+    """Return whether node date properties satisfy all applicable date ranges."""
+    for date_filter in date_range_filters:
+        if date_filter.scope != "node":
+            continue
+        if date_filter.label not in node.labels:
+            continue
+        value = node.properties.get(date_filter.property)
+        if not _is_in_date_range(value=value, start=date_filter.from_value, end=date_filter.to):
+            return False
+    return True
+
+
+def _matches_relationship_date_range_filters(relationship: GraphRelationship, date_range_filters) -> bool:
+    """Return whether relationship date properties satisfy all applicable date ranges."""
+    for date_filter in date_range_filters:
+        if date_filter.scope != "relationship":
+            continue
+        if date_filter.type != relationship.type:
+            continue
+        value = relationship.properties.get(date_filter.property)
+        if not _is_in_date_range(value=value, start=date_filter.from_value, end=date_filter.to):
+            return False
+    return True
+
+
+def _evaluate_filter_operator(left_value: Any, operator: str, right_value: Any) -> bool:
+    """Evaluate one filter operator against provided values."""
+    if operator == "=":
+        return left_value == right_value
+    if operator == "!=":
+        return left_value != right_value
+    if operator == ">":
+        return left_value is not None and left_value > right_value
+    if operator == "<":
+        return left_value is not None and left_value < right_value
+    if operator == ">=":
+        return left_value is not None and left_value >= right_value
+    if operator == "<=":
+        return left_value is not None and left_value <= right_value
+    if operator == "CONTAINS":
+        return isinstance(left_value, str) and str(right_value) in left_value
+    if operator == "STARTS WITH":
+        return isinstance(left_value, str) and left_value.startswith(str(right_value))
+    if operator == "IN":
+        return left_value in right_value if isinstance(right_value, list) else False
+    return False
+
+
+def _is_in_date_range(value: Any, start: str | None, end: str | None) -> bool:
+    """Evaluate whether value is within inclusive ISO date/datetime range."""
+    dt_value = _parse_iso_datetime(value)
+    if dt_value is None:
+        return False
+
+    if start is not None:
+        dt_start = _parse_iso_datetime(start)
+        if dt_start is None:
+            return False
+        if dt_value < dt_start:
+            return False
+
+    if end is not None:
+        dt_end = _parse_iso_datetime(end)
+        if dt_end is None:
+            return False
+        if dt_value > dt_end:
+            return False
+
+    return True
+
+
+def _parse_iso_datetime(value: Any) -> datetime | None:
+    """Parse common ISO-like inputs into a datetime for range comparisons."""
+    if value is None:
+        return None
+
+    value_str = str(value).strip()
+    if not value_str:
+        return None
+
+    try:
+        if value_str.endswith("Z"):
+            value_str = value_str.replace("Z", "+00:00")
+        return datetime.fromisoformat(value_str)
+    except ValueError:
+        # Fall back for date-only strings.
+        try:
+            return datetime.fromisoformat(f"{value_str}T00:00:00")
+        except ValueError:
+            return None
 
 
 def _transform_node(neo4j_node: Node) -> GraphNode:

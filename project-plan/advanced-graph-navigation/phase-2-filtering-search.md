@@ -33,10 +33,9 @@
 ### What is still intentionally not implemented yet
 
 - ⏳ Property-based local filtering UI
-- ⏳ Backend filter registry
+- ⏳ Full filter query-builder translation into Cypher
 - ⏳ Metadata/introspection endpoint
-- ⏳ `/api/v1/graph/filter`
-- ⏳ Server-side property/date filtering
+- ⏳ Advanced server-side property/date filtering coverage
 - ⏳ Automatic size-threshold fallback
 
 ### Why this order
@@ -102,7 +101,45 @@
 #### Next recommended slice
 
 - `Option A`: local property filtering UI
-- `Option B`: backend filter registry skeleton (without wiring full `/api/v1/graph/filter` yet)
+- `Option B`: continue backend server-side filtering (`2.1.C` thresholds/fallback + `2.1.2` Cypher query builder)
+
+### 2.1.B Initial Backend Slice (Implemented)
+
+#### Exact coding checklist completed
+
+- ✅ Added backend filter property registry skeleton
+- ✅ Added server-side filter request/response contracts
+- ✅ Added `POST /api/v1/graph/filter` endpoint
+- ✅ Added server-side validation against registry-supported fields/operators
+- ✅ Added initial server-side filtering logic for:
+  - node type filters
+  - relationship type filters
+  - node property filters
+  - relationship property filters
+  - date range filters
+- ✅ Added filter execution metadata (before/after counts, truncation, warnings)
+- ✅ Added focused service-level tests for filter behavior
+
+#### Code areas updated
+
+- `app/api/graph/v1/filter_registry.py` (new backend-owned filter registry)
+- `app/api/graph/v1/model.py` (new filter request/response models)
+- `app/api/graph/v1/service.py` (new server-side filtering business logic)
+- `app/api/graph/v1/router.py` (new `/api/v1/graph/filter` route)
+- `tests/test_graph_filter_service.py` (new unit tests)
+
+#### Verification status
+
+- Command run:
+  - `source .venv/bin/activate && pytest -q tests/test_graph_filter_service.py`
+- Result:
+  - ✅ `5 passed`
+
+#### Remaining gaps in 2.1.B
+
+- ⏳ Current implementation applies validated filters in service logic after base graph retrieval
+- ⏳ Full `2.1.2` query-builder translation (validated filter specs to Cypher fragments) is still pending
+- ⏳ Metadata/introspection endpoint (`2.1.3`) is still pending
 
 ---
 

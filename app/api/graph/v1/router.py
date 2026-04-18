@@ -8,6 +8,8 @@ from app.common.logger import logger
 from .model import (
     CollaborationNetworkResponse, 
     CypherQueryRequest, 
+    GraphFilterRequest,
+    GraphFilterResponse,
     GraphResponse, 
     NodeExpansionRequest, 
     NodeExpansionResponse
@@ -64,7 +66,7 @@ async def execute_query(request: CypherQueryRequest):
                 "query": request.query[:200]  # Truncate for safety
             }
         ) from e
-        
+
     except RuntimeError as e:
         # Execution errors: Neo4j connection, query execution, timeouts
         logger.error(f"Query execution error: {e}")
@@ -76,7 +78,7 @@ async def execute_query(request: CypherQueryRequest):
                 "hint": "Check Neo4j connection and query syntax"
             }
         ) from e
-        
+
     except Exception as e:
         # Unexpected errors
         logger.error(f"Unexpected error executing query: {e}", exc_info=True)
@@ -86,6 +88,47 @@ async def execute_query(request: CypherQueryRequest):
                 "error": "Internal server error",
                 "message": "An unexpected error occurred while processing your query"
             }
+        ) from e
+
+
+@router.post("/filter", response_model=GraphFilterResponse)
+async def filter_graph(request: GraphFilterRequest):
+    """Execute base query and apply validated server-side filters."""
+    try:
+        logger.info(
+            "Received graph filter request: "
+            f"nodeTypeFilters={len(request.nodeTypeFilters)} "
+            f"relationshipTypeFilters={len(request.relationshipTypeFilters)} "
+            f"nodePropertyFilters={len(request.nodePropertyFilters)} "
+            f"relationshipPropertyFilters={len(request.relationshipPropertyFilters)} "
+            f"dateRangeFilters={len(request.dateRangeFilters)}"
+        )
+        response = service.execute_and_filter_query(request)
+        logger.info(
+            "Graph filter executed successfully. "
+            f"nodes={len(response.nodes)} rels={len(response.relationships)} "
+            f"truncated={response.metadata.truncated}"
+        )
+        return response
+
+    except ValueError as e:
+        logger.warning(f"Graph filter validation error: {e}")
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "error": "Graph filter validation failed",
+                "message": str(e),
+            },
+        ) from e
+
+    except Exception as e:
+        logger.error(f"Unexpected error filtering graph: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error": "Internal server error",
+                "message": "An unexpected error occurred while filtering the graph",
+            },
         ) from e
 
 

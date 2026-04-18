@@ -1,6 +1,6 @@
 """Pydantic models for Graph API v1 - Cypher query execution and graph data."""
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 from pydantic import BaseModel, Field, field_validator
 
 from app.settings import settings
@@ -274,3 +274,104 @@ class NodeExpansionResponse(BaseModel):
                 }
             }
         }
+
+
+class NodePropertyFilter(BaseModel):
+    """Server-side node property filter definition."""
+
+    label: str = Field(..., min_length=1, description="Node label to filter")
+    property: str = Field(..., min_length=1, description="Property name to filter")
+    operator: Literal["=", "!=", ">", "<", ">=", "<=", "CONTAINS", "STARTS WITH", "IN"] = Field(
+        ...,
+        description="Filter operator",
+    )
+    value: Any = Field(..., description="Comparison value")
+
+
+class RelationshipPropertyFilter(BaseModel):
+    """Server-side relationship property filter definition."""
+
+    type: str = Field(..., min_length=1, description="Relationship type")
+    property: str = Field(..., min_length=1, description="Relationship property name")
+    operator: Literal["=", "!=", ">", "<", ">=", "<=", "CONTAINS", "STARTS WITH", "IN"] = Field(
+        ...,
+        description="Filter operator",
+    )
+    value: Any = Field(..., description="Comparison value")
+
+
+class DateRangeFilter(BaseModel):
+    """Date range filter for nodes or relationships."""
+
+    scope: Literal["node", "relationship"] = Field(..., description="Filter scope")
+    label: Optional[str] = Field(None, description="Node label (required for node scope)")
+    type: Optional[str] = Field(None, description="Relationship type (required for relationship scope)")
+    property: str = Field(..., min_length=1, description="Date/datetime property name")
+    from_value: Optional[str] = Field(None, alias="from", description="Inclusive ISO lower bound")
+    to: Optional[str] = Field(None, description="Inclusive ISO upper bound")
+
+    @field_validator("label")
+    @classmethod
+    def validate_label_for_node_scope(cls, value: Optional[str], info) -> Optional[str]:
+        """Require label when scope is node."""
+        if info.data.get("scope") == "node" and not value:
+            raise ValueError("'label' is required when scope='node'")
+        return value
+
+    @field_validator("type")
+    @classmethod
+    def validate_type_for_relationship_scope(cls, value: Optional[str], info) -> Optional[str]:
+        """Require relationship type when scope is relationship."""
+        if info.data.get("scope") == "relationship" and not value:
+            raise ValueError("'type' is required when scope='relationship'")
+        return value
+
+
+class FilterResultOptions(BaseModel):
+    """Output shaping options for filtered graph results."""
+
+    limitNodes: int = Field(default=1000, ge=1, le=20000)
+    limitRelationships: int = Field(default=5000, ge=1, le=50000)
+    includeImplicitRelationships: bool = Field(default=True)
+
+
+class GraphFilterRequest(BaseModel):
+    """Request model for server-side graph filtering."""
+
+    baseQuery: str = Field(
+        ...,
+        min_length=1,
+        max_length=10000,
+        description="Read-only Cypher query that defines the source graph scope",
+    )
+    mode: Literal["database"] = Field(default="database")
+    nodeTypeFilters: List[str] = Field(default_factory=list)
+    relationshipTypeFilters: List[str] = Field(default_factory=list)
+    nodePropertyFilters: List[NodePropertyFilter] = Field(default_factory=list)
+    relationshipPropertyFilters: List[RelationshipPropertyFilter] = Field(default_factory=list)
+    dateRangeFilters: List[DateRangeFilter] = Field(default_factory=list)
+    resultOptions: FilterResultOptions = Field(default_factory=FilterResultOptions)
+
+    @field_validator("baseQuery")
+    @classmethod
+    def validate_base_query_not_empty(cls, value: str) -> str:
+        """Ensure base query is not whitespace only."""
+        if not value or not value.strip():
+            raise ValueError("baseQuery cannot be empty or whitespace only")
+        return value.strip()
+
+
+class GraphFilterExecutionMetadata(BaseModel):
+    """Execution metadata for filtered graph responses."""
+
+    mode: str = Field(..., description="Execution mode used")
+    baseResultCounts: Dict[str, int] = Field(default_factory=dict)
+    filteredResultCounts: Dict[str, int] = Field(default_factory=dict)
+    truncated: bool = Field(default=False)
+    warnings: List[str] = Field(default_factory=list)
+
+
+class GraphFilterResponse(GraphResponse):
+    """Response model for server-side filtered graph endpoint."""
+
+    metadata: GraphFilterExecutionMetadata
