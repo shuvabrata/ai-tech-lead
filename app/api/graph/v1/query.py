@@ -34,6 +34,7 @@ _FILTER_OPERATOR_MAP = {
 }
 
 _PROPERTY_IDENTIFIER_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+_ISO_8601_TEMPORAL_PATTERN = r"^\d{4}-\d{2}-\d{2}(?:[T ]\d{2}:\d{2}(?::\d{2}(?:\.\d{1,9})?)?(?:Z|[+-]\d{2}:\d{2})?)?$"
 
 
 def validate_read_only_query(query: str) -> bool:
@@ -224,16 +225,26 @@ def build_filtered_cypher_query(request: GraphFilterRequest) -> Tuple[str, Dict[
     for idx, date_filter in enumerate(request.dateRangeFilters):
         entity = "n" if date_filter.scope == "node" else "r"
         property_ref = _build_property_reference(entity=entity, property_name=date_filter.property)
+        iso_pattern_param = f"date_iso_pattern_{idx}"
+        params[iso_pattern_param] = _ISO_8601_TEMPORAL_PATTERN
 
         range_predicates: List[str] = []
         if date_filter.from_value is not None:
             start_param = f"date_start_{idx}"
             params[start_param] = date_filter.from_value
-            range_predicates.append(f"toString({property_ref}) >= ${start_param}")
+            range_predicates.append(
+                f"({property_ref} IS NOT NULL "
+                f"AND toString({property_ref}) =~ ${iso_pattern_param} "
+                f"AND datetime(toString({property_ref})) >= datetime(${start_param}))"
+            )
         if date_filter.to is not None:
             end_param = f"date_end_{idx}"
             params[end_param] = date_filter.to
-            range_predicates.append(f"toString({property_ref}) <= ${end_param}")
+            range_predicates.append(
+                f"({property_ref} IS NOT NULL "
+                f"AND toString({property_ref}) =~ ${iso_pattern_param} "
+                f"AND datetime(toString({property_ref})) <= datetime(${end_param}))"
+            )
 
         if not range_predicates:
             continue

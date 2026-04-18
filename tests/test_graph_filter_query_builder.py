@@ -38,13 +38,14 @@ def test_build_filtered_cypher_query_includes_core_clauses():
     assert "type(r) IN $relationship_type_filters" in query
     assert "toString(n.name) CONTAINS" in query
     assert "r.state = $rel_prop_val_0" in query
-    assert "toString(n.created_at) >= $date_start_0" in query
+    assert "datetime(toString(n.created_at)) >= datetime($date_start_0)" in query
     assert " OR " in query
 
     assert params["node_type_filters"] == ["Person"]
     assert params["relationship_type_filters"] == ["WORKS_ON"]
     assert params["node_prop_val_0"] == "ali"
     assert params["rel_prop_val_0"] == "APPROVED"
+    assert "date_iso_pattern_0" in params
 
 
 def test_build_filtered_cypher_query_without_filters_returns_passthrough_shape():
@@ -153,9 +154,10 @@ def test_build_filtered_cypher_query_relationship_date_range_scope_generates_exp
     query, params = build_filtered_cypher_query(request)
 
     assert "r IS NOT NULL AND type(r) = $relationship_group_type_0" in query
-    assert "toString(r.reviewed_at) >= $date_start_0" in query
-    assert "toString(r.reviewed_at) <= $date_end_0" in query
+    assert "datetime(toString(r.reviewed_at)) >= datetime($date_start_0)" in query
+    assert "datetime(toString(r.reviewed_at)) <= datetime($date_end_0)" in query
     assert params["relationship_group_type_0"] == "REVIEWED_BY"
+    assert "date_iso_pattern_0" in params
 
 
 def test_build_filtered_cypher_query_rejects_invalid_property_identifier():
