@@ -9,7 +9,7 @@
 **Goal**: Find and focus on relevant subgraphs  
 **Timeline**: 2-3 weeks  
 **Priority**: High (P1)  
-**Status**: In Progress 🔄 (2.1.A complete, 2.1.B mostly complete, 2.1.C started)
+**Status**: In Progress 🔄 (2.1.A complete, 2.1.B mostly complete, 2.1.C UX layer complete — database execution pending)
 
 **Scope Note**: This document now makes a concrete implementation decision for the **filtering** part of Phase 2.  
 **Search strategy is intentionally left as-is for now** and will be revisited later.
@@ -579,7 +579,9 @@ Implement filtering in **two layers**:
   - Record threshold hits in logs for tuning
   - **Current state**:
     - ✅ server-side threshold warnings are already emitted in filter metadata
-    - ⏳ automatic mode-switch/fallback behavior is still pending
+    - ✅ frontend threshold banner shows recommendation/status with correct colors
+    - ✅ auto-switch toggle changes banner and mode label atomically
+    - ⏳ actual database-backed filter execution when auto-switch is ON is still pending
 
 #### 2.1.C Active Next Slice (Now)
 
@@ -587,6 +589,9 @@ Implement filtering in **two layers**:
 - [x] Surface threshold recommendation/status in graph filter UI banner
 - [x] Add automatic recommendation/switch rules for local vs database mode
 - [x] Add focused tests for threshold-triggered recommendation/fallback behavior
+- [x] Auto-switch toggle flips banner color/text (warning → success) and mode label atomically
+- [x] Added focused tests for auto-switch ON banner state
+- [ ] Wire auto-switch ON to actual database filter execution (`POST /api/v1/graph/filter`)
 
 #### 2.1.C Progress Update
 
@@ -601,6 +606,12 @@ Implement filtering in **two layers**:
   - default recommendation-only label behavior
   - opt-in auto-switch toggle for database recommendation mode
 - ✅ Added focused callback tests for recommendation-only vs auto-switch paths
+- ✅ Auto-switch toggle now changes banner **color and text** atomically:
+  - toggle OFF → yellow warning: "Recommended mode: Apply to Database"
+  - toggle ON → green confirmation: "Auto-switch ON: Applying to Database"
+- ✅ Mode label also updates in sync via the threshold store
+- ✅ Added focused test for auto-switch ON banner state (`test_update_filter_panel_feedback_auto_switch_on_changes_banner_to_success`)
+- ⏳ Actual database filter execution (sending `POST /api/v1/graph/filter` when auto-switch is ON) is the remaining 2.1.C task
 
 - [ ] **2.1.D Phase 4 - Collaboration-specific optimization**
   - Move collaboration density controls into a more explicit server-backed filter workflow
