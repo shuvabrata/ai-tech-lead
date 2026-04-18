@@ -579,12 +579,12 @@ Implement filtering in **two layers**:
   - Record threshold hits in logs for tuning
   - **Current state**:
     - ✅ server-side threshold warnings are already emitted in filter metadata
-    - ⏳ automatic mode-switch/fallback behavior and frontend banner wiring are pending
+    - ⏳ automatic mode-switch/fallback behavior is still pending
 
 #### 2.1.C Active Next Slice (Now)
 
 - [x] Add explicit threshold reason fields for frontend consumption
-- [ ] Surface threshold recommendation/status in graph filter UI banner
+- [x] Surface threshold recommendation/status in graph filter UI banner
 - [ ] Add automatic recommendation/switch rules for local vs database mode
 - [ ] Add focused tests for threshold-triggered recommendation/fallback behavior
 
@@ -595,6 +595,8 @@ Implement filtering in **two layers**:
   - recommended mode (`local` or `database`)
   - explicit machine-readable threshold reasons
 - ✅ Added focused service tests validating threshold status and recommendations
+- ✅ Added frontend filter-panel threshold banner/status for loaded-graph refinement
+- ✅ Added focused callback tests for soft-warning and database-recommendation banner states
 - ⏳ Remaining work is primarily frontend wiring and automatic mode-switch UX behavior
 
 - [ ] **2.1.D Phase 4 - Collaboration-specific optimization**
