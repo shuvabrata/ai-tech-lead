@@ -17,10 +17,13 @@ from app.analytics.collaboration.algorithm import (
         to_cytoscape_elements,
     )
 from app.analytics.collaboration.config import CollaborationNetworkConfig
-from .filter_registry import get_node_property_config, get_relationship_property_config
+from .filter_registry import FILTER_REGISTRY, get_node_property_config, get_relationship_property_config
 from .model import (
     CollaborationNetworkResponse, 
     GraphFilterExecutionMetadata,
+    GraphFilterMetadataDiscovery,
+    GraphFilterMetadataResponse,
+    GraphFilterPropertyMetadata,
     GraphFilterRequest,
     GraphFilterResponse,
     GraphNode, GraphRelationship, GraphResponse, 
@@ -302,6 +305,143 @@ def execute_and_filter_query(request: GraphFilterRequest) -> GraphFilterResponse
         resultCount=len(filtered_nodes) + len(filtered_relationships),
         metadata=metadata,
     )
+
+
+def get_graph_filter_metadata(base_query: str | None = None) -> GraphFilterMetadataResponse:
+    """Return filter metadata combining registry and optional live discovery."""
+    discovered_node_labels: Set[str] = set()
+    discovered_relationship_types: Set[str] = set()
+    discovered_node_props: Dict[str, Dict[str, str]] = {}
+    discovered_relationship_props: Dict[str, Dict[str, str]] = {}
+
+    if base_query is not None:
+        graph_response = execute_and_format_query(base_query)
+        if not graph_response.isGraph:
+            raise ValueError("baseQuery must return graph data (nodes/relationships)")
+
+        for node in graph_response.nodes:
+            for label in node.labels:
+                discovered_node_labels.add(label)
+                prop_map = discovered_node_props.setdefault(label, {})
+                for property_name, value in node.properties.items():
+                    inferred_type = _infer_primitive_type_hint(value)
+                    existing_type = prop_map.get(property_name)
+                    prop_map[property_name] = _merge_discovered_type_hints(
+                        existing_hint=existing_type,
+                        next_hint=inferred_type,
+                    )
+
+        for relationship in graph_response.relationships:
+            discovered_relationship_types.add(relationship.type)
+            prop_map = discovered_relationship_props.setdefault(relationship.type, {})
+            for property_name, value in relationship.properties.items():
+                inferred_type = _infer_primitive_type_hint(value)
+                existing_type = prop_map.get(property_name)
+                prop_map[property_name] = _merge_discovered_type_hints(
+                    existing_hint=existing_type,
+                    next_hint=inferred_type,
+                )
+
+    merged_node_properties = _merge_property_metadata(
+        discovered_properties=discovered_node_props,
+        registry_properties=FILTER_REGISTRY.get("nodes", {}),
+    )
+    merged_relationship_properties = _merge_property_metadata(
+        discovered_properties=discovered_relationship_props,
+        registry_properties=FILTER_REGISTRY.get("relationships", {}),
+    )
+
+    return GraphFilterMetadataResponse(
+        sourceQueryApplied=base_query is not None,
+        discovered=GraphFilterMetadataDiscovery(
+            nodeLabels=sorted(discovered_node_labels),
+            relationshipTypes=sorted(discovered_relationship_types),
+            nodePropertiesByLabel={
+                label: dict(sorted(props.items()))
+                for label, props in sorted(discovered_node_props.items())
+            },
+            relationshipPropertiesByType={
+                rel_type: dict(sorted(props.items()))
+                for rel_type, props in sorted(discovered_relationship_props.items())
+            },
+        ),
+        registry=FILTER_REGISTRY,
+        mergedNodeProperties=merged_node_properties,
+        mergedRelationshipProperties=merged_relationship_properties,
+    )
+
+
+def _merge_property_metadata(
+    discovered_properties: Dict[str, Dict[str, str]],
+    registry_properties: Dict[str, Dict[str, Dict[str, Any]]],
+) -> Dict[str, Dict[str, GraphFilterPropertyMetadata]]:
+    """Merge discovered property hints with registry-backed filter metadata."""
+    merged: Dict[str, Dict[str, GraphFilterPropertyMetadata]] = {}
+
+    entity_names = sorted(set(discovered_properties.keys()) | set(registry_properties.keys()))
+    for entity_name in entity_names:
+        discovered_entity_props = discovered_properties.get(entity_name, {})
+        registry_entity_props = registry_properties.get(entity_name, {})
+
+        property_names = sorted(set(discovered_entity_props.keys()) | set(registry_entity_props.keys()))
+        merged_entity_props: Dict[str, GraphFilterPropertyMetadata] = {}
+
+        for property_name in property_names:
+            registry_property = registry_entity_props.get(property_name, {})
+            discovered_type = discovered_entity_props.get(property_name)
+            is_discovered = discovered_type is not None
+            is_server_filterable = bool(registry_property.get("server", False))
+
+            merged_entity_props[property_name] = GraphFilterPropertyMetadata(
+                type=registry_property.get("type", discovered_type),
+                operators=list(registry_property.get("operators", [])),
+                discovered=is_discovered,
+                serverFilterable=is_server_filterable,
+                localFilterable=bool(registry_property.get("local", is_discovered or is_server_filterable)),
+                indexed=bool(registry_property.get("indexed", False)),
+            )
+
+        merged[entity_name] = merged_entity_props
+
+    return merged
+
+
+def _merge_discovered_type_hints(existing_hint: str | None, next_hint: str) -> str:
+    """Merge multiple observed type hints for one property across records."""
+    if existing_hint is None:
+        return next_hint
+    if existing_hint == next_hint:
+        return existing_hint
+    if existing_hint == "null":
+        return next_hint
+    if next_hint == "null":
+        return existing_hint
+    return "mixed"
+
+
+def _infer_primitive_type_hint(value: Any) -> str:
+    """Infer primitive property type hint from serialized Python value."""
+    if value is None:
+        return "null"
+    if isinstance(value, bool):
+        return "boolean"
+    if isinstance(value, (int, float)):
+        return "number"
+    if isinstance(value, list):
+        return "list"
+    if isinstance(value, dict):
+        return "object"
+    if isinstance(value, str):
+        text = value.strip()
+        if not text:
+            return "string"
+        normalized = text.replace("Z", "+00:00") if text.endswith("Z") else text
+        try:
+            datetime.fromisoformat(normalized)
+            return "date"
+        except ValueError:
+            return "string"
+    return "string"
 
 
 def _estimate_graph_payload_bytes(

@@ -1,7 +1,7 @@
 """Pydantic models for Graph API v1 - Cypher query execution and graph data."""
 
 from typing import Any, Dict, List, Literal, Optional
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.settings import settings
 
@@ -33,14 +33,15 @@ class GraphNode(BaseModel):
     labels: List[str] = Field(default_factory=list, description="Node labels/types")
     properties: Dict[str, Any] = Field(default_factory=dict, description="Node properties")
     
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "id": "123",
                 "labels": ["Person", "Employee"],
                 "properties": {"name": "John Doe", "email": "john@example.com"}
             }
         }
+    )
 
 
 class GraphRelationship(BaseModel):
@@ -52,8 +53,8 @@ class GraphRelationship(BaseModel):
     endNode: str = Field(..., description="ID of the target node")
     properties: Dict[str, Any] = Field(default_factory=dict, description="Relationship properties")
     
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "id": "456",
                 "type": "WORKS_ON",
@@ -62,6 +63,7 @@ class GraphRelationship(BaseModel):
                 "properties": {"role": "Developer", "since": "2024-01-01"}
             }
         }
+    )
 
 
 class GraphResponse(BaseModel):
@@ -88,8 +90,8 @@ class GraphResponse(BaseModel):
         description="Total number of results returned"
     )
     
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "nodes": [
                     {
@@ -112,6 +114,7 @@ class GraphResponse(BaseModel):
                 "resultCount": 2
             }
         }
+    )
 
 
 class GraphErrorResponse(BaseModel):
@@ -121,14 +124,15 @@ class GraphErrorResponse(BaseModel):
     detail: Optional[str] = Field(None, description="Detailed error information")
     query: Optional[str] = Field(None, description="The query that caused the error")
     
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "error": "Query validation failed",
                 "detail": "Write operations are not allowed. Query contains CREATE statement.",
                 "query": "CREATE (n:Test) RETURN n"
             }
         }
+    )
 
 
 class NodeExpansionRequest(BaseModel):
@@ -172,8 +176,8 @@ class NodeExpansionRequest(BaseModel):
             raise ValueError(f"Direction must be one of {valid_directions}, got '{v}'")
         return v.lower()
     
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "node_id": "123",
                 "direction": "both",
@@ -183,6 +187,7 @@ class NodeExpansionRequest(BaseModel):
                 "exclude_node_ids": ["456", "789"]
             }
         }
+    )
 
 
 class CollaborationNetworkResponse(BaseModel):
@@ -215,8 +220,8 @@ class PaginationMeta(BaseModel):
     offset: int = Field(..., description="Current offset")
     has_more: bool = Field(..., description="Whether there are more results available")
     
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "total": 150,
                 "limit": 50,
@@ -224,6 +229,7 @@ class PaginationMeta(BaseModel):
                 "has_more": True
             }
         }
+    )
 
 
 class NodeExpansionResponse(BaseModel):
@@ -246,8 +252,8 @@ class NodeExpansionResponse(BaseModel):
         description="Pagination metadata"
     )
     
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "nodes": [
                     {
@@ -274,6 +280,7 @@ class NodeExpansionResponse(BaseModel):
                 }
             }
         }
+    )
 
 
 class NodePropertyFilter(BaseModel):
@@ -375,3 +382,39 @@ class GraphFilterResponse(GraphResponse):
     """Response model for server-side filtered graph endpoint."""
 
     metadata: GraphFilterExecutionMetadata
+
+
+class GraphFilterPropertyMetadata(BaseModel):
+    """Merged metadata for one node/relationship property."""
+
+    type: Optional[str] = Field(None, description="Property primitive type hint")
+    operators: List[str] = Field(default_factory=list, description="Supported operators")
+    discovered: bool = Field(default=False, description="True when observed in live discovery")
+    serverFilterable: bool = Field(default=False, description="True when supported for server-side filtering")
+    localFilterable: bool = Field(default=False, description="True when available for local filtering")
+    indexed: bool = Field(default=False, description="True when backend marks property as indexed")
+
+
+class GraphFilterMetadataDiscovery(BaseModel):
+    """Live discovery metadata from the current graph scope."""
+
+    nodeLabels: List[str] = Field(default_factory=list)
+    relationshipTypes: List[str] = Field(default_factory=list)
+    nodePropertiesByLabel: Dict[str, Dict[str, str]] = Field(default_factory=dict)
+    relationshipPropertiesByType: Dict[str, Dict[str, str]] = Field(default_factory=dict)
+
+
+class GraphFilterMetadataResponse(BaseModel):
+    """Response model for graph filter metadata/introspection endpoint."""
+
+    sourceQueryApplied: bool = Field(
+        default=False,
+        description="True when live discovery was generated from the provided base query",
+    )
+    discovered: GraphFilterMetadataDiscovery = Field(default_factory=GraphFilterMetadataDiscovery)
+    registry: Dict[str, Dict[str, Dict[str, Any]]] = Field(
+        default_factory=dict,
+        description="Backend-owned registry metadata for server filterability",
+    )
+    mergedNodeProperties: Dict[str, Dict[str, GraphFilterPropertyMetadata]] = Field(default_factory=dict)
+    mergedRelationshipProperties: Dict[str, Dict[str, GraphFilterPropertyMetadata]] = Field(default_factory=dict)
