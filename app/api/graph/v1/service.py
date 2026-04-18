@@ -224,6 +224,11 @@ def execute_and_filter_query(request: GraphFilterRequest) -> GraphFilterResponse
     warnings: List[str] = []
     truncated = False
 
+    # 1. Fallback warning (highest priority: indicates query strategy changed)
+    if pushdown_fallback_warning is not None:
+        warnings.append(pushdown_fallback_warning)
+
+    # 2. Truncation warnings (medium priority: indicates data loss from limits)
     if len(filtered_nodes) > request.resultOptions.limitNodes:
         filtered_nodes = filtered_nodes[: request.resultOptions.limitNodes]
         truncated = True
@@ -234,9 +239,7 @@ def execute_and_filter_query(request: GraphFilterRequest) -> GraphFilterResponse
         truncated = True
         warnings.append("Relationship results were truncated by resultOptions.limitRelationships")
 
-    if pushdown_fallback_warning is not None:
-        warnings.append(pushdown_fallback_warning)
-
+    # 3. Threshold warnings (lower priority: performance advisory/concerns)
     total_elements = len(filtered_nodes) + len(filtered_relationships)
     payload_bytes = _estimate_graph_payload_bytes(
         nodes=filtered_nodes,
