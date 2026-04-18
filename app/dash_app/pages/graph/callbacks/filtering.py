@@ -135,7 +135,7 @@ def _estimate_elements_payload_bytes(elements):
     return len(json.dumps(elements or [], default=str).encode("utf-8"))
 
 
-def _build_threshold_status_alert(filtered_elements, unfiltered_elements):
+def _build_threshold_status_alert(filtered_elements, unfiltered_elements, auto_switch_enabled=False):
     """Return a browser-visible recommendation banner for local vs database filtering."""
     if not unfiltered_elements:
         return None, {"display": "none"}, {
@@ -158,17 +158,30 @@ def _build_threshold_status_alert(filtered_elements, unfiltered_elements):
         if payload_bytes >= GRAPH_PAYLOAD_RECOMMEND_SERVER_BYTES:
             reasons.append(f"~{round(payload_bytes / 1_000_000, 2)} MB payload")
 
-        alert = dbc.Alert(
-            [
-                html.Div("Recommended mode: Apply to Database", className="fw-semibold mb-1"),
-                html.Div(
-                    "This loaded graph is large enough that local filtering may feel sluggish"
-                    + (f" ({', '.join(reasons)})." if reasons else ".")
-                ),
-            ],
-            color="warning",
-            className="mb-0 py-2 px-3",
-        )
+        if auto_switch_enabled:
+            alert = dbc.Alert(
+                [
+                    html.Div("Auto-switch ON: Applying to Database", className="fw-semibold mb-1"),
+                    html.Div(
+                        "Filters are being applied server-side"
+                        + (f" ({', '.join(reasons)})." if reasons else ".")
+                    ),
+                ],
+                color="success",
+                className="mb-0 py-2 px-3",
+            )
+        else:
+            alert = dbc.Alert(
+                [
+                    html.Div("Recommended mode: Apply to Database", className="fw-semibold mb-1"),
+                    html.Div(
+                        "This loaded graph is large enough that local filtering may feel sluggish"
+                        + (f" ({', '.join(reasons)})." if reasons else ".")
+                    ),
+                ],
+                color="warning",
+                className="mb-0 py-2 px-3",
+            )
         return alert, {"display": "block"}, {
             "recommendedMode": "database",
             "elementSeverity": "high" if total_elements >= GRAPH_RECOMMEND_SERVER_FILTER_THRESHOLD else "none",
@@ -499,9 +512,9 @@ def update_weight_threshold_label(threshold):
 @callback(
     [Output("filter-results-summary", "children"),
      Output("filter-active-chips", "children"),
-    Output("filter-threshold-status", "children"),
-    Output("filter-threshold-status", "style"),
-    Output("filter-threshold-status-store", "data"),
+     Output("filter-threshold-status", "children"),
+     Output("filter-threshold-status", "style"),
+     Output("filter-threshold-status-store", "data"),
      Output("weight-based-filter-group", "style"),
      Output("weight-filter-unavailable-note", "style")],
     [Input("unfiltered-elements-store", "data"),
@@ -510,6 +523,7 @@ def update_weight_threshold_label(threshold):
      Input("weight-threshold-slider", "value"),
      Input("top-n-toggle", "value"),
      Input("filter-display-mode", "value"),
+     Input("filter-auto-switch-toggle", "value"),
      Input("node-type-filter", "options"),
      Input("relationship-type-filter", "options")]
 )
@@ -520,6 +534,7 @@ def update_filter_panel_feedback(
     weight_threshold,
     top_n_mode,
     _display_mode,
+    auto_switch_enabled,
     node_type_options,
     rel_type_options,
 ):
@@ -546,6 +561,7 @@ def update_filter_panel_feedback(
     threshold_alert, threshold_style, threshold_status = _build_threshold_status_alert(
         logical_filtered_elements,
         unfiltered_elements or [],
+        bool(auto_switch_enabled),
     )
 
     weight_group_style = {} if has_weighted_edges else {"display": "none"}

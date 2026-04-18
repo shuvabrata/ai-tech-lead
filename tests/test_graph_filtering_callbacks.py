@@ -104,6 +104,7 @@ def test_update_filter_panel_feedback_hides_weight_controls_for_unweighted_graph
         weight_threshold=0,
         top_n_mode="all",
         _display_mode="hide",
+        auto_switch_enabled=False,
         node_type_options=[{"label": "Person (2)", "value": "Person"}],
         rel_type_options=[{"label": "KNOWS (1)", "value": "KNOWS"}],
     )
@@ -132,6 +133,7 @@ def test_update_filter_panel_feedback_uses_logical_counts_in_dim_mode():
         weight_threshold=0,
         top_n_mode="all",
         _display_mode="dim",
+        auto_switch_enabled=False,
         node_type_options=[
             {"label": "Person (1)", "value": "Person"},
             {"label": "Repository (1)", "value": "Repository"},
@@ -161,6 +163,7 @@ def test_update_filter_panel_feedback_shows_soft_threshold_recommendation():
         weight_threshold=0,
         top_n_mode="all",
         _display_mode="hide",
+        auto_switch_enabled=False,
         node_type_options=[{"label": f"Person ({len(unfiltered_elements)})", "value": "Person"}],
         rel_type_options=[],
     )
@@ -187,6 +190,7 @@ def test_update_filter_panel_feedback_shows_database_recommendation_for_high_thr
         weight_threshold=0,
         top_n_mode="all",
         _display_mode="hide",
+        auto_switch_enabled=False,
         node_type_options=[{"label": f"Person ({len(unfiltered_elements)})", "value": "Person"}],
         rel_type_options=[],
     )
@@ -196,6 +200,32 @@ def test_update_filter_panel_feedback_shows_database_recommendation_for_high_thr
     assert threshold_status["recommendedMode"] == "database"
     alert_text = str(threshold_alert.children)
     assert "Recommended mode: Apply to Database" in alert_text
+
+
+def test_update_filter_panel_feedback_auto_switch_on_changes_banner_to_success():
+    """With auto-switch ON and high threshold, banner should flip to success color and confirmation text."""
+    unfiltered_elements = [
+        {"data": {"id": f"n{i}", "nodeType": "Person", "elementType": "node"}}
+        for i in range(5201)
+    ]
+
+    _summary, _chips, threshold_alert, threshold_style, threshold_status, _weight_group_style, _weight_note_style = filtering_callbacks.update_filter_panel_feedback(
+        unfiltered_elements=unfiltered_elements,
+        selected_node_types=["Person"],
+        selected_rel_types=[],
+        weight_threshold=0,
+        top_n_mode="all",
+        _display_mode="hide",
+        auto_switch_enabled=True,
+        node_type_options=[{"label": f"Person ({len(unfiltered_elements)})", "value": "Person"}],
+        rel_type_options=[],
+    )
+
+    assert threshold_style == {"display": "block"}
+    assert threshold_alert.color == "success"
+    assert threshold_status["recommendedMode"] == "database"
+    alert_text = str(threshold_alert.children)
+    assert "Auto-switch ON: Applying to Database" in alert_text
 
 
 def test_resolve_filter_mode_label_recommendation_only_default():
