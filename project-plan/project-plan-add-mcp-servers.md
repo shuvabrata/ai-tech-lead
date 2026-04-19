@@ -1,6 +1,6 @@
-## Execution Tracker: GitHub and Jira MCP Server Integration
+## Execution Tracker: GitHub MCP Server Integration
 
-This document is the execution tracker for adding GitHub and Jira MCP servers to the existing AI agent workflow. The implementation will extend the current message augmentation pipeline, keep the existing chat API unchanged, use read-only MCP operations, and run MCP servers as dedicated Docker Compose services over HTTP/SSE.
+This document is the execution tracker for adding a GitHub MCP server to the existing AI agent workflow. The implementation will extend the current message augmentation pipeline, keep the existing chat API unchanged, use read-only MCP operations, and run MCP services through Docker Compose where applicable.
 
 ## Status Legend
 
@@ -12,8 +12,8 @@ This document is the execution tracker for adding GitHub and Jira MCP servers to
 ## Overall Status
 
 - Project status: `[IP]` Phase 1–2 complete, Phase 3 started
-- Current phase: `Phase 3`
-- Next gate: Validate official GitHub and Jira MCP server images before container integration
+- Current phase: `Phase 4`
+- Next gate: Implement GitHub MCP client layer and verify tool discovery/execution in isolation
 - Stop rule: Do not begin the next phase until the current phase verification gate passes
 
 ## Locked Decisions
@@ -26,18 +26,18 @@ This document is the execution tracker for adding GitHub and Jira MCP servers to
 - Keep all MCP operations read-only
 - Keep the existing chat REST API unchanged
 - Use environment variables for MCP credentials in the first iteration
-- Add independent feature flags for GitHub MCP and Jira MCP
-- Run MCP servers as Docker Compose services over HTTP/SSE
+- Add independent feature flags for MCP integrations, with GitHub MCP enabled in this project plan
+- Run MCP services through Docker Compose using supported transport modes
 - Start with OpenAI only in v1 for tool-enabled provider support
 - Keep the current synchronous application shape and wrap async behavior internally where needed
-- Validate the official MCP server images and their SSE and health-check behavior during implementation
+- Validate the official MCP server images and their endpoint and health-check behavior during implementation
 
 ## Scope
 
 - Included: GitHub read operations for issues, pull requests, commits, and code
-- Included: Jira read operations for issues, tickets, boards, and sprints
 - Included: MCP context injection into the existing chat workflow
-- Excluded: Write operations to GitHub or Jira
+- Excluded: Jira MCP integration for this project plan (deferred)
+- Excluded: Write operations to GitHub
 - Excluded: Credential management via connectors database
 - Excluded: LangGraph orchestration
 - Excluded: Frontend changes
@@ -49,7 +49,7 @@ This document is the execution tracker for adding GitHub and Jira MCP servers to
 3. Add an MCP chain that discovers tools from enabled MCP servers, sends tool definitions to the LLM, executes selected MCP calls, formats the returned context, and returns MCP context in a shared augmentation envelope.
 4. Keep final answer generation inside the existing provider flow so API behavior remains stable.
 5. When both Neo4j and MCP produce context, combine both into a bounded shared context block and pass that to the final LLM response generation step.
-6. Run `github-mcp` and `jira-mcp` as separate Compose services and connect to them over SSE URLs from the app container.
+6. Run `github-mcp` as a Compose service and connect to it from the app container.
 
 ## Phase 0: Finalize Execution Baseline
 
@@ -61,7 +61,7 @@ This document is the execution tracker for adding GitHub and Jira MCP servers to
 
 1. `[DN]` Confirm augmentation-pipeline architecture instead of LangGraph.
 2. `[DN]` Confirm Docker Compose plus HTTP/SSE deployment model for MCP servers.
-3. `[DN]` Confirm read-only scope for GitHub and Jira MCP operations.
+3. `[DN]` Confirm read-only scope for GitHub MCP operations.
 4. `[DN]` Convert the plan into a gated execution tracker.
 
 **Deliverables**
@@ -89,7 +89,7 @@ This document is the execution tracker for adding GitHub and Jira MCP servers to
 
 1. `[DN]` Add the MCP SDK dependency in [requirements.txt](/home/shuva/github/shuvabrata/work-behavior-analytics-ai/requirements.txt).
 2. `[DN]` Add MCP feature flags and connection settings in [app/settings.py](/home/shuva/github/shuvabrata/work-behavior-analytics-ai/app/settings.py).
-3. `[DN]` Add credential env settings for GitHub and Jira in [app/settings.py](/home/shuva/github/shuvabrata/work-behavior-analytics-ai/app/settings.py).
+3. `[DN]` Add credential env settings for GitHub in [app/settings.py](/home/shuva/github/shuvabrata/work-behavior-analytics-ai/app/settings.py).
 4. `[DN]` Add MCP server URL settings in [app/settings.py](/home/shuva/github/shuvabrata/work-behavior-analytics-ai/app/settings.py).
 5. `[DN]` Create the MCP package structure under `app/ai_agent/mcp/`.
 6. `[DN]` Add placeholder exports in the MCP package without wiring runtime behavior yet.
@@ -153,43 +153,39 @@ This document is the execution tracker for adding GitHub and Jira MCP servers to
 
 ## Phase 3: Docker Compose MCP Services
 
-- Phase status: `[IP]`
-- Goal: Run GitHub and Jira MCP servers as dedicated services reachable from the app container.
+- Phase status: `[DN]`
+- Goal: Run a GitHub MCP service reachable from the app container.
 - Entry criteria: Phase 2 verification gate passed.
 
 **Steps**
 
-1. `[NS]` Validate the official GitHub MCP server image, transport mode, SSE endpoint path, and health-check behavior.
-2. `[NS]` Validate the official Jira MCP server image, transport mode, SSE endpoint path, and health-check behavior.
-3. `[NS]` Add a `github-mcp` service to [docker-compose.yml](/home/shuva/github/shuvabrata/work-behavior-analytics-ai/docker-compose.yml).
-4. `[NS]` Configure GitHub MCP service for SSE transport on an internal port.
-5. `[NS]` Pass GitHub credentials into the GitHub MCP service through environment variables.
-6. `[NS]` Add a `jira-mcp` service to [docker-compose.yml](/home/shuva/github/shuvabrata/work-behavior-analytics-ai/docker-compose.yml).
-7. `[NS]` Configure Jira MCP service for SSE transport on an internal port.
-8. `[NS]` Pass Jira credentials into the Jira MCP service through environment variables.
-9. `[NS]` Add health checks for both MCP services based on validated image behavior.
-10. `[NS]` Add service dependencies or startup ordering so the app does not connect before MCP services are ready.
+1. `[DN]` Validate the official GitHub MCP server image, transport mode, endpoint behavior, and health-check behavior.
+2. `[DN]` Mark Jira MCP as out of scope for this project plan and defer it to future work.
+3. `[DN]` Add a `github-mcp` service to [docker-compose.yml](/home/shuva/github/shuvabrata/work-behavior-analytics-ai/docker-compose.yml).
+4. `[DN]` Configure GitHub MCP service transport mode and internal connectivity.
+5. `[DN]` Pass GitHub credentials into the GitHub MCP service through environment variables.
+6. `[DN]` Add health checks for the GitHub MCP service based on validated image behavior.
+7. `[DN]` Add service dependencies or startup ordering so the app does not connect before GitHub MCP is ready.
 
 **Deliverables**
 
 - GitHub MCP container service
-- Jira MCP container service
-- Internal service URLs for both MCP endpoints
+- Internal service URL for the GitHub MCP endpoint
 - Health checks and startup coordination
-- Validation notes for the chosen official images and endpoint contracts
+- Validation notes for the chosen official image and endpoint contract
 
 **Verification**
 
 1. `docker compose config` validates successfully.
-2. `docker compose up` starts both MCP containers without crash loops.
-3. Both MCP services pass their health checks.
+2. `docker compose up` starts the GitHub MCP container without crash loops.
+3. The GitHub MCP service passes its health checks.
 4. The app container can resolve service names over the Compose network.
-5. SSE endpoints are reachable from inside the app container.
-6. The verified image-specific health checks and endpoint paths are captured in the tracker before Phase 4 begins.
+5. The endpoint is reachable from inside the app container.
+6. The verified image-specific health checks and endpoint path are captured in the tracker before Phase 4 begins.
 
 **Exit gate**
 
-- Do not start Phase 4 until both MCP services are healthy and reachable from the app container.
+- Do not start Phase 4 until the GitHub MCP service is healthy and reachable from the app container.
 
 ## Phase 4: MCP Client Layer
 
@@ -200,8 +196,8 @@ This document is the execution tracker for adding GitHub and Jira MCP servers to
 **Steps**
 
 1. `[NS]` Add [app/ai_agent/mcp/client_manager.py](/home/shuva/github/shuvabrata/work-behavior-analytics-ai/app/ai_agent/mcp/client_manager.py).
-2. `[NS]` Implement SSE-based connection handling for GitHub MCP.
-3. `[NS]` Implement SSE-based connection handling for Jira MCP.
+2. `[NS]` Implement connection handling for GitHub MCP.
+3. `[DN]` Keep Jira MCP integration out of scope for this project plan.
 4. `[NS]` Add [app/ai_agent/mcp/tool_executor.py](/home/shuva/github/shuvabrata/work-behavior-analytics-ai/app/ai_agent/mcp/tool_executor.py).
 5. `[NS]` Implement tool listing across enabled servers.
 6. `[NS]` Normalize MCP tool metadata into the format expected by the provider layer.
@@ -220,11 +216,10 @@ This document is the execution tracker for adding GitHub and Jira MCP servers to
 **Verification**
 
 1. The client layer can connect to GitHub MCP when enabled.
-2. The client layer can connect to Jira MCP when enabled.
-3. Tool listing returns non-empty results for enabled healthy services.
-4. Tool execution returns structured results.
-5. Connection failures degrade cleanly without crashing the app.
-6. The client layer can be called from the current synchronous chat flow without event-loop failures.
+2. Tool listing returns non-empty results for enabled healthy services.
+3. Tool execution returns structured results.
+4. Connection failures degrade cleanly without crashing the app.
+5. The client layer can be called from the current synchronous chat flow without event-loop failures.
 
 **Exit gate**
 
@@ -259,13 +254,12 @@ This document is the execution tracker for adding GitHub and Jira MCP servers to
 
 **Verification**
 
-1. A prompt unrelated to GitHub or Jira does not trigger MCP context unnecessarily.
+1. A prompt unrelated to GitHub does not trigger MCP context unnecessarily.
 2. A GitHub-related prompt can trigger tool discovery and tool execution.
-3. A Jira-related prompt can trigger tool discovery and tool execution.
-4. The augmentation output remains well-formed and token-bounded.
-5. Existing Neo4j-only behavior still works.
-6. When both Neo4j and MCP are relevant, both context sources are included in the final augmented prompt.
-7. Multi-source context remains bounded and does not break final answer generation.
+3. The augmentation output remains well-formed and token-bounded.
+4. Existing Neo4j-only behavior still works.
+5. When both Neo4j and MCP are relevant, both context sources are included in the final augmented prompt.
+6. Multi-source context remains bounded and does not break final answer generation.
 
 **Exit gate**
 
@@ -294,11 +288,8 @@ This document is the execution tracker for adding GitHub and Jira MCP servers to
 **Verification**
 
 1. Create a chat session through the current API and send a GitHub-related prompt.
-2. Create a chat session through the current API and send a Jira-related prompt.
-3. Send a prompt unrelated to both and confirm baseline behavior.
-4. Disable GitHub MCP and confirm Jira MCP still works.
-5. Disable Jira MCP and confirm GitHub MCP still works.
-6. Disable both and confirm the application falls back to current behavior.
+2. Send a prompt unrelated to GitHub and confirm baseline behavior.
+3. Disable GitHub MCP and confirm the application falls back to current behavior.
 
 **Exit gate**
 
@@ -353,6 +344,7 @@ This document is the execution tracker for adding GitHub and Jira MCP servers to
 - The MCP SDK is async-first, so sync and async boundaries in the current chain flow must be handled carefully.
 - Tool results may become too large for prompt injection unless truncation rules are explicit.
 - External MCP service failures must degrade cleanly without breaking baseline chat behavior.
+- Jira MCP is out of scope for this project plan and will be revisited separately.
 
 ## Future Review Items
 
@@ -401,3 +393,15 @@ This document is the execution tracker for adding GitHub and Jira MCP servers to
 - `2026-04-19` `[DN]` Phase 2 verification complete: tool-enabled method returns correct structured response (content, tool_calls, finish_reason)
 - `2026-04-19` `[DN]` Phase 2 verification complete: existing non-tool chat path unchanged for all current callers
 - `2026-04-19` `[DN]` Phase 2 completed; execution advanced to Phase 3
+- `2026-04-19` `[DN]` Phase 3 scope decision finalized: Jira MCP removed from this project plan and deferred
+- `2026-04-19` `[DN]` Phase 3 Step 1 completed: validated official GitHub MCP server image and endpoint behavior for Docker integration
+- `2026-04-19` `[DN]` Phase 3 Step 3 completed: added `github-mcp` service in [docker-compose.yml](/home/shuva/github/shuvabrata/work-behavior-analytics-ai/docker-compose.yml)
+- `2026-04-19` `[DN]` Phase 3 Step 4 completed: configured GitHub MCP HTTP transport with `http --port 8082 --read-only`
+- `2026-04-19` `[DN]` Phase 3 Step 5 completed: wired GitHub MCP credentials and toolset env vars (`GITHUB_MCP_TOKEN`, `GITHUB_MCP_TOOLSETS`)
+- `2026-04-19` `[DN]` Phase 3 Step 6 completed: added working healthcheck via `/server/github-mcp-server list-scopes`
+- `2026-04-19` `[DN]` Phase 3 Step 7 completed: app startup ordering now depends on healthy `github-mcp`
+- `2026-04-19` `[DN]` Phase 3 verification evidence: `docker compose config` validated after compose update
+- `2026-04-19` `[DN]` Phase 3 verification evidence: `github-mcp` reached healthy status under compose
+- `2026-04-19` `[DN]` Phase 3 verification evidence: app container resolved `github-mcp` service on compose network
+- `2026-04-19` `[DN]` Phase 3 verification evidence: app container reached `http://github-mcp:8082/mcp` (HTTP 401 auth challenge confirms endpoint reachability)
+- `2026-04-19` `[DN]` Phase 3 completed; execution advanced to Phase 4
