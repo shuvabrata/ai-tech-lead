@@ -49,6 +49,15 @@ class TestMCPSettingsAndFeatureFlags:
         """GitHub MCP token should be a string type."""
         assert isinstance(settings.GITHUB_MCP_TOKEN, str)
 
+    def test_atlassian_mcp_token_is_string(self):
+        """Atlassian MCP token should be a string type."""
+        assert isinstance(settings.ATLASSIAN_MCP_TOKEN, str)
+
+    def test_atlassian_mcp_server_url_is_valid_url(self):
+        """Atlassian MCP server URL should be the cloud endpoint."""
+        assert isinstance(settings.ATLASSIAN_MCP_SERVER_URL, str)
+        assert settings.ATLASSIAN_MCP_SERVER_URL.startswith("https://")
+
     def test_mcp_settings_can_be_overridden_via_env(self, monkeypatch):
         """MCP settings should be overridable via environment variables."""
         monkeypatch.setenv("GITHUB_MCP_ENABLED", "true")
