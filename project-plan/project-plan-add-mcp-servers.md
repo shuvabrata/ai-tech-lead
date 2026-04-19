@@ -11,9 +11,9 @@ This document is the execution tracker for adding GitHub and Jira MCP servers to
 
 ## Overall Status
 
-- Project status: `[IP]` Phase 1 complete, Phase 2 started
-- Current phase: `Phase 2`
-- Next gate: Complete Phase 2 verification before starting Phase 3
+- Project status: `[IP]` Phase 1–2 complete, Phase 3 started
+- Current phase: `Phase 3`
+- Next gate: Validate official GitHub and Jira MCP server images before container integration
 - Stop rule: Do not begin the next phase until the current phase verification gate passes
 
 ## Locked Decisions
@@ -118,19 +118,19 @@ This document is the execution tracker for adding GitHub and Jira MCP servers to
 
 ## Phase 2: Provider Contract for Tool Use
 
-- Phase status: `[IP]`
+- Phase status: `[DN]`
 - Goal: Extend the provider interface so MCP-related tool definitions and tool call responses can be supported safely.
 - Entry criteria: Phase 1 verification gate passed.
 
 **Steps**
 
-1. `[IP]` Review the current provider contract in [app/ai_agent/providers/base.py](/home/shuva/github/shuvabrata/work-behavior-analytics-ai/app/ai_agent/providers/base.py).
-2. `[NS]` Decide whether to extend `chat_completion()` or add a separate tool-enabled completion method.
-3. `[NS]` Implement the provider contract update in [app/ai_agent/providers/base.py](/home/shuva/github/shuvabrata/work-behavior-analytics-ai/app/ai_agent/providers/base.py).
-4. `[NS]` Update the OpenAI provider implementation to support tool definitions and tool-call responses.
-5. `[NS]` Preserve backward compatibility for the existing non-tool chat path.
-6. `[NS]` Explicitly scope v1 provider support to OpenAI only.
-7. `[NS]` Add a future follow-up note in this document to review support for custom providers after OpenAI v1 is stable.
+1. `[DN]` Review the current provider contract in [app/ai_agent/providers/base.py](/home/shuva/github/shuvabrata/work-behavior-analytics-ai/app/ai_agent/providers/base.py).
+2. `[DN]` Decide whether to extend `chat_completion()` or add a separate tool-enabled completion method.
+3. `[DN]` Implement the provider contract update in [app/ai_agent/providers/base.py](/home/shuva/github/shuvabrata/work-behavior-analytics-ai/app/ai_agent/providers/base.py).
+4. `[DN]` Update the OpenAI provider implementation to support tool definitions and tool-call responses.
+5. `[DN]` Preserve backward compatibility for the existing non-tool chat path.
+6. `[DN]` Explicitly scope v1 provider support to OpenAI only.
+7. `[DN]` Add a future follow-up note in this document to review support for custom providers after OpenAI v1 is stable.
 
 **Deliverables**
 
@@ -153,7 +153,7 @@ This document is the execution tracker for adding GitHub and Jira MCP servers to
 
 ## Phase 3: Docker Compose MCP Services
 
-- Phase status: `[NS]`
+- Phase status: `[IP]`
 - Goal: Run GitHub and Jira MCP servers as dedicated services reachable from the app container.
 - Entry criteria: Phase 2 verification gate passed.
 
@@ -389,3 +389,15 @@ This document is the execution tracker for adding GitHub and Jira MCP servers to
 - `2026-04-19` `[DN]` Phase 1 verification complete: MCP package imports validated and chain flags confirmed to read from `settings`
 - `2026-04-19` `[DN]` Phase 1 completed; execution advanced to Phase 2
 - `2026-04-19` `[IP]` Phase 2 Step 1 started: review provider contract for tool-enabled completion flow
+- `2026-04-19` `[DN]` Phase 2 Step 1 completed: provider contract and call-sites reviewed
+- `2026-04-19` `[DN]` Phase 2 Step 2 completed: chose separate tool-enabled provider method to preserve existing `chat_completion()` behavior
+- `2026-04-19` `[DN]` Phase 2 Step 3 completed: added `chat_completion_with_tools()` extension to base provider contract
+- `2026-04-19` `[DN]` Phase 2 Step 4 completed: implemented OpenAI `chat_completion_with_tools()` with structured tool-call payload
+- `2026-04-19` `[DN]` Phase 2 Step 5 completed: existing non-tool chat path preserved unchanged
+- `2026-04-19` `[DN]` Phase 2 Step 6 completed: implementation remains OpenAI-first for v1
+- `2026-04-19` `[DN]` Phase 2 Step 7 completed: added future review note for custom provider support
+- `2026-04-19` `[DN]` Phase 2 verification complete: created 17-test suite covering provider contract backward compatibility
+- `2026-04-19` `[DN]` Phase 2 verification complete: all 17 provider contract tests pass (backward compatibility + tool method)
+- `2026-04-19` `[DN]` Phase 2 verification complete: tool-enabled method returns correct structured response (content, tool_calls, finish_reason)
+- `2026-04-19` `[DN]` Phase 2 verification complete: existing non-tool chat path unchanged for all current callers
+- `2026-04-19` `[DN]` Phase 2 completed; execution advanced to Phase 3
