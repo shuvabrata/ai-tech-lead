@@ -31,9 +31,9 @@ class TestMCPSettingsAndFeatureFlags:
         """GitHub MCP setting should be a boolean type."""
         assert isinstance(settings.GITHUB_MCP_ENABLED, bool)
 
-    def test_jira_mcp_enabled_is_boolean(self):
-        """Jira MCP setting should be a boolean type."""
-        assert isinstance(settings.JIRA_MCP_ENABLED, bool)
+    def test_atlassian_mcp_enabled_is_boolean(self):
+        """Atlassian MCP setting should be a boolean type."""
+        assert isinstance(settings.ATLASSIAN_MCP_ENABLED, bool)
 
     def test_max_mcp_iterations_is_positive_integer(self):
         """MAX_MCP_ITERATIONS should be a positive integer."""

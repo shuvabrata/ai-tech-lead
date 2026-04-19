@@ -13,14 +13,14 @@ class Settings(BaseSettings):
 
     # MCP configuration
     GITHUB_MCP_ENABLED: bool = False
-    JIRA_MCP_ENABLED: bool = False
+    ATLASSIAN_MCP_ENABLED: bool = False
     MAX_MCP_ITERATIONS: int = 3
     GITHUB_MCP_TOKEN: str = ""
-    JIRA_MCP_URL: str = ""
-    JIRA_MCP_USERNAME: str = ""
-    JIRA_MCP_API_TOKEN: str = ""
+    ATLASSIAN_MCP_URL: str = ""
+    ATLASSIAN_MCP_USERNAME: str = ""
+    ATLASSIAN_MCP_API_TOKEN: str = ""
     GITHUB_MCP_SERVER_URL: str = "http://github-mcp:8082/mcp"
-    JIRA_MCP_SERVER_URL: str = "http://jira-mcp:9090/sse"
+    ATLASSIAN_MCP_SERVER_URL: str = "http://jira-mcp:9090/sse"
     
     # LLM configuration (provider-agnostic)
     LLM_MODEL: str = "gpt-5"
