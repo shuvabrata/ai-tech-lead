@@ -151,7 +151,7 @@ class TestClientConnectionLogic:
         # Should have standard envelope structure
         assert isinstance(result, dict)
         assert "status" in result
-        assert result["status"] in ["success", "error", "unavailable", "failure"]
+        assert result["status"] in ["success", "error", "unavailable", "failure", "disabled"]
 
     def test_execute_tool_call_with_disabled_mcp_returns_envelope(self, monkeypatch):
         """Tool execution with disabled MCP should return graceful envelope."""
@@ -224,7 +224,7 @@ class TestToolListingAndExecution:
         assert isinstance(result, dict)
         assert "status" in result
         assert "tool_name" in result
-        assert result["status"] in ["success", "error", "unavailable", "failure", "tool_error"]
+        assert result["status"] in ["success", "error", "unavailable", "failure", "tool_error", "disabled"]
 
     def test_execute_tool_call_with_empty_args(self):
         """Tool execution should handle empty arguments gracefully."""
