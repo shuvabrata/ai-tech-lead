@@ -7,7 +7,7 @@ This module provides a unified interface for different LLM chains:
 Main entry point: augment_message() dispatches to appropriate chains.
 """
 
-from .chains import augment_message, NEO4J_ENABLED
+from .chains import augment_message
 from .neo4j_chain import (
     augment_message_with_neo4j,
     check_neo4j_relevance,
@@ -18,7 +18,6 @@ from .neo4j_chain import (
 __all__ = [
     # Main dispatcher
     'augment_message',
-    'NEO4J_ENABLED',
     # Neo4j specific functions
     'augment_message_with_neo4j',
     'check_neo4j_relevance',

@@ -1,8 +1,5 @@
-import os
-
 from app.ai_agent.chains.neo4j_chain import augment_message_with_neo4j
-
-NEO4J_ENABLED = os.getenv("NEO4J_ENABLED", "false").lower() == "true"
+from app.settings import settings
 
 def augment_message(user_message, provider=None): 
     """Augment user message with data from chains.
@@ -14,6 +11,6 @@ def augment_message(user_message, provider=None):
     Returns:
         Augmented message with chain data, or original message if not relevant
     """
-    if NEO4J_ENABLED:
+    if settings.NEO4J_ENABLED:
         return augment_message_with_neo4j(user_message, provider=provider)
     return user_message

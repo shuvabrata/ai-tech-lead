@@ -11,9 +11,9 @@ This document is the execution tracker for adding GitHub and Jira MCP servers to
 
 ## Overall Status
 
-- Project status: `[IP]` Planning complete, execution tracker ready
-- Current phase: `Phase 1`
-- Next gate: Complete Phase 1 verification before starting Phase 2
+- Project status: `[IP]` Phase 1 complete, Phase 2 started
+- Current phase: `Phase 2`
+- Next gate: Complete Phase 2 verification before starting Phase 3
 - Stop rule: Do not begin the next phase until the current phase verification gate passes
 
 ## Locked Decisions
@@ -81,20 +81,20 @@ This document is the execution tracker for adding GitHub and Jira MCP servers to
 
 ## Phase 1: Foundation and Configuration
 
-- Phase status: `[IP]`
+- Phase status: `[DN]`
 - Goal: Add the minimum application-level structure needed to support MCP integration without changing runtime behavior yet.
 - Entry criteria: Phase 0 verification gate passed.
 
 **Steps**
 
-1. `[IP]` Add the MCP SDK dependency in [requirements.txt](/home/shuva/github/shuvabrata/work-behavior-analytics-ai/requirements.txt).
-2. `[NS]` Add MCP feature flags and connection settings in [app/settings.py](/home/shuva/github/shuvabrata/work-behavior-analytics-ai/app/settings.py).
-3. `[NS]` Add credential env settings for GitHub and Jira in [app/settings.py](/home/shuva/github/shuvabrata/work-behavior-analytics-ai/app/settings.py).
-4. `[NS]` Add MCP server URL settings in [app/settings.py](/home/shuva/github/shuvabrata/work-behavior-analytics-ai/app/settings.py).
-5. `[NS]` Create the MCP package structure under `app/ai_agent/mcp/`.
-6. `[NS]` Add placeholder exports in the MCP package without wiring runtime behavior yet.
-7. `[NS]` Unify feature-flag access through [app/settings.py](/home/shuva/github/shuvabrata/work-behavior-analytics-ai/app/settings.py) instead of module-level `os.getenv()` reads in chain code.
-8. `[NS]` Standardize provider and model environment variable naming so new MCP settings do not repeat existing config drift.
+1. `[DN]` Add the MCP SDK dependency in [requirements.txt](/home/shuva/github/shuvabrata/work-behavior-analytics-ai/requirements.txt).
+2. `[DN]` Add MCP feature flags and connection settings in [app/settings.py](/home/shuva/github/shuvabrata/work-behavior-analytics-ai/app/settings.py).
+3. `[DN]` Add credential env settings for GitHub and Jira in [app/settings.py](/home/shuva/github/shuvabrata/work-behavior-analytics-ai/app/settings.py).
+4. `[DN]` Add MCP server URL settings in [app/settings.py](/home/shuva/github/shuvabrata/work-behavior-analytics-ai/app/settings.py).
+5. `[DN]` Create the MCP package structure under `app/ai_agent/mcp/`.
+6. `[DN]` Add placeholder exports in the MCP package without wiring runtime behavior yet.
+7. `[DN]` Unify feature-flag access through [app/settings.py](/home/shuva/github/shuvabrata/work-behavior-analytics-ai/app/settings.py) instead of module-level `os.getenv()` reads in chain code.
+8. `[DN]` Standardize provider and model environment variable naming so new MCP settings do not repeat existing config drift.
 
 **Deliverables**
 
@@ -118,13 +118,13 @@ This document is the execution tracker for adding GitHub and Jira MCP servers to
 
 ## Phase 2: Provider Contract for Tool Use
 
-- Phase status: `[NS]`
+- Phase status: `[IP]`
 - Goal: Extend the provider interface so MCP-related tool definitions and tool call responses can be supported safely.
 - Entry criteria: Phase 1 verification gate passed.
 
 **Steps**
 
-1. `[NS]` Review the current provider contract in [app/ai_agent/providers/base.py](/home/shuva/github/shuvabrata/work-behavior-analytics-ai/app/ai_agent/providers/base.py).
+1. `[IP]` Review the current provider contract in [app/ai_agent/providers/base.py](/home/shuva/github/shuvabrata/work-behavior-analytics-ai/app/ai_agent/providers/base.py).
 2. `[NS]` Decide whether to extend `chat_completion()` or add a separate tool-enabled completion method.
 3. `[NS]` Implement the provider contract update in [app/ai_agent/providers/base.py](/home/shuva/github/shuvabrata/work-behavior-analytics-ai/app/ai_agent/providers/base.py).
 4. `[NS]` Update the OpenAI provider implementation to support tool definitions and tool-call responses.
@@ -370,3 +370,22 @@ This document is the execution tracker for adding GitHub and Jira MCP servers to
 - `2026-04-19` `[DN]` Phase 3 updated to validate official MCP images and endpoint behavior before container integration
 - `2026-04-19` `[DN]` Phase 0 completed and accepted as the execution baseline
 - `2026-04-19` `[IP]` Phase 1 started with dependency setup as the first active step
+- `2026-04-19` `[DN]` Phase 1 Step 1 completed: pinned `mcp[cli]==1.27.0` and verified install on Python 3.14.2
+- `2026-04-19` `[IP]` Phase 1 Step 2 started: add MCP feature flags and connection settings
+- `2026-04-19` `[DN]` Phase 1 Step 2 completed: added MCP feature flags and `MAX_MCP_ITERATIONS` in settings
+- `2026-04-19` `[IP]` Phase 1 Step 3 started: add GitHub and Jira MCP credential env settings
+- `2026-04-19` `[DN]` Phase 1 Step 3 completed: added and MCP-prefixed credential settings (`GITHUB_MCP_TOKEN`, `JIRA_MCP_URL`, `JIRA_MCP_USERNAME`, `JIRA_MCP_API_TOKEN`)
+- `2026-04-19` `[IP]` Phase 1 Step 4 started: add MCP server URL settings
+- `2026-04-19` `[DN]` Phase 1 Step 4 completed: added `GITHUB_MCP_SERVER_URL` and `JIRA_MCP_SERVER_URL` with Docker Compose defaults
+- `2026-04-19` `[IP]` Phase 1 Step 5 started: create MCP package structure under `app/ai_agent/mcp/`
+- `2026-04-19` `[DN]` Phase 1 Step 5 completed: created `app/ai_agent/mcp/` package with placeholder modules
+- `2026-04-19` `[DN]` Phase 1 Step 6 completed: added placeholder MCP exports without runtime wiring
+- `2026-04-19` `[IP]` Phase 1 Step 7 started: unify chain feature-flag reads through settings
+- `2026-04-19` `[DN]` Phase 1 Step 7 completed: chain dispatcher now reads Neo4j feature flag via `settings` instead of import-time `os.getenv()`
+- `2026-04-19` `[IP]` Phase 1 Step 8 started: standardize provider and model env variable naming
+- `2026-04-19` `[DN]` Phase 1 Step 8 completed: standardized on `LLM_MODEL` as canonical while retaining `OPENAI_MODEL` and `CUSTOM_MODEL` in Docker Compose for backward compatibility
+- `2026-04-19` `[DN]` Phase 1 verification complete: `pip install -r requirements.txt` succeeded with pinned `mcp[cli]==1.27.0`
+- `2026-04-19` `[DN]` Phase 1 verification complete: MCP defaults and explicit env overrides validated via `Settings(_env_file=None, ...)`
+- `2026-04-19` `[DN]` Phase 1 verification complete: MCP package imports validated and chain flags confirmed to read from `settings`
+- `2026-04-19` `[DN]` Phase 1 completed; execution advanced to Phase 2
+- `2026-04-19` `[IP]` Phase 2 Step 1 started: review provider contract for tool-enabled completion flow
