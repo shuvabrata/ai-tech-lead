@@ -12,8 +12,8 @@ This document is the execution tracker for adding GitHub and Jira MCP servers to
 ## Overall Status
 
 - Project status: `[IP]` Planning complete, execution tracker ready
-- Current phase: `Phase 0`
-- Next gate: Confirm phase sequencing and then start Phase 1
+- Current phase: `Phase 1`
+- Next gate: Complete Phase 1 verification before starting Phase 2
 - Stop rule: Do not begin the next phase until the current phase verification gate passes
 
 ## Locked Decisions
@@ -53,7 +53,7 @@ This document is the execution tracker for adding GitHub and Jira MCP servers to
 
 ## Phase 0: Finalize Execution Baseline
 
-- Phase status: `[IP]`
+- Phase status: `[DN]`
 - Goal: Freeze the plan structure so implementation can proceed without ambiguity.
 - Entry criteria: None
 
@@ -62,7 +62,7 @@ This document is the execution tracker for adding GitHub and Jira MCP servers to
 1. `[DN]` Confirm augmentation-pipeline architecture instead of LangGraph.
 2. `[DN]` Confirm Docker Compose plus HTTP/SSE deployment model for MCP servers.
 3. `[DN]` Confirm read-only scope for GitHub and Jira MCP operations.
-4. `[IP]` Convert the plan into a gated execution tracker.
+4. `[DN]` Convert the plan into a gated execution tracker.
 
 **Deliverables**
 
@@ -81,13 +81,13 @@ This document is the execution tracker for adding GitHub and Jira MCP servers to
 
 ## Phase 1: Foundation and Configuration
 
-- Phase status: `[NS]`
+- Phase status: `[IP]`
 - Goal: Add the minimum application-level structure needed to support MCP integration without changing runtime behavior yet.
 - Entry criteria: Phase 0 verification gate passed.
 
 **Steps**
 
-1. `[NS]` Add the MCP SDK dependency in [requirements.txt](/home/shuva/github/shuvabrata/work-behavior-analytics-ai/requirements.txt).
+1. `[IP]` Add the MCP SDK dependency in [requirements.txt](/home/shuva/github/shuvabrata/work-behavior-analytics-ai/requirements.txt).
 2. `[NS]` Add MCP feature flags and connection settings in [app/settings.py](/home/shuva/github/shuvabrata/work-behavior-analytics-ai/app/settings.py).
 3. `[NS]` Add credential env settings for GitHub and Jira in [app/settings.py](/home/shuva/github/shuvabrata/work-behavior-analytics-ai/app/settings.py).
 4. `[NS]` Add MCP server URL settings in [app/settings.py](/home/shuva/github/shuvabrata/work-behavior-analytics-ai/app/settings.py).
@@ -368,3 +368,5 @@ This document is the execution tracker for adding GitHub and Jira MCP servers to
 - `2026-04-19` `[DN]` Provider scope finalized for v1: OpenAI first, custom providers deferred to future review
 - `2026-04-19` `[DN]` Integration strategy finalized: keep current synchronous shape and wrap async internally where needed
 - `2026-04-19` `[DN]` Phase 3 updated to validate official MCP images and endpoint behavior before container integration
+- `2026-04-19` `[DN]` Phase 0 completed and accepted as the execution baseline
+- `2026-04-19` `[IP]` Phase 1 started with dependency setup as the first active step
