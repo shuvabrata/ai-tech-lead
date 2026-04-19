@@ -4,8 +4,9 @@ This module implements the LLM provider interface for OpenAI's API,
 supporting models like GPT-4o and GPT-5.
 """
 
+import json
 import os
-from typing import List, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 import openai
 from dotenv import load_dotenv
@@ -100,6 +101,69 @@ class OpenAIProvider(LLMProvider):
         except Exception as e:
             logger.error(f"OpenAI API error: {e}")
             raise RuntimeError(f"OpenAI error: {e}") from e
+
+    def chat_completion_with_tools(
+        self,
+        messages: List[Dict[str, str]],
+        tools: List[Dict[str, Any]],
+        model: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Send a tool-enabled chat completion request to OpenAI.
+
+        Args:
+            messages: List of chat messages.
+            tools: OpenAI function/tool definitions.
+            model: Optional model name. If None, uses default_model.
+
+        Returns:
+            Structured response with assistant content, requested tool calls,
+            and finish reason.
+        """
+        model_to_use = model or self._default_model
+
+        if not self.validate_model(model_to_use):
+            raise ValueError(f"Model '{model_to_use}' is not supported by OpenAI provider")
+
+        try:
+            logger.debug(
+                "Sending %s messages and %s tools to OpenAI model: %s",
+                len(messages),
+                len(tools),
+                model_to_use,
+            )
+            response = openai.chat.completions.create(
+                model=model_to_use,
+                messages=messages,
+                tools=tools,
+            )
+
+            message = response.choices[0].message
+            content = (message.content or "").strip()
+
+            tool_calls = []
+            for tool_call in message.tool_calls or []:
+                raw_args = tool_call.function.arguments or "{}"
+                try:
+                    parsed_args = json.loads(raw_args)
+                except json.JSONDecodeError:
+                    parsed_args = {"_raw": raw_args}
+
+                tool_calls.append(
+                    {
+                        "id": tool_call.id,
+                        "name": tool_call.function.name,
+                        "arguments": parsed_args,
+                    }
+                )
+
+            return {
+                "content": content,
+                "tool_calls": tool_calls,
+                "finish_reason": response.choices[0].finish_reason,
+            }
+        except Exception as e:
+            logger.error(f"OpenAI API tool-calling error: {e}")
+            raise RuntimeError(f"OpenAI tool-calling error: {e}") from e
     
     def count_tokens(self, messages: List[Dict[str, str]], model: Optional[str] = None) -> int:
         """Count tokens using tiktoken.

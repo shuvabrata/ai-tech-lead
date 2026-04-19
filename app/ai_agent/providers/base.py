@@ -5,7 +5,7 @@ to integrate with the AI agent system.
 """
 
 from abc import ABC, abstractmethod
-from typing import List, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 
 class LLMProvider(ABC):
@@ -50,7 +50,9 @@ class LLMProvider(ABC):
         """
     
     @abstractmethod
-    def chat_completion(self, messages: List[Dict[str, str]], model: Optional[str] = None) -> str:
+    def chat_completion(self, 
+                        messages: List[Dict[str, str]], 
+                        model: Optional[str] = None) -> str:
         """Send a chat completion request and return the AI's response.
         
         This method handles the provider-specific API call to get a chat completion.
@@ -69,6 +71,36 @@ class LLMProvider(ABC):
             RuntimeError: If the API call fails or returns an error.
             ValueError: If the model is not supported by this provider.
         """
+
+    def chat_completion_with_tools(
+        self,
+        messages: List[Dict[str, str]],
+        tools: List[Dict[str, Any]],
+        model: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Send a tool-enabled completion request.
+
+        This optional extension method enables providers to support tool/function
+        calling flows required by MCP orchestration, while preserving the existing
+        plain-text chat_completion contract for backward compatibility.
+
+        Args:
+            messages: List of message dictionaries with 'role' and 'content'.
+            tools: Provider-specific tool definitions.
+            model: Optional model name to use.
+
+        Returns:
+            A provider-neutral structured payload with at least:
+            - ``content``: Assistant text response (string)
+            - ``tool_calls``: List of requested tool calls (list)
+            - ``finish_reason``: Provider finish reason (string or None)
+
+        Raises:
+            NotImplementedError: If the provider does not support tool calling.
+        """
+        raise NotImplementedError(
+            f"Provider '{self.name}' does not implement tool-enabled chat completions"
+        )
     
     @abstractmethod
     def count_tokens(self, messages: List[Dict[str, str]], model: Optional[str] = None) -> int:

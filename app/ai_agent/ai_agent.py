@@ -94,6 +94,7 @@ def do_chat(session_id, user_message, model=LLM_MODEL, max_tokens=MAX_TOKENS):
         
         # Check token limits and prune if necessary
         total_tokens = _provider.count_tokens(messages, model)
+        logger.info(f"Total tokens for session {session_id}: {total_tokens}. Max allowed before pruning: {max_tokens}")
         if total_tokens > max_tokens:
             # Remove oldest 3 messages after system prompt
             if len(messages) > 4:
