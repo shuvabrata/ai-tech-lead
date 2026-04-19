@@ -19,7 +19,7 @@ class Settings(BaseSettings):
     JIRA_MCP_URL: str = ""
     JIRA_MCP_USERNAME: str = ""
     JIRA_MCP_API_TOKEN: str = ""
-    GITHUB_MCP_SERVER_URL: str = "http://github-mcp:8080/sse"
+    GITHUB_MCP_SERVER_URL: str = "http://github-mcp:8082/mcp"
     JIRA_MCP_SERVER_URL: str = "http://jira-mcp:9090/sse"
     
     # LLM configuration (provider-agnostic)

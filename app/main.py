@@ -1,4 +1,5 @@
 import time
+from contextlib import asynccontextmanager
 from uuid import uuid4
 
 from fastapi import FastAPI, Request
@@ -10,9 +11,20 @@ from .api.graph.v1.router import router as graph_v1_router
 from .api.connectors.v1.router import router as connectors_v1_router
 from .dash_app.layout import create_dash_app
 from .common.logger import logger, LogContext
+from .settings import settings
 
 
-app = FastAPI()
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    logger.info(
+        "[Startup] feature_flags "
+        f"github_mcp_enabled={settings.GITHUB_MCP_ENABLED} "
+        f"github_mcp_server_url={settings.GITHUB_MCP_SERVER_URL}"
+    )
+    yield
+
+
+app = FastAPI(lifespan=lifespan)
 
 
 @app.middleware("http")
