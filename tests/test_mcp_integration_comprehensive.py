@@ -417,6 +417,7 @@ class TestRegressionFallbackBehavior:
 
     def test_multi_source_augmentation_with_only_neo4j(self, monkeypatch):
         """Multi-source should preserve Neo4j-only behavior when MCP is disabled."""
+        monkeypatch.setattr(settings, "NEO4J_ENABLED", True)
         monkeypatch.setattr(settings, "GITHUB_MCP_ENABLED", False)
         
         from app.ai_agent.chains import chains
@@ -499,6 +500,7 @@ class TestIntegrationWithoutLiveCredentials:
 
     def test_augmentation_pipeline_backward_compatibility(self, monkeypatch):
         """Existing augmentation pipeline should work with new MCP integration."""
+        monkeypatch.setattr(settings, "NEO4J_ENABLED", True)
         monkeypatch.setattr(settings, "GITHUB_MCP_ENABLED", False)
         
         from app.ai_agent.chains import chains
@@ -507,7 +509,8 @@ class TestIntegrationWithoutLiveCredentials:
         neo4j_context = "Team context from Neo4j"
         
         with patch.object(chains, "augment_message_with_neo4j", return_value=neo4j_context):
-            result = chains.augment_message(user_message)
+            with patch.object(chains, "augment_message_with_mcp", return_value={"applied": False, "source": "mcp"}):
+                result = chains.augment_message(user_message)
         
         # Should work exactly as before
         assert result == neo4j_context
