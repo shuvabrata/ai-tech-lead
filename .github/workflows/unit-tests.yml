@@ -11,6 +11,9 @@ jobs:
       PYTHONPATH: ${{ github.workspace }}
       DATABASE_URL: postgresql+asyncpg://username:pwd@localhost:5432/postgres
       NEO4J_ENABLED: "false"
+      OPENAI_API_KEY: "sk-test-dummy-key-for-ci"
+      LLM_MODEL: "gpt-4o"
+      GITHUB_MCP_ENABLED: "false"
 
     steps:
       - name: Checkout
