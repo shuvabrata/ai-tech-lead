@@ -50,7 +50,9 @@ class LLMProvider(ABC):
         """
     
     @abstractmethod
-    def chat_completion(self, messages: List[Dict[str, str]], model: Optional[str] = None) -> str:
+    def chat_completion(self, 
+                        messages: List[Dict[str, str]], 
+                        model: Optional[str] = None) -> str:
         """Send a chat completion request and return the AI's response.
         
         This method handles the provider-specific API call to get a chat completion.
