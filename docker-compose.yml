@@ -79,6 +79,8 @@ services:
     container_name: wba-ai-github-mcp
     restart: unless-stopped
     command: ["http", "--port", "8082", "--read-only"]
+    ports:
+      - "8082:8082"
     environment:
       GITHUB_PERSONAL_ACCESS_TOKEN: ${GITHUB_MCP_TOKEN}
       GITHUB_TOOLSETS: ${GITHUB_MCP_TOOLSETS:-default,issues,pull_requests,repos}

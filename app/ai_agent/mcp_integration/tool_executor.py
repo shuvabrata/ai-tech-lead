@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.ai_agent.mcp.client_manager import MCPClientManager
+from app.ai_agent.mcp_integration.client_manager import MCPClientManager
 from app.settings import settings
 
 

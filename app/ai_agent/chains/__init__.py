@@ -14,12 +14,14 @@ from .neo4j_chain import (
     query_neo4j_with_chain,
     get_neo4j_graph,
 )
+from .mcp_chain import augment_message_with_mcp
 
 __all__ = [
     # Main dispatcher
     'augment_message',
     # Neo4j specific functions
     'augment_message_with_neo4j',
+    'augment_message_with_mcp',
     'check_neo4j_relevance',
     'query_neo4j_with_chain',
     'get_neo4j_graph',
