@@ -25,7 +25,7 @@ CONFIG_FORM_SPECS = {
                     "label": "Access Token",
                     "input_type": FIELD_PASSWORD,
                     "placeholder": "ghp_...",
-                    "required": False,
+                    "required": True,
                     "secret": True,
                 },
                 {
@@ -79,7 +79,7 @@ CONFIG_FORM_SPECS = {
                     "label": "API Token",
                     "input_type": FIELD_PASSWORD,
                     "placeholder": "Jira API token",
-                    "required": False,
+                    "required": True,
                     "secret": True,
                 },
             ],
