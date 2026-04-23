@@ -64,10 +64,26 @@ async def test_connectors_api_endpoints():
             resp = await ac.get("/api/v1/connectors/unknown/configs")
             assert resp.status_code == 404
 
-            print("Step 8: POST /api/v1/connectors/{connector_type}/configs (create)")
+            print("Step 8: POST /api/v1/connectors/{connector_type}/configs without token (expect 400)")
+            missing_token_payload = {
+                "url": f"https://github.com/example/{marker}-missing-token",
+                "branch_name_patterns": ["main"],
+                "extraction_sources": ["branch"],
+            }
+            resp = await ac.post(
+                f"/api/v1/connectors/{CONNECTOR_TYPE}/configs",
+                json=missing_token_payload,
+            )
+            assert resp.status_code == 400
+
+            print("Step 9: POST /api/v1/connectors/{connector_type}/configs (create)")
             create_payload = {
                 "url": f"https://github.com/example/{marker}",
                 "access_token": f"token-{marker}",
+                "search_filters": {
+                    "props.application-context": "production",
+                    "props.division": "engineering",
+                },
                 "branch_name_patterns": ["main"],
                 "extraction_sources": ["branch"],
             }
@@ -81,7 +97,7 @@ async def test_connectors_api_endpoints():
             assert item_id is not None
             created_item_ids.append(item_id)
 
-            print("Step 9: GET /api/v1/connectors/{connector_type}/configs (verify mask)")
+            print("Step 10: GET /api/v1/connectors/{connector_type}/configs (verify mask)")
             resp = await ac.get(f"/api/v1/connectors/{CONNECTOR_TYPE}/configs")
             assert resp.status_code == 200
             items = resp.json()
@@ -89,11 +105,19 @@ async def test_connectors_api_endpoints():
             assert created is not None
             masked_token = created.get("access_token")
             assert masked_token in ("********", None, "")
+            assert created.get("search_filters") == {
+                "props.application-context": "production",
+                "props.division": "engineering",
+            }
 
-            print("Step 10: PUT /api/v1/connectors/{connector_type}/configs/{id} (update)")
+            print("Step 11: PUT /api/v1/connectors/{connector_type}/configs/{id} (update)")
             update_payload = {
                 "url": f"https://github.com/example/{marker}-updated",
                 "access_token": f"token-{marker}-updated",
+                "search_filters": {
+                    "props.application-context": "staging",
+                    "props.asset-classification": "confidential",
+                },
                 "branch_name_patterns": ["main", "develop"],
                 "extraction_sources": ["branch", "commit_message"],
             }
@@ -103,20 +127,20 @@ async def test_connectors_api_endpoints():
             )
             assert resp.status_code == 200
 
-            print("Step 11: DELETE /api/v1/connectors/{connector_type}/configs/{id} (delete)")
+            print("Step 12: DELETE /api/v1/connectors/{connector_type}/configs/{id} (delete)")
             resp = await ac.delete(
                 f"/api/v1/connectors/{CONNECTOR_TYPE}/configs/{item_id}"
             )
             assert resp.status_code == 200
             created_item_ids.remove(item_id)
 
-            print("Step 12: POST /api/v1/connectors/{connector_type}/test")
+            print("Step 13: POST /api/v1/connectors/{connector_type}/test")
             resp = await ac.post(f"/api/v1/connectors/{CONNECTOR_TYPE}/test")
             assert resp.status_code == 200
             assert "success" in resp.json()
 
             if not initial_items:
-                print("Step 13: DELETE /api/v1/connectors/{connector_type} (no pre-existing items)")
+                print("Step 14: DELETE /api/v1/connectors/{connector_type} (no pre-existing items)")
                 resp = await ac.delete(f"/api/v1/connectors/{CONNECTOR_TYPE}")
                 assert resp.status_code == 200
         finally:

@@ -19,6 +19,7 @@ class GithubConfig(Base):
     connector_id: Mapped[int] = mapped_column(ForeignKey("connectors.id"), nullable=False)
     url: Mapped[str] = mapped_column(String(1023), nullable=False)
     encrypted_access_token: Mapped[str | None] = mapped_column(Text, nullable=True)
+    search_filters: Mapped[dict[str, str] | None] = mapped_column(JSONB, nullable=True)
     branch_name_patterns: Mapped[list[str] | None] = mapped_column(JSONB, nullable=True)
     extraction_sources: Mapped[list[str] | None] = mapped_column(JSONB, nullable=True)
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
