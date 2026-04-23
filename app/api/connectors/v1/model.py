@@ -11,6 +11,7 @@ class ConnectorConfigUpdateRequest(BaseModel):
 class GithubConfigItemRequest(BaseModel):
     url: str
     access_token: Optional[str] = None
+    search_filters: Optional[Dict[str, str]] = None
     branch_name_patterns: Optional[List[str]] = None
     extraction_sources: Optional[List[str]] = None
 
@@ -71,6 +72,7 @@ class GithubConfigItem(BaseModel):
     id: int
     url: str
     access_token: Optional[str] = None
+    search_filters: Optional[Dict[str, str]] = None
     branch_name_patterns: Optional[List[str]] = None
     extraction_sources: Optional[List[str]] = None
     created_at: Optional[datetime] = None

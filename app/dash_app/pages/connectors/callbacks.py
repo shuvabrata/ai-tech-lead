@@ -234,6 +234,145 @@ def populate_item_fields(edit_state: Dict[str, Any] | None, field_ids: List[Dict
 
 
 @callback(
+    Output({"type": "connector-search-filters-store", "connector_type": MATCH}, "data"),
+    Input("connector-edit-item", "data"),
+    State({"type": "connector-search-filters-store", "connector_type": MATCH}, "id"),
+)
+def populate_search_filters_store(
+    edit_state: Dict[str, Any] | None,
+    store_id: Dict[str, Any],
+):
+    connector_type = store_id.get("connector_type")
+    if connector_type != "github":
+        return no_update
+
+    if not edit_state:
+        return {}
+
+    state_connector_type = edit_state.get("connector_type")
+    if state_connector_type != connector_type:
+        return no_update
+
+    if edit_state.get("item_id"):
+        item = edit_state.get("item", {})
+        raw_filters = item.get("search_filters")
+        if not isinstance(raw_filters, dict):
+            return {}
+        return {str(k): str(v) for k, v in raw_filters.items()}
+
+    if edit_state.get("action") == "clear":
+        return {}
+
+    return no_update
+
+
+@callback(
+    [
+        Output({"type": "connector-search-filters-store", "connector_type": MATCH}, "data", allow_duplicate=True),
+        Output({"type": "connector-search-filter-key", "connector_type": MATCH}, "value"),
+        Output({"type": "connector-search-filter-value", "connector_type": MATCH}, "value"),
+    ],
+    [
+        Input({"type": "connector-search-filter-add", "connector_type": MATCH}, "n_clicks"),
+        Input({"type": "connector-search-filter-remove", "connector_type": MATCH, "filter_key": ALL}, "n_clicks"),
+    ],
+    [
+        State({"type": "connector-search-filter-key", "connector_type": MATCH}, "value"),
+        State({"type": "connector-search-filter-value", "connector_type": MATCH}, "value"),
+        State({"type": "connector-search-filters-store", "connector_type": MATCH}, "data"),
+    ],
+    prevent_initial_call=True,
+)
+def update_search_filters_store(
+    _add_clicks: int | None,
+    _remove_clicks: List[int | None],
+    key_value: str | None,
+    value_value: str | None,
+    store_data: Dict[str, str] | None,
+):
+    if not callback_context.triggered:
+        return no_update, no_update, no_update
+
+    triggered = callback_context.triggered_id
+    filters = dict(store_data or {})
+
+    if isinstance(triggered, dict) and triggered.get("type") == "connector-search-filter-add":
+        normalized_key = (key_value or "").strip()
+        normalized_value = (value_value or "").strip()
+        if not normalized_key or not normalized_value:
+            return no_update, no_update, no_update
+        filters[normalized_key] = normalized_value
+        return filters, "", ""
+
+    if isinstance(triggered, dict) and triggered.get("type") == "connector-search-filter-remove":
+        remove_key = triggered.get("filter_key")
+        if remove_key:
+            filters.pop(remove_key, None)
+        return filters, no_update, no_update
+
+    return no_update, no_update, no_update
+
+
+@callback(
+    Output({"type": "connector-search-filter-list", "connector_type": MATCH}, "children"),
+    Input({"type": "connector-search-filters-store", "connector_type": MATCH}, "data"),
+    State({"type": "connector-search-filter-list", "connector_type": MATCH}, "id"),
+)
+def render_search_filters_list(
+    store_data: Dict[str, str] | None,
+    list_component_id: Dict[str, Any],
+):
+    filters = store_data or {}
+    if not filters:
+        return html.Div(
+            "No search filters configured.",
+            style={
+                "fontFamily": FONT_SANS,
+                "fontSize": FONT_SIZE_SMALL,
+                "color": COLOR_GRAY_MEDIUM,
+            },
+        )
+
+    connector_type = list_component_id.get("connector_type", "github")
+
+    rows: List[Any] = []
+    for key, value in filters.items():
+        rows.append(
+            html.Div(
+                [
+                    html.Span(
+                        f"{key}: {value}",
+                        style={
+                            "fontFamily": FONT_SANS,
+                            "fontSize": FONT_SIZE_SMALL,
+                            "color": COLOR_CHARCOAL_MEDIUM,
+                        },
+                    ),
+                    dbc.Button(
+                        "Remove",
+                        id={
+                            "type": "connector-search-filter-remove",
+                            "connector_type": connector_type,
+                            "filter_key": key,
+                        },
+                        color="link",
+                        size="sm",
+                        className="p-0",
+                    ),
+                ],
+                style={
+                    "display": "flex",
+                    "justifyContent": "space-between",
+                    "alignItems": "center",
+                    "padding": f"{SPACING_XXXSMALL} 0",
+                    "borderBottom": f"1px solid {COLOR_BORDER}",
+                },
+            )
+        )
+    return rows
+
+
+@callback(
     Output({"type": "connector-item-add", "connector_type": MATCH}, "children"),
     Input("connector-edit-item", "data"),
     State({"type": "connector-item-add", "connector_type": MATCH}, "id"),
@@ -402,6 +541,8 @@ def handle_item_edit(_clicks: List[int | None], ids: List[Dict[str, Any]], store
     State({"type": "connector-field", "connector_type": ALL, "section": "item", "field": ALL}, "id"),
     State({"type": "connector-field", "connector_type": ALL, "section": "item", "field": ALL}, "value"),
     State("connector-edit-item", "data"),
+    State({"type": "connector-search-filters-store", "connector_type": ALL}, "id"),
+    State({"type": "connector-search-filters-store", "connector_type": ALL}, "data"),
     prevent_initial_call=True,
 )
 def handle_item_save(
@@ -410,6 +551,8 @@ def handle_item_save(
     field_ids: List[Dict[str, Any]],
     field_values: List[Any],
     edit_state: Dict[str, Any] | None,
+    search_filter_store_ids: List[Dict[str, Any]],
+    search_filter_store_data: List[Dict[str, str] | None],
 ):
     triggered = callback_context.triggered_id
     if not isinstance(triggered, dict):
@@ -421,6 +564,13 @@ def handle_item_save(
 
     is_update = bool(edit_state and edit_state.get("item_id") and edit_state.get("connector_type") == connector_type)
     payload = _build_payload(connector_type, "item", field_ids, field_values, skip_empty_secrets=is_update)
+    if connector_type == "github":
+        search_filters = _get_search_filters_payload(
+            connector_type,
+            search_filter_store_ids,
+            search_filter_store_data,
+        )
+        payload["search_filters"] = search_filters if search_filters else None
     api_base = _get_api_base_url()
     try:
         if is_update:
@@ -726,9 +876,32 @@ def _default_field_value(field_id: Dict[str, Any]) -> Any:
 def _format_display_value(value: Any) -> str:
     if value is None:
         return "—"
+    if isinstance(value, dict):
+        return ", ".join([f"{k}: {v}" for k, v in value.items()]) if value else "—"
     if isinstance(value, list):
         return ", ".join([str(v) for v in value]) if value else "—"
     return str(value)
+
+
+def _get_search_filters_payload(
+    connector_type: str,
+    store_ids: List[Dict[str, Any]],
+    store_data: List[Dict[str, str] | None],
+) -> Dict[str, str]:
+    for store_id, data in zip(store_ids, store_data):
+        if store_id.get("connector_type") != connector_type:
+            continue
+        if not isinstance(data, dict):
+            return {}
+        normalized: Dict[str, str] = {}
+        for key, value in data.items():
+            normalized_key = str(key).strip()
+            normalized_value = str(value).strip()
+            if not normalized_key or not normalized_value:
+                continue
+            normalized[normalized_key] = normalized_value
+        return normalized
+    return {}
 
 
 def _empty_items_message(message: str) -> List[Any]:
