@@ -68,6 +68,10 @@ async def test_connectors_api_endpoints():
             create_payload = {
                 "url": f"https://github.com/example/{marker}",
                 "access_token": f"token-{marker}",
+                "search_filters": {
+                    "props.application-context": "production",
+                    "props.division": "engineering",
+                },
                 "branch_name_patterns": ["main"],
                 "extraction_sources": ["branch"],
             }
@@ -89,11 +93,19 @@ async def test_connectors_api_endpoints():
             assert created is not None
             masked_token = created.get("access_token")
             assert masked_token in ("********", None, "")
+            assert created.get("search_filters") == {
+                "props.application-context": "production",
+                "props.division": "engineering",
+            }
 
             print("Step 10: PUT /api/v1/connectors/{connector_type}/configs/{id} (update)")
             update_payload = {
                 "url": f"https://github.com/example/{marker}-updated",
                 "access_token": f"token-{marker}-updated",
+                "search_filters": {
+                    "props.application-context": "staging",
+                    "props.asset-classification": "confidential",
+                },
                 "branch_name_patterns": ["main", "develop"],
                 "extraction_sources": ["branch", "commit_message"],
             }

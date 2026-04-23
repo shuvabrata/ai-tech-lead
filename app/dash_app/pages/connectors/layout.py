@@ -13,7 +13,6 @@ from app.dash_app.styles import (
     COLOR_CHARCOAL_MEDIUM,
     COLOR_GRAY_MEDIUM,
     FONT_SANS,
-    FONT_SIZE_MEDIUM,
     FONT_SIZE_SMALL,
     FONT_WEIGHT_MEDIUM,
     SPACING_XSMALL,
@@ -104,6 +103,10 @@ def get_detail_layout(connector_type: str):
                     dcc.Store(id="connector-detail-store", storage_type="memory"),
                     dcc.Store(id="connector-items-store", storage_type="memory"),
                     dcc.Store(id="connector-edit-item", storage_type="memory"),
+                    dcc.Store(
+                        id={"type": "connector-search-filters-store", "connector_type": connector_type},
+                        storage_type="memory",
+                    ),
                     html.Div(
                         [
                             _section_title("Connector Settings"),
@@ -273,6 +276,7 @@ def _render_item_form(form_spec: dict, connector_type: str) -> html.Div:
                 },
             ),
             dbc.Row(field_components, className="g-3"),
+            _render_search_filters_editor(connector_type),
             html.Div(
                 [
                     dbc.Button(
@@ -291,6 +295,105 @@ def _render_item_form(form_spec: dict, connector_type: str) -> html.Div:
                 ],
                 className="mt-2"
             )
+        ]
+    )
+
+
+def _render_search_filters_editor(connector_type: str) -> html.Div:
+    if connector_type != "github":
+        return html.Div()
+
+    tooltip_id = f"tooltip-target-{connector_type}-search-filters"
+
+    return html.Div(
+        [
+            html.Div(
+                [
+                    html.Span("SEARCH FILTERS"),
+                    html.I(
+                        className="fas fa-info-circle",
+                        id=tooltip_id,
+                        style={"cursor": "help", "marginLeft": "6px", "color": COLOR_GRAY_MEDIUM},
+                    ),
+                    dbc.Tooltip(
+                        (
+                            "Search filters let you tag a repository with custom key/value metadata "
+                            "for downstream filtering and analysis. Add any string key (for example, "
+                            "props.division) and value (for example, platform). These filters do not "
+                            "change GitHub data collection; they help scope and segment results in "
+                            "analytics and queries."
+                        ),
+                        target=tooltip_id,
+                        placement="top",
+                    ),
+                ],
+                style={
+                    "fontFamily": FONT_SANS,
+                    "fontSize": FONT_SIZE_SMALL,
+                    "color": COLOR_GRAY_MEDIUM,
+                    "marginTop": SPACING_SMALL,
+                    "marginBottom": SPACING_XSMALL,
+                    "letterSpacing": "0.5px",
+                    "display": "flex",
+                    "alignItems": "center",
+                },
+            ),
+            html.Div(
+                "Add one or more key/value filters. Values are stored as strings.",
+                style={
+                    "fontFamily": FONT_SANS,
+                    "fontSize": FONT_SIZE_SMALL,
+                    "color": COLOR_GRAY_MEDIUM,
+                    "marginBottom": SPACING_XSMALL,
+                },
+            ),
+            dbc.Row(
+                [
+                    dbc.Col(
+                        dbc.Input(
+                            id={
+                                "type": "connector-search-filter-key",
+                                "connector_type": connector_type,
+                            },
+                            type="text",
+                            placeholder="props.application-context",
+                        ),
+                        md=5,
+                        xs=12,
+                    ),
+                    dbc.Col(
+                        dbc.Input(
+                            id={
+                                "type": "connector-search-filter-value",
+                                "connector_type": connector_type,
+                            },
+                            type="text",
+                            placeholder="production",
+                        ),
+                        md=5,
+                        xs=12,
+                    ),
+                    dbc.Col(
+                        dbc.Button(
+                            "Add Filter",
+                            id={
+                                "type": "connector-search-filter-add",
+                                "connector_type": connector_type,
+                            },
+                            color="outline-secondary",
+                            size="sm",
+                            className="w-100",
+                        ),
+                        md=2,
+                        xs=12,
+                    ),
+                ],
+                className="g-2",
+            ),
+            html.Div(
+                id={"type": "connector-search-filter-list", "connector_type": connector_type},
+                style={"marginTop": SPACING_XSMALL},
+            ),
         ]
     )
 
