@@ -293,10 +293,13 @@ def update_search_filters_store(
     if not callback_context.triggered:
         return no_update, no_update, no_update
 
+    triggered_value = callback_context.triggered[0].get("value")
     triggered = callback_context.triggered_id
     filters = dict(store_data or {})
 
     if isinstance(triggered, dict) and triggered.get("type") == "connector-search-filter-add":
+        if not triggered_value:
+            return no_update, no_update, no_update
         normalized_key = (key_value or "").strip()
         normalized_value = (value_value or "").strip()
         if not normalized_key or not normalized_value:
@@ -305,6 +308,8 @@ def update_search_filters_store(
         return filters, "", ""
 
     if isinstance(triggered, dict) and triggered.get("type") == "connector-search-filter-remove":
+        if not triggered_value:
+            return no_update, no_update, no_update
         remove_key = triggered.get("filter_key")
         if remove_key:
             filters.pop(remove_key, None)
