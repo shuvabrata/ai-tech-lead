@@ -34,6 +34,13 @@ ConfigItemRequest = Union[
 ]
 
 
+def _status_for_connector_error(exc: ValueError) -> int:
+    message = str(exc).lower()
+    if "unknown connector_type" in message or "not found" in message:
+        return 404
+    return 400
+
+
 @router.get("/", response_model=List[ConnectorStatus])
 async def list_connectors(db: AsyncSession = Depends(get_async_db)):
     return await service.list_connectors(db)
@@ -81,7 +88,7 @@ async def create_config_item(
     try:
         return await service.save_config_item(db, connector_type, item, item_id=None)
     except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+        raise HTTPException(status_code=_status_for_connector_error(exc), detail=str(exc)) from exc
 
 
 @router.put("/{connector_type}/configs/{item_id}", response_model=Dict[str, Any])
@@ -94,7 +101,7 @@ async def update_config_item(
     try:
         return await service.save_config_item(db, connector_type, item, item_id=item_id)
     except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+        raise HTTPException(status_code=_status_for_connector_error(exc), detail=str(exc)) from exc
 
 
 @router.delete("/{connector_type}/configs/{item_id}")
