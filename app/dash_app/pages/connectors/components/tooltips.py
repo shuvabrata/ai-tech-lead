@@ -6,7 +6,7 @@ FIELD_TOOLTIPS: Dict[str, Dict[str, str]] = {
     "github": {
         "url": "The full URL of the GitHub repository (e.g., https://github.com/owner/repo).",
         "access_token": "A personal access token with read permissions for the repository.",
-        "branch_name_patterns": "Custom regular expressions used to find Jira keys inside branch names. Each pattern must contain exactly one capture group () around the Jira key. If left blank, it defaults to standard Git Flow (e.g., feature/(PROJ-123)-desc) and prefix patterns (e.g., (PROJ-123)-desc).",
+        "branch_name_patterns": "Custom regular expressions used to find Jira keys inside branch names. Each pattern must contain exactly one capture group () around the Jira key. If left default, it defaults to standard Git Flow (e.g., feature/(PROJ-123)-desc) and prefix patterns (e.g., (PROJ-123)-desc).",
         "extraction_sources": "Select where the system should look for Jira ticket keys (e.g., PROJ-123) to link your code changes to work items. You can choose to extract keys from the branch name, the commit message, or both.",
     },
     "jira": {

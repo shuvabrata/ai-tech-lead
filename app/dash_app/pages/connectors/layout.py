@@ -410,6 +410,18 @@ def _render_field(field: dict, connector_type: str, section: str) -> html.Div:
     tooltip_text = FIELD_TOOLTIPS.get(connector_type, {}).get(field["key"])
 
     label_children = [html.Span(field.get("label", field["key"]).upper())]
+
+    if field.get("required"):
+        label_children.append(
+            html.Span(
+                " *",
+                style={
+                    "color": "#b42318",
+                    "fontWeight": FONT_WEIGHT_MEDIUM,
+                    "marginLeft": "2px",
+                },
+            )
+        )
     
     if tooltip_text:
         label_children.append(

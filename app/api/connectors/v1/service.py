@@ -84,6 +84,28 @@ def _mask(value: Optional[str]) -> Optional[str]:
     return "********"
 
 
+def _validate_github_item_payload(data: Dict[str, Any], item_id: Optional[int]) -> None:
+    url = data.get("url")
+    if not isinstance(url, str) or not url.strip():
+        raise ValueError("GitHub repository URL is required")
+
+    access_token = data.get("access_token")
+    if item_id is None and (not isinstance(access_token, str) or not access_token.strip()):
+        raise ValueError("GitHub access_token is required")
+
+    if "access_token" in data and isinstance(access_token, str) and not access_token.strip():
+        raise ValueError("GitHub access_token cannot be empty")
+
+
+def _validate_jira_item_payload(data: Dict[str, Any], item_id: Optional[int]) -> None:
+    api_token = data.get("api_token")
+    if item_id is None and (not isinstance(api_token, str) or not api_token.strip()):
+        raise ValueError("Jira api_token is required")
+
+    if "api_token" in data and isinstance(api_token, str) and not api_token.strip():
+        raise ValueError("Jira api_token cannot be empty")
+
+
 async def list_connectors(db: AsyncSession) -> List[Dict[str, Any]]:
     connectors = await query.get_all_connectors(db)
     results = []
@@ -169,6 +191,10 @@ async def save_config_item(
 ) -> Dict[str, Any]:
     _validate_connector_type(connector_type)
     data = _to_dict(item)
+    if connector_type == "github":
+        _validate_github_item_payload(data, item_id)
+    if connector_type == "jira":
+        _validate_jira_item_payload(data, item_id)
     allowed_fields = set(REQUEST_FIELDS[connector_type])
     encrypted_map = SENSITIVE_FIELDS.get(connector_type, {})
 
