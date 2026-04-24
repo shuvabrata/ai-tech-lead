@@ -4,13 +4,13 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.ai_agent.mcp_integration.client_manager import MCPClientManager
+from app.ai_agent.mcp_integration.client_manager import GithubMCPClientManager
 from app.settings import settings
 
 
-def _build_manager() -> MCPClientManager:
+def _build_manager() -> GithubMCPClientManager:
     """Create a manager instance from application settings."""
-    return MCPClientManager(
+    return GithubMCPClientManager(
         github_server_url=settings.GITHUB_MCP_SERVER_URL,
         github_token=settings.GITHUB_MCP_TOKEN,
         github_enabled=settings.GITHUB_MCP_ENABLED,

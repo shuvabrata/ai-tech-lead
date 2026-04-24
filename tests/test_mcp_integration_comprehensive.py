@@ -151,6 +151,36 @@ class TestProviderToolResponseBehavior:
 class TestClientConnectionLogic:
     """Validate MCP client connection and graceful degradation."""
 
+    def test_atlassian_check_connection_missing_token_returns_unavailable(self):
+        """Atlassian check_connection should fail fast when token is missing."""
+        from app.ai_agent.mcp_integration.client_manager import AtlassianMCPClientManager
+
+        manager = AtlassianMCPClientManager(
+            atlassian_server_url="https://mcp.atlassian.com/v1/mcp",
+            atlassian_token="",
+            atlassian_enabled=True,
+        )
+
+        result = manager.check_connection()
+        assert result["status"] == "unavailable"
+        assert result["connected"] is False
+        assert result["error"] == "atlassian_mcp_token_missing"
+
+    def test_atlassian_check_connection_malformed_token_returns_unavailable(self):
+        """Atlassian check_connection should reject clearly malformed token values."""
+        from app.ai_agent.mcp_integration.client_manager import AtlassianMCPClientManager
+
+        manager = AtlassianMCPClientManager(
+            atlassian_server_url="https://mcp.atlassian.com/v1/mcp",
+            atlassian_token="invalid_token_for_verification",
+            atlassian_enabled=True,
+        )
+
+        result = manager.check_connection()
+        assert result["status"] == "unavailable"
+        assert result["connected"] is False
+        assert result["error"] == "atlassian_mcp_token_invalid_format"
+
     def test_execute_tool_call_returns_envelope_structure(self):
         """Tool execution should always return a structured result envelope."""
         from app.ai_agent.mcp_integration.tool_executor import execute_tool_call
