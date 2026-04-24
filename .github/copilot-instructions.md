@@ -121,6 +121,15 @@ Required environment variables:
 - **Logging**: Use the centralized logger from `app.common.logger`
 - **Error Handling**: Raise appropriate exceptions with clear error messages
 
+### UI Alert Design Standards
+- **Visibility by Placement**: Render operation alerts in a dedicated feedback region near the top of the active page section. For long, scrollable sections, prefer a sticky feedback container so alerts remain visible while users interact with forms.
+- **Dismissable by Default**: Alerts should be user dismissable by default (`dismissable=True`) unless the message must remain persistent for safety or blocking workflow reasons.
+- **Typography Consistency**: Apply centralized design tokens for alert typography and avoid ad-hoc inline font sizes. Prefer shared styles from `app/dash_app/styles.py` for consistent sizing and readability.
+- **Spacing Consistency**: Use standardized spacing classes/tokens (avoid mixing arbitrary `mb-*` and `mt-*` patterns across similar alert types).
+- **Semantic Color Mapping**: Use consistent semantic colors across pages: success for completed actions, danger for failures, warning for recoverable issues, and info for guidance/neutral outcomes.
+- **Reusable Helpers**: Prefer shared alert builder/helper functions for repeated patterns (icon + message + optional hint/link + dismiss behavior) instead of hand-crafting each alert in callbacks.
+- **Auto-Dismiss Policy**: If duration-based auto-dismiss is used, apply it consistently for transient notifications only; keep error alerts dismissable but persistent unless there is a clear UX reason to auto-close.
+
 ### Testing
 - Tests located in `tests/` directory
 - Test server should be running: `uvicorn app.main:app --reload`
