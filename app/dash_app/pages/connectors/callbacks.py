@@ -13,6 +13,7 @@ from dash import ALL, MATCH, Input, Output, State, callback, callback_context, h
 
 from app.settings import settings
 from app.api.connectors.v1.registry import CONNECTOR_REGISTRY
+from app.dash_app.components.common import create_alert
 from app.dash_app.styles import (
     COLOR_BACKGROUND_LIGHT,
     COLOR_BORDER,
@@ -82,7 +83,7 @@ def render_connectors(store: Dict[str, Any] | None):
         message = store.get("message", "Failed to load connectors.")
         return [
             dbc.Col(
-                dbc.Alert(message, color="danger", className="mb-0"),
+                create_alert(message, color="danger", class_name="mb-0"),
                 width=12,
             )
         ]
@@ -392,7 +393,7 @@ def render_items_list(store: Dict[str, Any] | None):
         return _empty_items_message("Loading items...")
 
     if store.get("status") != "ok":
-        return [dbc.Alert(store.get("message", "Failed to load items."), color="danger", className="mb-0")]
+        return [create_alert(store.get("message", "Failed to load items."), color="danger", class_name="mb-0")]
 
     items = store.get("items", [])
     connector_type = store.get("connector_type")
@@ -601,13 +602,13 @@ def handle_item_save(
         return (
             updated_store,
             clear_state,
-            dbc.Alert("Item saved successfully.", color="success", className="mt-2"),
+            create_alert("Item saved successfully.", color="success", class_name="mb-0"),
         )
     except requests.exceptions.RequestException as exc:
         return (
             no_update,
             no_update,
-            dbc.Alert(f"Failed to save item: {exc}", color="danger", className="mt-2"),
+            create_alert(f"Failed to save item: {exc}", color="danger", class_name="mb-0"),
         )
 
 
@@ -652,13 +653,13 @@ def handle_item_delete(_clicks: List[int | None]):
         return (
             updated_store,
             clear_state,
-            dbc.Alert("Item deleted.", color="success", className="mt-2"),
+            create_alert("Item deleted.", color="success", class_name="mb-0"),
         )
     except requests.exceptions.RequestException as exc:
         return (
             no_update,
             no_update,
-            dbc.Alert(f"Failed to delete item: {exc}", color="danger", className="mt-2"),
+            create_alert(f"Failed to delete item: {exc}", color="danger", class_name="mb-0"),
         )
 
 
@@ -713,12 +714,12 @@ def handle_connector_save(
         updated = response.json()
         return (
             {"status": "ok", "connector_type": connector_type, "data": updated},
-            dbc.Alert("Configuration saved.", color="success", className="mt-2"),
+            create_alert("Configuration saved.", color="success", class_name="mb-0"),
         )
     except requests.exceptions.RequestException as exc:
         return (
             no_update,
-            dbc.Alert(f"Failed to save configuration: {exc}", color="danger", className="mt-2"),
+            create_alert(f"Failed to save configuration: {exc}", color="danger", class_name="mb-0"),
         )
 
 
@@ -741,9 +742,9 @@ def handle_connector_test(_clicks: List[int | None]):
         response.raise_for_status()
         data = response.json()
         message = data.get("message", "Connection verified.")
-        return dbc.Alert(message, color="success", className="mt-2")
+        return create_alert(message, color="success", class_name="mb-0")
     except requests.exceptions.RequestException as exc:
-        return dbc.Alert(f"Test failed: {exc}", color="danger", className="mt-2")
+        return create_alert(f"Test failed: {exc}", color="danger", class_name="mb-0")
 
 
 @callback(
@@ -775,14 +776,14 @@ def handle_connector_delete(_clicks: List[int | None]):
         return (
             {"status": "ok", "connector_type": connector_type, "data": {"config": None}},
             {"status": "ok", "connector_type": connector_type, "items": []},
-            dbc.Alert("Configuration deleted.", color="success", className="mt-2"),
+            create_alert("Configuration deleted.", color="success", class_name="mb-0"),
             "/app/connectors",
         )
     except requests.exceptions.RequestException as exc:
         return (
             no_update,
             no_update,
-            dbc.Alert(f"Delete failed: {exc}", color="danger", className="mt-2"),
+            create_alert(f"Delete failed: {exc}", color="danger", class_name="mb-0"),
             no_update,
         )
 

@@ -5,11 +5,11 @@ Callbacks for query validation and execution.
 
 import time
 import requests
-import dash_bootstrap_components as dbc
 from dash import html, Input, Output, State, callback
 
 from app.settings import settings
 from app.common.logger import logger
+from app.dash_app.components.common import create_alert
 from app.dash_app.styles import (
     VALIDATION_ALERT_STYLE,
     VALIDATION_CODE_STYLE,
@@ -44,29 +44,29 @@ def validate_query(query_text):
     write_keywords = ['CREATE', 'MERGE', 'SET', 'DELETE', 'REMOVE', 'DROP']
     for keyword in write_keywords:
         if f' {keyword} ' in f' {query_upper} ' or query_upper.startswith(f'{keyword} '):
-            return dbc.Alert([
+            return create_alert([
                 html.I(className="fas fa-exclamation-triangle me-2"),
                 f"Write operations ({keyword}) are not allowed for security reasons. Only read-only queries (MATCH, RETURN) are permitted."
-            ], color="danger", className="mb-0", style=VALIDATION_ALERT_STYLE)
+            ], color="danger", class_name="mb-0", style=VALIDATION_ALERT_STYLE)
     
     # Check if query starts with valid read keywords
     valid_starts = ['MATCH', 'RETURN', 'WITH', 'UNWIND', 'CALL', 'OPTIONAL']
     starts_valid = any(query_upper.startswith(keyword) for keyword in valid_starts)
     
     if not starts_valid:
-        return dbc.Alert([
+        return create_alert([
             html.I(className="fas fa-info-circle me-2"),
             "Query should typically start with MATCH, RETURN, or other read-only keywords."
-        ], color="warning", className="mb-0", style=VALIDATION_ALERT_STYLE)
+        ], color="warning", class_name="mb-0", style=VALIDATION_ALERT_STYLE)
     
     # Check for missing LIMIT (performance warning)
     if 'LIMIT' not in query_upper and 'MATCH' in query_upper:
-        return dbc.Alert([
+        return create_alert([
             html.I(className="fas fa-lightbulb me-2"),
             "Consider adding ",
             html.Code("LIMIT 100", style=VALIDATION_CODE_STYLE),
             " to improve query performance and avoid loading too many nodes."
-        ], color="info", className="mb-0", style=VALIDATION_ALERT_STYLE)
+        ], color="info", class_name="mb-0", style=VALIDATION_ALERT_STYLE)
     
     # Query looks good
     return None
