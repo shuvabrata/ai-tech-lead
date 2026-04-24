@@ -1,6 +1,8 @@
-"""MCP client manager for GitHub MCP server access.
+"""MCP client managers for GitHub and Atlassian MCP server access.
 
 This module keeps a synchronous surface while using the async MCP SDK internally.
+Shared async-to-sync utilities live in _MCPClientBase so they are not duplicated
+across the GitHub and Atlassian managers.
 """
 
 from __future__ import annotations
@@ -23,13 +25,9 @@ def _default_function_schema() -> dict[str, Any]:
     return {"type": "object", "properties": {}}
 
 
-@dataclass
-class MCPClientManager:
-    """Manage GitHub MCP client lifecycle, tool discovery, and tool execution."""
+class _MCPClientBase:
+    """Shared async-to-sync bridge and tool normalization utilities."""
 
-    github_server_url: str
-    github_token: str = ""
-    github_enabled: bool = False
     request_timeout_seconds: int = 20
 
     def _run_sync(self, async_fn: Callable[..., Coroutine[Any, Any, Any]], *args: Any) -> Any:
@@ -56,15 +54,20 @@ class MCPClientManager:
             return value
         raise value
 
-    async def _with_github_session(self, operation: Callable[[ClientSession], Coroutine[Any, Any, Any]]) -> Any:
-        """Open an MCP session to GitHub and run one operation safely."""
+    async def _with_session(
+        self,
+        server_url: str,
+        token: str,
+        operation: Callable[[ClientSession], Coroutine[Any, Any, Any]],
+    ) -> Any:
+        """Open an MCP session to any streamable-HTTP endpoint and run one operation."""
         headers: dict[str, str] = {}
-        if self.github_token:
-            headers["Authorization"] = f"Bearer {self.github_token}"
+        if token:
+            headers["Authorization"] = f"Bearer {token}"
 
         timeout = httpx.Timeout(self.request_timeout_seconds)
         async with httpx.AsyncClient(headers=headers, timeout=timeout) as http_client:
-            async with streamable_http_client(self.github_server_url, http_client=http_client) as (
+            async with streamable_http_client(server_url, http_client=http_client) as (
                 read_stream,
                 write_stream,
                 _,
@@ -91,6 +94,19 @@ class MCPClientManager:
         if hasattr(item, "model_dump"):
             return item.model_dump()
         return {"value": str(item)}
+
+@dataclass
+class GithubMCPClientManager(_MCPClientBase):
+    """Manage GitHub MCP client lifecycle, tool discovery, and tool execution."""
+
+    github_server_url: str
+    github_token: str = ""
+    github_enabled: bool = False
+    request_timeout_seconds: int = 20
+
+    async def _with_github_session(self, operation: Callable[[ClientSession], Coroutine[Any, Any, Any]]) -> Any:
+        """Open an MCP session to GitHub and run one operation safely."""
+        return await self._with_session(self.github_server_url, self.github_token, operation)
 
     def check_connection(self) -> dict[str, Any]:
         """Verify GitHub MCP connectivity and return a structured status payload."""
@@ -173,3 +189,133 @@ class MCPClientManager:
                 "status": "unavailable",
                 "error": str(exc),
             }
+
+
+@dataclass
+class AtlassianMCPClientManager(_MCPClientBase):
+    """Manage Atlassian Rovo MCP client lifecycle, tool discovery, and tool execution.
+
+    Connects to the cloud-hosted endpoint at https://mcp.atlassian.com/v1/mcp using
+    a Rovo MCP scoped Bearer token. Supports Jira and Confluence read operations.
+    """
+
+    atlassian_server_url: str
+    atlassian_token: str = ""
+    atlassian_enabled: bool = False
+    request_timeout_seconds: int = 20
+
+    @staticmethod
+    def _has_plausible_token(token: str) -> bool:
+        """Perform a lightweight format check for Rovo MCP scoped tokens.
+
+        This avoids reporting a false "connected" state when an obviously invalid
+        token (or no token) is configured, while still allowing runtime verification
+        against the live endpoint for well-formed tokens.
+        """
+        return bool(token) and token.startswith("ATATT") and len(token) >= 20
+
+    async def _with_atlassian_session(self, operation: Callable[[ClientSession], Coroutine[Any, Any, Any]]) -> Any:
+        """Open an MCP session to the Atlassian Rovo endpoint and run one operation."""
+        return await self._with_session(self.atlassian_server_url, self.atlassian_token, operation)
+
+    def check_connection(self) -> dict[str, Any]:
+        """Verify Atlassian MCP connectivity and return a structured status payload."""
+        if not self.atlassian_enabled:
+            return {
+                "server": "atlassian",
+                "status": "disabled",
+                "connected": False,
+                "error": "atlassian_mcp_disabled",
+            }
+
+        if not self.atlassian_token:
+            return {
+                "server": "atlassian",
+                "status": "unavailable",
+                "connected": False,
+                "error": "atlassian_mcp_token_missing",
+            }
+
+        if not self._has_plausible_token(self.atlassian_token):
+            return {
+                "server": "atlassian",
+                "status": "unavailable",
+                "connected": False,
+                "error": "atlassian_mcp_token_invalid_format",
+            }
+
+        async def _check(session: ClientSession) -> dict[str, Any]:
+            _ = session
+            return {"server": "atlassian", "status": "connected", "connected": True}
+
+        try:
+            return self._run_sync(self._with_atlassian_session, _check)
+        except Exception as exc:  # noqa: BLE001 - return structured errors to caller
+            return {
+                "server": "atlassian",
+                "status": "unavailable",
+                "connected": False,
+                "error": str(exc),
+            }
+
+    def list_tools(self) -> list[dict[str, Any]]:
+        """Return normalized tools from the Atlassian Rovo MCP server.
+
+        Returns an empty list when MCP is disabled or unavailable.
+        """
+        if not self.atlassian_enabled:
+            return []
+
+        async def _list(session: ClientSession) -> list[dict[str, Any]]:
+            result = await session.list_tools()
+            return [self._normalize_tool(tool) for tool in result.tools]
+
+        try:
+            return self._run_sync(self._with_atlassian_session, _list)
+        except Exception:
+            return []
+
+    def call_tool(self, tool_name: str, arguments: dict[str, Any] | None = None) -> dict[str, Any]:
+        """Execute one Atlassian MCP tool and return a stable, structured result payload."""
+        safe_args = arguments or {}
+
+        if not self.atlassian_enabled:
+            return {
+                "tool_name": tool_name,
+                "arguments": safe_args,
+                "result": None,
+                "status": "disabled",
+                "error": "atlassian_mcp_disabled",
+            }
+
+        async def _call(session: ClientSession) -> dict[str, Any]:
+            result = await session.call_tool(
+                name=tool_name,
+                arguments=safe_args,
+                read_timeout_seconds=timedelta(seconds=self.request_timeout_seconds),
+            )
+            return {
+                "tool_name": tool_name,
+                "arguments": safe_args,
+                "result": {
+                    "content": [self._serialize_content_item(item) for item in result.content],
+                    "structured_content": result.structuredContent,
+                    "is_error": bool(result.isError),
+                },
+                "status": "tool_error" if result.isError else "success",
+            }
+
+        try:
+            return self._run_sync(self._with_atlassian_session, _call)
+        except Exception as exc:  # noqa: BLE001 - return structured errors to caller
+            return {
+                "tool_name": tool_name,
+                "arguments": safe_args,
+                "result": None,
+                "status": "unavailable",
+                "error": str(exc),
+            }
+
+
+# Backward-compatibility alias for existing imports.
+MCPClientManager = GithubMCPClientManager
