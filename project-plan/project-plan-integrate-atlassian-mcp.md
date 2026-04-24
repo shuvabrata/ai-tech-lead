@@ -12,8 +12,8 @@ This document is the execution tracker for integrating the Atlassian Rovo MCP Se
 ## Overall Status
 
 - Project status: `[IP]`
-- Current phase: Phase 2
-- Next gate: Phase 2 verification
+- Current phase: Phase 3
+- Next gate: Phase 3 verification
 - Stop rule: Stop if Atlassian org admin has not enabled API token authentication for Rovo MCP — this is a hard prerequisite
 
 ## Locked Decisions
@@ -24,7 +24,7 @@ This document is the execution tracker for integrating the Atlassian Rovo MCP Se
 - Collapse `ATLASSIAN_MCP_USERNAME` and `ATLASSIAN_MCP_API_TOKEN` into a single `ATLASSIAN_MCP_TOKEN` setting to align with the GitHub pattern
 - No new Docker Compose service is needed; remove the stale default URL referencing `http://jira-mcp:9090/sse`
 - Keep all operations read-only (Atlassian MCP supports write operations but they are out of scope)
-- Reuse the existing `MCPClientManager` patterns from the GitHub integration; add a parallel `AtlassianMCPClientManager`
+- Reuse the existing `GithubMCPClientManager` patterns from the GitHub integration; add a parallel `AtlassianMCPClientManager`
 - Namespace tool names from each backend (`github__<tool>` and `atlassian__<tool>`) to prevent collisions in the tool executor
 - Keep the existing chat REST API unchanged
 - Use environment variables for credentials
@@ -53,7 +53,7 @@ Before implementation begins, the following must be confirmed out-of-band:
 ## Target Architecture
 
 1. Keep [app/ai_agent/ai_agent.py](/home/shuva/github/shuvabrata/work-behavior-analytics-ai/app/ai_agent/ai_agent.py) unchanged as the chat entry point.
-2. Add `AtlassianMCPClientManager` to [app/ai_agent/mcp_integration/client_manager.py](/home/shuva/github/shuvabrata/work-behavior-analytics-ai/app/ai_agent/mcp_integration/client_manager.py), following the same structure as `MCPClientManager`.
+2. Add `AtlassianMCPClientManager` to [app/ai_agent/mcp_integration/client_manager.py](/home/shuva/github/shuvabrata/work-behavior-analytics-ai/app/ai_agent/mcp_integration/client_manager.py), following the same structure as `GithubMCPClientManager`.
 3. Update [app/ai_agent/mcp_integration/tool_executor.py](/home/shuva/github/shuvabrata/work-behavior-analytics-ai/app/ai_agent/mcp_integration/tool_executor.py) to aggregate tools from both GitHub and Atlassian backends with namespacing, and route execution to the correct backend.
 4. Update [app/ai_agent/chains/mcp_chain.py](/home/shuva/github/shuvabrata/work-behavior-analytics-ai/app/ai_agent/chains/mcp_chain.py) to generalize the relevance check so it triggers on Jira, Confluence, and Compass queries in addition to GitHub queries.
 5. The multi-source composition in [app/ai_agent/chains/chains.py](/home/shuva/github/shuvabrata/work-behavior-analytics-ai/app/ai_agent/chains/chains.py) requires no changes — it already handles multiple envelopes.
@@ -120,22 +120,22 @@ Before implementation begins, the following must be confirmed out-of-band:
 
 ## Phase 2: Atlassian MCP Client Layer
 
-- Phase status: `[NS]`
+- Phase status: `[DN]`
 - Entry criteria: Phase 1 verification gate passed ✓
 - Goal: Add an `AtlassianMCPClientManager` to the existing client module, following the same patterns as the GitHub client.
 - Entry criteria: Phase 1 verification gate passed.
 
 **Steps**
 
-1. `[NS]` Add `AtlassianMCPClientManager` dataclass to [app/ai_agent/mcp_integration/client_manager.py](/home/shuva/github/shuvabrata/work-behavior-analytics-ai/app/ai_agent/mcp_integration/client_manager.py).
-2. `[NS]` Fields: `atlassian_server_url`, `atlassian_token`, `atlassian_enabled`, `request_timeout_seconds`.
-3. `[NS]` Implement `_with_atlassian_session()` using `streamable_http_client` and Bearer token auth — same pattern as `_with_github_session()`.
-4. `[NS]` Reuse `_run_sync()` from `MCPClientManager` — extract it to a shared base or mixin if it is duplicated.
-5. `[NS]` Implement `check_connection()` returning the same structured status shape as the GitHub manager.
-6. `[NS]` Implement `list_tools()` returning normalized tool dicts in provider function-schema format.
-7. `[NS]` Implement `call_tool(tool_name, arguments)` returning the same result envelope shape as the GitHub manager.
-8. `[NS]` Handle disabled, unavailable, and tool-error states with the same graceful fallback shape.
-9. `[NS]` Export `AtlassianMCPClientManager` from [app/ai_agent/mcp_integration/__init__.py](/home/shuva/github/shuvabrata/work-behavior-analytics-ai/app/ai_agent/mcp_integration/__init__.py).
+1. `[DN]` Add `AtlassianMCPClientManager` dataclass to [app/ai_agent/mcp_integration/client_manager.py](/home/shuva/github/shuvabrata/work-behavior-analytics-ai/app/ai_agent/mcp_integration/client_manager.py).
+2. `[DN]` Fields: `atlassian_server_url`, `atlassian_token`, `atlassian_enabled`, `request_timeout_seconds`.
+3. `[DN]` Implement `_with_atlassian_session()` using `streamable_http_client` and Bearer token auth — same pattern as `_with_github_session()`.
+4. `[DN]` Reuse `_run_sync()` from `GithubMCPClientManager` via a shared base (`_MCPClientBase`) to avoid duplication.
+5. `[DN]` Implement `check_connection()` returning the same structured status shape as the GitHub manager.
+6. `[DN]` Implement `list_tools()` returning normalized tool dicts in provider function-schema format.
+7. `[DN]` Implement `call_tool(tool_name, arguments)` returning the same result envelope shape as the GitHub manager.
+8. `[DN]` Handle disabled, unavailable, and tool-error states with the same graceful fallback shape.
+9. `[DN]` Export `AtlassianMCPClientManager` from [app/ai_agent/mcp_integration/__init__.py](/home/shuva/github/shuvabrata/work-behavior-analytics-ai/app/ai_agent/mcp_integration/__init__.py).
 
 **Deliverables**
 
@@ -157,13 +157,13 @@ Before implementation begins, the following must be confirmed out-of-band:
 
 ## Phase 3: Multi-Backend Tool Executor
 
-- Phase status: `[NS]`
+- Phase status: `[IP]`
 - Goal: Extend the tool executor to aggregate tools from both GitHub and Atlassian backends with namespacing, and route execution to the correct backend.
 - Entry criteria: Phase 2 verification gate passed.
 
 **Steps**
 
-1. `[NS]` Define the namespacing convention in [app/ai_agent/mcp_integration/tool_executor.py](/home/shuva/github/shuvabrata/work-behavior-analytics-ai/app/ai_agent/mcp_integration/tool_executor.py): `github__<tool_name>` for GitHub tools, `atlassian__<tool_name>` for Atlassian tools.
+1. `[IP]` Define the namespacing convention in [app/ai_agent/mcp_integration/tool_executor.py](/home/shuva/github/shuvabrata/work-behavior-analytics-ai/app/ai_agent/mcp_integration/tool_executor.py): `github__<tool_name>` for GitHub tools, `atlassian__<tool_name>` for Atlassian tools.
 2. `[NS]` Update `_build_manager()` or add `_build_atlassian_manager()` to construct the Atlassian manager from settings.
 3. `[NS]` Update `list_available_tools()` to call both managers when their respective flags are enabled, prefix each tool's `function.name` with the backend namespace, and return the combined list.
 4. `[NS]` Update `execute_tool_call(tool_name, arguments)` to strip the namespace prefix, identify the target backend, and route the call to the correct manager.
@@ -329,3 +329,10 @@ Before implementation begins, the following must be confirmed out-of-band:
 - `2026-04-19` `[DN]` Phase 1 Step 5 completed: confirmed no remaining references to removed fields
 - `2026-04-19` `[DN]` Phase 1 verification complete: settings import cleanly, defaults correct, 32/32 tests pass
 - `2026-04-19` `[DN]` Phase 1 completed; execution advanced to Phase 2
+- `2026-04-24` `[DN]` Phase 2 Step 1-3 completed: implemented `AtlassianMCPClientManager` with streamable HTTP session and Bearer token flow in [app/ai_agent/mcp_integration/client_manager.py](/home/shuva/github/shuvabrata/work-behavior-analytics-ai/app/ai_agent/mcp_integration/client_manager.py)
+- `2026-04-24` `[DN]` Phase 2 Step 4 completed: extracted shared async-to-sync bridge and tool normalization into `_MCPClientBase`
+- `2026-04-24` `[DN]` Phase 2 Step 5-8 completed: implemented `check_connection`, `list_tools`, and `call_tool` with disabled/unavailable/tool_error fallback envelopes
+- `2026-04-24` `[DN]` Phase 2 Step 9 completed: exported `AtlassianMCPClientManager` and renamed `MCPClientManager` to `GithubMCPClientManager` with backward-compatible alias
+- `2026-04-24` `[DN]` Phase 2 verification complete: `py_compile` passed, live tool discovery returned 2 tools, structured tool-call envelope verified, disabled paths verified, MCP regression tests passing
+- `2026-04-24` `[DN]` Phase 2 hardening: `check_connection()` now fails fast for missing/malformed token to prevent false connected state
+- `2026-04-24` `[DN]` Phase 2 completed; execution advanced to Phase 3
