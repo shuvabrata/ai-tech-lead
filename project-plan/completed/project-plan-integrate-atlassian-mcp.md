@@ -347,9 +347,9 @@ Before implementation begins, the following must be confirmed out-of-band:
 - `2026-04-24` `[DN]` Phase 4 Step 6 completed: decided to keep envelope `source` as `mcp` to preserve existing multi-source composition behavior
 - `2026-04-24` `[DN]` Phase 4 verification complete: MCP suites passed (67 tests) including new coverage for dynamic relevance criteria, Atlassian-only mode, and dual-namespace tool calls
 - `2026-04-24` `[DN]` Phase 4 completed; execution advanced to Phase 5
-- `2026-04-24` `[IP]` Phase 5 automated validation started: expanded [tests/test_chat_flow_phase5_integration.py](/home/shuva/github/shuvabrata/work-behavior-analytics-ai/tests/test_chat_flow_phase5_integration.py) for Jira, Confluence, dual-backend GitHub-only routing, unavailable Atlassian fallback, Atlassian-disabled fallback, and session continuity
-- `2026-04-24` `[IP]` Phase 5 automated evidence: chat-flow test suite passed with related MCP suites (`16 passed` in phase-5-focused run)
-- `2026-04-24` `[IP]` Phase 5 live validation pending: requires manual REST checks with real provider + Atlassian token against running app
+- `2026-04-24` `[DN]` Phase 5 automated validation completed: expanded [tests/test_chat_flow_phase5_integration.py](/home/shuva/github/shuvabrata/work-behavior-analytics-ai/tests/test_chat_flow_phase5_integration.py) for Jira, Confluence, dual-backend GitHub-only routing, unavailable Atlassian fallback, Atlassian-disabled fallback, and session continuity
+- `2026-04-24` `[DN]` Phase 5 automated evidence: chat-flow test suite passed with related MCP suites (`16 passed` in phase-5-focused run)
+- `2026-04-24` `[DN]` Phase 5 live-validation prerequisite resolved: manual REST checks completed successfully with real provider + Atlassian token
 - `2026-04-24` `[DN]` Phase 5 live validation completed: manual REST checks performed and accepted (Jira, Confluence, baseline prompt, and fallback behavior reviewed)
 - `2026-04-24` `[DN]` Phase 5 completed; execution advanced to Phase 6
 - `2026-04-24` `[DN]` Phase 6 Step 1 completed: settings defaults/override coverage verified in `tests/test_mcp_integration_comprehensive.py`
