@@ -33,4 +33,4 @@ jobs:
           pip install -r requirements.txt -r requirements_dev.txt
 
       - name: Run unit tests
-        run: pytest -m unit tests --cov=app --cov-report=term-missing 
+        run: pytest -m unit tests --cov=app --cov-report=term-missing
