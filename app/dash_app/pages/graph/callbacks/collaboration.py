@@ -12,7 +12,8 @@ from dash import Input, Output, State, callback, html, no_update
 from app.analytics.collaboration.config import CollaborationNetworkConfig
 from app.analytics.registry import COLLABORATION_NETWORK_ANALYTIC
 from app.common.logger import logger
-from app.dash_app.styles import GRAPH_DETAILS_PANEL_STYLE
+from app.dash_app.components.common import create_alert
+from app.dash_app.styles import FONT_SIZE_SMALL, GRAPH_DETAILS_PANEL_STYLE
 from app.api.graph.v1.service import get_collaboration_network
 
 
@@ -109,7 +110,7 @@ def load_collaboration_network(
         layer_count = len(applied_config.get("enabled_layers", []))
         lookback_days = applied_config.get("lookback_days", 90)
 
-        banner_children = dbc.Alert(
+        banner_children = create_alert(
             [
                 html.Strong("Collaboration Network"),
                 html.Span(f"  —  Last {lookback_days} days  "),
@@ -124,7 +125,8 @@ def load_collaboration_network(
                 ),
             ],
             color="light",
-            className="mb-2 py-2",
+            class_name="mb-2 py-2",
+            style={"fontSize": FONT_SIZE_SMALL},
         )
 
         logger.info(
@@ -159,4 +161,4 @@ def load_collaboration_network(
 
 
 def _error_banner(message: str):
-    return dbc.Alert(message, color="danger", className="mb-2")
+    return create_alert(message, color="danger", class_name="mb-2")

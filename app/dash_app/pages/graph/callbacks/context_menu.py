@@ -4,12 +4,12 @@ Callbacks for right-click context menu functionality.
 """
 
 import requests
-import dash_bootstrap_components as dbc
 from dash import html, Input, Output, State, callback, clientside_callback, callback_context
 from dash.exceptions import PreventUpdate
 
 from app.settings import settings
 from app.common.logger import logger
+from app.dash_app.components.common import create_alert
 from ..utils import (
     execute_expansion_and_merge,
     create_expansion_success_alert,
@@ -287,10 +287,10 @@ def context_menu_remove_node(n_clicks, rightclick_data, current_elements, curren
         f"node_id={node_id} removed_count={removed_count} "
         f"remaining_elements={len(filtered_elements)}"
     )
-    success_msg = dbc.Alert([
+    success_msg = create_alert([
         html.I(className="fas fa-trash-alt me-2"),
         f"Removed node and {removed_count - 1} connected relationships from view"
-    ], color="warning", className="mb-0", dismissable=True, duration=3000)
+    ], color="warning", class_name="mb-0", duration=3000)
     
     return filtered_elements, filtered_elements, updated_menu_style, success_msg, show_style
 

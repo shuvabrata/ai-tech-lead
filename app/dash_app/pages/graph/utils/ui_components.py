@@ -7,6 +7,7 @@ These are pure functions that return Dash components.
 import dash_bootstrap_components as dbc
 from dash import html
 
+from app.dash_app.components.common import create_alert
 from app.dash_app.styles import (
     ALERT_TEXT_STYLE,
     ALERT_HINT_STYLE,
@@ -104,7 +105,7 @@ def create_error_alert(message, alert_type='danger', hint=None, heading="Query E
         ]
     
     return html.Div([
-        dbc.Alert(alert_content, color=alert_type)
+        create_alert(alert_content, color=alert_type, class_name="mb-2")
     ])
 
 
@@ -135,18 +136,18 @@ def create_table_display(raw_results, result_count):
         ], bordered=True, striped=True, hover=True, responsive=True, className="mb-0")
         
         return html.Div([
-            dbc.Alert([
+            create_alert([
                 html.I(className="fas fa-check-circle me-2"),
                 f"Query executed successfully! Retrieved {result_count} result(s)."
-            ], color="success", className="mb-3", dismissable=True),
+            ], color="success", class_name="mb-3"),
             table
         ])
     else:
         # Empty results
-        return dbc.Alert([
+        return create_alert([
             html.I(className="fas fa-info-circle me-2"),
             "Query executed successfully but returned no results."
-        ], color="info", dismissable=True)
+        ], color="info")
 
 
 def create_graph_success_alert(node_count, rel_count):
@@ -159,10 +160,10 @@ def create_graph_success_alert(node_count, rel_count):
     Returns:
         dbc.Alert: Success alert component
     """
-    return dbc.Alert([
+    return create_alert([
         html.I(className="fas fa-check-circle me-2"),
         f"Query executed successfully! Displaying {node_count} nodes and {rel_count} relationships."
-    ], color="success", className="mb-0", dismissable=True)
+    ], color="success", class_name="mb-0")
 
 
 def create_performance_metrics(node_count, rel_count, execution_time_ms, is_graph=True):
@@ -289,7 +290,7 @@ def create_expansion_success_alert(node_count, rel_count, has_more=False):
             html.I(className="fas fa-exclamation-triangle me-1", style={"color": COLOR_WARNING_DARK}),
             html.Span("More available", style={"color": COLOR_WARNING_DARK, "fontWeight": "500"})
         ])
-    return dbc.Alert(message_parts, color="success", className="mb-0", dismissable=True)
+    return create_alert(message_parts, color="success", class_name="mb-0")
 
 
 def create_no_neighbors_alert():
@@ -298,10 +299,10 @@ def create_no_neighbors_alert():
     Returns:
         dbc.Alert: Info alert component
     """
-    return dbc.Alert([
+    return create_alert([
         html.I(className="fas fa-info-circle me-2"),
         "No new neighbors found. Node may have no connections or all neighbors already loaded."
-    ], color="info", className="mb-0", dismissable=True, duration=4000)
+    ], color="info", class_name="mb-0", duration=4000)
 
 
 def create_expansion_error_alert(error_message, error_type="general"):
@@ -323,10 +324,10 @@ def create_expansion_error_alert(error_message, error_type="general"):
     
     color = 'warning' if error_type == 'timeout' else 'danger'
     
-    return dbc.Alert([
+    return create_alert([
         html.I(className=f"fas {icon} me-2"),
         error_message
-    ], color=color, className="mb-0", dismissable=True)
+    ], color=color, class_name="mb-0")
 
 
 def get_shape_css(shape):
