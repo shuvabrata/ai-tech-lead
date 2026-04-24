@@ -64,6 +64,8 @@ def _check_mcp_relevance(user_message: str, provider: Any) -> bool:
             "- Jira issues/tickets/sprints/epics/boards, Confluence pages/spaces/docs, or Atlassian project context"
         )
 
+    criteria_text = "\n".join(criteria)
+
     relevance_prompt = f"""Determine whether this question requires MCP context from enabled backends.
 
 Enabled MCP backends: {", ".join(backends)}
@@ -72,7 +74,7 @@ Question: {user_message}
 
 Respond with only YES or NO.
 Use YES only if the user asks about any of the following:
-{"\n".join(criteria)}
+{criteria_text}
 """
 
     try:

@@ -231,12 +231,12 @@ Before implementation begins, the following must be confirmed out-of-band:
 **Steps**
 
 1. `[IP]` Validate the REST chat entry path with `ATLASSIAN_MCP_ENABLED=True` and a valid Rovo MCP token.
-2. `[NS]` Send a Jira-related prompt and confirm Atlassian context appears in the augmented message.
-3. `[NS]` Send a Confluence-related prompt and confirm Atlassian context appears in the augmented message.
-4. `[NS]` Send a GitHub-related prompt with both backends enabled and confirm only GitHub tools are invoked.
-5. `[NS]` Confirm that Atlassian service unavailability (e.g., expired token) does not break the overall chat response.
-6. `[NS]` Confirm that disabling `ATLASSIAN_MCP_ENABLED` restores GitHub-only behavior with no Atlassian tool calls.
-7. `[NS]` Confirm session handling and message history remain unchanged.
+2. `[IP]` Send a Jira-related prompt and confirm Atlassian context appears in the augmented message.
+3. `[IP]` Send a Confluence-related prompt and confirm Atlassian context appears in the augmented message.
+4. `[IP]` Send a GitHub-related prompt with both backends enabled and confirm only GitHub tools are invoked.
+5. `[IP]` Confirm that Atlassian service unavailability (e.g., expired token) does not break the overall chat response.
+6. `[IP]` Confirm that disabling `ATLASSIAN_MCP_ENABLED` restores GitHub-only behavior with no Atlassian tool calls.
+7. `[IP]` Confirm session handling and message history remain unchanged.
 
 **Deliverables**
 
@@ -347,3 +347,6 @@ Before implementation begins, the following must be confirmed out-of-band:
 - `2026-04-24` `[DN]` Phase 4 Step 6 completed: decided to keep envelope `source` as `mcp` to preserve existing multi-source composition behavior
 - `2026-04-24` `[DN]` Phase 4 verification complete: MCP suites passed (67 tests) including new coverage for dynamic relevance criteria, Atlassian-only mode, and dual-namespace tool calls
 - `2026-04-24` `[DN]` Phase 4 completed; execution advanced to Phase 5
+- `2026-04-24` `[IP]` Phase 5 automated validation started: expanded [tests/test_chat_flow_phase5_integration.py](/home/shuva/github/shuvabrata/work-behavior-analytics-ai/tests/test_chat_flow_phase5_integration.py) for Jira, Confluence, dual-backend GitHub-only routing, unavailable Atlassian fallback, Atlassian-disabled fallback, and session continuity
+- `2026-04-24` `[IP]` Phase 5 automated evidence: chat-flow test suite passed with related MCP suites (`16 passed` in phase-5-focused run)
+- `2026-04-24` `[IP]` Phase 5 live validation pending: requires manual REST checks with real provider + Atlassian token against running app
