@@ -12,8 +12,8 @@ This document is the execution tracker for integrating the Atlassian Rovo MCP Se
 ## Overall Status
 
 - Project status: `[IP]`
-- Current phase: Phase 4
-- Next gate: Phase 4 verification
+- Current phase: Phase 5
+- Next gate: Phase 5 verification
 - Stop rule: Stop if Atlassian org admin has not enabled API token authentication for Rovo MCP — this is a hard prerequisite
 
 ## Locked Decisions
@@ -191,18 +191,18 @@ Before implementation begins, the following must be confirmed out-of-band:
 
 ## Phase 4: MCP Chain Generalization
 
-- Phase status: `[IP]`
+- Phase status: `[DN]`
 - Goal: Update the MCP chain to recognize Jira and Confluence queries as MCP-relevant, alongside existing GitHub query detection.
 - Entry criteria: Phase 3 verification gate passed.
 
 **Steps**
 
-1. `[IP]` Update `_check_mcp_relevance()` in [app/ai_agent/chains/mcp_chain.py](/home/shuva/github/shuvabrata/work-behavior-analytics-ai/app/ai_agent/chains/mcp_chain.py) to make the YES/NO criteria dynamic based on which backends are enabled.
-2. `[NS]` When `ATLASSIAN_MCP_ENABLED=True`, extend the relevance prompt to trigger YES for questions about Jira issues, tickets, sprints, epics, boards, Confluence pages, spaces, and documentation.
-3. `[NS]` When only `GITHUB_MCP_ENABLED=True`, keep the existing GitHub-only relevance prompt unchanged.
-4. `[NS]` Confirm the tool selection loop in `augment_message_with_mcp()` works correctly with namespaced tool names returned by the updated executor.
-5. `[NS]` Confirm the tool result formatter `_tool_result_to_text()` handles results from both backends without changes (result envelope shape is identical).
-6. `[NS]` Update the envelope `source` label from `"mcp"` to `"mcp_github"` / `"mcp_atlassian"` if multi-source labeling is desired, or keep as `"mcp"` for simplicity — decide and implement consistently.
+1. `[DN]` Update `_check_mcp_relevance()` in [app/ai_agent/chains/mcp_chain.py](/home/shuva/github/shuvabrata/work-behavior-analytics-ai/app/ai_agent/chains/mcp_chain.py) to make the YES/NO criteria dynamic based on which backends are enabled.
+2. `[DN]` When `ATLASSIAN_MCP_ENABLED=True`, extend the relevance prompt to trigger YES for questions about Jira issues, tickets, sprints, epics, boards, Confluence pages, spaces, and documentation.
+3. `[DN]` When only `GITHUB_MCP_ENABLED=True`, keep the existing GitHub-only relevance prompt unchanged.
+4. `[DN]` Confirm the tool selection loop in `augment_message_with_mcp()` works correctly with namespaced tool names returned by the updated executor.
+5. `[DN]` Confirm the tool result formatter `_tool_result_to_text()` handles results from both backends without changes (result envelope shape is identical).
+6. `[DN]` Keep envelope `source` as `"mcp"` for consistency with existing composition logic; no source-label split required in this phase.
 
 **Deliverables**
 
@@ -224,13 +224,13 @@ Before implementation begins, the following must be confirmed out-of-band:
 
 ## Phase 5: Chat Flow Validation
 
-- Phase status: `[NS]`
+- Phase status: `[IP]`
 - Goal: Validate end-to-end behavior through the existing chat entry points with Atlassian MCP enabled.
 - Entry criteria: Phase 4 verification gate passed.
 
 **Steps**
 
-1. `[NS]` Validate the REST chat entry path with `ATLASSIAN_MCP_ENABLED=True` and a valid Rovo MCP token.
+1. `[IP]` Validate the REST chat entry path with `ATLASSIAN_MCP_ENABLED=True` and a valid Rovo MCP token.
 2. `[NS]` Send a Jira-related prompt and confirm Atlassian context appears in the augmented message.
 3. `[NS]` Send a Confluence-related prompt and confirm Atlassian context appears in the augmented message.
 4. `[NS]` Send a GitHub-related prompt with both backends enabled and confirm only GitHub tools are invoked.
@@ -342,3 +342,8 @@ Before implementation begins, the following must be confirmed out-of-band:
 - `2026-04-24` `[DN]` Phase 3 Step 6 completed: GitHub-only path preserved when Atlassian MCP is disabled
 - `2026-04-24` `[DN]` Phase 3 verification complete: MCP suite passed (63 tests), including namespaced discovery/routing coverage
 - `2026-04-24` `[DN]` Phase 3 completed; execution advanced to Phase 4
+- `2026-04-24` `[DN]` Phase 4 Steps 1-3 completed: generalized `_check_mcp_relevance()` to dynamic backend-aware prompt and keyword criteria for GitHub + Atlassian
+- `2026-04-24` `[DN]` Phase 4 Steps 4-5 completed: validated namespaced tool loop compatibility and shared tool-result formatting across backends
+- `2026-04-24` `[DN]` Phase 4 Step 6 completed: decided to keep envelope `source` as `mcp` to preserve existing multi-source composition behavior
+- `2026-04-24` `[DN]` Phase 4 verification complete: MCP suites passed (67 tests) including new coverage for dynamic relevance criteria, Atlassian-only mode, and dual-namespace tool calls
+- `2026-04-24` `[DN]` Phase 4 completed; execution advanced to Phase 5

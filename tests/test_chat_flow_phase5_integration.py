@@ -36,7 +36,7 @@ class _FakeProvider:
         content = messages[-1]["content"]
 
         # Relevance check prompt from MCP chain.
-        if content.startswith("Determine whether this question requires GitHub repository context"):
+        if content.startswith("Determine whether this question requires MCP context"):
             question = ""
             for line in content.splitlines():
                 if line.startswith("Question:"):
