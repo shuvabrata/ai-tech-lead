@@ -12,8 +12,8 @@ This document is the execution tracker for integrating the Atlassian Rovo MCP Se
 ## Overall Status
 
 - Project status: `[IP]`
-- Current phase: Phase 3
-- Next gate: Phase 3 verification
+- Current phase: Phase 4
+- Next gate: Phase 4 verification
 - Stop rule: Stop if Atlassian org admin has not enabled API token authentication for Rovo MCP — this is a hard prerequisite
 
 ## Locked Decisions
@@ -157,18 +157,18 @@ Before implementation begins, the following must be confirmed out-of-band:
 
 ## Phase 3: Multi-Backend Tool Executor
 
-- Phase status: `[IP]`
+- Phase status: `[DN]`
 - Goal: Extend the tool executor to aggregate tools from both GitHub and Atlassian backends with namespacing, and route execution to the correct backend.
 - Entry criteria: Phase 2 verification gate passed.
 
 **Steps**
 
-1. `[IP]` Define the namespacing convention in [app/ai_agent/mcp_integration/tool_executor.py](/home/shuva/github/shuvabrata/work-behavior-analytics-ai/app/ai_agent/mcp_integration/tool_executor.py): `github__<tool_name>` for GitHub tools, `atlassian__<tool_name>` for Atlassian tools.
-2. `[NS]` Update `_build_manager()` or add `_build_atlassian_manager()` to construct the Atlassian manager from settings.
-3. `[NS]` Update `list_available_tools()` to call both managers when their respective flags are enabled, prefix each tool's `function.name` with the backend namespace, and return the combined list.
-4. `[NS]` Update `execute_tool_call(tool_name, arguments)` to strip the namespace prefix, identify the target backend, and route the call to the correct manager.
-5. `[NS]` Handle the case where a tool name has no recognized prefix — return a structured error without raising.
-6. `[NS]` Ensure GitHub-only behavior is unchanged when `ATLASSIAN_MCP_ENABLED=False`.
+1. `[DN]` Define the namespacing convention in [app/ai_agent/mcp_integration/tool_executor.py](/home/shuva/github/shuvabrata/work-behavior-analytics-ai/app/ai_agent/mcp_integration/tool_executor.py): `github__<tool_name>` for GitHub tools, `atlassian__<tool_name>` for Atlassian tools.
+2. `[DN]` Update `_build_manager()` or add `_build_atlassian_manager()` to construct the Atlassian manager from settings.
+3. `[DN]` Update `list_available_tools()` to call both managers when their respective flags are enabled, prefix each tool's `function.name` with the backend namespace, and return the combined list.
+4. `[DN]` Update `execute_tool_call(tool_name, arguments)` to strip the namespace prefix, identify the target backend, and route the call to the correct manager.
+5. `[DN]` Handle the case where a tool name has no recognized prefix — return a structured error without raising.
+6. `[DN]` Ensure GitHub-only behavior is unchanged when `ATLASSIAN_MCP_ENABLED=False`.
 
 **Deliverables**
 
@@ -191,13 +191,13 @@ Before implementation begins, the following must be confirmed out-of-band:
 
 ## Phase 4: MCP Chain Generalization
 
-- Phase status: `[NS]`
+- Phase status: `[IP]`
 - Goal: Update the MCP chain to recognize Jira and Confluence queries as MCP-relevant, alongside existing GitHub query detection.
 - Entry criteria: Phase 3 verification gate passed.
 
 **Steps**
 
-1. `[NS]` Update `_check_mcp_relevance()` in [app/ai_agent/chains/mcp_chain.py](/home/shuva/github/shuvabrata/work-behavior-analytics-ai/app/ai_agent/chains/mcp_chain.py) to make the YES/NO criteria dynamic based on which backends are enabled.
+1. `[IP]` Update `_check_mcp_relevance()` in [app/ai_agent/chains/mcp_chain.py](/home/shuva/github/shuvabrata/work-behavior-analytics-ai/app/ai_agent/chains/mcp_chain.py) to make the YES/NO criteria dynamic based on which backends are enabled.
 2. `[NS]` When `ATLASSIAN_MCP_ENABLED=True`, extend the relevance prompt to trigger YES for questions about Jira issues, tickets, sprints, epics, boards, Confluence pages, spaces, and documentation.
 3. `[NS]` When only `GITHUB_MCP_ENABLED=True`, keep the existing GitHub-only relevance prompt unchanged.
 4. `[NS]` Confirm the tool selection loop in `augment_message_with_mcp()` works correctly with namespaced tool names returned by the updated executor.
@@ -336,3 +336,9 @@ Before implementation begins, the following must be confirmed out-of-band:
 - `2026-04-24` `[DN]` Phase 2 verification complete: `py_compile` passed, live tool discovery returned 2 tools, structured tool-call envelope verified, disabled paths verified, MCP regression tests passing
 - `2026-04-24` `[DN]` Phase 2 hardening: `check_connection()` now fails fast for missing/malformed token to prevent false connected state
 - `2026-04-24` `[DN]` Phase 2 completed; execution advanced to Phase 3
+- `2026-04-24` `[DN]` Phase 3 Step 1 completed: finalized tool namespace convention (`github__`, `atlassian__`) in [app/ai_agent/mcp_integration/tool_executor.py](/home/shuva/github/shuvabrata/work-behavior-analytics-ai/app/ai_agent/mcp_integration/tool_executor.py)
+- `2026-04-24` `[DN]` Phase 3 Steps 2-4 completed: added backend-specific manager builders, combined namespaced discovery, and namespace-based execution routing
+- `2026-04-24` `[DN]` Phase 3 Step 5 completed: unknown or unprefixed tool names now return structured `unknown_tool_namespace` error
+- `2026-04-24` `[DN]` Phase 3 Step 6 completed: GitHub-only path preserved when Atlassian MCP is disabled
+- `2026-04-24` `[DN]` Phase 3 verification complete: MCP suite passed (63 tests), including namespaced discovery/routing coverage
+- `2026-04-24` `[DN]` Phase 3 completed; execution advanced to Phase 4

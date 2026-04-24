@@ -240,6 +240,7 @@ class TestToolListingAndExecution:
     def test_list_available_tools_returns_empty_when_disabled(self, monkeypatch):
         """Tool listing should return empty when MCP is disabled."""
         monkeypatch.setattr(settings, "GITHUB_MCP_ENABLED", False)
+        monkeypatch.setattr(settings, "ATLASSIAN_MCP_ENABLED", False)
         
         from app.ai_agent.mcp_integration.tool_executor import list_available_tools
         
@@ -253,11 +254,100 @@ class TestToolListingAndExecution:
         tools = list_available_tools()
         assert isinstance(tools, list)
 
+    def test_list_available_tools_github_only_are_namespaced(self, monkeypatch):
+        """GitHub tools should be prefixed with github__ when listed."""
+        from app.ai_agent.mcp_integration import tool_executor
+
+        class FakeGithubManager:
+            def list_tools(self):
+                return [
+                    {
+                        "type": "function",
+                        "function": {
+                            "name": "list_commits",
+                            "description": "List commits",
+                            "parameters": {"type": "object", "properties": {}},
+                        },
+                    }
+                ]
+
+        monkeypatch.setattr(settings, "GITHUB_MCP_ENABLED", True)
+        monkeypatch.setattr(settings, "ATLASSIAN_MCP_ENABLED", False)
+        monkeypatch.setattr(tool_executor, "_build_github_manager", lambda: FakeGithubManager())
+
+        tools = tool_executor.list_available_tools()
+        assert len(tools) == 1
+        assert tools[0]["function"]["name"] == "github__list_commits"
+
+    def test_list_available_tools_atlassian_only_are_namespaced(self, monkeypatch):
+        """Atlassian tools should be prefixed with atlassian__ when listed."""
+        from app.ai_agent.mcp_integration import tool_executor
+
+        class FakeAtlassianManager:
+            def list_tools(self):
+                return [
+                    {
+                        "type": "function",
+                        "function": {
+                            "name": "getTeamworkGraphContext",
+                            "description": "Get context",
+                            "parameters": {"type": "object", "properties": {}},
+                        },
+                    }
+                ]
+
+        monkeypatch.setattr(settings, "GITHUB_MCP_ENABLED", False)
+        monkeypatch.setattr(settings, "ATLASSIAN_MCP_ENABLED", True)
+        monkeypatch.setattr(tool_executor, "_build_atlassian_manager", lambda: FakeAtlassianManager())
+
+        tools = tool_executor.list_available_tools()
+        assert len(tools) == 1
+        assert tools[0]["function"]["name"] == "atlassian__getTeamworkGraphContext"
+
+    def test_list_available_tools_combines_both_backends(self, monkeypatch):
+        """Enabled backends should both contribute namespaced tools."""
+        from app.ai_agent.mcp_integration import tool_executor
+
+        class FakeGithubManager:
+            def list_tools(self):
+                return [
+                    {
+                        "type": "function",
+                        "function": {
+                            "name": "list_commits",
+                            "description": "List commits",
+                            "parameters": {"type": "object", "properties": {}},
+                        },
+                    }
+                ]
+
+        class FakeAtlassianManager:
+            def list_tools(self):
+                return [
+                    {
+                        "type": "function",
+                        "function": {
+                            "name": "getTeamworkGraphObject",
+                            "description": "Get object",
+                            "parameters": {"type": "object", "properties": {}},
+                        },
+                    }
+                ]
+
+        monkeypatch.setattr(settings, "GITHUB_MCP_ENABLED", True)
+        monkeypatch.setattr(settings, "ATLASSIAN_MCP_ENABLED", True)
+        monkeypatch.setattr(tool_executor, "_build_github_manager", lambda: FakeGithubManager())
+        monkeypatch.setattr(tool_executor, "_build_atlassian_manager", lambda: FakeAtlassianManager())
+
+        names = [tool["function"]["name"] for tool in tool_executor.list_available_tools()]
+        assert "github__list_commits" in names
+        assert "atlassian__getTeamworkGraphObject" in names
+
     def test_execute_tool_call_returns_envelope_structure(self):
         """Tool execution should return a properly structured result envelope."""
         from app.ai_agent.mcp_integration.tool_executor import execute_tool_call
         
-        result = execute_tool_call("list_issues", {"owner": "test", "repo": "repo"})
+        result = execute_tool_call("github__list_issues", {"owner": "test", "repo": "repo"})
         
         # Verify envelope structure
         assert isinstance(result, dict)
@@ -269,7 +359,7 @@ class TestToolListingAndExecution:
         """Tool execution should handle empty arguments gracefully."""
         from app.ai_agent.mcp_integration.tool_executor import execute_tool_call
         
-        result = execute_tool_call("list_issues", {})
+        result = execute_tool_call("github__list_issues", {})
         
         # Should return envelope, success or graceful failure
         assert isinstance(result, dict)
@@ -280,9 +370,9 @@ class TestToolListingAndExecution:
         from app.ai_agent.mcp_integration.tool_executor import execute_tool_call
         
         test_cases = [
-            ("list_issues", {"owner": "test", "repo": "repo"}),
-            ("list_issues", {"owner": "test", "repo": "repo", "per_page": 10}),
-            ("list_issues", {"owner": "test", "repo": "repo", "per_page": "invalid"}),
+            ("github__list_issues", {"owner": "test", "repo": "repo"}),
+            ("github__list_issues", {"owner": "test", "repo": "repo", "per_page": 10}),
+            ("github__list_issues", {"owner": "test", "repo": "repo", "per_page": "invalid"}),
         ]
         
         for tool_name, args in test_cases:
@@ -290,6 +380,52 @@ class TestToolListingAndExecution:
             # Each call should return an envelope
             assert isinstance(result, dict)
             assert "status" in result
+
+    def test_execute_tool_call_routes_to_github_backend(self, monkeypatch):
+        """Prefixed GitHub tool names should route to the GitHub manager."""
+        from app.ai_agent.mcp_integration import tool_executor
+
+        class FakeGithubManager:
+            def call_tool(self, tool_name, arguments):
+                return {
+                    "tool_name": tool_name,
+                    "arguments": arguments,
+                    "status": "success",
+                    "result": {},
+                }
+
+        monkeypatch.setattr(tool_executor, "_build_github_manager", lambda: FakeGithubManager())
+
+        result = tool_executor.execute_tool_call("github__list_commits", {"owner": "a"})
+        assert result["tool_name"] == "list_commits"
+        assert result["status"] == "success"
+
+    def test_execute_tool_call_routes_to_atlassian_backend(self, monkeypatch):
+        """Prefixed Atlassian tool names should route to the Atlassian manager."""
+        from app.ai_agent.mcp_integration import tool_executor
+
+        class FakeAtlassianManager:
+            def call_tool(self, tool_name, arguments):
+                return {
+                    "tool_name": tool_name,
+                    "arguments": arguments,
+                    "status": "success",
+                    "result": {},
+                }
+
+        monkeypatch.setattr(tool_executor, "_build_atlassian_manager", lambda: FakeAtlassianManager())
+
+        result = tool_executor.execute_tool_call("atlassian__getTeamworkGraphContext", {"objectType": "JIRA_ISSUE"})
+        assert result["tool_name"] == "getTeamworkGraphContext"
+        assert result["status"] == "success"
+
+    def test_execute_tool_call_with_unknown_prefix_returns_error(self):
+        """Unknown or unprefixed tool names should return a structured routing error."""
+        from app.ai_agent.mcp_integration.tool_executor import execute_tool_call
+
+        result = execute_tool_call("list_issues", {"owner": "test"})
+        assert result["status"] == "error"
+        assert result["error"] == "unknown_tool_namespace"
 
 
 # ============================================================================
