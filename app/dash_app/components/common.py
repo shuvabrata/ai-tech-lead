@@ -13,6 +13,8 @@ Usage:
     ])
 """
 
+from typing import Any
+
 from dash import html
 import dash_bootstrap_components as dbc
 
@@ -55,6 +57,31 @@ def create_page_header(text: str) -> html.Div:
         create_page_header("Strategic Analysis & Advisory")
     """
     return html.Div(text, style=PAGE_HEADER_STYLE)
+
+
+def create_alert(
+    content: Any,
+    color: str = "info",
+    class_name: str = "mb-2",
+    dismissable: bool = True,
+    duration: int | None = None,
+    style: dict | None = None,
+) -> dbc.Alert:
+    """Create a standardized alert with consistent typography and behavior."""
+    merged_style = {
+        "fontFamily": FONT_SANS,
+        "fontSize": FONT_SIZE_XSMALL,
+        **(style or {}),
+    }
+    kwargs = {
+        "color": color,
+        "className": class_name,
+        "dismissable": dismissable,
+        "style": merged_style,
+    }
+    if duration is not None:
+        kwargs["duration"] = duration
+    return dbc.Alert(content, **kwargs)
 
 
 def create_feature_card(title: str, description: str) -> html.Div:

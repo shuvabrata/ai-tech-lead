@@ -6,7 +6,7 @@ from dash import dcc, html
 import dash_bootstrap_components as dbc
 
 from app.api.connectors.v1.registry import CONNECTOR_REGISTRY
-from app.dash_app.components.common import create_page_header
+from app.dash_app.components.common import create_alert, create_page_header
 from app.dash_app.styles import (
     CARD_CONTAINER_STYLE,
     COLOR_BORDER,
@@ -86,10 +86,10 @@ def get_detail_layout(connector_type: str):
         return html.Div(
             [
                 create_page_header("Connectors"),
-                dbc.Alert(
+                create_alert(
                     f"Unknown connector type: {connector_type}",
                     color="warning",
-                    className="mt-3",
+                    class_name="mt-3",
                 ),
             ]
         )
@@ -106,6 +106,16 @@ def get_detail_layout(connector_type: str):
                     dcc.Store(
                         id={"type": "connector-search-filters-store", "connector_type": connector_type},
                         storage_type="memory",
+                    ),
+                    html.Div(
+                        id="connector-action-feedback",
+                        key=f"connector-feedback-{connector_type}-{uuid.uuid4()}",
+                        style={
+                            "position": "sticky",
+                            "top": SPACING_SMALL,
+                            "zIndex": 1000,
+                            "marginBottom": SPACING_SMALL,
+                        },
                     ),
                     html.Div(
                         [
@@ -163,11 +173,6 @@ def get_detail_layout(connector_type: str):
                                 size="sm",
                             ),
                         ]
-                    ),
-                    html.Div(
-                        id="connector-action-feedback",
-                        className="mt-2",
-                        key=f"connector-feedback-{connector_type}-{uuid.uuid4()}",
                     ),
                 ],
                 style=CARD_CONTAINER_STYLE,
