@@ -85,7 +85,7 @@ def do_chat(session_id, user_message, model=LLM_MODEL, max_tokens=MAX_TOKENS):
         if session_id not in _chat_sessions:
             raise ValueError("Session not found.")
         
-        # Augment message with data from chains (e.g., Neo4j)
+        # Augment message with data from chains (e.g., Neo4j, MCPs)
         augmented_message = augment_message(user_message, provider=_provider)
         
         messages = _chat_sessions[session_id]

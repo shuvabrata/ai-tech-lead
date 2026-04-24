@@ -1,4 +1,4 @@
-"""MCP chain module for GitHub-aware tool selection and context augmentation."""
+"""MCP chain module for multi-backend tool selection and context augmentation."""
 
 from __future__ import annotations
 
@@ -40,14 +40,41 @@ def _tool_result_to_text(result: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def _enabled_backends() -> list[str]:
+    """Return a list of currently enabled MCP backend labels."""
+    backends: list[str] = []
+    if settings.GITHUB_MCP_ENABLED:
+        backends.append("GitHub")
+    if settings.ATLASSIAN_MCP_ENABLED:
+        backends.append("Atlassian")
+    return backends
+
+
 def _check_mcp_relevance(user_message: str, provider: Any) -> bool:
-    """Use the configured provider to decide if MCP/GitHub tools are likely useful."""
-    relevance_prompt = f"""Determine whether this question requires GitHub repository context.
+    """Use the configured provider to decide if MCP tools are likely useful."""
+    backends = _enabled_backends()
+    if not backends:
+        return False
+
+    criteria: list[str] = []
+    if settings.GITHUB_MCP_ENABLED:
+        criteria.append("- GitHub code, pull requests, commits, branches, issues, or repositories")
+    if settings.ATLASSIAN_MCP_ENABLED:
+        criteria.append(
+            "- Jira issues/tickets/sprints/epics/boards, Confluence pages/spaces/docs, or Atlassian project context"
+        )
+
+    criteria_text = "\n".join(criteria)
+
+    relevance_prompt = f"""Determine whether this question requires MCP context from enabled backends.
+
+Enabled MCP backends: {", ".join(backends)}
 
 Question: {user_message}
 
 Respond with only YES or NO.
-Use YES only if the user asks about GitHub code, pull requests, commits, branches, issues, or repositories.
+Use YES only if the user asks about any of the following:
+{criteria_text}
 """
 
     try:
@@ -59,20 +86,22 @@ Use YES only if the user asks about GitHub code, pull requests, commits, branche
 
 
 def augment_message_with_mcp(user_message: str, provider: Any) -> dict[str, Any]:
-    """Augment a user message with GitHub MCP tool context.
+    """Augment a user message with MCP tool context.
 
     Returns a stable envelope that can be composed with other augmentation sources.
     """
     envelope: dict[str, Any] = {
         "source": "mcp",
-        "enabled": settings.GITHUB_MCP_ENABLED,
+        "enabled": bool(_enabled_backends()),
         "applied": False,
         "context": "",
         "tool_calls": [],
     }
 
-    if not settings.GITHUB_MCP_ENABLED:
+    if not envelope["enabled"]:
         return envelope
+
+    enabled_backends = _enabled_backends()
 
     if provider is None:
         from app.ai_agent.providers import get_provider
@@ -80,7 +109,7 @@ def augment_message_with_mcp(user_message: str, provider: Any) -> dict[str, Any]
         provider = get_provider()
 
     if not _check_mcp_relevance(user_message, provider):
-        logger.info("MCP augmentation skipped: message not GitHub-relevant")
+        logger.info("MCP augmentation skipped: message not MCP-relevant")
         return envelope
 
     tools = list_available_tools()
@@ -100,7 +129,7 @@ def augment_message_with_mcp(user_message: str, provider: Any) -> dict[str, Any]
         {
             "role": "system",
             "content": (
-                "You can call GitHub MCP tools to gather context. "
+                f"You can call MCP tools from enabled backends ({', '.join(enabled_backends)}). "
                 "Only call tools that are necessary for the user request."
             ),
         },
