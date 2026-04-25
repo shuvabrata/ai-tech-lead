@@ -64,7 +64,7 @@ async def get_connector(
     try:
         return await service.get_connector(db, connector_type, include_secrets=include_secrets)
     except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+        raise HTTPException(status_code=_status_for_connector_error(exc), detail=str(exc)) from exc
 
 
 @router.patch("/{connector_type}", response_model=ConnectorStatus)
