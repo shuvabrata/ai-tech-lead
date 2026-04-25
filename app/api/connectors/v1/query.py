@@ -1,4 +1,4 @@
-from datetime import datetime
+from app.common.logger import logger
 from typing import Any, Dict, List, Optional, Type
 
 from sqlalchemy import delete, select
@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models.connector import Connector
 from app.db.models import connector_configs as config_models
+
 
 
 CONFIG_MODEL_MAP: Dict[str, Type] = {
@@ -21,8 +22,15 @@ CONFIG_MODEL_MAP: Dict[str, Type] = {
 
 
 async def get_all_connectors(db: AsyncSession) -> List[Connector]:
-    result = await db.execute(select(Connector))
-    return result.scalars().all()
+    logger.debug("[query.get_all_connectors] Executing SELECT on Connector table")
+    try:
+        result = await db.execute(select(Connector))
+        connectors = result.scalars().all()
+        logger.debug(f"[query.get_all_connectors] Retrieved {len(connectors)} rows")
+        return connectors
+    except Exception as exc:
+        logger.error(f"[query.get_all_connectors] Database error: {type(exc).__name__}: {exc}", exc_info=True)
+        raise
 
 
 async def get_connector(db: AsyncSession, connector_type: str) -> Optional[Connector]:

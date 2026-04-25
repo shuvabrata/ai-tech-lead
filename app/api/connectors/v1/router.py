@@ -1,7 +1,9 @@
 from typing import Any, Dict, List, Union
+from app.common.logger import logger
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
+
 
 from app.db.session import get_async_db
 from . import service
@@ -43,15 +45,26 @@ def _status_for_connector_error(exc: ValueError) -> int:
 
 @router.get("/", response_model=List[ConnectorStatus])
 async def list_connectors(db: AsyncSession = Depends(get_async_db)):
-    return await service.list_connectors(db)
+    logger.debug("[router.list_connectors] Request received")
+    try:
+        result = await service.list_connectors(db)
+        logger.debug(f"[router.list_connectors] Returning {len(result)} connectors")
+        return result
+    except Exception as exc:
+        logger.error(f"[router.list_connectors] Error: {type(exc).__name__}: {exc}", exc_info=True)
+        raise
 
 
 @router.get("/{connector_type}", response_model=ConnectorStatus)
-async def get_connector(connector_type: str, db: AsyncSession = Depends(get_async_db)):
+async def get_connector(
+    connector_type: str,
+    include_secrets: bool = False,
+    db: AsyncSession = Depends(get_async_db),
+):
     try:
-        return await service.get_connector(db, connector_type)
+        return await service.get_connector(db, connector_type, include_secrets=include_secrets)
     except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+        raise HTTPException(status_code=_status_for_connector_error(exc), detail=str(exc)) from exc
 
 
 @router.patch("/{connector_type}", response_model=ConnectorStatus)
@@ -63,7 +76,18 @@ async def update_connector_config(
     try:
         return await service.update_connector_config(db, connector_type, payload.config)
     except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+        raise HTTPException(status_code=_status_for_connector_error(exc), detail=str(exc)) from exc
+
+
+@router.delete("/{connector_type}/config", response_model=ConnectorStatus)
+async def clear_connector_config(
+    connector_type: str,
+    db: AsyncSession = Depends(get_async_db),
+):
+    try:
+        return await service.clear_connector_config(db, connector_type)
+    except ValueError as exc:
+        raise HTTPException(status_code=_status_for_connector_error(exc), detail=str(exc)) from exc
 
 
 @router.get("/{connector_type}/configs", response_model=List[Dict[str, Any]])

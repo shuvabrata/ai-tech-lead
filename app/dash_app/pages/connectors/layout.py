@@ -11,6 +11,7 @@ from app.dash_app.styles import (
     CARD_CONTAINER_STYLE,
     COLOR_BORDER,
     COLOR_CHARCOAL_MEDIUM,
+    COLOR_CODE_BACKGROUND,
     COLOR_GRAY_MEDIUM,
     FONT_SANS,
     FONT_SIZE_SMALL,
@@ -80,7 +81,12 @@ def get_layout():
 def get_detail_layout(connector_type: str):
     connector_meta = CONNECTOR_REGISTRY.get(connector_type, {})
     display_name = connector_meta.get("display_name", connector_type)
+    setup_type = connector_meta.get("setup_type", "db_backed")
+    supports_items = connector_meta.get("supports_items", True)
     form_spec = CONFIG_FORM_SPECS.get(connector_type, {})
+
+    if setup_type == "manual":
+        return _get_manual_setup_layout(connector_type, connector_meta)
 
     if not form_spec:
         return html.Div(
@@ -155,7 +161,7 @@ def get_detail_layout(connector_type: str):
                                 },
                             ),
                         ],
-                        style={"marginBottom": SPACING_SMALL},
+                        style={"marginBottom": SPACING_SMALL, "display": "none" if not supports_items else "block"},
                     ),
                     html.Div(
                         [
@@ -475,3 +481,200 @@ def _render_field(field: dict, connector_type: str, section: str) -> html.Div:
         control = dbc.Input(id=field_id, type="text", placeholder=placeholder)
 
     return html.Div([label, control])
+
+
+def _get_manual_setup_layout(connector_type: str, connector_meta: dict) -> html.Div:
+    """Render a manual setup guidance page for connectors that are env/Docker-managed."""
+    display_name = connector_meta.get("display_name", connector_type)
+
+    def _env_row(var: str, description: str) -> html.Tr:
+        return html.Tr(
+            [
+                html.Td(
+                    html.Code(
+                        var,
+                        style={
+                            "fontFamily": "monospace",
+                            "fontSize": FONT_SIZE_SMALL,
+                            "color": COLOR_CHARCOAL_MEDIUM,
+                            "backgroundColor": COLOR_CODE_BACKGROUND,
+                            "padding": "2px 6px",
+                            "borderRadius": "2px",
+                        },
+                    ),
+                    style={"padding": f"{SPACING_XSMALL} {SPACING_SMALL} {SPACING_XSMALL} 0", "whiteSpace": "nowrap"},
+                ),
+                html.Td(
+                    description,
+                    style={
+                        "fontFamily": FONT_SANS,
+                        "fontSize": FONT_SIZE_SMALL,
+                        "color": COLOR_GRAY_MEDIUM,
+                        "padding": SPACING_XSMALL,
+                    },
+                ),
+            ]
+        )
+
+    return html.Div(
+        [
+            create_page_header("Connectors"),
+            html.Div(
+                [
+                    _breadcrumb(display_name),
+                    # Required stores — callbacks still fire on all detail pages
+                    dcc.Store(id="connector-detail-store", storage_type="memory"),
+                    dcc.Store(id="connector-items-store", storage_type="memory"),
+                    dcc.Store(id="connector-edit-item", storage_type="memory"),
+                    dcc.Store(
+                        id={"type": "connector-search-filters-store", "connector_type": connector_type},
+                        storage_type="memory",
+                    ),
+                    html.Div(
+                        id="connector-action-feedback",
+                        key=f"connector-feedback-{connector_type}",
+                        style={
+                            "position": "sticky",
+                            "top": SPACING_SMALL,
+                            "zIndex": 1000,
+                            "marginBottom": SPACING_SMALL,
+                        },
+                    ),
+                    # Hidden items list element — required for shared render_items_list callback
+                    html.Div(id="connector-items-list", style={"display": "none"}),
+                    # Setup method notice
+                    html.Div(
+                        [
+                            _section_title("Setup Method"),
+                            html.Div(
+                                [
+                                    html.I(className="fa-solid fa-circle-info me-2", style={"color": "#4299e1"}),
+                                    html.Span(
+                                        "GitHub MCP Server is configured through Docker Compose environment "
+                                        "variables. Credentials are not stored in the database for this connector.",
+                                        style={
+                                            "fontFamily": FONT_SANS,
+                                            "fontSize": FONT_SIZE_SMALL,
+                                            "color": COLOR_CHARCOAL_MEDIUM,
+                                        },
+                                    ),
+                                ],
+                                style={
+                                    "display": "flex",
+                                    "alignItems": "flex-start",
+                                    "padding": SPACING_SMALL,
+                                    "backgroundColor": COLOR_CODE_BACKGROUND,
+                                    "border": f"1px solid {COLOR_BORDER}",
+                                    "borderRadius": "2px",
+                                    "marginBottom": SPACING_SMALL,
+                                },
+                            ),
+                        ],
+                        style={"marginBottom": SPACING_SMALL},
+                    ),
+                    # App service env vars
+                    html.Div(
+                        [
+                            _section_title("App Service — Required Variables"),
+                            html.Div(
+                                "Set these in the",
+                                style={"fontFamily": FONT_SANS, "fontSize": FONT_SIZE_SMALL, "color": COLOR_GRAY_MEDIUM, "marginBottom": SPACING_XSMALL, "display": "inline"},
+                            ),
+                            html.Code(
+                                " app ",
+                                style={"fontFamily": "monospace", "fontSize": FONT_SIZE_SMALL, "color": COLOR_CHARCOAL_MEDIUM, "backgroundColor": COLOR_CODE_BACKGROUND, "padding": "2px 6px", "borderRadius": "2px"},
+                            ),
+                            html.Div(
+                                "service environment in docker-compose.yml:",
+                                style={"fontFamily": FONT_SANS, "fontSize": FONT_SIZE_SMALL, "color": COLOR_GRAY_MEDIUM, "marginBottom": SPACING_SMALL, "display": "inline"},
+                            ),
+                            html.Table(
+                                [
+                                    html.Tbody(
+                                        [
+                                            _env_row("GITHUB_MCP_ENABLED", "Set to true to enable the GitHub MCP integration in the AI agent."),
+                                            _env_row("GITHUB_MCP_SERVER_URL", "The URL of the running GitHub MCP sidecar service (e.g., http://github-mcp:8080)."),
+                                            _env_row("GITHUB_MCP_TOKEN", "A GitHub personal access token passed to the MCP client manager."),
+                                        ]
+                                    )
+                                ],
+                                style={"width": "100%", "borderCollapse": "collapse"},
+                            ),
+                        ],
+                        style={
+                            "marginBottom": SPACING_SMALL,
+                            "padding": SPACING_SMALL,
+                            "border": f"1px solid {COLOR_BORDER}",
+                            "borderRadius": "2px",
+                        },
+                    ),
+                    # github-mcp sidecar env vars
+                    html.Div(
+                        [
+                            _section_title("GitHub MCP Sidecar — Required Variables"),
+                            html.Div(
+                                "Set this in the",
+                                style={"fontFamily": FONT_SANS, "fontSize": FONT_SIZE_SMALL, "color": COLOR_GRAY_MEDIUM, "marginBottom": SPACING_XSMALL, "display": "inline"},
+                            ),
+                            html.Code(
+                                " github-mcp ",
+                                style={"fontFamily": "monospace", "fontSize": FONT_SIZE_SMALL, "color": COLOR_CHARCOAL_MEDIUM, "backgroundColor": COLOR_CODE_BACKGROUND, "padding": "2px 6px", "borderRadius": "2px"},
+                            ),
+                            html.Div(
+                                "service environment in docker-compose.yml:",
+                                style={"fontFamily": FONT_SANS, "fontSize": FONT_SIZE_SMALL, "color": COLOR_GRAY_MEDIUM, "marginBottom": SPACING_SMALL, "display": "inline"},
+                            ),
+                            html.Table(
+                                [
+                                    html.Tbody(
+                                        [
+                                            _env_row("GITHUB_PERSONAL_ACCESS_TOKEN", "A GitHub personal access token with repository read permissions for the MCP sidecar process."),
+                                        ]
+                                    )
+                                ],
+                                style={"width": "100%", "borderCollapse": "collapse"},
+                            ),
+                        ],
+                        style={
+                            "marginBottom": SPACING_SMALL,
+                            "padding": SPACING_SMALL,
+                            "border": f"1px solid {COLOR_BORDER}",
+                            "borderRadius": "2px",
+                        },
+                    ),
+                    # Restart guidance
+                    html.Div(
+                        [
+                            _section_title("Applying Changes"),
+                            html.Div(
+                                "After editing environment variables in docker-compose.yml, restart the affected services:",
+                                style={"fontFamily": FONT_SANS, "fontSize": FONT_SIZE_SMALL, "color": COLOR_GRAY_MEDIUM, "marginBottom": SPACING_XSMALL},
+                            ),
+                            html.Pre(
+                                "docker compose stop app github-mcp\ndocker compose up -d app github-mcp",
+                                style={
+                                    "fontFamily": "monospace",
+                                    "fontSize": FONT_SIZE_SMALL,
+                                    "color": COLOR_CHARCOAL_MEDIUM,
+                                    "backgroundColor": COLOR_CODE_BACKGROUND,
+                                    "border": f"1px solid {COLOR_BORDER}",
+                                    "borderRadius": "2px",
+                                    "padding": SPACING_SMALL,
+                                    "margin": 0,
+                                    "overflowX": "auto",
+                                },
+                            ),
+                        ],
+                        style={
+                            "marginBottom": SPACING_SMALL,
+                            "padding": SPACING_SMALL,
+                            "border": f"1px solid {COLOR_BORDER}",
+                            "borderRadius": "2px",
+                        },
+                    ),
+                ],
+                style=CARD_CONTAINER_STYLE,
+            ),
+        ],
+        className="mt-3",
+    )
