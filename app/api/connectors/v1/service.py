@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+import logging
 from typing import Any, Dict, List, Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -6,6 +7,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.common.encryption import decrypt, encrypt
 from . import query
 from .registry import CONNECTOR_REGISTRY
+
+logger = logging.getLogger(__name__)
 
 
 CONNECTOR_CONFIG_SENSITIVE_FIELDS: Dict[str, Dict[str, str]] = {
@@ -369,6 +372,14 @@ async def delete_config_item(db: AsyncSession, connector_type: str, item_id: int
 async def test_connection(db: AsyncSession, connector_type: str) -> Dict[str, Any]:
     _validate_connector_type(connector_type)
     now = datetime.now(timezone.utc)
+
+    if connector_type == "atlassian_mcp":
+        return await _test_atlassian_mcp_connection(db, now)
+
+    if connector_type == "github_mcp":
+        return await _test_github_mcp_connection(db, now)
+
+    # Stub for connectors that do not yet have a real test implementation.
     await query.update_connector_status(
         db,
         connector_type,
@@ -377,6 +388,81 @@ async def test_connection(db: AsyncSession, connector_type: str) -> Dict[str, An
         error=None,
     )
     return {"success": True, "message": "Connection verified (stub)"}
+
+
+async def _test_atlassian_mcp_connection(db: AsyncSession, now: datetime) -> Dict[str, Any]:
+    """Run a real Atlassian MCP connectivity check using DB-backed config."""
+    from app.ai_agent.mcp_integration.client_manager import AtlassianMCPClientManager  # pylint: disable=import-outside-toplevel
+    from app.settings import settings as _settings  # pylint: disable=import-outside-toplevel
+
+    connector = await get_connector(db, "atlassian_mcp", include_secrets=True)
+    config = connector.get("config") or {}
+
+    db_server_url = config.get("server_url")
+    db_token = config.get("token")
+    db_enabled = config.get("enabled")
+
+    resolved_server_url = db_server_url or _settings.ATLASSIAN_MCP_SERVER_URL
+    resolved_token = db_token or _settings.ATLASSIAN_MCP_TOKEN
+    resolved_enabled = bool(db_enabled if db_enabled is not None else _settings.ATLASSIAN_MCP_ENABLED)
+
+    logger.debug(
+        "[atlassian_mcp test] db_config=%r  resolved: enabled=%r server_url=%r token_present=%r token_source=%s",
+        config,
+        resolved_enabled,
+        resolved_server_url,
+        bool(resolved_token),
+        "db" if db_token else "env",
+    )
+
+    manager = AtlassianMCPClientManager(
+        atlassian_server_url=resolved_server_url,
+        atlassian_token=resolved_token,
+        atlassian_enabled=resolved_enabled,
+        request_timeout_seconds=_settings.HTTP_REQUEST_TIMEOUT,
+    )
+    result = manager.check_connection()
+    logger.debug("[atlassian_mcp test] check_connection result=%r", result)
+    connected = result.get("connected", False)
+    error_msg = result.get("error") if not connected else None
+    db_status = "connected" if connected else "error"
+    await query.update_connector_status(
+        db,
+        "atlassian_mcp",
+        status=db_status,
+        last_tested_at=now,
+        error=error_msg,
+    )
+    if connected:
+        return {"success": True, "message": "Atlassian MCP connection verified"}
+    return {"success": False, "message": error_msg or "Atlassian MCP connection failed"}
+
+
+async def _test_github_mcp_connection(db: AsyncSession, now: datetime) -> Dict[str, Any]:
+    """Run a GitHub MCP connectivity check using env-driven runtime config."""
+    from app.ai_agent.mcp_integration.client_manager import GithubMCPClientManager  # pylint: disable=import-outside-toplevel
+    from app.settings import settings as _settings  # pylint: disable=import-outside-toplevel
+
+    manager = GithubMCPClientManager(
+        github_server_url=_settings.GITHUB_MCP_SERVER_URL,
+        github_token=_settings.GITHUB_MCP_TOKEN,
+        github_enabled=_settings.GITHUB_MCP_ENABLED,
+        request_timeout_seconds=_settings.HTTP_REQUEST_TIMEOUT,
+    )
+    result = manager.check_connection()
+    connected = result.get("connected", False)
+    error_msg = result.get("error") if not connected else None
+    db_status = "connected" if connected else "error"
+    await query.update_connector_status(
+        db,
+        "github_mcp",
+        status=db_status,
+        last_tested_at=now,
+        error=error_msg,
+    )
+    if connected:
+        return {"success": True, "message": "GitHub MCP connection verified"}
+    return {"success": False, "message": error_msg or "GitHub MCP connection failed"}
 
 
 async def delete_all_configs(db: AsyncSession, connector_type: str) -> None:
