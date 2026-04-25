@@ -1,8 +1,30 @@
 # Plan: MCP Connectors Page
 
-**Status**: Draft  
+**Status**: Execution Tracker  
 **Created**: April 25, 2026  
 **Last Updated**: April 25, 2026
+
+## Status Legend
+
+- `[NS]` Not started
+- `[IP]` In progress
+- `[BL]` Blocked
+- `[DN]` Done
+
+## Overall Status
+
+- Project status: `[NS]`
+- Current phase: `Phase 1 - Data Contract and Seeded MCP Connectors`
+- Next gate: `Phase 1 verification`
+- Stop rule: `Do not begin the next phase until the current phase verification passes and the phase status is updated in this document.`
+
+## Progress Log
+
+- `2026-04-25`: Initial execution tracker created for hybrid MCP connectors scope.
+- `2026-04-25`: Scope locked to two MCP cards with split behavior:
+  - Atlassian MCP is DB-backed
+  - GitHub MCP is manual-setup guidance
+- `2026-04-25`: Added explicit requirement for connector-level `include_secrets=true` retrieval for Atlassian MCP.
 
 ## Goal
 Add a new `MCP Connectors` section on the Connectors page with two cards:
@@ -53,6 +75,16 @@ Both cards should follow the existing click-through connector pattern.
 ---
 
 ## Recommended Design
+
+## Locked Decisions
+
+- Add two MCP cards under a new `MCP Connectors` section
+- Both cards use the existing click-through detail-page pattern
+- `Atlassian MCP Server` is DB-backed and stored in PostgreSQL
+- `GitHub MCP Server` is manual-setup guidance only in this phase
+- GitHub MCP should not create fake DB-backed persistence while runtime still depends on Docker/env
+- Atlassian MCP connector secrets should support masked default reads plus decrypted reads when `include_secrets=true`
+- Do not proceed phase-to-phase without updating this tracker
 
 ### Connector Types
 Add two new connector types:
@@ -161,6 +193,8 @@ Recommended rule:
 
 ## Phase 1: Data Contract and Seeded MCP Connectors
 
+- Phase status: `[NS]`
+
 **Goal**: Add the Atlassian and GitHub MCP connector types to the shared connectors system without changing MCP runtime behavior yet.
 
 ### Changes
@@ -176,6 +210,12 @@ Recommended rule:
   - `section`
   - `supports_items`
   - optionally `mode` or `setup_type` (`db_backed` vs `manual`)
+
+### Steps
+1. `[NS]` Add `atlassian_mcp` and `github_mcp` to the connector registry.
+2. `[NS]` Add connector metadata for grouping and behavior (`section`, `supports_items`, optional setup mode).
+3. `[NS]` Create a new Alembic revision to seed both MCP connector rows.
+4. `[NS]` Confirm list-connectors responses include both new connector types.
 
 ### Notes
 - No new child tables are recommended in this phase
@@ -193,6 +233,8 @@ Recommended rule:
 
 ## Phase 2: Encrypted Connector-Level Atlassian Settings in the API Layer
 
+- Phase status: `[NS]`
+
 **Goal**: Make the connectors API able to store and return Atlassian MCP singleton config safely.
 
 ### Changes
@@ -202,11 +244,24 @@ Recommended rule:
 - Keep `github_mcp` out of DB-backed secret persistence in this phase
 - Keep secrets encrypted at rest using the existing encryption utility
 - Mask secrets in `GET /api/v1/connectors/{type}` responses, matching the current child-item secret handling pattern
+- Add a connector-level `include_secrets=true` retrieval path for `atlassian_mcp`, mirroring the existing `list_config_items(..., include_secrets=True)` behavior in [app/api/connectors/v1/service.py](/home/shuva/github/shuvabrata/work-behavior-analytics-ai/app/api/connectors/v1/service.py:156)
+  - recommended shape: `GET /api/v1/connectors/atlassian_mcp?include_secrets=true`
+  - default behavior stays masked
+  - when `include_secrets=true`, the API returns decrypted plaintext `token`
+  - include the same caveat already present in the codebase: this is a temporary convenience path and should eventually be replaced by proper permission checks rather than a raw query parameter
 - Preserve the current UX behavior where leaving a masked secret field blank during edit does not wipe the stored secret
 - Add validation rules:
   - `server_url` required when `enabled=true`
   - `token` required on first save when `enabled=true`
   - connector type must be `atlassian_mcp` for the new DB-backed MCP save flow
+
+### Steps
+1. `[NS]` Add connector-level secret metadata for `atlassian_mcp`.
+2. `[NS]` Extend connector read logic to support masked secret output by default.
+3. `[NS]` Add connector-level decrypted output when `include_secrets=true`.
+4. `[NS]` Preserve existing secret values when edit submissions leave the token blank.
+5. `[NS]` Add validation for enabled Atlassian MCP settings.
+6. `[NS]` Add or update automated tests for masking and `include_secrets=true`.
 
 ### Files Likely Affected
 - [app/api/connectors/v1/service.py](/home/shuva/github/shuvabrata/work-behavior-analytics-ai/app/api/connectors/v1/service.py)
@@ -217,12 +272,14 @@ Recommended rule:
 ### Incremental Verification
 1. `PATCH /api/v1/connectors/atlassian_mcp` saves `enabled`, `server_url`, and `token`.
 2. `GET /api/v1/connectors/atlassian_mcp` returns masked `token`, never plaintext.
-3. Editing the connector without re-entering the token preserves the existing encrypted secret.
-4. Existing connectors API tests still pass.
+3. `GET /api/v1/connectors/atlassian_mcp?include_secrets=true` returns decrypted plaintext `token`.
+4. Editing the connector without re-entering the token preserves the existing encrypted secret.
+5. Existing connectors API tests still pass.
 
 ### Suggested Tests
 - Extend [tests/test_connectors_api.py](/home/shuva/github/shuvabrata/work-behavior-analytics-ai/tests/test_connectors_api.py) for `atlassian_mcp`
 - Add assertions specifically for connector-level secret masking
+- Add assertions for connector-level secret retrieval when `include_secrets=true`
 
 ### Exit Gate
 - Do not start Phase 3 until the Atlassian MCP connector config can be saved, read back, and masked correctly through the API.
@@ -230,6 +287,8 @@ Recommended rule:
 ---
 
 ## Phase 3: Connectors Page Grouping, Atlassian Form, and GitHub Manual Page
+
+- Phase status: `[NS]`
 
 **Goal**: Surface both MCP connectors in the Dash UI, with DB-backed management for Atlassian and manual guidance for GitHub.
 
@@ -265,6 +324,14 @@ Recommended rule:
 - Optionally include a `Test Connection` action if the current runtime is reachable
 - Do not render a misleading DB-backed Save button for GitHub MCP
 
+### Steps
+1. `[NS]` Group connectors into `Connections` and `MCP Connectors` sections on the listing page.
+2. `[NS]` Add an Atlassian MCP detail page with connector-level form fields only.
+3. `[NS]` Add a GitHub MCP detail page with manual setup instructions.
+4. `[NS]` Hide configured-items UI for both MCP connectors.
+5. `[NS]` Add tooltips/help text for Atlassian MCP fields.
+6. `[NS]` Decide whether GitHub MCP shows a validation/test action or instruction-only UX.
+
 ### UX Expectations
 - List page shows a separate `MCP Connectors` heading and two cards
 - Clicking the Atlassian card opens a DB-backed detail page
@@ -288,6 +355,8 @@ Recommended rule:
 
 ## Phase 4: App Runtime Reads Atlassian MCP Settings from Postgres
 
+- Phase status: `[NS]`
+
 **Goal**: Move Atlassian MCP client configuration in the app from env-only to DB-first, while keeping GitHub MCP manual.
 
 ### Changes
@@ -309,6 +378,13 @@ Recommended rule:
 - GitHub MCP remains env-driven in this phase.
 - The connectors page should stay explicit that GitHub runtime configuration is still managed through Docker/env, not Postgres.
 
+### Steps
+1. `[NS]` Add a DB-backed Atlassian MCP config loader.
+2. `[NS]` Decrypt the stored Atlassian token at runtime only where needed.
+3. `[NS]` Update Atlassian manager creation to use DB-first config.
+4. `[NS]` Preserve env fallback until rollout verification passes.
+5. `[NS]` Confirm GitHub MCP behavior remains unchanged and env-driven.
+
 ### Incremental Verification
 1. With DB config present and env disabled, Atlassian MCP still lists tools and serves chat requests.
 2. `tests/test_mcp_integration_comprehensive.py` is updated to cover DB-backed settings resolution.
@@ -322,6 +398,8 @@ Recommended rule:
 
 ## Phase 5: Real Atlassian Connection Testing and GitHub Validation Guidance
 
+- Phase status: `[NS]`
+
 **Goal**: Replace stub-like Atlassian MCP connector behavior with real connectivity checks and add GitHub manual-page validation where useful.
 
 ### Changes
@@ -333,6 +411,13 @@ Recommended rule:
   - perform a lightweight reachability check against the current configured GitHub MCP endpoint
   - or check only that the app-side env configuration is present
 - Decide whether to retire `ATLASSIAN_MCP_*` from [app/settings.py](/home/shuva/github/shuvabrata/work-behavior-analytics-ai/app/settings.py) or keep it as fallback/bootstrap config
+
+### Steps
+1. `[NS]` Replace stub Atlassian test behavior with a real MCP connectivity check.
+2. `[NS]` Persist meaningful success/error status for Atlassian MCP tests.
+3. `[NS]` Decide the final GitHub validation behavior.
+4. `[NS]` Clarify whether Atlassian env fallback remains or is removed after rollout.
+5. `[NS]` Update the progress log and phase statuses as implementation completes.
 
 ### Incremental Verification
 1. `Test Connection` on the Atlassian MCP card performs a real connection test.
