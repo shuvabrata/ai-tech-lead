@@ -418,8 +418,7 @@ async def _test_atlassian_mcp_connection(db: AsyncSession, now: datetime) -> Dic
     resolved_enabled = bool(db_enabled if db_enabled is not None else _settings.ATLASSIAN_MCP_ENABLED)
 
     logger.debug(
-        "[atlassian_mcp test] db_config=%r  resolved: enabled=%r server_url=%r token_present=%r token_source=%s",
-        config,
+        "[atlassian_mcp test] resolved: enabled=%r server_url=%r token_present=%r token_source=%s",
         resolved_enabled,
         resolved_server_url,
         bool(resolved_token),
