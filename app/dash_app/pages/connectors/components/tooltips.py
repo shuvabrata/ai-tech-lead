@@ -42,4 +42,9 @@ FIELD_TOOLTIPS: Dict[str, Dict[str, str]] = {
         "use_tls": "Toggle to enable TLS encryption for the connection.",
         "password": "The password or app-specific password for the email account.",
     },
+    "atlassian_mcp": {
+        "enabled": "Enable or disable the Atlassian MCP integration. When disabled, the AI agent will not use Atlassian tools.",
+        "server_url": "The Atlassian MCP server endpoint URL (e.g., https://mcp.atlassian.com/v1/mcp).",
+        "token": "Your Atlassian API token used to authenticate with the MCP server. Leave blank when editing to preserve the existing stored token.",
+    },
 }
