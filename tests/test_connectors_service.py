@@ -147,7 +147,7 @@ class TestAtlassianMCPTestConnection:
     """Unit tests for _test_atlassian_mcp_connection."""
 
     @pytest.mark.asyncio
-    async def test_atlassian_test_connection_success(self, monkeypatch):
+    async def test_atlassian_test_connection_success(self):
         """Returns success when check_connection returns connected=True."""
         from unittest.mock import AsyncMock, MagicMock, patch
         from datetime import datetime, timezone
