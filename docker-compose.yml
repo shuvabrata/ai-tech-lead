@@ -58,9 +58,6 @@ services:
       GITHUB_MCP_TOKEN: ${GITHUB_MCP_TOKEN:-}
       # In Docker, use service-to-service networking, not localhost.
       GITHUB_MCP_SERVER_URL: http://github-mcp:8082/mcp
-      ATLASSIAN_MCP_ENABLED: ${ATLASSIAN_MCP_ENABLED:-false}
-      ATLASSIAN_MCP_SERVER_URL: ${ATLASSIAN_MCP_SERVER_URL:-https://mcp.atlassian.com/v1/mcp}
-      ATLASSIAN_MCP_TOKEN: ${ATLASSIAN_MCP_TOKEN:-}
     ports:
       - "8000:8000"
     volumes:

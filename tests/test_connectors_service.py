@@ -136,3 +136,187 @@ def test_validate_atlassian_mcp_config_allows_missing_new_token_with_existing_se
         },
         existing_config={"encrypted_token": "existing-ciphertext"},
     )
+
+
+# ============================================================================
+# Phase 5: Real test_connection helpers
+# ============================================================================
+
+
+class TestAtlassianMCPTestConnection:
+    """Unit tests for _test_atlassian_mcp_connection."""
+
+    @pytest.mark.asyncio
+    async def test_atlassian_test_connection_success(self, monkeypatch):
+        """Returns success when check_connection returns connected=True."""
+        from unittest.mock import AsyncMock, MagicMock, patch
+        from datetime import datetime, timezone
+
+        now = datetime.now(timezone.utc)
+        mock_connector_data = {
+            "connector_type": "atlassian_mcp",
+            "config": {
+                "enabled": True,
+                "server_url": "https://mcp.atlassian.com/v1/mcp",
+                "token": "ATATT3xFfGF0_test_token_value",
+            },
+        }
+        mock_manager = MagicMock()
+        mock_manager.check_connection.return_value = {"connected": True}
+
+        with patch.object(service, "get_connector", new=AsyncMock(return_value=mock_connector_data)):
+            with patch("app.api.connectors.v1.service.query") as mock_query:
+                mock_query.update_connector_status = AsyncMock()
+                with patch(
+                    "app.ai_agent.mcp_integration.client_manager.AtlassianMCPClientManager",
+                    return_value=mock_manager,
+                ):
+                    db = MagicMock()
+                    result = await service._test_atlassian_mcp_connection(db, now)
+
+        assert result["success"] is True
+        assert "Atlassian" in result["message"]
+
+    @pytest.mark.asyncio
+    async def test_atlassian_test_connection_failure_persists_error(self, monkeypatch):
+        """Returns failure and persists error message when check_connection fails."""
+        from unittest.mock import AsyncMock, MagicMock, patch
+        from datetime import datetime, timezone
+
+        now = datetime.now(timezone.utc)
+        mock_connector_data = {
+            "connector_type": "atlassian_mcp",
+            "config": {
+                "enabled": True,
+                "server_url": "https://mcp.atlassian.com/v1/mcp",
+                "token": "ATATT3xFfGF0_bad_token",
+            },
+        }
+        mock_manager = MagicMock()
+        mock_manager.check_connection.return_value = {
+            "connected": False,
+            "error": "atlassian_mcp_token_invalid_format",
+        }
+
+        with patch.object(service, "get_connector", new=AsyncMock(return_value=mock_connector_data)):
+            with patch("app.api.connectors.v1.service.query") as mock_query:
+                mock_query.update_connector_status = AsyncMock()
+                with patch(
+                    "app.ai_agent.mcp_integration.client_manager.AtlassianMCPClientManager",
+                    return_value=mock_manager,
+                ):
+                    db = MagicMock()
+                    result = await service._test_atlassian_mcp_connection(db, now)
+
+        assert result["success"] is False
+        assert "atlassian_mcp_token_invalid_format" in result["message"]
+
+    @pytest.mark.asyncio
+    async def test_atlassian_test_connection_disabled(self):
+        """Returns failure with disabled error when connector is not enabled."""
+        from unittest.mock import AsyncMock, MagicMock, patch
+        from datetime import datetime, timezone
+
+        now = datetime.now(timezone.utc)
+        mock_connector_data = {
+            "connector_type": "atlassian_mcp",
+            "config": {"enabled": False, "server_url": "", "token": None},
+        }
+        mock_manager = MagicMock()
+        mock_manager.check_connection.return_value = {
+            "connected": False,
+            "error": "atlassian_mcp_disabled",
+        }
+
+        with patch.object(service, "get_connector", new=AsyncMock(return_value=mock_connector_data)):
+            with patch("app.api.connectors.v1.service.query") as mock_query:
+                mock_query.update_connector_status = AsyncMock()
+                with patch(
+                    "app.ai_agent.mcp_integration.client_manager.AtlassianMCPClientManager",
+                    return_value=mock_manager,
+                ):
+                    db = MagicMock()
+                    result = await service._test_atlassian_mcp_connection(db, now)
+
+        assert result["success"] is False
+
+
+class TestGithubMCPTestConnection:
+    """Unit tests for _test_github_mcp_connection."""
+
+    @pytest.mark.asyncio
+    async def test_github_test_connection_success(self):
+        """Returns success when check_connection returns connected=True."""
+        from unittest.mock import AsyncMock, MagicMock, patch
+        from datetime import datetime, timezone
+
+        now = datetime.now(timezone.utc)
+        mock_manager = MagicMock()
+        mock_manager.check_connection.return_value = {"connected": True}
+
+        with patch("app.api.connectors.v1.service.query") as mock_query:
+            mock_query.update_connector_status = AsyncMock()
+            with patch(
+                "app.ai_agent.mcp_integration.client_manager.GithubMCPClientManager",
+                return_value=mock_manager,
+            ):
+                db = MagicMock()
+                result = await service._test_github_mcp_connection(db, now)
+
+        assert result["success"] is True
+        assert "GitHub" in result["message"]
+
+    @pytest.mark.asyncio
+    async def test_github_test_connection_disabled(self, monkeypatch):
+        """Returns failure when GitHub MCP is disabled in env settings."""
+        from unittest.mock import AsyncMock, MagicMock, patch
+        from datetime import datetime, timezone
+
+        monkeypatch.setattr(settings, "GITHUB_MCP_ENABLED", False)
+
+        now = datetime.now(timezone.utc)
+        mock_manager = MagicMock()
+        mock_manager.check_connection.return_value = {
+            "connected": False,
+            "error": "github_mcp_disabled",
+        }
+
+        with patch("app.api.connectors.v1.service.query") as mock_query:
+            mock_query.update_connector_status = AsyncMock()
+            with patch(
+                "app.ai_agent.mcp_integration.client_manager.GithubMCPClientManager",
+                return_value=mock_manager,
+            ):
+                db = MagicMock()
+                result = await service._test_github_mcp_connection(db, now)
+
+        assert result["success"] is False
+        assert "github_mcp_disabled" in result["message"]
+
+    @pytest.mark.asyncio
+    async def test_github_test_connection_failure_persists_error(self):
+        """Persists error message in the DB when the check fails."""
+        from unittest.mock import AsyncMock, MagicMock, call, patch
+        from datetime import datetime, timezone
+
+        now = datetime.now(timezone.utc)
+        mock_manager = MagicMock()
+        mock_manager.check_connection.return_value = {
+            "connected": False,
+            "error": "connection refused",
+        }
+
+        with patch("app.api.connectors.v1.service.query") as mock_query:
+            mock_query.update_connector_status = AsyncMock()
+            with patch(
+                "app.ai_agent.mcp_integration.client_manager.GithubMCPClientManager",
+                return_value=mock_manager,
+            ):
+                db = MagicMock()
+                result = await service._test_github_mcp_connection(db, now)
+
+        assert result["success"] is False
+        # DB status should be "error" not "connected"
+        mock_query.update_connector_status.assert_awaited_once()
+        call_kwargs = mock_query.update_connector_status.call_args.kwargs
+        assert call_kwargs.get("status") == "error"

@@ -13,9 +13,9 @@
 
 ## Overall Status
 
-- Project status: `[IP]`
-- Current phase: `Phase 5 - Real Atlassian Connection Testing and GitHub Validation Guidance`
-- Next gate: `Phase 5 verification`
+- Project status: `[DN]`
+- Current phase: `All phases complete`
+- Next gate: `N/A`
 - Stop rule: `Do not begin the next phase until the current phase verification passes and the phase status is updated in this document.`
 
 ## Progress Log
@@ -50,7 +50,20 @@
   - Updated `layout.py`: grouped listing sections, hidden items for `supports_items=False`, GitHub MCP manual setup page
   - Updated `callbacks.py`: Connections / MCP Connectors section grouping, skips `/configs` API for no-items connectors
   - Fixed GitHub MCP manual page code blocks and banner to use CSS variable tokens for dark theme compatibility
-- `2026-04-25`: Phase 4 implementation completed:
+- `2026-04-25`: Phase 5 manual verification completed:
+  - Confirmed `token_source=env` fallback was caused by `.env` volume-mount (`- ./.env:/app/.env:ro`) in `docker-compose.yml` — Pydantic Settings reads the mounted file directly at startup, so `environment:` block overrides alone are insufficient
+  - Commented out `ATLASSIAN_MCP_TOKEN` in `.env`; re-tested → `{"success": false}` with no DB config saved, confirming fallback is now inert
+  - Saved valid Atlassian config via UI → re-tested → `{"success": true, "message": "Atlassian MCP connection verified"}` confirmed DB-backed path works end-to-end
+  - Downgraded temporary debug `logger.warning` calls to `logger.debug` in `_test_atlassian_mcp_connection`
+  - All 223 tests passing. All phases `[DN]`.
+- `2026-04-25`: Phase 5 implementation completed:
+  - Replaced stub `test_connection` in `app/api/connectors/v1/service.py` with real connectivity checks for `atlassian_mcp` and `github_mcp`
+  - `atlassian_mcp` test: reads DB-backed config (with secrets), builds `AtlassianMCPClientManager`, calls `check_connection()`, persists status and error to DB
+  - `github_mcp` test: reads env-driven settings, builds `GithubMCPClientManager`, calls `check_connection()`, persists status and error to DB
+  - All other connector types retain stub behavior
+  - `ATLASSIAN_MCP_*` env vars kept as fallback (no retirement in this phase)
+  - Added 6 new unit tests in `tests/test_connectors_service.py` covering success, failure, and disabled states for both MCP connectors
+  - All 223 tests passing
   - Created `app/ai_agent/mcp_integration/atlassian_config_loader.py` — DB-backed loader that fetches, decrypts, and returns Atlassian MCP config; falls back to `None` on any DB/decryption error
   - Updated `app/ai_agent/mcp_integration/tool_executor.py`: `_build_atlassian_manager()` is now DB-first with env fallback; `list_available_tools()` removes the early `settings.ATLASSIAN_MCP_ENABLED` guard so DB-backed enabled state is authoritative
   - Updated `tests/test_mcp_integration_comprehensive.py`: added `TestDBBackedAtlassianConfig` (6 tests covering DB config present/absent, DB-disabled overrides env-enabled, list_available_tools DB path, and loader exception fallback); updated two existing tests to mock the loader for DB isolation
@@ -426,7 +439,7 @@ Recommended rule:
 
 ## Phase 5: Real Atlassian Connection Testing and GitHub Validation Guidance
 
-- Phase status: `[NS]`
+- Phase status: `[DN]`
 
 **Goal**: Replace stub-like Atlassian MCP connector behavior with real connectivity checks and add GitHub manual-page validation where useful.
 
@@ -441,11 +454,11 @@ Recommended rule:
 - Decide whether to retire `ATLASSIAN_MCP_*` from [app/settings.py](/home/shuva/github/shuvabrata/work-behavior-analytics-ai/app/settings.py) or keep it as fallback/bootstrap config
 
 ### Steps
-1. `[NS]` Replace stub Atlassian test behavior with a real MCP connectivity check.
-2. `[NS]` Persist meaningful success/error status for Atlassian MCP tests.
-3. `[NS]` Decide the final GitHub validation behavior.
-4. `[NS]` Clarify whether Atlassian env fallback remains or is removed after rollout.
-5. `[NS]` Update the progress log and phase statuses as implementation completes.
+1. `[DN]` Replace stub Atlassian test behavior with a real MCP connectivity check.
+2. `[DN]` Persist meaningful success/error status for Atlassian MCP tests.
+3. `[DN]` Decide the final GitHub validation behavior.
+4. `[DN]` Clarify whether Atlassian env fallback remains or is removed after rollout.
+5. `[DN]` Update the progress log and phase statuses as implementation completes.
 
 ### Incremental Verification
 1. `Test Connection` on the Atlassian MCP card performs a real connection test.
