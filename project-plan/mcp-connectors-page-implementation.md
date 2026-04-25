@@ -13,9 +13,9 @@
 
 ## Overall Status
 
-- Project status: `[NS]`
-- Current phase: `Phase 1 - Data Contract and Seeded MCP Connectors`
-- Next gate: `Phase 1 verification`
+- Project status: `[IP]`
+- Current phase: `Phase 2 - Encrypted Connector-Level Atlassian Settings in the API Layer`
+- Next gate: `Phase 2 verification`
 - Stop rule: `Do not begin the next phase until the current phase verification passes and the phase status is updated in this document.`
 
 ## Progress Log
@@ -25,6 +25,14 @@
   - Atlassian MCP is DB-backed
   - GitHub MCP is manual-setup guidance
 - `2026-04-25`: Added explicit requirement for connector-level `include_secrets=true` retrieval for Atlassian MCP.
+- `2026-04-25`: Phase 1 implementation started.
+- `2026-04-25`: Added `atlassian_mcp` and `github_mcp` metadata to the connector registry, including grouping and setup-mode metadata.
+- `2026-04-25`: Added Alembic migration `c4f3a8b7d912` to seed the two MCP connector rows.
+- `2026-04-25`: Verified new Phase 1 files with `python -m py_compile`; database migration/application verification still pending.
+- `2026-04-25`: Manual verification completed after app container restart:
+  - confirmed `atlassian_mcp` and `github_mcp` rows exist in the `connectors` table
+  - confirmed both new MCP cards appear in the UI
+  - confirmed grouped MCP section rendering remains Phase 3 work
 
 ## Goal
 Add a new `MCP Connectors` section on the Connectors page with two cards:
@@ -193,7 +201,7 @@ Recommended rule:
 
 ## Phase 1: Data Contract and Seeded MCP Connectors
 
-- Phase status: `[NS]`
+- Phase status: `[DN]`
 
 **Goal**: Add the Atlassian and GitHub MCP connector types to the shared connectors system without changing MCP runtime behavior yet.
 
@@ -212,10 +220,10 @@ Recommended rule:
   - optionally `mode` or `setup_type` (`db_backed` vs `manual`)
 
 ### Steps
-1. `[NS]` Add `atlassian_mcp` and `github_mcp` to the connector registry.
-2. `[NS]` Add connector metadata for grouping and behavior (`section`, `supports_items`, optional setup mode).
-3. `[NS]` Create a new Alembic revision to seed both MCP connector rows.
-4. `[NS]` Confirm list-connectors responses include both new connector types.
+1. `[DN]` Add `atlassian_mcp` and `github_mcp` to the connector registry.
+2. `[DN]` Add connector metadata for grouping and behavior (`section`, `supports_items`, optional setup mode).
+3. `[DN]` Create a new Alembic revision to seed both MCP connector rows.
+4. `[DN]` Confirm list-connectors responses include both new connector types.
 
 ### Notes
 - No new child tables are recommended in this phase
