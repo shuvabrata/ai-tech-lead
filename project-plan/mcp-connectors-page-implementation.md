@@ -14,8 +14,8 @@
 ## Overall Status
 
 - Project status: `[IP]`
-- Current phase: `Phase 3 - Connectors Page Grouping, Atlassian Form, and GitHub Manual Page`
-- Next gate: `Phase 3 verification`
+- Current phase: `Phase 4 - App Runtime Reads Atlassian MCP Settings from Postgres`
+- Next gate: `Phase 4 verification`
 - Stop rule: `Do not begin the next phase until the current phase verification passes and the phase status is updated in this document.`
 
 ## Progress Log
@@ -44,6 +44,13 @@
 - `2026-04-25`: Added `DELETE /api/v1/connectors/{type}/config` endpoint to fully wipe connector-level config including encrypted secrets.
 - `2026-04-25`: Added `test_atlassian_mcp_clear_connector_config` integration test covering clear, secret-gone confirmation, and first-save re-validation.
 - `2026-04-25`: Phase 2 manual verification completed. All exit gate conditions met. Phase 2 marked done.
+- `2026-04-25`: Phase 3 implementation completed:
+  - Added `atlassian_mcp` form spec (enabled, server_url, token) to `config_forms.py`
+  - Added Atlassian MCP field tooltips to `tooltips.py`
+  - Updated `layout.py`: grouped listing sections, hidden items for `supports_items=False`, GitHub MCP manual setup page
+  - Updated `callbacks.py`: Connections / MCP Connectors section grouping, skips `/configs` API for no-items connectors
+  - Fixed GitHub MCP manual page code blocks and banner to use CSS variable tokens for dark theme compatibility
+- `2026-04-25`: Phase 3 manual verification completed. Phase 3 marked done.
 
 ## Goal
 Add a new `MCP Connectors` section on the Connectors page with two cards:
@@ -307,7 +314,7 @@ Recommended rule:
 
 ## Phase 3: Connectors Page Grouping, Atlassian Form, and GitHub Manual Page
 
-- Phase status: `[IP]`
+- Phase status: `[DN]`
 
 **Goal**: Surface both MCP connectors in the Dash UI, with DB-backed management for Atlassian and manual guidance for GitHub.
 
@@ -374,7 +381,7 @@ Recommended rule:
 
 ## Phase 4: App Runtime Reads Atlassian MCP Settings from Postgres
 
-- Phase status: `[NS]`
+- Phase status: `[IP]`
 
 **Goal**: Move Atlassian MCP client configuration in the app from env-only to DB-first, while keeping GitHub MCP manual.
 

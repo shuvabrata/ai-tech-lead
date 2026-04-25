@@ -105,14 +105,17 @@ def render_connectors(store: Dict[str, Any] | None):
         ]
 
     by_type = {c.get("connector_type"): c for c in connectors}
-    cards: List[Any] = []
+    sections: Dict[str, List[Any]] = {"connections": [], "mcp": []}
 
     for connector_type, meta in CONNECTOR_REGISTRY.items():
+        section_key = meta.get("section", "connections")
+        if section_key not in sections:
+            sections[section_key] = []
         data = by_type.get(connector_type, {})
         display_name = data.get("display_name", meta.get("display_name", connector_type))
         status = data.get("status", "not_configured")
         icon = meta.get("icon", "fa-solid fa-plug")
-        cards.append(
+        sections[section_key].append(
             dbc.Col(
                 connector_card(
                     connector_type=connector_type,
@@ -126,7 +129,40 @@ def render_connectors(store: Dict[str, Any] | None):
             )
         )
 
-    return cards
+    section_configs = [
+        ("connections", "Connections"),
+        ("mcp", "MCP Connectors"),
+    ]
+    result: List[Any] = []
+    for section_key, section_label in section_configs:
+        cards = sections.get(section_key, [])
+        if not cards:
+            continue
+        result.append(
+            dbc.Col(
+                [
+                    html.Div(
+                        section_label,
+                        style={
+                            "fontFamily": FONT_SANS,
+                            "fontSize": FONT_SIZE_SMALL,
+                            "fontWeight": FONT_WEIGHT_MEDIUM,
+                            "color": COLOR_CHARCOAL_MEDIUM,
+                            "textTransform": "uppercase",
+                            "letterSpacing": "0.8px",
+                            "marginBottom": SPACING_XSMALL,
+                            "paddingBottom": SPACING_XSMALL,
+                            "borderBottom": f"1px solid {COLOR_BORDER}",
+                        },
+                    ),
+                    dbc.Row(cards, className="g-3"),
+                ],
+                width=12,
+                style={"marginBottom": SPACING_SMALL},
+            )
+        )
+
+    return result
 
 
 @callback(
@@ -172,18 +208,23 @@ def load_connector_detail(pathname: str):
         return error, error, None, None
 
     api_base = _get_api_base_url()
+    supports_items = CONNECTOR_REGISTRY.get(connector_type, {}).get("supports_items", True)
     try:
         detail_resp = requests.get(
             f"{api_base}/api/v1/connectors/{connector_type}", timeout=TIMEOUT_SECONDS
         )
         detail_resp.raise_for_status()
-        items_resp = requests.get(
-            f"{api_base}/api/v1/connectors/{connector_type}/configs", timeout=TIMEOUT_SECONDS
-        )
-        items_resp.raise_for_status()
+        if supports_items:
+            items_resp = requests.get(
+                f"{api_base}/api/v1/connectors/{connector_type}/configs", timeout=TIMEOUT_SECONDS
+            )
+            items_resp.raise_for_status()
+            items_data = items_resp.json()
+        else:
+            items_data = []
         return (
             {"status": "ok", "connector_type": connector_type, "data": detail_resp.json()},
-            {"status": "ok", "connector_type": connector_type, "items": items_resp.json()},
+            {"status": "ok", "connector_type": connector_type, "items": items_data},
             None,
             None,
         )
