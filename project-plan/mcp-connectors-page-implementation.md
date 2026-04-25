@@ -14,8 +14,8 @@
 ## Overall Status
 
 - Project status: `[IP]`
-- Current phase: `Phase 4 - App Runtime Reads Atlassian MCP Settings from Postgres`
-- Next gate: `Phase 4 verification`
+- Current phase: `Phase 5 - Real Atlassian Connection Testing and GitHub Validation Guidance`
+- Next gate: `Phase 5 verification`
 - Stop rule: `Do not begin the next phase until the current phase verification passes and the phase status is updated in this document.`
 
 ## Progress Log
@@ -50,7 +50,11 @@
   - Updated `layout.py`: grouped listing sections, hidden items for `supports_items=False`, GitHub MCP manual setup page
   - Updated `callbacks.py`: Connections / MCP Connectors section grouping, skips `/configs` API for no-items connectors
   - Fixed GitHub MCP manual page code blocks and banner to use CSS variable tokens for dark theme compatibility
-- `2026-04-25`: Phase 3 manual verification completed. Phase 3 marked done.
+- `2026-04-25`: Phase 4 implementation completed:
+  - Created `app/ai_agent/mcp_integration/atlassian_config_loader.py` — DB-backed loader that fetches, decrypts, and returns Atlassian MCP config; falls back to `None` on any DB/decryption error
+  - Updated `app/ai_agent/mcp_integration/tool_executor.py`: `_build_atlassian_manager()` is now DB-first with env fallback; `list_available_tools()` removes the early `settings.ATLASSIAN_MCP_ENABLED` guard so DB-backed enabled state is authoritative
+  - Updated `tests/test_mcp_integration_comprehensive.py`: added `TestDBBackedAtlassianConfig` (6 tests covering DB config present/absent, DB-disabled overrides env-enabled, list_available_tools DB path, and loader exception fallback); updated two existing tests to mock the loader for DB isolation
+  - All 217 tests passing
 
 ## Goal
 Add a new `MCP Connectors` section on the Connectors page with two cards:
@@ -351,12 +355,12 @@ Recommended rule:
 - Do not render a misleading DB-backed Save button for GitHub MCP
 
 ### Steps
-1. `[NS]` Group connectors into `Connections` and `MCP Connectors` sections on the listing page.
-2. `[NS]` Add an Atlassian MCP detail page with connector-level form fields only.
-3. `[NS]` Add a GitHub MCP detail page with manual setup instructions.
-4. `[NS]` Hide configured-items UI for both MCP connectors.
-5. `[NS]` Add tooltips/help text for Atlassian MCP fields.
-6. `[NS]` Decide whether GitHub MCP shows a validation/test action or instruction-only UX.
+1. `[DN]` Group connectors into `Connections` and `MCP Connectors` sections on the listing page.
+2. `[DN]` Add an Atlassian MCP detail page with connector-level form fields only.
+3. `[DN]` Add a GitHub MCP detail page with manual setup instructions.
+4. `[DN]` Hide configured-items UI for both MCP connectors.
+5. `[DN]` Add tooltips/help text for Atlassian MCP fields.
+6. `[DN]` Decide whether GitHub MCP shows a validation/test action or instruction-only UX.
 
 ### UX Expectations
 - List page shows a separate `MCP Connectors` heading and two cards
@@ -379,9 +383,7 @@ Recommended rule:
 
 ---
 
-## Phase 4: App Runtime Reads Atlassian MCP Settings from Postgres
-
-- Phase status: `[IP]`
+- Phase status: `[DN]`
 
 **Goal**: Move Atlassian MCP client configuration in the app from env-only to DB-first, while keeping GitHub MCP manual.
 
@@ -405,11 +407,11 @@ Recommended rule:
 - The connectors page should stay explicit that GitHub runtime configuration is still managed through Docker/env, not Postgres.
 
 ### Steps
-1. `[NS]` Add a DB-backed Atlassian MCP config loader.
-2. `[NS]` Decrypt the stored Atlassian token at runtime only where needed.
-3. `[NS]` Update Atlassian manager creation to use DB-first config.
-4. `[NS]` Preserve env fallback until rollout verification passes.
-5. `[NS]` Confirm GitHub MCP behavior remains unchanged and env-driven.
+1. `[DN]` Add a DB-backed Atlassian MCP config loader.
+2. `[DN]` Decrypt the stored Atlassian token at runtime only where needed.
+3. `[DN]` Update Atlassian manager creation to use DB-first config.
+4. `[DN]` Preserve env fallback until rollout verification passes.
+5. `[DN]` Confirm GitHub MCP behavior remains unchanged and env-driven.
 
 ### Incremental Verification
 1. With DB config present and env disabled, Atlassian MCP still lists tools and serves chat requests.

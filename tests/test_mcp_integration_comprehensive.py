@@ -239,12 +239,14 @@ class TestToolListingAndExecution:
 
     def test_list_available_tools_returns_empty_when_disabled(self, monkeypatch):
         """Tool listing should return empty when MCP is disabled."""
+        from app.ai_agent.mcp_integration import tool_executor
+
         monkeypatch.setattr(settings, "GITHUB_MCP_ENABLED", False)
         monkeypatch.setattr(settings, "ATLASSIAN_MCP_ENABLED", False)
-        
-        from app.ai_agent.mcp_integration.tool_executor import list_available_tools
-        
-        tools = list_available_tools()
+        # Isolate from the live DB so the env-disabled fallback is authoritative.
+        monkeypatch.setattr(tool_executor, "load_atlassian_mcp_config", lambda: None)
+
+        tools = tool_executor.list_available_tools()
         assert tools == []
 
     def test_list_available_tools_returns_list(self):
@@ -274,6 +276,8 @@ class TestToolListingAndExecution:
         monkeypatch.setattr(settings, "GITHUB_MCP_ENABLED", True)
         monkeypatch.setattr(settings, "ATLASSIAN_MCP_ENABLED", False)
         monkeypatch.setattr(tool_executor, "_build_github_manager", lambda: FakeGithubManager())
+        # Isolate from the live DB so the env-disabled fallback is authoritative.
+        monkeypatch.setattr(tool_executor, "load_atlassian_mcp_config", lambda: None)
 
         tools = tool_executor.list_available_tools()
         assert len(tools) == 1
@@ -743,3 +747,127 @@ class TestIntegrationWithoutLiveCredentials:
                 # Should not crash, return something usable
                 assert isinstance(result, str)
                 assert len(result) > 0
+
+
+# ============================================================================
+# Phase 4: DB-Backed Atlassian MCP Config Resolution
+# ============================================================================
+
+
+class TestDBBackedAtlassianConfig:
+    """Validate DB-backed Atlassian MCP config resolution in tool_executor."""
+
+    def test_build_atlassian_manager_uses_db_config_when_available(self, monkeypatch):
+        """When the DB loader returns config, the manager should use DB values."""
+        from app.ai_agent.mcp_integration import tool_executor
+
+        db_config = {
+            "enabled": True,
+            "server_url": "https://db-mcp.atlassian.com/v1/mcp",
+            "token": "ATATT3xFfGF0_db_token_value",
+        }
+        monkeypatch.setattr(tool_executor, "load_atlassian_mcp_config", lambda: db_config)
+
+        manager = tool_executor._build_atlassian_manager()
+
+        assert manager.atlassian_server_url == "https://db-mcp.atlassian.com/v1/mcp"
+        assert manager.atlassian_token == "ATATT3xFfGF0_db_token_value"
+        assert manager.atlassian_enabled is True
+
+    def test_build_atlassian_manager_falls_back_to_env_when_db_absent(self, monkeypatch):
+        """When the DB loader returns None, the manager should use env settings."""
+        from app.ai_agent.mcp_integration import tool_executor
+
+        monkeypatch.setattr(tool_executor, "load_atlassian_mcp_config", lambda: None)
+        monkeypatch.setattr(settings, "ATLASSIAN_MCP_SERVER_URL", "https://env-mcp.atlassian.com/v1/mcp")
+        monkeypatch.setattr(settings, "ATLASSIAN_MCP_TOKEN", "ATATT3xFfGF0_env_token")
+        monkeypatch.setattr(settings, "ATLASSIAN_MCP_ENABLED", True)
+
+        manager = tool_executor._build_atlassian_manager()
+
+        assert manager.atlassian_server_url == "https://env-mcp.atlassian.com/v1/mcp"
+        assert manager.atlassian_token == "ATATT3xFfGF0_env_token"
+        assert manager.atlassian_enabled is True
+
+    def test_build_atlassian_manager_db_disabled_overrides_env_enabled(self, monkeypatch):
+        """DB config with enabled=False must take precedence over env ATLASSIAN_MCP_ENABLED=True."""
+        from app.ai_agent.mcp_integration import tool_executor
+
+        db_config = {
+            "enabled": False,
+            "server_url": "https://db-mcp.atlassian.com/v1/mcp",
+            "token": "ATATT3xFfGF0_db_token_value",
+        }
+        monkeypatch.setattr(tool_executor, "load_atlassian_mcp_config", lambda: db_config)
+        # Even if env says enabled, DB takes precedence.
+        monkeypatch.setattr(settings, "ATLASSIAN_MCP_ENABLED", True)
+
+        manager = tool_executor._build_atlassian_manager()
+
+        assert manager.atlassian_enabled is False
+
+    def test_list_available_tools_uses_db_atlassian_config(self, monkeypatch):
+        """list_available_tools should expose Atlassian tools when DB config is enabled."""
+        from app.ai_agent.mcp_integration import tool_executor
+
+        class FakeAtlassianManager:
+            def list_tools(self):
+                return [
+                    {
+                        "type": "function",
+                        "function": {
+                            "name": "getTeamworkGraphContext",
+                            "description": "Get context",
+                            "parameters": {"type": "object", "properties": {}},
+                        },
+                    }
+                ]
+
+        db_config = {
+            "enabled": True,
+            "server_url": "https://db-mcp.atlassian.com/v1/mcp",
+            "token": "ATATT3xFfGF0_db_token_value",
+        }
+        monkeypatch.setattr(settings, "GITHUB_MCP_ENABLED", False)
+        # env says disabled — DB should override.
+        monkeypatch.setattr(settings, "ATLASSIAN_MCP_ENABLED", False)
+        monkeypatch.setattr(tool_executor, "load_atlassian_mcp_config", lambda: db_config)
+        monkeypatch.setattr(tool_executor, "_build_atlassian_manager", lambda: FakeAtlassianManager())
+
+        tools = tool_executor.list_available_tools()
+
+        assert len(tools) == 1
+        assert tools[0]["function"]["name"] == "atlassian__getTeamworkGraphContext"
+
+    def test_list_available_tools_no_atlassian_when_db_disabled(self, monkeypatch):
+        """list_available_tools should return no Atlassian tools when DB config is disabled."""
+        from app.ai_agent.mcp_integration import tool_executor
+
+        db_config = {
+            "enabled": False,
+            "server_url": "https://db-mcp.atlassian.com/v1/mcp",
+            "token": "",
+        }
+        monkeypatch.setattr(settings, "GITHUB_MCP_ENABLED", False)
+        monkeypatch.setattr(tool_executor, "load_atlassian_mcp_config", lambda: db_config)
+
+        tools = tool_executor.list_available_tools()
+
+        atlassian_tools = [t for t in tools if t["function"]["name"].startswith("atlassian__")]
+        assert atlassian_tools == []
+
+    def test_loader_exception_triggers_env_fallback(self, monkeypatch):
+        """When the loader raises, _build_atlassian_manager should use env settings."""
+        from app.ai_agent.mcp_integration import tool_executor
+
+        def _raising_loader():
+            raise RuntimeError("DB connection refused")
+
+        monkeypatch.setattr(tool_executor, "load_atlassian_mcp_config", _raising_loader)
+        monkeypatch.setattr(settings, "ATLASSIAN_MCP_SERVER_URL", "https://env-fallback.atlassian.com/v1/mcp")
+        monkeypatch.setattr(settings, "ATLASSIAN_MCP_TOKEN", "")
+        monkeypatch.setattr(settings, "ATLASSIAN_MCP_ENABLED", False)
+
+        # Should not raise; falls back to env settings.
+        manager = tool_executor._build_atlassian_manager()
+        assert manager.atlassian_enabled is False
