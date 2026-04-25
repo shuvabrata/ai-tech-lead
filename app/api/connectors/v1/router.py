@@ -1,10 +1,9 @@
 from typing import Any, Dict, List, Union
-import logging
+from app.common.logger import logger
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
-logger = logging.getLogger(__name__)
 
 from app.db.session import get_async_db
 from . import service

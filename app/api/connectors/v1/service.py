@@ -1,14 +1,12 @@
 from datetime import datetime, timezone
-import logging
 from typing import Any, Dict, List, Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.common.logger import logger
 from app.common.encryption import decrypt, encrypt
 from . import query
 from .registry import CONNECTOR_REGISTRY
-
-logger = logging.getLogger(__name__)
 
 
 CONNECTOR_CONFIG_SENSITIVE_FIELDS: Dict[str, Dict[str, str]] = {

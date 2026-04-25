@@ -1,4 +1,4 @@
-import logging
+from app.common.logger import logger
 from typing import Any, Dict, List, Optional, Type
 
 from sqlalchemy import delete, select
@@ -7,7 +7,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.models.connector import Connector
 from app.db.models import connector_configs as config_models
 
-logger = logging.getLogger(__name__)
 
 
 CONFIG_MODEL_MAP: Dict[str, Type] = {
