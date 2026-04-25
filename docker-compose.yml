@@ -54,6 +54,7 @@ services:
       NEO4J_PASSWORD: ${NEO4J_PASSWORD}
       NEO4J_ENABLED: ${NEO4J_ENABLED}
       NEO4J_MODE: ${NEO4J_MODE}
+      #Github MCP server settings
       GITHUB_MCP_ENABLED: ${GITHUB_MCP_ENABLED:-false}
       GITHUB_MCP_TOKEN: ${GITHUB_MCP_TOKEN:-}
       # In Docker, use service-to-service networking, not localhost.
