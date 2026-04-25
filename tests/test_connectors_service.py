@@ -110,7 +110,7 @@ def test_prepare_connector_config_returns_plain_config_for_non_atlassian():
 
 
 def test_validate_atlassian_mcp_config_requires_server_url_when_enabled():
-    with pytest.raises(ValueError, match="server_url is required"):
+    with pytest.raises(ValueError, match="Server URL is required"):
         service._validate_atlassian_mcp_config(
             {"enabled": True},
             existing_config=None,
