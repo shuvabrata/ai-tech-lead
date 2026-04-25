@@ -47,9 +47,13 @@ async def list_connectors(db: AsyncSession = Depends(get_async_db)):
 
 
 @router.get("/{connector_type}", response_model=ConnectorStatus)
-async def get_connector(connector_type: str, db: AsyncSession = Depends(get_async_db)):
+async def get_connector(
+    connector_type: str,
+    include_secrets: bool = False,
+    db: AsyncSession = Depends(get_async_db),
+):
     try:
-        return await service.get_connector(db, connector_type)
+        return await service.get_connector(db, connector_type, include_secrets=include_secrets)
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
@@ -63,7 +67,18 @@ async def update_connector_config(
     try:
         return await service.update_connector_config(db, connector_type, payload.config)
     except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+        raise HTTPException(status_code=_status_for_connector_error(exc), detail=str(exc)) from exc
+
+
+@router.delete("/{connector_type}/config", response_model=ConnectorStatus)
+async def clear_connector_config(
+    connector_type: str,
+    db: AsyncSession = Depends(get_async_db),
+):
+    try:
+        return await service.clear_connector_config(db, connector_type)
+    except ValueError as exc:
+        raise HTTPException(status_code=_status_for_connector_error(exc), detail=str(exc)) from exc
 
 
 @router.get("/{connector_type}/configs", response_model=List[Dict[str, Any]])

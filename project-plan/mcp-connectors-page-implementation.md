@@ -14,8 +14,8 @@
 ## Overall Status
 
 - Project status: `[IP]`
-- Current phase: `Phase 2 - Encrypted Connector-Level Atlassian Settings in the API Layer`
-- Next gate: `Phase 2 verification`
+- Current phase: `Phase 3 - Connectors Page Grouping, Atlassian Form, and GitHub Manual Page`
+- Next gate: `Phase 3 verification`
 - Stop rule: `Do not begin the next phase until the current phase verification passes and the phase status is updated in this document.`
 
 ## Progress Log
@@ -33,6 +33,17 @@
   - confirmed `atlassian_mcp` and `github_mcp` rows exist in the `connectors` table
   - confirmed both new MCP cards appear in the UI
   - confirmed grouped MCP section rendering remains Phase 3 work
+- `2026-04-25`: Phase 2 implementation started.
+- `2026-04-25`: Added connector-level secret handling for `atlassian_mcp`:
+  - masked token output by default
+  - decrypted token output when `include_secrets=true`
+  - token preservation when update payload leaves the secret blank
+- `2026-04-25`: Updated the connector PATCH route so validation errors return `400` instead of being incorrectly mapped to `404`.
+- `2026-04-25`: Added integration-test coverage for Atlassian MCP connector config masking and `include_secrets=true`.
+- `2026-04-25`: Added service-level unit coverage for Atlassian MCP connector config normalization, encryption, validation, and secret preservation.
+- `2026-04-25`: Added `DELETE /api/v1/connectors/{type}/config` endpoint to fully wipe connector-level config including encrypted secrets.
+- `2026-04-25`: Added `test_atlassian_mcp_clear_connector_config` integration test covering clear, secret-gone confirmation, and first-save re-validation.
+- `2026-04-25`: Phase 2 manual verification completed. All exit gate conditions met. Phase 2 marked done.
 
 ## Goal
 Add a new `MCP Connectors` section on the Connectors page with two cards:
@@ -241,7 +252,7 @@ Recommended rule:
 
 ## Phase 2: Encrypted Connector-Level Atlassian Settings in the API Layer
 
-- Phase status: `[NS]`
+- Phase status: `[DN]`
 
 **Goal**: Make the connectors API able to store and return Atlassian MCP singleton config safely.
 
@@ -264,12 +275,12 @@ Recommended rule:
   - connector type must be `atlassian_mcp` for the new DB-backed MCP save flow
 
 ### Steps
-1. `[NS]` Add connector-level secret metadata for `atlassian_mcp`.
-2. `[NS]` Extend connector read logic to support masked secret output by default.
-3. `[NS]` Add connector-level decrypted output when `include_secrets=true`.
-4. `[NS]` Preserve existing secret values when edit submissions leave the token blank.
-5. `[NS]` Add validation for enabled Atlassian MCP settings.
-6. `[NS]` Add or update automated tests for masking and `include_secrets=true`.
+1. `[DN]` Add connector-level secret metadata for `atlassian_mcp`.
+2. `[DN]` Extend connector read logic to support masked secret output by default.
+3. `[DN]` Add connector-level decrypted output when `include_secrets=true`.
+4. `[DN]` Preserve existing secret values when edit submissions leave the token blank.
+5. `[DN]` Add validation for enabled Atlassian MCP settings.
+6. `[DN]` Add or update automated tests for masking and `include_secrets=true`.
 
 ### Files Likely Affected
 - [app/api/connectors/v1/service.py](/home/shuva/github/shuvabrata/work-behavior-analytics-ai/app/api/connectors/v1/service.py)
@@ -296,7 +307,7 @@ Recommended rule:
 
 ## Phase 3: Connectors Page Grouping, Atlassian Form, and GitHub Manual Page
 
-- Phase status: `[NS]`
+- Phase status: `[IP]`
 
 **Goal**: Surface both MCP connectors in the Dash UI, with DB-backed management for Atlassian and manual guidance for GitHub.
 
