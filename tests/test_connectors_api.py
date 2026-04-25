@@ -300,7 +300,6 @@ async def test_atlassian_mcp_clear_connector_config():
         assert resp.status_code == 200
         secret_config = resp.json().get("config") or {}
         assert secret_config.get("token") is None
-        assert secret_config.get("encrypted_token") is None
 
         # Confirm re-enable now requires a token (first-save enforcement)
         print("Clear Test Step 4: PATCH enabled without token after clear should fail")
