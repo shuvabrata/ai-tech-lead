@@ -245,4 +245,30 @@ CONFIG_FORM_SPECS = {
             ],
         },
     },
+    "atlassian_mcp": {
+        "connector_config": [
+            {
+                "key": "enabled",
+                "label": "Enabled",
+                "input_type": FIELD_CHECKBOX,
+                "required": False,
+            },
+            {
+                "key": "server_url",
+                "label": "Server URL",
+                "input_type": FIELD_TEXT,
+                "placeholder": "https://mcp.atlassian.com/v1/mcp",
+                "required": True,
+            },
+            {
+                "key": "token",
+                "label": "API Token",
+                "input_type": FIELD_PASSWORD,
+                "placeholder": "Leave blank to keep existing token",
+                "required": True,
+                "secret": True,
+            },
+        ],
+        "item": {},
+    },
 }

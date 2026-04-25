@@ -165,7 +165,10 @@ def test_rest_chat_flow_atlassian_jira_prompt_injects_mcp_context(monkeypatch):
 
     monkeypatch.setattr(ai_agent, "_provider", fake_provider)
     monkeypatch.setattr(settings, "GITHUB_MCP_ENABLED", False)
-    monkeypatch.setattr(settings, "ATLASSIAN_MCP_ENABLED", True)
+    # Patch _build_atlassian_manager to simulate DB-driven enablement
+    class FakeAtlassianManager:
+        atlassian_enabled = True
+    monkeypatch.setattr(mcp_chain, "_build_atlassian_manager", lambda: FakeAtlassianManager())
     monkeypatch.setattr(settings, "NEO4J_ENABLED", False)
     monkeypatch.setattr(settings, "MAX_MCP_ITERATIONS", 2)
     monkeypatch.setattr(
@@ -221,7 +224,10 @@ def test_rest_chat_flow_atlassian_confluence_prompt_injects_mcp_context(monkeypa
 
     monkeypatch.setattr(ai_agent, "_provider", fake_provider)
     monkeypatch.setattr(settings, "GITHUB_MCP_ENABLED", False)
-    monkeypatch.setattr(settings, "ATLASSIAN_MCP_ENABLED", True)
+    # Patch _build_atlassian_manager to simulate DB-driven enablement
+    class FakeAtlassianManager:
+        atlassian_enabled = True
+    monkeypatch.setattr(mcp_chain, "_build_atlassian_manager", lambda: FakeAtlassianManager())
     monkeypatch.setattr(settings, "NEO4J_ENABLED", False)
     monkeypatch.setattr(settings, "MAX_MCP_ITERATIONS", 2)
     monkeypatch.setattr(

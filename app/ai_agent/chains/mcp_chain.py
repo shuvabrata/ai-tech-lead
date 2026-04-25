@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from app.ai_agent.mcp_integration.tool_executor import execute_tool_call, list_available_tools
+from app.ai_agent.mcp_integration.tool_executor import execute_tool_call, list_available_tools, _build_atlassian_manager
 from app.common.logger import logger
 from app.settings import settings
 
@@ -45,8 +45,12 @@ def _enabled_backends() -> list[str]:
     backends: list[str] = []
     if settings.GITHUB_MCP_ENABLED:
         backends.append("GitHub")
-    if settings.ATLASSIAN_MCP_ENABLED:
-        backends.append("Atlassian")
+    # Use DB-driven enablement for Atlassian MCP
+    try:
+        if _build_atlassian_manager().atlassian_enabled:
+            backends.append("Atlassian")
+    except Exception:
+        pass
     return backends
 
 
@@ -59,10 +63,11 @@ def _check_mcp_relevance(user_message: str, provider: Any) -> bool:
     criteria: list[str] = []
     if settings.GITHUB_MCP_ENABLED:
         criteria.append("- GitHub code, pull requests, commits, branches, issues, or repositories")
-    if settings.ATLASSIAN_MCP_ENABLED:
-        criteria.append(
-            "- Jira issues/tickets/sprints/epics/boards, Confluence pages/spaces/docs, or Atlassian project context"
-        )
+    try:
+        if _build_atlassian_manager().atlassian_enabled:
+            criteria.append("- Jira issues/tickets/sprints/epics/boards, Confluence pages/spaces/docs, or Atlassian project context")
+    except Exception:
+        pass
 
     criteria_text = "\n".join(criteria)
 

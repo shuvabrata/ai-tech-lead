@@ -6,6 +6,7 @@ import pytest
 
 BASE_URL = "http://localhost:8000"
 CONNECTOR_TYPE = "github"
+ATLASSIAN_MCP_CONNECTOR_TYPE = "atlassian_mcp"
 
 
 pytestmark = [pytest.mark.integration, pytest.mark.server]
@@ -156,3 +157,157 @@ async def test_connectors_api_endpoints():
                     f"/api/v1/connectors/{CONNECTOR_TYPE}",
                     json={"config": restore_config},
                 )
+
+
+@pytest.mark.asyncio
+async def test_atlassian_mcp_connector_config_api():
+    changed_config = False
+    original_config = None
+    marker = _marker_value()
+
+    async with httpx.AsyncClient(base_url=BASE_URL) as ac:
+        try:
+            print("Atlassian MCP Step 1: GET /api/v1/connectors/{connector_type}")
+            resp = await ac.get(
+                f"/api/v1/connectors/{ATLASSIAN_MCP_CONNECTOR_TYPE}",
+                params={"include_secrets": "true"},
+            )
+            assert resp.status_code == 200
+            original_config = resp.json().get("config")
+
+            print("Atlassian MCP Step 2: PATCH /api/v1/connectors/{connector_type} (set config)")
+            create_payload = {
+                "enabled": True,
+                "server_url": "https://mcp.atlassian.com/v1/mcp",
+                "token": f"atlassian-token-{marker}",
+                "__test_marker": marker,
+            }
+            resp = await ac.patch(
+                f"/api/v1/connectors/{ATLASSIAN_MCP_CONNECTOR_TYPE}",
+                json={"config": create_payload},
+            )
+            assert resp.status_code == 200
+            changed_config = True
+            returned_config = resp.json().get("config", {})
+            assert returned_config.get("enabled") is True
+            assert returned_config.get("server_url") == "https://mcp.atlassian.com/v1/mcp"
+            assert returned_config.get("token") == "********"
+            assert returned_config.get("__test_marker") is None
+            assert "encrypted_token" not in returned_config
+
+            print("Atlassian MCP Step 3: GET masked config")
+            resp = await ac.get(f"/api/v1/connectors/{ATLASSIAN_MCP_CONNECTOR_TYPE}")
+            assert resp.status_code == 200
+            masked_config = resp.json().get("config", {})
+            assert masked_config.get("token") == "********"
+            assert masked_config.get("server_url") == "https://mcp.atlassian.com/v1/mcp"
+            assert "encrypted_token" not in masked_config
+
+            print("Atlassian MCP Step 3b: GET /api/v1/connectors/ (masked in list view)")
+            resp = await ac.get("/api/v1/connectors/")
+            assert resp.status_code == 200
+            connectors = resp.json()
+            atlassian_mcp = next(
+                (connector for connector in connectors if connector.get("connector_type") == ATLASSIAN_MCP_CONNECTOR_TYPE),
+                None,
+            )
+            assert atlassian_mcp is not None
+            list_config = atlassian_mcp.get("config", {})
+            assert list_config.get("token") == "********"
+            assert "encrypted_token" not in list_config
+
+            print("Atlassian MCP Step 4: GET config with include_secrets=true")
+            resp = await ac.get(
+                f"/api/v1/connectors/{ATLASSIAN_MCP_CONNECTOR_TYPE}",
+                params={"include_secrets": "true"},
+            )
+            assert resp.status_code == 200
+            secret_config = resp.json().get("config", {})
+            assert secret_config.get("token") == f"atlassian-token-{marker}"
+            assert secret_config.get("server_url") == "https://mcp.atlassian.com/v1/mcp"
+            assert "encrypted_token" not in secret_config
+
+            print("Atlassian MCP Step 5: PATCH without token should preserve secret")
+            update_payload = {
+                "enabled": True,
+                "server_url": "https://mcp.atlassian.com/v1/mcp",
+            }
+            resp = await ac.patch(
+                f"/api/v1/connectors/{ATLASSIAN_MCP_CONNECTOR_TYPE}",
+                json={"config": update_payload},
+            )
+            assert resp.status_code == 200
+            changed_config = True
+            returned_config = resp.json().get("config", {})
+            assert returned_config.get("token") == "********"
+
+            print("Atlassian MCP Step 6: GET config with include_secrets=true (verify preserved secret)")
+            resp = await ac.get(
+                f"/api/v1/connectors/{ATLASSIAN_MCP_CONNECTOR_TYPE}",
+                params={"include_secrets": "true"},
+            )
+            assert resp.status_code == 200
+            secret_config = resp.json().get("config", {})
+            assert secret_config.get("token") == f"atlassian-token-{marker}"
+
+            print("Atlassian MCP Step 7: PATCH enabled config without server_url should fail")
+            resp = await ac.patch(
+                f"/api/v1/connectors/{ATLASSIAN_MCP_CONNECTOR_TYPE}",
+                json={"config": {"enabled": True}},
+            )
+            assert resp.status_code == 400
+        finally:
+            if changed_config:
+                print("Cleanup: restoring Atlassian MCP connector config")
+                restore_config = original_config if original_config is not None else None
+                await ac.patch(
+                    f"/api/v1/connectors/{ATLASSIAN_MCP_CONNECTOR_TYPE}",
+                    json={"config": restore_config},
+                )
+
+
+@pytest.mark.asyncio
+async def test_atlassian_mcp_clear_connector_config():
+    marker = _marker_value()
+
+    async with httpx.AsyncClient(base_url=BASE_URL) as ac:
+        # Save a config with a secret so there is something to clear
+        print("Clear Test Step 1: PATCH to save config with token")
+        resp = await ac.patch(
+            f"/api/v1/connectors/{ATLASSIAN_MCP_CONNECTOR_TYPE}",
+            json={"config": {
+                "enabled": True,
+                "server_url": "https://mcp.atlassian.com/v1/mcp",
+                "token": f"clear-test-token-{marker}",
+            }},
+        )
+        assert resp.status_code == 200
+        assert resp.json().get("config", {}).get("token") == "********"
+
+        # Clear the config
+        print("Clear Test Step 2: DELETE /config to wipe all connector-level config")
+        resp = await ac.delete(f"/api/v1/connectors/{ATLASSIAN_MCP_CONNECTOR_TYPE}/config")
+        assert resp.status_code == 200
+        cleared_config = resp.json().get("config") or {}
+        assert cleared_config.get("token") in (None, "")
+        assert "encrypted_token" not in cleared_config
+        # Confirm the secret is gone via include_secrets
+        print("Clear Test Step 3: GET with include_secrets=true confirms token is gone")
+        resp = await ac.get(
+            f"/api/v1/connectors/{ATLASSIAN_MCP_CONNECTOR_TYPE}",
+            params={"include_secrets": "true"},
+        )
+        assert resp.status_code == 200
+        secret_config = resp.json().get("config") or {}
+        assert secret_config.get("token") is None
+
+        # Confirm re-enable now requires a token (first-save enforcement)
+        print("Clear Test Step 4: PATCH enabled without token after clear should fail")
+        resp = await ac.patch(
+            f"/api/v1/connectors/{ATLASSIAN_MCP_CONNECTOR_TYPE}",
+            json={"config": {
+                "enabled": True,
+                "server_url": "https://mcp.atlassian.com/v1/mcp",
+            }},
+        )
+        assert resp.status_code == 400

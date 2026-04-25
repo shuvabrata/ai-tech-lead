@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.ai_agent.mcp_integration.atlassian_config_loader import load_atlassian_mcp_config
 from app.ai_agent.mcp_integration.client_manager import AtlassianMCPClientManager, GithubMCPClientManager
 from app.settings import settings
 
@@ -22,7 +23,26 @@ def _build_github_manager() -> GithubMCPClientManager:
 
 
 def _build_atlassian_manager() -> AtlassianMCPClientManager:
-    """Create an Atlassian manager instance from application settings."""
+    """Create an Atlassian manager, preferring DB-backed config with env fallback.
+
+    Calls ``load_atlassian_mcp_config()`` first.  When the DB returns a config
+    record that record becomes the authoritative source for ``enabled``,
+    ``server_url``, and ``token``.  If the DB is unavailable or the record is
+    absent the function falls back to the ``ATLASSIAN_MCP_*`` env-var settings.
+    """
+    db_config = None
+    try:
+        db_config = load_atlassian_mcp_config()
+    except Exception:  # noqa: BLE001 – loader error must not crash the manager build
+        pass
+    if db_config is not None:
+        return AtlassianMCPClientManager(
+            atlassian_server_url=db_config["server_url"],
+            atlassian_token=db_config["token"],
+            atlassian_enabled=db_config["enabled"],
+            request_timeout_seconds=settings.HTTP_REQUEST_TIMEOUT,
+        )
+    # DB config absent or unavailable — fall back to env settings.
     return AtlassianMCPClientManager(
         atlassian_server_url=settings.ATLASSIAN_MCP_SERVER_URL,
         atlassian_token=settings.ATLASSIAN_MCP_TOKEN,
@@ -58,9 +78,11 @@ def list_available_tools() -> list[dict[str, Any]]:
         github_tools = _build_github_manager().list_tools()
         tools.extend(_namespace_tools(github_tools, GITHUB_TOOL_PREFIX))
 
-    if settings.ATLASSIAN_MCP_ENABLED:
-        atlassian_tools = _build_atlassian_manager().list_tools()
-        tools.extend(_namespace_tools(atlassian_tools, ATLASSIAN_TOOL_PREFIX))
+    # Atlassian: DB config is checked first inside _build_atlassian_manager.
+    # The manager's own atlassian_enabled flag controls whether tools are returned,
+    # so no early env check is needed here.
+    atlassian_tools = _build_atlassian_manager().list_tools()
+    tools.extend(_namespace_tools(atlassian_tools, ATLASSIAN_TOOL_PREFIX))
 
     return tools
 
