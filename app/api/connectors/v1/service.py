@@ -133,7 +133,12 @@ def _validate_atlassian_mcp_config(
 
     server_url = data.get("server_url")
     if not isinstance(server_url, str) or not server_url.strip():
-        raise ValueError("Atlassian MCP server_url is required when enabled")
+        msg = (
+            "Server URL is required when Atlassian MCP is enabled. "
+            "Use the Atlassian cloud endpoint: https://mcp.atlassian.com/v1/mcp"
+        )
+        logger.error("[atlassian_mcp] Validation failed: %s", msg)
+        raise ValueError(msg)
 
     token = data.get("token")
     encrypted_token = data.get("encrypted_token")
@@ -143,7 +148,12 @@ def _validate_atlassian_mcp_config(
     has_any_secret = bool(token) or bool(encrypted_token) or bool(existing_encrypted_token)
 
     if not has_any_secret:
-        raise ValueError("Atlassian MCP token is required when enabled")
+        msg = (
+            "API token is required when Atlassian MCP is enabled. "
+            "Generate a Rovo MCP scoped token at https://id.atlassian.com/manage-profile/security/api-tokens"
+        )
+        logger.error("[atlassian_mcp] Validation failed: %s", msg)
+        raise ValueError(msg)
 
 
 def _prepare_connector_config_for_storage(
@@ -210,7 +220,9 @@ def _validate_jira_item_payload(data: Dict[str, Any], item_id: Optional[int]) ->
 
 
 async def list_connectors(db: AsyncSession) -> List[Dict[str, Any]]:
+    logger.debug("[list_connectors] Starting list_connectors")
     connectors = await query.get_all_connectors(db)
+    logger.debug(f"[list_connectors] Retrieved {len(connectors)} connectors")
     results = []
     for connector in connectors:
         meta = CONNECTOR_REGISTRY.get(connector.connector_type)
@@ -227,6 +239,7 @@ async def list_connectors(db: AsyncSession) -> List[Dict[str, Any]]:
                 "last_test_error": connector.last_test_error,
             }
         )
+    logger.debug(f"[list_connectors] Returning {len(results)} normalized connectors")
     return results
 
 

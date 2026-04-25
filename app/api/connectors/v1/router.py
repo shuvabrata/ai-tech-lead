@@ -1,7 +1,10 @@
 from typing import Any, Dict, List, Union
+import logging
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
+
+logger = logging.getLogger(__name__)
 
 from app.db.session import get_async_db
 from . import service
@@ -43,7 +46,14 @@ def _status_for_connector_error(exc: ValueError) -> int:
 
 @router.get("/", response_model=List[ConnectorStatus])
 async def list_connectors(db: AsyncSession = Depends(get_async_db)):
-    return await service.list_connectors(db)
+    logger.debug("[router.list_connectors] Request received")
+    try:
+        result = await service.list_connectors(db)
+        logger.debug(f"[router.list_connectors] Returning {len(result)} connectors")
+        return result
+    except Exception as exc:
+        logger.error(f"[router.list_connectors] Error: {type(exc).__name__}: {exc}", exc_info=True)
+        raise
 
 
 @router.get("/{connector_type}", response_model=ConnectorStatus)
