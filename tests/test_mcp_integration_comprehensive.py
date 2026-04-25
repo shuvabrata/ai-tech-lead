@@ -764,14 +764,14 @@ class TestDBBackedAtlassianConfig:
         db_config = {
             "enabled": True,
             "server_url": "https://db-mcp.atlassian.com/v1/mcp",
-            "token": "ATATT3xFfGF0_db_token_value",
+            "token": "FAKE_ATLASSIAN_TOKEN_DB",
         }
         monkeypatch.setattr(tool_executor, "load_atlassian_mcp_config", lambda: db_config)
 
         manager = tool_executor._build_atlassian_manager()
 
         assert manager.atlassian_server_url == "https://db-mcp.atlassian.com/v1/mcp"
-        assert manager.atlassian_token == "ATATT3xFfGF0_db_token_value"
+        assert manager.atlassian_token == "FAKE_ATLASSIAN_TOKEN_DB"
         assert manager.atlassian_enabled is True
 
     def test_build_atlassian_manager_falls_back_to_env_when_db_absent(self, monkeypatch):
@@ -780,13 +780,13 @@ class TestDBBackedAtlassianConfig:
 
         monkeypatch.setattr(tool_executor, "load_atlassian_mcp_config", lambda: None)
         monkeypatch.setattr(settings, "ATLASSIAN_MCP_SERVER_URL", "https://env-mcp.atlassian.com/v1/mcp")
-        monkeypatch.setattr(settings, "ATLASSIAN_MCP_TOKEN", "ATATT3xFfGF0_env_token")
+        monkeypatch.setattr(settings, "ATLASSIAN_MCP_TOKEN", "FAKE_ATLASSIAN_TOKEN_ENV")
         monkeypatch.setattr(settings, "ATLASSIAN_MCP_ENABLED", True)
 
         manager = tool_executor._build_atlassian_manager()
 
         assert manager.atlassian_server_url == "https://env-mcp.atlassian.com/v1/mcp"
-        assert manager.atlassian_token == "ATATT3xFfGF0_env_token"
+        assert manager.atlassian_token == "FAKE_ATLASSIAN_TOKEN_ENV"
         assert manager.atlassian_enabled is True
 
     def test_build_atlassian_manager_db_disabled_overrides_env_enabled(self, monkeypatch):
@@ -796,7 +796,7 @@ class TestDBBackedAtlassianConfig:
         db_config = {
             "enabled": False,
             "server_url": "https://db-mcp.atlassian.com/v1/mcp",
-            "token": "ATATT3xFfGF0_db_token_value",
+            "token": "FAKE_ATLASSIAN_TOKEN_DB",
         }
         monkeypatch.setattr(tool_executor, "load_atlassian_mcp_config", lambda: db_config)
         # Even if env says enabled, DB takes precedence.
@@ -826,7 +826,7 @@ class TestDBBackedAtlassianConfig:
         db_config = {
             "enabled": True,
             "server_url": "https://db-mcp.atlassian.com/v1/mcp",
-            "token": "ATATT3xFfGF0_db_token_value",
+            "token": "FAKE_ATLASSIAN_TOKEN_DB",
         }
         monkeypatch.setattr(settings, "GITHUB_MCP_ENABLED", False)
         # env says disabled — DB should override.
