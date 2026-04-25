@@ -95,7 +95,10 @@ def test_augment_message_with_mcp_executes_tool_and_builds_context(monkeypatch):
 def test_augment_message_with_mcp_supports_atlassian_only_mode(monkeypatch):
     """Atlassian-only enablement should still allow MCP augmentation."""
     monkeypatch.setattr(settings, "GITHUB_MCP_ENABLED", False)
-    monkeypatch.setattr(settings, "ATLASSIAN_MCP_ENABLED", True)
+    # Patch _build_atlassian_manager to simulate DB-driven enablement
+    class FakeAtlassianManager:
+        atlassian_enabled = True
+    monkeypatch.setattr(mcp_chain, "_build_atlassian_manager", lambda: FakeAtlassianManager())
     monkeypatch.setattr(settings, "MAX_MCP_ITERATIONS", 2)
     monkeypatch.setattr(mcp_chain, "_check_mcp_relevance", lambda *_args, **_kwargs: True)
     monkeypatch.setattr(
@@ -138,7 +141,10 @@ def test_check_mcp_relevance_prompt_is_dynamic_for_enabled_backends(monkeypatch)
     provider = _RelevanceProvider(answer="YES")
 
     monkeypatch.setattr(settings, "GITHUB_MCP_ENABLED", True)
-    monkeypatch.setattr(settings, "ATLASSIAN_MCP_ENABLED", True)
+    # Patch _build_atlassian_manager to simulate DB-driven enablement
+    class FakeAtlassianManager:
+        atlassian_enabled = True
+    monkeypatch.setattr(mcp_chain, "_build_atlassian_manager", lambda: FakeAtlassianManager())
 
     assert mcp_chain._check_mcp_relevance("Find Jira tickets for sprint 12", provider) is True
     assert "Enabled MCP backends: GitHub, Atlassian" in provider.last_prompt
