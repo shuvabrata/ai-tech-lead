@@ -158,7 +158,7 @@ class TestAtlassianMCPTestConnection:
             "config": {
                 "enabled": True,
                 "server_url": "https://mcp.atlassian.com/v1/mcp",
-                "token": "ATATT3xFfGF0_test_token_value",
+                "token": "Atlassian_test_token_value",
             },
         }
         mock_manager = MagicMock()
