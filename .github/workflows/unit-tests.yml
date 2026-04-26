@@ -11,7 +11,7 @@ jobs:
   pytest-unit:
     runs-on: ubuntu-latest
     env:
-      PYTHONPATH: ${{ github.workspace }}
+      PYTHONPATH: ${{ github.workspace }}:${{ github.workspace }}/app:${{ github.workspace }}/connectors
       DATABASE_URL: postgresql+asyncpg://username:pwd@localhost:5432/postgres
       NEO4J_ENABLED: "false"
       OPENAI_API_KEY: "sk-test-dummy-key-for-ci"
