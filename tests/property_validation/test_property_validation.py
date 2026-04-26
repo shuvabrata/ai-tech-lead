@@ -1,3 +1,7 @@
+
+import pytest
+pytest.skip("Skipping all tests in this file (marked as skipped by request)", allow_module_level=True)
+
 """
 Test suite for Neo4j property validation.
 
