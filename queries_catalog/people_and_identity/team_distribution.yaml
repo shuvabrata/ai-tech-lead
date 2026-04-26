@@ -1,0 +1,15 @@
+name: Team Distribution
+description: View team sizes.
+queries:
+  tabular: |-
+    MATCH (t:Team)-[:MEMBER_OF]-(p:Person)
+        RETURN t.name as team, count(p) as team_size
+        ORDER BY team_size DESC
+  graph: |-
+    MATCH p1=(t:Team)-[:MEMBER_OF]-(p:Person)
+        RETURN p1
+        LIMIT 100
+tags:
+- test
+- table
+- graph

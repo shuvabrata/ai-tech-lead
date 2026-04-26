@@ -1,0 +1,15 @@
+name: Teams and Members
+description: View all teams and their members.
+queries:
+  tabular: |-
+    MATCH (t:Team)-[:MEMBER_OF]-(p:Person)
+        RETURN t.name, collect(p.name) as members
+        ORDER BY t.name
+  graph: |-
+    MATCH p1=(t:Team)-[:MEMBER_OF]-(p:Person)
+        RETURN p1
+        LIMIT 100
+tags:
+- test
+- table
+- graph

@@ -1,0 +1,17 @@
+name: Work Without Code
+description: Issues marked Done but no code commits - Data Quality check.
+queries:
+  tabular: |-
+    MATCH (i:Issue {status: 'Done'})
+        WHERE NOT (i)<-[:REFERENCES]-(:Commit)
+        RETURN i.key, i.type, i.summary, i.status
+        LIMIT 10
+  graph: |-
+    MATCH p1=(i:Issue {status: 'Done'})
+        WHERE NOT (i)<-[:REFERENCES]-(:Commit)
+        RETURN p1
+        LIMIT 100
+tags:
+- test
+- table
+- graph

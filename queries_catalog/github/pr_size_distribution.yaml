@@ -1,0 +1,21 @@
+name: PR Size Distribution
+description: PR size distribution by commit count.
+queries:
+  tabular: |-
+    MATCH (pr:PullRequest)
+        WITH pr,
+             CASE
+               WHEN pr.commits_count <= 3 THEN 'Small (1-3 commits)'
+               WHEN pr.commits_count <= 8 THEN 'Medium (4-8 commits)'
+               ELSE 'Large (9+ commits)'
+             END as size_category
+        RETURN size_category, count(pr) as pr_count
+        ORDER BY pr_count DESC
+  graph: |-
+    MATCH p1=(pr:PullRequest)
+        RETURN p1
+        LIMIT 100
+tags:
+- test
+- table
+- graph

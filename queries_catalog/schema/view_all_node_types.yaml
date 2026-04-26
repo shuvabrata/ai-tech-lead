@@ -1,0 +1,15 @@
+name: View All Node Types
+description: Count all nodes by type.
+queries:
+  tabular: |-
+    MATCH (n)
+        RETURN labels(n)[0] as type, count(*) as count
+        ORDER BY count DESC
+  graph: |-
+    MATCH p1=(n)
+        RETURN p1
+        LIMIT 100
+tags:
+- test
+- table
+- graph

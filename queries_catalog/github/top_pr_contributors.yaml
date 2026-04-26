@@ -1,0 +1,21 @@
+name: Top PR Contributors
+description: Top PR contributors by creation count.
+queries:
+  tabular: |-
+    MATCH (pr:PullRequest)-[:CREATED_BY]->(p:Person)
+        RETURN p.name as developer,
+               p.title as title,
+               count(pr) as prs_created,
+               sum(CASE WHEN pr.state = 'merged' THEN 1 ELSE 0 END) as merged,
+               sum(pr.additions) as total_additions,
+               sum(pr.deletions) as total_deletions
+        ORDER BY prs_created DESC
+        LIMIT 10
+  graph: |-
+    MATCH p1=(pr:PullRequest)-[:CREATED_BY]->(p:Person)
+        RETURN p1
+        LIMIT 100
+tags:
+- test
+- table
+- graph

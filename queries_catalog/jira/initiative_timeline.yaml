@@ -1,0 +1,15 @@
+name: Initiative Timeline
+description: Initiative timeline by start date.
+queries:
+  tabular: |-
+    MATCH (i:Initiative)
+        RETURN i.summary, i.start_date, i.due_date, i.priority
+        ORDER BY i.start_date
+  graph: |-
+    MATCH p1=(i:Initiative)
+        RETURN p1
+        LIMIT 100
+tags:
+- test
+- table
+- graph

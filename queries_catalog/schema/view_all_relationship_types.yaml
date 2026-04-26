@@ -1,0 +1,15 @@
+name: View All Relationship Types
+description: Count all relationships by type.
+queries:
+  tabular: |-
+    MATCH ()-[r]->()
+        RETURN type(r) as relationship, count(*) as count
+        ORDER BY count DESC
+  graph: |-
+    MATCH p1=()-[r]->()
+        RETURN p1
+        LIMIT 100
+tags:
+- test
+- table
+- graph

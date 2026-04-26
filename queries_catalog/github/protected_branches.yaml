@@ -1,0 +1,17 @@
+name: Protected Branches
+description: Protected branches across all repos.
+queries:
+  tabular: |-
+    MATCH (b:Branch)-[:BRANCH_OF]-(r:Repository)
+        WHERE b.is_protected
+        RETURN r.name, collect(b.name) as protected_branches
+        ORDER BY r.name
+  graph: |-
+    MATCH p1=(b:Branch)-[:BRANCH_OF]-(r:Repository)
+        WHERE b.is_protected
+        RETURN p1
+        LIMIT 100
+tags:
+- test
+- table
+- graph

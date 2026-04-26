@@ -1,0 +1,19 @@
+name: PR Merge Time Analysis
+description: Average time to merge PRs.
+queries:
+  tabular: |-
+    MATCH (pr:PullRequest)
+        WHERE pr.state = 'merged' AND pr.merged_at IS NOT NULL
+        WITH pr, duration.between(pr.created_at, pr.merged_at) as merge_duration
+        RETURN avg(merge_duration.days) as avg_days_to_merge,
+               min(merge_duration.days) as min_days,
+               max(merge_duration.days) as max_days
+  graph: |-
+    MATCH p1=(pr:PullRequest)
+        WHERE pr.state = 'merged' AND pr.merged_at IS NOT NULL
+        RETURN p1
+        LIMIT 100
+tags:
+- test
+- table
+- graph

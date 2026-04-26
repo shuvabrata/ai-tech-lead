@@ -1,0 +1,15 @@
+name: Dependencies and Blockers
+description: Issues blocking other issues.
+queries:
+  tabular: |-
+    MATCH (i:Issue)-[:BLOCKS]->(blocked:Issue)
+        RETURN i.key, i.summary,
+               collect(blocked.key) as blocks_issues
+  graph: |-
+    MATCH p1=(i:Issue)-[:BLOCKS]->(blocked:Issue)
+        RETURN p1
+        LIMIT 100
+tags:
+- test
+- table
+- graph

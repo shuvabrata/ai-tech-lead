@@ -1,0 +1,16 @@
+name: Developer Activity by Language
+description: Developer activity by programming language.
+queries:
+  tabular: |-
+    MATCH (p:Person)-[:AUTHORED_BY]-(c:Commit)-[:MODIFIES]->(f:File)
+        RETURN p.name as developer, f.language as language,
+               count(DISTINCT c) as commits, count(f) as files_touched
+        ORDER BY commits DESC
+  graph: |-
+    MATCH p1=(p:Person)-[:AUTHORED_BY]-(c:Commit)-[:MODIFIES]->(f:File)
+        RETURN p1
+        LIMIT 100
+tags:
+- test
+- table
+- graph
