@@ -81,7 +81,7 @@ def discover_entity_types() -> Dict[str, EntityMetadata]:
     Returns:
         Dictionary mapping entity name to EntityMetadata
     """
-    import db.models as models
+    import connectors.db.models as models
     
     entity_metadata = {}
     
