@@ -214,3 +214,11 @@ app/ai_agent/providers/custom/
 logs/
 *.log
 .codex
+
+# Sensitive configs
+.config*
+# Allow example config templates at any depth
+!.config.example.json
+.python-version
+reports/*
+
