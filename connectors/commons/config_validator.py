@@ -1,5 +1,5 @@
 """
-Configuration validation module for enterprise-graph.
+Configuration validation module.
 
 Validates configuration files for GitHub and Jira integrations,
 including regex patterns, source specifications, and other settings.
