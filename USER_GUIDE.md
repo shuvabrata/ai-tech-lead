@@ -5,11 +5,9 @@
 1. **Docker and Docker Compose installed** on your system
 2. This project is dependant on docker images for Jira and Github connector. 
 ```
-git clone git@github.com:shuvabrata/enterprise-graph.git
-cd enterprise-graph
 docker compose build
 ```
-This will build the images locally. No need to follow the guides in that repo.
+This will build the images locally. 
 3. This project uses databases which are dockerized images in the docker-compose.yml file.
 4. **Environment file configured**: Copy `.env.example` to `.env` and update the values:
    ```bash

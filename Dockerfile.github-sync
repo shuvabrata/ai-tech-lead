@@ -22,8 +22,8 @@ COPY connectors/ /app/
 
 # Create non-root user for security
 RUN useradd -m -u 1000 -s /bin/bash appuser && \
-    mkdir -p /var/log/enterprise-graph && \
-    chown -R appuser:appuser /var/log/enterprise-graph /app
+    mkdir -p /var/log/github-sync && \
+    chown -R appuser:appuser /var/log/github-sync /app
 
 # Switch to non-root user
 USER appuser

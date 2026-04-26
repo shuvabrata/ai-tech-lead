@@ -4,7 +4,6 @@ FROM python:3.14.2-slim
 # Set working directory
 WORKDIR /app
 
-# Set Python path to include /app for imports
 ENV PYTHONPATH=/app
 
 # Install system dependencies if needed (none required currently)
@@ -22,8 +21,8 @@ COPY connectors/ /app/
 
 # Create non-root user for security
 RUN useradd -m -u 1000 -s /bin/bash appuser && \
-    mkdir -p /var/log/enterprise-graph && \
-    chown -R appuser:appuser /var/log/enterprise-graph /app
+    mkdir -p /var/log/jira-sync && \
+    chown -R appuser:appuser /var/log/jira-sync /app
 
 # Switch to non-root user
 USER appuser

@@ -14,8 +14,16 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy app code (includes alembic/, alembic.ini, entrypoint.sh)
 COPY app/ ./app/
 
+# Create non-root user for security
+RUN useradd -m -u 1000 -s /bin/bash appuser && \
+    mkdir -p /var/log/app && \
+    chown -R appuser:appuser /var/log/app /app
+
 # Expose port
 EXPOSE 8000
+
+# Switch to non-root user
+USER appuser
 
 # Use entrypoint script
 ENTRYPOINT ["app/entrypoint.sh"]

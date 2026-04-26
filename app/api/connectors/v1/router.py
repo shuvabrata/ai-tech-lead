@@ -1,5 +1,5 @@
 from typing import Any, Dict, List, Union
-from commons.logger import logger
+from app.common.logger import logger
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
