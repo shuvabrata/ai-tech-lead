@@ -2,11 +2,11 @@ from typing import Any, Dict, Optional
 from datetime import datetime, timezone
 
 import os
-from db.models import Issue, Relationship, merge_issue
+from neo4j_db.models import Issue, Relationship, merge_issue
 from modules.jira.new_jira_user_handler import new_jira_user_handler
 from modules.jira.team_stub_handler import get_or_create_team_stub
-from common.person_cache import PersonCache
-from common.logger import logger
+from commons.person_cache import PersonCache
+from commons.logger import logger
 
 
 

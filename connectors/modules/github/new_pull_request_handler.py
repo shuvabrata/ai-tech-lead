@@ -1,10 +1,10 @@
 from datetime import datetime, timezone
 
 from typing import Any, Optional
-from db.models import PullRequest, Branch, Relationship, merge_pull_request, merge_branch, merge_relationship
+from neo4j_db.models import PullRequest, Branch, Relationship, merge_pull_request, merge_branch, merge_relationship
 from modules.github.retry_with_backoff import retry_with_backoff
-from common.person_cache import PersonCache
-from common.logger import logger
+from commons.person_cache import PersonCache
+from commons.logger import logger
 
 def create_or_get_external_branch(
     session: Any,

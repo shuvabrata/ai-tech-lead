@@ -1,11 +1,11 @@
 from datetime import datetime, timezone
 
-from db.models import IdentityMapping, Relationship, merge_relationship
+from neo4j_db.models import IdentityMapping, Relationship, merge_relationship
 from modules.github.map_permissions_to_general import map_permissions_to_general
 import time
 
-from common.logger import logger
-from common.person_cache import PersonCache
+from commons.logger import logger
+from commons.person_cache import PersonCache
 from typing import Any, List, Dict, Optional
 from neo4j import Session
 

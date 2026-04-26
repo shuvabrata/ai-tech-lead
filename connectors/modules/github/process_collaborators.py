@@ -1,4 +1,4 @@
-from common.logger import logger
+from commons.logger import logger
 from modules.github.new_user_handler import new_user_handler
 from modules.github.process_github_user import get_users_needing_refresh
 

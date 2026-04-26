@@ -1,5 +1,5 @@
-from db.models import Branch, Relationship, merge_branch, merge_relationship
-from common.logger import logger
+from neo4j_db.models import Branch, Relationship, merge_branch, merge_relationship
+from commons.logger import logger
 from typing import Any, Optional
 from neo4j import Session
 

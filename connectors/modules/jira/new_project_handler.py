@@ -1,9 +1,9 @@
 from typing import Any, Optional, Dict
 
-from common.person_cache import PersonCache
-from common.logger import logger
+from commons.person_cache import PersonCache
+from commons.logger import logger
 
-from db.models import Project, Relationship, merge_project
+from neo4j_db.models import Project, Relationship, merge_project
 from modules.jira.new_jira_user_handler import new_jira_user_handler
 
 

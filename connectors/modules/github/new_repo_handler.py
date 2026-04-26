@@ -1,9 +1,9 @@
 from typing import Optional, Tuple
 from neo4j import Session
 from github.Repository import Repository as GitHubRepository
-from db.models import Repository, merge_repository
+from neo4j_db.models import Repository, merge_repository
 
-from common.logger import logger
+from commons.logger import logger
 
 def new_repo_handler(session: Session, repo: GitHubRepository) -> Tuple[Optional[str], str]:
     """Handle a repository by creating Repository node in Neo4j.

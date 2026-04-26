@@ -4,14 +4,14 @@ from modules.github.process_collaborators import process_collaborators
 from modules.github.process_commits import process_commits
 from modules.github.process_pull_requests import process_pull_requests
 from modules.github.process_teams import process_teams
-from common.config_validator import get_repo_branch_patterns, get_repo_extraction_sources
-from common.person_cache import PersonCache
+from commons.config_validator import get_repo_branch_patterns, get_repo_extraction_sources
+from commons.person_cache import PersonCache
 from neo4j import Session
 from github.Repository import Repository
 
 from typing import Optional, Dict, Any, Tuple
 
-from common.logger import logger, LogContext
+from commons.logger import logger, LogContext
 from modules.github.repo_last_synced_at import update__last_synced_at
 
 

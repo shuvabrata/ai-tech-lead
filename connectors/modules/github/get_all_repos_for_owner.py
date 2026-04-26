@@ -1,7 +1,7 @@
 from typing import Dict, List, Optional
 from github import Github, NamedUser
 from github.Repository import Repository
-from common.logger import logger
+from commons.logger import logger
 
 def get_all_repos_for_owner(
     client: Github, 

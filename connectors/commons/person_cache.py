@@ -14,8 +14,8 @@ Usage:
 """
 
 from typing import Optional, Tuple, Dict, Set
-from db.models import Person, IdentityMapping, Relationship, merge_person, merge_identity_mapping
-from common.logger import logger
+from neo4j_db.models import Person, IdentityMapping, Relationship, merge_person, merge_identity_mapping
+from commons.logger import logger
 
 
 from typing import Any
