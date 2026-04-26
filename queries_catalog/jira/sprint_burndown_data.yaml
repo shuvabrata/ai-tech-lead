@@ -1,0 +1,18 @@
+name: Sprint Burndown Data
+description: Sprint progress and burndown metrics.
+queries:
+  tabular: |-
+    MATCH (s:Sprint)<-[:IN_SPRINT]-(i:Issue)
+        RETURN s.name,
+               sum(i.story_points) as total_points,
+               sum(CASE WHEN i.status = 'Done' THEN i.story_points ELSE 0 END) as completed_points,
+               count(i) as issue_count
+        ORDER BY s.name
+  graph: |-
+    MATCH p1=(s:Sprint)<-[:IN_SPRINT]-(i:Issue)
+        RETURN p1
+        LIMIT 100
+tags:
+- test
+- table
+- graph

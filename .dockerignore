@@ -1,0 +1,59 @@
+# Exclude everything by default
+*
+
+# Include only what we need
+!app/
+!requirements.txt
+
+# Exclude Python cache and compiled files
+app/__pycache__
+app/**/__pycache__
+app/**/*.pyc
+app/**/*.pyo
+app/**/*.pyd
+app/.mypy_cache
+app/**/.mypy_cache
+app/.pytest_cache
+app/**/.pytest_cache
+
+# Exclude config files (they'll be mounted separately)
+app/**/.config.json
+
+# Development and testing
+.venv/
+.git/
+.github/
+.vscode/
+.pytest_cache/
+.mypy_cache/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Documentation and design files
+design/
+simulation/
+scripts/
+tests/
+reports/
+*.md
+!README.md
+
+# Environment and secrets
+.env
+.env.*
+*.config.json
+
+# Build artifacts
+requirements_dev.txt
+mypy.ini
+LINTING.md
+TESTING.md
+CODE_OF_CONDUCT.md
+LICENSE
+neo4j-dekstop-install.md
+
+# Logs (will be mounted as volume)
+logs/
+*.log

@@ -1,0 +1,7 @@
+# Generated reports - don't commit
+results/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo

@@ -1,0 +1,19 @@
+name: Review Bottlenecks
+description: Review requests not yet completed - Data Quality check.
+queries:
+  tabular: |-
+    MATCH (pr:PullRequest)-[:REQUESTED_REVIEWER]->(p:Person)
+        WHERE NOT (pr)-[:REVIEWED_BY]->(p)
+        WITH p, count(pr) as pending_reviews
+        RETURN p.name as reviewer, pending_reviews
+        ORDER BY pending_reviews DESC
+        LIMIT 10
+  graph: |-
+    MATCH p1=(pr:PullRequest)-[:REQUESTED_REVIEWER]->(p:Person)
+        WHERE NOT (pr)-[:REVIEWED_BY]->(p)
+        RETURN p1
+        LIMIT 100
+tags:
+- test
+- table
+- graph

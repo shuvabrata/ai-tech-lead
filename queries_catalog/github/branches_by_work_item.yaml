@@ -1,0 +1,17 @@
+name: Branches by Work Item
+description: Branches linked to specific work item.
+queries:
+  tabular: |-
+    MATCH (b:Branch)-[:BRANCH_OF]-(r:Repository)
+        WHERE b.name CONTAINS 'PLAT-1'
+        RETURN r.name, b.name
+        ORDER BY r.name, b.name
+  graph: |-
+    MATCH p1=(b:Branch)-[:BRANCH_OF]-(r:Repository)
+        WHERE b.name CONTAINS 'PLAT-1'
+        RETURN p1
+        LIMIT 100
+tags:
+- test
+- table
+- graph

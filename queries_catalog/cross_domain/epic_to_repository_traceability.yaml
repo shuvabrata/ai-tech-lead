@@ -1,0 +1,19 @@
+name: Epic to Repository Traceability
+description: Map epics to repositories via commits.
+queries:
+  tabular: |-
+    MATCH (e:Epic)<-[:PART_OF]-(i:Issue)<-[:REFERENCES]-(c:Commit)
+        MATCH (c)-[:PART_OF]->(b:Branch)-[:BRANCH_OF]-(r:Repository)
+        RETURN e.key as epic, e.summary,
+               collect(DISTINCT r.name) as repositories,
+               count(DISTINCT c) as commits
+        ORDER BY commits DESC
+  graph: |-
+    MATCH p1=(e:Epic)<-[:PART_OF]-(i:Issue)<-[:REFERENCES]-(c:Commit)
+        MATCH p2=(c)-[:PART_OF]->(b:Branch)-[:BRANCH_OF]-(r:Repository)
+        RETURN p1, p2
+        LIMIT 100
+tags:
+- test
+- table
+- graph

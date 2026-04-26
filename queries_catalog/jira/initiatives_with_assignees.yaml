@@ -1,0 +1,20 @@
+name: Initiatives with Assignees
+description: Initiatives with assignees and reporters.
+queries:
+  tabular: |-
+    MATCH (i:Initiative)-[:ASSIGNED_TO]-(assignee:Person),
+              (i)-[:REPORTED_BY]-(reporter:Person)
+        RETURN i.key, i.summary,
+               assignee.name as assignee, assignee.title as assignee_title,
+               reporter.name as reporter, reporter.title as reporter_title,
+               i.status
+        ORDER BY i.key
+  graph: |-
+    MATCH p1=(i:Initiative)-[:ASSIGNED_TO]-(assignee:Person),
+              (i)-[:REPORTED_BY]-(reporter:Person)
+        RETURN p1
+        LIMIT 100
+tags:
+- test
+- table
+- graph

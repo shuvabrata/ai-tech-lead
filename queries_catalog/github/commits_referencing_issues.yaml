@@ -1,0 +1,16 @@
+name: Commits Referencing Issues
+description: Commits referencing Jira issues by issue type.
+queries:
+  tabular: |-
+    MATCH (c:Commit)-[:REFERENCES]->(i:Issue)
+        RETURN i.key as issue, i.type as type, count(c) as commits
+        ORDER BY commits DESC
+        LIMIT 10
+  graph: |-
+    MATCH p1=(c:Commit)-[:REFERENCES]->(i:Issue)
+        RETURN p1
+        LIMIT 100
+tags:
+- test
+- table
+- graph

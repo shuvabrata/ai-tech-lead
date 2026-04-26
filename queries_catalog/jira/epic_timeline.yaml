@@ -1,0 +1,15 @@
+name: Epic Timeline
+description: Epic timeline by start date.
+queries:
+  tabular: |-
+    MATCH (e:Epic)
+        RETURN e.key, e.summary, e.start_date, e.due_date, e.status
+        ORDER BY e.start_date, e.key
+  graph: |-
+    MATCH p1=(e:Epic)
+        RETURN p1
+        LIMIT 100
+tags:
+- test
+- table
+- graph
