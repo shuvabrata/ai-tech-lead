@@ -1,7 +1,7 @@
 
 import time
 from typing import Callable, TypeVar, Any
-from common.logger import logger
+from commons.logger import logger
 
 T = TypeVar('T')
 

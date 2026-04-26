@@ -1,8 +1,8 @@
 from typing import Any, Optional
 import hashlib
-from db.models import File, merge_file
+from neo4j_db.models import File, merge_file
 from pathlib import Path
-from common.logger import logger
+from commons.logger import logger
 
 def generate_file_hash(file_path: str) -> str:
     """

@@ -3,7 +3,7 @@ from typing import Any, Dict, List, Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.common.logger import logger
+from commons.logger import logger
 from app.common.encryption import decrypt, encrypt
 from . import query
 from .registry import CONNECTOR_REGISTRY

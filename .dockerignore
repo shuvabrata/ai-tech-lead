@@ -3,7 +3,12 @@
 
 # Include only what we need
 !app/
+!connectors/
 !requirements.txt
+!requirements.app.txt
+!requirements.github-sync.txt
+!requirements.jira-sync.txt
+
 
 # Exclude Python cache and compiled files
 app/__pycache__

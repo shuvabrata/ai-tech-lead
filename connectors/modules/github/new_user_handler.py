@@ -1,8 +1,8 @@
 from typing import Any, Optional, Dict
-from db.models import Relationship, merge_relationship
+from neo4j_db.models import Relationship, merge_relationship
 from modules.github.map_permissions_to_general import map_permissions_to_general
 from modules.github.process_github_user import process_github_user
-from common.logger import logger
+from commons.logger import logger
 
 def new_user_handler(
     session: Any,

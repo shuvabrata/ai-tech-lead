@@ -1,4 +1,4 @@
-from common.logger import logger
+from commons.logger import logger
 from modules.github.new_branch_handler import new_branch_handler
 from modules.github.get_existing_branch_metadata import get_existing_branch_metadata
 

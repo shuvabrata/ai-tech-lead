@@ -2,9 +2,9 @@ import os
 
 
 from typing import Any, Dict, Optional
-from db.models import Relationship, Team, merge_relationship, merge_team
+from neo4j_db.models import Relationship, Team, merge_relationship, merge_team
 from modules.github.process_github_user import process_github_user, get_users_needing_refresh
-from common.logger import logger
+from commons.logger import logger
 
 def new_team_handler(
     session: Any,

@@ -1,4 +1,4 @@
-from common.logger import logger
+from commons.logger import logger
 from modules.github.new_team_handler import new_team_handler
 
 
