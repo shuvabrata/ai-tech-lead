@@ -8,7 +8,7 @@ RUN apt-get update && apt-get install -y postgresql-client && rm -rf /var/lib/ap
 WORKDIR /app
 
 # Install dependencies
-COPY requirements.txt ./
+COPY requirements.app.txt ./requirements.txt 
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy app code (includes alembic/, alembic.ini, entrypoint.sh)

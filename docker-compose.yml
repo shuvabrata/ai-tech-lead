@@ -23,7 +23,7 @@ services:
   app:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.app
     container_name: wba-ai-app
     restart: unless-stopped
     environment:
@@ -118,8 +118,10 @@ services:
       - wba-ai-network
 
   jira-sync:
-    image: enterprise-graph-jira-sync:latest
-    container_name: enterprise-graph-jira-sync
+    build:
+      context: .
+      dockerfile: Dockerfile.jira-sync
+    container_name: web-ai-jira-sync
     command: python modules/jira/main.py
     env_file:
       - .env
@@ -136,8 +138,10 @@ services:
       - wba-ai-network
 
   github-sync:
-    image: enterprise-graph-github-sync:latest
-    container_name: enterprise-graph-github-sync
+    build:
+      context: .
+      dockerfile: Dockerfile.github-sync
+    container_name: web-ai-github-sync
     command: python modules/github/main.py
     env_file:
       - .env
