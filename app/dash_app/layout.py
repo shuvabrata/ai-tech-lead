@@ -3,7 +3,7 @@ import dash_bootstrap_components as dbc
 from dash import dcc, html
 from dash.dependencies import Input, Output, State
 
-from .pages import analytics, chat, people, progress, settings, graph, connectors
+from app.dash_app.pages import analytics, chat, people, progress, settings, graph, connectors
 from .styles import (
     SIDEBAR_STYLE,
     NAVBAR_BRAND_STYLE,

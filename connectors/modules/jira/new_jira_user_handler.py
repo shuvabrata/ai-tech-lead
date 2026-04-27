@@ -1,8 +1,8 @@
 from typing import Any, Optional, Dict
 from datetime import datetime, timezone
 
-from commons.person_cache import PersonCache
-from commons.logger import logger
+from connectors.commons.person_cache import PersonCache
+from connectors.commons.logger import logger
 
 def new_jira_user_handler(
     session: Any,

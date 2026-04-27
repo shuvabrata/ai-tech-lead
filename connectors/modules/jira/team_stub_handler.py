@@ -1,5 +1,5 @@
 """Shared team stub creation logic for Jira handlers."""
-from commons.logger import logger
+from connectors.commons.logger import logger
 
 
 from typing import Any

@@ -15,14 +15,14 @@ from datetime import datetime, timedelta
 from atlassian import Jira
 from neo4j import GraphDatabase
 
-from neo4j_db.models import create_constraints
-from modules.jira.new_project_handler import new_project_handler
-from modules.jira.new_initiative_handler import new_initiative_handler
-from modules.jira.new_epic_handler import new_epic_handler
-from modules.jira.new_sprint_handler import new_sprint_handler
-from modules.jira.new_issue_handler import new_issue_handler
-from commons.person_cache import PersonCache
-from commons.logger import logger
+from connectors.neo4j_db.models import create_constraints
+from connectors.modules.jira.new_project_handler import new_project_handler
+from connectors.modules.jira.new_initiative_handler import new_initiative_handler
+from connectors.modules.jira.new_epic_handler import new_epic_handler
+from connectors.modules.jira.new_sprint_handler import new_sprint_handler
+from connectors.modules.jira.new_issue_handler import new_issue_handler
+from connectors.commons.person_cache import PersonCache
+from connectors.commons.logger import logger
 
 def load_config_from_server() -> Dict[str, Any]:
     """Load Jira configuration from API server."""

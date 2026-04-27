@@ -9,7 +9,7 @@ import os
 import traceback
 
 from neo4j import GraphDatabase
-from db.models import (
+from connectors.db.models import (
     Issue, Sprint, Relationship,
     merge_issue, merge_sprint, merge_relationship,
     create_constraints, DIRECTIONAL_RELATIONSHIPS

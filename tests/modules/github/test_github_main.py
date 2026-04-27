@@ -11,11 +11,11 @@ from pathlib import Path
 project_root = Path(__file__).resolve().parent.parent.parent.parent
 sys.path.insert(0, str(project_root / 'app'))
 
-from modules.github.main import load_config_from_server, main as github_main
+from connectors.modules.github.main import load_config_from_server, main as github_main
 
 # --- Tests for load_config_from_server (converted to pytest style) ---
 
-@patch('modules.github.main.requests.get')
+@patch('connectors.modules.github.main.requests.get')
 def test_load_config_from_server_success(mock_get, monkeypatch):
     """
     Test successful configuration loading from the server.
@@ -60,7 +60,7 @@ def test_load_config_from_server_success(mock_get, monkeypatch):
         timeout=10
     )
 
-@patch('modules.github.main.requests.get')
+@patch('connectors.modules.github.main.requests.get')
 def test_load_config_from_server_http_error(mock_get, monkeypatch):
     """
     Test handling of an HTTP error from the server.
@@ -76,9 +76,9 @@ def test_load_config_from_server_http_error(mock_get, monkeypatch):
 
 # --- New tests for main() config logic ---
 
-@patch('modules.github.main.GraphDatabase.driver')
-@patch('modules.github.main.load_config_from_file')
-@patch('modules.github.main.load_config_from_server')
+@patch('connectors.modules.github.main.GraphDatabase.driver')
+@patch('connectors.modules.github.main.load_config_from_file')
+@patch('connectors.modules.github.main.load_config_from_server')
 def test_main_config_source_server(mock_load_server, mock_load_file, mock_driver, monkeypatch):
     """
     Test main() when CONFIGURATION_SOURCE is 'SERVER'.
@@ -92,11 +92,11 @@ def test_main_config_source_server(mock_load_server, mock_load_file, mock_driver
     mock_load_file.assert_not_called()
     mock_driver.assert_called_once()  # Ensure main proceeds to driver init
 
-@patch('modules.github.main.GraphDatabase.driver')
-@patch('modules.github.main.validate_config', return_value=True)
-@patch('modules.github.main.Path.is_file', return_value=True)
-@patch('modules.github.main.load_config_from_file')
-@patch('modules.github.main.load_config_from_server')
+@patch('connectors.modules.github.main.GraphDatabase.driver')
+@patch('connectors.modules.github.main.validate_config', return_value=True)
+@patch('connectors.modules.github.main.Path.is_file', return_value=True)
+@patch('connectors.modules.github.main.load_config_from_file')
+@patch('connectors.modules.github.main.load_config_from_server')
 def test_main_config_source_file_success(mock_load_server, mock_load_file, mock_is_file, mock_validate, mock_driver, monkeypatch):
     """
     Test main() when CONFIGURATION_SOURCE is 'FILE' and the file is valid.
@@ -112,11 +112,11 @@ def test_main_config_source_file_success(mock_load_server, mock_load_file, mock_
     mock_load_file.assert_called_once()
     mock_driver.assert_called_once()
 
-@patch('modules.github.main.GraphDatabase.driver')
-@patch('modules.github.main.validate_config')
-@patch('modules.github.main.Path.is_file', return_value=False)
-@patch('modules.github.main.load_config_from_file')
-@patch('modules.github.main.load_config_from_server')
+@patch('connectors.modules.github.main.GraphDatabase.driver')
+@patch('connectors.modules.github.main.validate_config')
+@patch('connectors.modules.github.main.Path.is_file', return_value=False)
+@patch('connectors.modules.github.main.load_config_from_file')
+@patch('connectors.modules.github.main.load_config_from_server')
 def test_main_config_source_file_not_found(mock_load_server, mock_load_file, mock_is_file, mock_validate, mock_driver, monkeypatch, caplog):
     """
     Test main() when CONFIGURATION_SOURCE is 'FILE' and the file is missing.
@@ -132,11 +132,11 @@ def test_main_config_source_file_not_found(mock_load_server, mock_load_file, moc
     mock_driver.assert_not_called()  # Should exit before driver is called
     assert "Configuration file not found" in caplog.text
 
-@patch('modules.github.main.GraphDatabase.driver')
-@patch('modules.github.main.validate_config', return_value=False)
-@patch('modules.github.main.Path.is_file', return_value=True)
-@patch('modules.github.main.load_config_from_file')
-@patch('modules.github.main.load_config_from_server')
+@patch('connectors.modules.github.main.GraphDatabase.driver')
+@patch('connectors.modules.github.main.validate_config', return_value=False)
+@patch('connectors.modules.github.main.Path.is_file', return_value=True)
+@patch('connectors.modules.github.main.load_config_from_file')
+@patch('connectors.modules.github.main.load_config_from_server')
 def test_main_config_source_file_invalid(mock_load_server, mock_load_file, mock_is_file, mock_validate, mock_driver, monkeypatch, caplog):
     """
     Test main() when CONFIGURATION_SOURCE is 'FILE' and the file is invalid.
