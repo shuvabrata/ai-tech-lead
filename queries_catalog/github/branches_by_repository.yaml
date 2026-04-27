@@ -1,0 +1,15 @@
+name: Branches by Repository
+description: View all branches by repository.
+queries:
+  tabular: |-
+    MATCH (b:Branch)-[:BRANCH_OF]-(r:Repository)
+        RETURN r.name, collect(b.name) as branches
+        ORDER BY r.name
+  graph: |-
+    MATCH p1=(b:Branch)-[:BRANCH_OF]-(r:Repository)
+        RETURN p1
+        LIMIT 100
+tags:
+- test
+- table
+- graph

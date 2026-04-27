@@ -1,0 +1,665 @@
+# Query Test Configuration
+# Define expectations for each query to enable smart validation
+# 
+# Fields:
+#   name: Query name (must match test function)
+#   section: Section name for grouping
+#   expectations:
+#     min_rows: Minimum expected rows (null = no check)
+#     max_rows: Maximum expected rows (null = no check)
+#     max_time_ms: Maximum execution time in milliseconds
+#     required_columns: List of columns that must be present
+#     allow_empty_columns: Whether empty columns are acceptable (default: true)
+
+queries:
+  # ============================================================================
+  # People & Identity Mapping
+  # ============================================================================
+  
+  - name: "Team Distribution (tabular)"
+    section: "People & Identity"
+    expectations:
+      min_rows: 1
+      max_rows: 10
+      max_time_ms: 200
+
+  - name: "Team Distribution (graph)"
+    section: "People & Identity"
+    expectations:
+      min_rows: 1
+      max_rows: 100
+      max_time_ms: 200
+  
+  - name: "Teams and Members (tabular)"
+    section: "People & Identity"
+    expectations:
+      min_rows: 1
+      max_rows: 10
+      max_time_ms: 200
+
+  - name: "Teams and Members (graph)"
+    section: "People & Identity"
+    expectations:
+      min_rows: 1
+      max_rows: 100
+      max_time_ms: 200
+  
+  - name: "Identity Mappings (tabular)"
+    section: "People & Identity"
+    expectations:
+      min_rows: 0  # Query requires specific person name parameter
+      max_rows: 10
+      max_time_ms: 200
+
+  - name: "Identity Mappings (graph)"
+    section: "People & Identity"
+    expectations:
+      min_rows: 0  # Query requires specific person name parameter
+      max_rows: 100
+      max_time_ms: 200
+  
+  - name: "Organizational Hierarchy (tabular)"
+    section: "People & Identity"
+    expectations:
+      min_rows: 0  # May have flat org structure
+      max_rows: 10
+      max_time_ms: 300
+
+  - name: "Organizational Hierarchy (graph)"
+    section: "People & Identity"
+    expectations:
+      min_rows: 0  # May have flat org structure
+      max_rows: 100
+      max_time_ms: 300
+  
+  # ============================================================================
+  # GitHub Queries
+  # ============================================================================
+  
+  - name: "Repository Ownership (tabular)"
+    section: "GitHub"
+    expectations:
+      min_rows: 1
+      max_rows: 10
+      max_time_ms: 300
+
+  - name: "Repository Ownership (graph)"
+    section: "GitHub"
+    expectations:
+      min_rows: 1
+      max_rows: 100
+      max_time_ms: 300
+  
+  - name: "Repository Maintainers (tabular)"
+    section: "GitHub"
+    expectations:
+      min_rows: 0
+      max_rows: 10
+      max_time_ms: 300
+
+  - name: "Repository Maintainers (graph)"
+    section: "GitHub"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 300
+  
+  - name: "Cross-Team Collaborations (tabular)"
+    section: "GitHub"
+    expectations:
+      min_rows: 0
+      max_rows: 10
+      max_time_ms: 300
+
+  - name: "Cross-Team Collaborations (graph)"
+    section: "GitHub"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 300
+  
+  - name: "Branches by Repository (tabular)"
+    section: "GitHub"
+    expectations:
+      min_rows: 1
+      max_rows: 10
+      max_time_ms: 500
+
+  - name: "Branches by Repository (graph)"
+    section: "GitHub"
+    expectations:
+      min_rows: 1
+      max_rows: 100
+      max_time_ms: 500
+  
+  - name: "Active Feature Branches (tabular)"
+    section: "GitHub"
+    expectations:
+      min_rows: 0
+      max_rows: 10
+      max_time_ms: 500
+
+  - name: "Active Feature Branches (graph)"
+    section: "GitHub"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 500
+  
+  - name: "Protected Branches (tabular)"
+    section: "GitHub"
+    expectations:
+      min_rows: 0
+      max_rows: 10
+      max_time_ms: 300
+
+  - name: "Protected Branches (graph)"
+    section: "GitHub"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 300
+  
+  - name: "Branches by Work Item (tabular)"
+    section: "GitHub"
+    expectations:
+      min_rows: 0  # Query filters by specific work item
+      max_rows: 10
+      max_time_ms: 300
+
+  - name: "Branches by Work Item (graph)"
+    section: "GitHub"
+    expectations:
+      min_rows: 0  # Query filters by specific work item
+      max_rows: 100
+      max_time_ms: 300
+  
+  - name: "Top Contributors (tabular)"
+    section: "GitHub"
+    expectations:
+      min_rows: 1
+      max_rows: 10
+      max_time_ms: 500
+
+  - name: "Top Contributors (graph)"
+    section: "GitHub"
+    expectations:
+      min_rows: 1
+      max_rows: 100
+      max_time_ms: 500
+  
+  - name: "Commits per Repository (tabular)"
+    section: "GitHub"
+    expectations:
+      min_rows: 1
+      max_rows: 10
+      max_time_ms: 500
+
+  - name: "Commits per Repository (graph)"
+    section: "GitHub"
+    expectations:
+      min_rows: 1
+      max_rows: 100
+      max_time_ms: 500
+  
+  - name: "Commits with Jira References (tabular)"
+    section: "GitHub"
+    expectations:
+      min_rows: 0  # May have no Jira integration
+      max_rows: 10
+      max_time_ms: 800
+
+  - name: "Commits with Jira References (graph)"
+    section: "GitHub"
+    expectations:
+      min_rows: 0  # May have no Jira integration
+      max_rows: 100
+      max_time_ms: 800
+  
+  - name: "Commits Referencing Issues (tabular)"
+    section: "GitHub"
+    expectations:
+      min_rows: 0
+      max_rows: 10
+      max_time_ms: 1000
+
+  - name: "Commits Referencing Issues (graph)"
+    section: "GitHub"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 1000
+  
+  - name: "Multi-Repository Contributors (tabular)"
+    section: "GitHub"
+    expectations:
+      min_rows: 0
+      max_rows: 10
+      max_time_ms: 800
+
+  - name: "Multi-Repository Contributors (graph)"
+    section: "GitHub"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 800
+  
+  - name: "Hotspot Files (tabular)"
+    section: "GitHub"
+    expectations:
+      min_rows: 1
+      max_rows: 10
+      max_time_ms: 1000
+
+  - name: "Hotspot Files (graph)"
+    section: "GitHub"
+    expectations:
+      min_rows: 1
+      max_rows: 100
+      max_time_ms: 1000
+  
+  - name: "Test vs Production Code (tabular)"
+    section: "GitHub"
+    expectations:
+      min_rows: 1
+      max_rows: 10
+      max_time_ms: 1500
+
+  - name: "Test vs Production Code (graph)"
+    section: "GitHub"
+    expectations:
+      min_rows: 1
+      max_rows: 100
+      max_time_ms: 1500
+  
+  - name: "Code Churn (tabular)"
+    section: "GitHub"
+    expectations:
+      min_rows: 1
+      max_rows: 10
+      max_time_ms: 1500
+
+  - name: "Code Churn (graph)"
+    section: "GitHub"
+    expectations:
+      min_rows: 1
+      max_rows: 100
+      max_time_ms: 1500
+  
+  - name: "Developer Activity by Language (tabular)"
+    section: "GitHub"
+    expectations:
+      min_rows: 1
+      max_rows: 10
+      max_time_ms: 2000
+
+  - name: "Developer Activity by Language (graph)"
+    section: "GitHub"
+    expectations:
+      min_rows: 1
+      max_rows: 100
+      max_time_ms: 2000
+  
+  - name: "PR Velocity by Repository (tabular)"
+    section: "GitHub"
+    expectations:
+      min_rows: 0  # May have no PRs yet
+      max_rows: 10
+      max_time_ms: 800
+
+  - name: "PR Velocity by Repository (graph)"
+    section: "GitHub"
+    expectations:
+      min_rows: 0  # May have no PRs yet
+      max_rows: 100
+      max_time_ms: 800
+  
+  - name: "Top PR Contributors (tabular)"
+    section: "GitHub"
+    expectations:
+      min_rows: 0
+      max_rows: 10
+      max_time_ms: 800
+
+  - name: "Top PR Contributors (graph)"
+    section: "GitHub"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 800
+  
+  - name: "Most Active Reviewers (tabular)"
+    section: "GitHub"
+    expectations:
+      min_rows: 0
+      max_rows: 10
+      max_time_ms: 800
+
+  - name: "Most Active Reviewers (graph)"
+    section: "GitHub"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 800
+  
+  - name: "PR Size Distribution (tabular)"
+    section: "GitHub"
+    expectations:
+      min_rows: 0
+      max_rows: 10
+      max_time_ms: 500
+
+  - name: "PR Size Distribution (graph)"
+    section: "GitHub"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 500
+  
+  - name: "Cross-Team Reviews (tabular)"
+    section: "GitHub"
+    expectations:
+      min_rows: 0
+      max_rows: 10
+      max_time_ms: 2000
+
+  - name: "Cross-Team Reviews (graph)"
+    section: "GitHub"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 2000
+  
+  - name: "PR Merge Time Analysis (tabular)"
+    section: "GitHub"
+    expectations:
+      min_rows: 0  # Requires merged PRs
+      max_rows: 10
+      max_time_ms: 800
+
+  - name: "PR Merge Time Analysis (graph)"
+    section: "GitHub"
+    expectations:
+      min_rows: 0  # Requires merged PRs
+      max_rows: 100
+      max_time_ms: 800
+  
+  - name: "Stale Branches (tabular)"
+    section: "GitHub - Data Quality"
+    expectations:
+      max_rows: 10
+      max_time_ms: 500
+
+  - name: "Stale Branches (graph)"
+    section: "GitHub - Data Quality"
+    expectations:
+      max_rows: 100
+      max_time_ms: 500
+  
+  - name: "PRs Without Reviews (tabular)"
+    section: "GitHub - Data Quality"
+    expectations:
+      max_rows: 10  # Should have few unreviewed PRs
+      max_time_ms: 500
+
+  - name: "PRs Without Reviews (graph)"
+    section: "GitHub - Data Quality"
+    expectations:
+      max_rows: 100
+      max_time_ms: 500
+  
+  - name: "Review Bottlenecks (tabular)"
+    section: "GitHub - Data Quality"
+    expectations:
+      max_rows: 10  # Alert if reviewers have too many pending
+      max_time_ms: 500
+
+  - name: "Review Bottlenecks (graph)"
+    section: "GitHub - Data Quality"
+    expectations:
+      max_rows: 100
+      max_time_ms: 500
+  
+  # ============================================================================
+  # Jira Queries
+  # ============================================================================
+  
+  - name: "Project Hierarchy"
+    section: "Jira"
+    expectations:
+      min_rows: 0
+      max_time_ms: 300
+  
+  - name: "Initiative Timeline"
+    section: "Jira"
+    expectations:
+      min_rows: 0
+      max_time_ms: 300
+  
+  - name: "Epics by Initiative"
+    section: "Jira"
+    expectations:
+      min_rows: 0
+      max_time_ms: 300
+  
+  - name: "Epic Timeline"
+    section: "Jira"
+    expectations:
+      min_rows: 0
+      max_time_ms: 300
+  
+  - name: "Epics by Team"
+    section: "Jira"
+    expectations:
+      min_rows: 0
+      max_time_ms: 500
+  
+  - name: "Epic Ownership Distribution"
+    section: "Jira"
+    expectations:
+      min_rows: 0
+      max_time_ms: 500
+  
+  - name: "Initiatives with Assignees"
+    section: "Jira"
+    expectations:
+      min_rows: 0
+      max_time_ms: 500
+  
+  - name: "Sprint Burndown Data"
+    section: "Jira"
+    expectations:
+      min_rows: 0
+      max_time_ms: 800
+  
+  - name: "Work by Person"
+    section: "Jira"
+    expectations:
+      min_rows: 0
+      max_time_ms: 800
+  
+  - name: "Bug Distribution by Epic"
+    section: "Jira"
+    expectations:
+      min_rows: 0
+      max_time_ms: 500
+  
+  - name: "Bugs Related to Stories"
+    section: "Jira"
+    expectations:
+      min_rows: 0
+      max_time_ms: 500
+  
+  - name: "Dependencies and Blockers"
+    section: "Jira"
+    expectations:
+      min_rows: 0
+      max_time_ms: 500
+  
+  - name: "Epics with Owners and Teams"
+    section: "Jira"
+    expectations:
+      min_rows: 0
+      max_time_ms: 800
+  
+  - name: "Blocked Work"
+    section: "Jira - Data Quality"
+    expectations:
+      max_rows: 5  # Should have minimal blocked work
+      max_time_ms: 500
+  
+  - name: "Unassigned Critical Issues"
+    section: "Jira - Data Quality"
+    expectations:
+      max_rows: 3  # Goal: 0 unassigned critical issues
+      max_time_ms: 300
+  
+  # ============================================================================
+  # Cross-Domain Analytics
+  # ============================================================================
+  
+  - name: "Developer Impact Analysis"
+    section: "Cross-Domain"
+    expectations:
+      min_rows: 1
+      max_time_ms: 2000
+  
+  - name: "Team Workload Analysis"
+    section: "Cross-Domain"
+    expectations:
+      min_rows: 1
+      max_time_ms: 2000
+  
+  - name: "Repository Activity Heatmap"
+    section: "Cross-Domain"
+    expectations:
+      min_rows: 1
+      max_time_ms: 2000
+  
+  - name: "Code Review Collaboration Network"
+    section: "Cross-Domain"
+    expectations:
+      min_rows: 0
+      max_time_ms: 2500
+  
+  - name: "Sprint Delivery Metrics"
+    section: "Cross-Domain"
+    expectations:
+      min_rows: 0
+      max_time_ms: 2500
+  
+  - name: "End-to-End Traceability"
+    section: "Cross-Domain"
+    expectations:
+      min_rows: 0  # May not have complete chains
+      max_time_ms: 3000
+  
+  - name: "Work Item to Code Linkage"
+    section: "Cross-Domain - Data Quality"
+    expectations:
+      min_rows: 1
+      max_time_ms: 1500
+  
+  # ============================================================================
+  # Schema Inspection
+  # ============================================================================
+  
+  - name: "View All Node Types"
+    section: "Schema"
+    expectations:
+      min_rows: 1
+      max_time_ms: 500
+  
+  - name: "View All Relationship Types"
+    section: "Schema"
+    expectations:
+      min_rows: 1
+      max_time_ms: 500
+  
+  - name: "Schema Visualization"
+    section: "Schema"
+    expectations:
+      min_rows: 0  # Returns special object, not rows
+      max_time_ms: 1000
+  
+  - name: "Detailed Schema with Properties"
+    section: "Schema"
+    expectations:
+      min_rows: 0
+      max_time_ms: 1000
+  
+  - name: "Sample Node Properties"
+    section: "Schema"
+    expectations:
+      min_rows: 0  # May not have Person nodes
+      max_time_ms: 200
+
+  # ============================================================================
+  # Person-to-Person Analytics
+  # ============================================================================
+  
+  - name: "Shortest Path Collaboration"
+    section: "Person-to-Person"
+    expectations:
+      min_rows: 0
+      max_time_ms: 3000
+  
+  - name: "All Shortest Paths Collaboration"
+    section: "Person-to-Person"
+    expectations:
+      min_rows: 0
+      max_time_ms: 3000
+  
+  - name: "Shortest Path Through Code"
+    section: "Person-to-Person"
+    expectations:
+      min_rows: 0
+      max_time_ms: 3000
+  
+  - name: "Shortest Path Through Work Items"
+    section: "Person-to-Person"
+    expectations:
+      min_rows: 0
+      max_time_ms: 3000
+  
+  - name: "Shortest Path Via Specific Node"
+    section: "Person-to-Person"
+    expectations:
+      min_rows: 0
+      max_time_ms: 4000
+  
+  - name: "Direct Code Reviews"
+    section: "Person-to-Person"
+    expectations:
+      min_rows: 0
+      max_time_ms: 1500
+  
+  - name: "Shared Jira Work"
+    section: "Person-to-Person"
+    expectations:
+      min_rows: 0
+      max_time_ms: 1500
+  
+  - name: "Shared Code Hotspots"
+    section: "Person-to-Person"
+    expectations:
+      min_rows: 0
+      max_time_ms: 2000
+  
+  - name: "Shared Repositories"
+    section: "Person-to-Person"
+    expectations:
+      min_rows: 0
+      max_time_ms: 1000
+  
+  - name: "Shared Teams"
+    section: "Person-to-Person"
+    expectations:
+      min_rows: 0
+      max_time_ms: 500
+  
+  - name: "Org Chart Relationship"
+    section: "Person-to-Person"
+    expectations:
+      min_rows: 0
+      max_time_ms: 1000

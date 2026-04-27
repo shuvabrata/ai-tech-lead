@@ -1,0 +1,15 @@
+name: Epic Ownership Distribution
+description: Epic ownership by person.
+queries:
+  tabular: |-
+    MATCH (e:Epic)-[:ASSIGNED_TO]-(p:Person)
+        RETURN p.name, p.role, count(e) as epic_count
+        ORDER BY epic_count DESC
+  graph: |-
+    MATCH p1=(e:Epic)-[:ASSIGNED_TO]-(p:Person)
+        RETURN p1
+        LIMIT 100
+tags:
+- test
+- table
+- graph

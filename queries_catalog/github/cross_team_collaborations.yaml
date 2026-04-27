@@ -1,0 +1,15 @@
+name: Cross-Team Collaborations
+description: Teams with READ access to repositories.
+queries:
+  tabular: |-
+    MATCH (t:Team)-[c:COLLABORATOR {permission: 'READ'}]-(r:Repository)
+        RETURN r.name, collect(t.name) as read_access_teams
+        ORDER BY r.name
+  graph: |-
+    MATCH p1=(t:Team)-[c:COLLABORATOR {permission: 'READ'}]-(r:Repository)
+        RETURN p1
+        LIMIT 100
+tags:
+- test
+- table
+- graph

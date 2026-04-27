@@ -1,0 +1,16 @@
+# Master Query Catalog
+# Defines the directory structure and namespaces for all graph queries.
+
+namespaces:
+- name: Schema
+  directory: schema
+- name: Cross-Domain
+  directory: cross_domain
+- name: GitHub
+  directory: github
+- name: Jira
+  directory: jira
+- name: People & Identity
+  directory: people_and_identity
+- name: Person-to-Person
+  directory: person_to_person

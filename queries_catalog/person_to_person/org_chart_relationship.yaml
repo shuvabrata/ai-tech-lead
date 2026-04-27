@@ -1,0 +1,31 @@
+name: Org Chart Relationship
+description: Check direct or indirect management relationship between the two people.
+parameters:
+- name: person1_id
+  env_var: PERSON1_ID
+  required: true
+- name: person2_id
+  env_var: PERSON2_ID
+  required: true
+queries:
+  tabular: |-
+    MATCH (p1:Person {id: $person1_id}), (p2:Person {id: $person2_id})
+    OPTIONAL MATCH path_up = (p1)-[:REPORTS_TO*..5]->(p2)
+    OPTIONAL MATCH path_down = (p2)-[:REPORTS_TO*..5]->(p1)
+    RETURN p1.name as person1,
+           p2.name as person2,
+           CASE
+             WHEN path_up IS NOT NULL THEN p1.name + ' reports to ' + p2.name
+             WHEN path_down IS NOT NULL THEN p2.name + ' reports to ' + p1.name
+             ELSE 'No direct reporting line within 5 levels'
+           END as reporting_relationship, coalesce(length(path_up), length(path_down), 0) as levels_apart
+  graph: |-
+    MATCH (p1:Person {id: $person1_id}), (p2:Person {id: $person2_id})
+    OPTIONAL MATCH path_up = (p1)-[:REPORTS_TO*..5]->(p2)
+    OPTIONAL MATCH path_down = (p2)-[:REPORTS_TO*..5]->(p1)
+    RETURN path_up, path_down
+    LIMIT 100
+tags:
+- test
+- table
+- graph

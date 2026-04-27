@@ -1,0 +1,18 @@
+name: Work by Person
+description: Work assigned to each person.
+queries:
+  tabular: |-
+    MATCH (i:Issue)-[:ASSIGNED_TO]-(p:Person)
+        RETURN p.name, p.title,
+               count(i) as total_issues,
+               sum(i.story_points) as total_points
+        ORDER BY total_points DESC
+        LIMIT 10
+  graph: |-
+    MATCH p1=(i:Issue)-[:ASSIGNED_TO]-(p:Person)
+        RETURN p1
+        LIMIT 100
+tags:
+- test
+- table
+- graph

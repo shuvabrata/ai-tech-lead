@@ -1,0 +1,26 @@
+name: Developer Impact Analysis
+description: Developer contributions across all domains.
+queries:
+  tabular: |-
+    MATCH (p:Person)
+        OPTIONAL MATCH (p)<-[:CREATED_BY]-(pr:PullRequest)
+        OPTIONAL MATCH (p)-[:AUTHORED_BY]-(c:Commit)
+        OPTIONAL MATCH (p)-[:ASSIGNED_TO]-(i:Issue)
+        RETURN p.name as developer,
+               p.title,
+               count(DISTINCT pr) as prs,
+               count(DISTINCT c) as commits,
+               count(DISTINCT i) as issues
+        ORDER BY commits DESC
+        LIMIT 10
+  graph: |-
+    MATCH p1=(p:Person)
+        OPTIONAL MATCH p2=(p)<-[:CREATED_BY]-(pr:PullRequest)
+        OPTIONAL MATCH p3=(p)-[:AUTHORED_BY]-(c:Commit)
+        OPTIONAL MATCH p4=(p)-[:ASSIGNED_TO]-(i:Issue)
+        RETURN p1, p2, p3, p4
+        LIMIT 100
+tags:
+- test
+- table
+- graph
