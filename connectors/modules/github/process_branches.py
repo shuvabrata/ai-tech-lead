@@ -1,6 +1,6 @@
-from commons.logger import logger
-from modules.github.new_branch_handler import new_branch_handler
-from modules.github.get_existing_branch_metadata import get_existing_branch_metadata
+from connectors.commons.logger import logger
+from connectors.modules.github.new_branch_handler import new_branch_handler
+from connectors.modules.github.get_existing_branch_metadata import get_existing_branch_metadata
 
 
 from typing import Any, Optional

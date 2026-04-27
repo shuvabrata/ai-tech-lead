@@ -13,7 +13,7 @@ import json
 import os
 
 from neo4j import GraphDatabase
-from db.models import PullRequest, Relationship, merge_pull_request, merge_relationship, create_constraints
+from connectors.db.models import PullRequest, Relationship, merge_pull_request, merge_relationship, create_constraints
 
 
 def load_pull_requests_to_neo4j():

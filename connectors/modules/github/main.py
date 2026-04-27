@@ -13,15 +13,15 @@ from typing import Dict, List, Tuple, Any, cast
 
 import requests
 from neo4j import GraphDatabase
-from neo4j_db.models import (
+from connectors.neo4j_db.models import (
     create_constraints
 )
-from modules.github.get_all_repos_for_owner import get_all_repos_for_owner
-from modules.github.process_repo import process_repo
-from modules.github.utils import get_github_client
-from commons.config_validator import validate_config
+from connectors.modules.github.get_all_repos_for_owner import get_all_repos_for_owner
+from connectors.modules.github.process_repo import process_repo
+from connectors.modules.github.utils import get_github_client
+from connectors.commons.config_validator import validate_config
 
-from commons.logger import logger
+from connectors.commons.logger import logger
 
 
 def load_config_from_server() -> Dict[str, Any]:

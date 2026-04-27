@@ -1,5 +1,5 @@
-from commons.logger import logger
-from modules.github.new_team_handler import new_team_handler
+from connectors.commons.logger import logger
+from connectors.modules.github.new_team_handler import new_team_handler
 
 
 

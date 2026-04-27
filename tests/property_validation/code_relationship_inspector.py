@@ -10,7 +10,7 @@ from typing import Dict, Set, Tuple, Optional
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
-from neo4j_db.models import DIRECTIONAL_RELATIONSHIPS, UNDIRECTED_RELATIONSHIPS
+from connectors.neo4j_db.models import DIRECTIONAL_RELATIONSHIPS, UNDIRECTED_RELATIONSHIPS
 
 
 def get_expected_relationships() -> Dict[str, str]:

@@ -1,10 +1,10 @@
 from typing import Any, Dict, Optional, Set
 from datetime import datetime, timezone
 
-from neo4j_db.models import Initiative, Relationship, merge_initiative
-from modules.jira.new_jira_user_handler import new_jira_user_handler
-from commons.person_cache import PersonCache
-from commons.logger import logger
+from connectors.neo4j_db.models import Initiative, Relationship, merge_initiative
+from connectors.modules.jira.new_jira_user_handler import new_jira_user_handler
+from connectors.commons.person_cache import PersonCache
+from connectors.commons.logger import logger
 
 def new_initiative_handler(
     session: Any,
