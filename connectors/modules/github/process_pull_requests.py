@@ -2,11 +2,11 @@ import os
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from commons.logger import logger
-from modules.github.get_fully_synced_pr_numbers import get_fully_synced_pr_numbers
-from modules.github.new_pull_request_handler import new_pull_request_handler
-from modules.github.repo_last_synced_at import get__last_synced_at
-from modules.github.retry_with_backoff import retry_with_backoff
+from connectors.commons.logger import logger
+from connectors.modules.github.get_fully_synced_pr_numbers import get_fully_synced_pr_numbers
+from connectors.modules.github.new_pull_request_handler import new_pull_request_handler
+from connectors.modules.github.repo_last_synced_at import get__last_synced_at
+from connectors.modules.github.retry_with_backoff import retry_with_backoff
 from github import GithubException
 
 

@@ -13,7 +13,7 @@ import json
 import os
 
 from neo4j import GraphDatabase
-from db.models import Commit, File, Relationship, merge_commit, merge_file, merge_relationship, create_constraints
+from connectors.db.models import Commit, File, Relationship, merge_commit, merge_file, merge_relationship, create_constraints
 
 
 def load_commits_to_neo4j():

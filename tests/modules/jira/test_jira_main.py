@@ -9,11 +9,11 @@ from pathlib import Path
 project_root = Path(__file__).resolve().parent.parent.parent.parent
 sys.path.insert(0, str(project_root / 'app'))
 
-from modules.jira.main import load_config_from_server, main as jira_main
+from connectors.modules.jira.main import load_config_from_server, main as jira_main
 
 # --- Tests for load_config_from_server ---
 
-@patch('modules.jira.main.requests.get')
+@patch('connectors.modules.jira.main.requests.get')
 def test_load_config_from_server_success(mock_get, monkeypatch):
     """
     Test successful configuration loading from the server for Jira.
@@ -57,7 +57,7 @@ def test_load_config_from_server_success(mock_get, monkeypatch):
         timeout=10
     )
 
-@patch('modules.jira.main.requests.get')
+@patch('connectors.modules.jira.main.requests.get')
 def test_load_config_from_server_http_error(mock_get, monkeypatch):
     """
     Test handling of an HTTP error from the server for Jira.
@@ -87,10 +87,10 @@ def setup_downstream_mocks(mock_jira_conn, mock_driver):
     mock_session.__exit__.return_value = None
 
 
-@patch('modules.jira.main.GraphDatabase.driver')
-@patch('modules.jira.main.create_jira_connection')
-@patch('modules.jira.main.load_config_from_file')
-@patch('modules.jira.main.load_config_from_server')
+@patch('connectors.modules.jira.main.GraphDatabase.driver')
+@patch('connectors.modules.jira.main.create_jira_connection')
+@patch('connectors.modules.jira.main.load_config_from_file')
+@patch('connectors.modules.jira.main.load_config_from_server')
 def test_main_config_source_server(mock_load_server, mock_load_file, mock_jira_conn, mock_driver, monkeypatch):
     """
     Test jira_main() when CONFIGURATION_SOURCE is 'SERVER'.
@@ -108,10 +108,10 @@ def test_main_config_source_server(mock_load_server, mock_load_file, mock_jira_c
     mock_driver.assert_called_once()
     assert return_code == 0, "main() should return 0 on success"
 
-@patch('modules.jira.main.GraphDatabase.driver')
-@patch('modules.jira.main.create_jira_connection')
-@patch('modules.jira.main.load_config_from_file')
-@patch('modules.jira.main.load_config_from_server')
+@patch('connectors.modules.jira.main.GraphDatabase.driver')
+@patch('connectors.modules.jira.main.create_jira_connection')
+@patch('connectors.modules.jira.main.load_config_from_file')
+@patch('connectors.modules.jira.main.load_config_from_server')
 def test_main_config_source_file_success(mock_load_server, mock_load_file, mock_jira_conn, mock_driver, monkeypatch):
     """
     Test jira_main() when CONFIGURATION_SOURCE is 'FILE' and the file is valid.
@@ -128,10 +128,10 @@ def test_main_config_source_file_success(mock_load_server, mock_load_file, mock_
     mock_driver.assert_called_once()
     assert return_code == 0, "main() should return 0 on success"
 
-@patch('modules.jira.main.GraphDatabase.driver')
-@patch('modules.jira.main.create_jira_connection')
-@patch('modules.jira.main.load_config_from_file', side_effect=FileNotFoundError("File not found"))
-@patch('modules.jira.main.load_config_from_server')
+@patch('connectors.modules.jira.main.GraphDatabase.driver')
+@patch('connectors.modules.jira.main.create_jira_connection')
+@patch('connectors.modules.jira.main.load_config_from_file', side_effect=FileNotFoundError("File not found"))
+@patch('connectors.modules.jira.main.load_config_from_server')
 def test_main_config_source_file_not_found(mock_load_server, mock_load_file, mock_jira_conn, mock_driver, monkeypatch, caplog):
     """
     Test jira_main() when CONFIGURATION_SOURCE is 'FILE' and the file is missing.
@@ -147,9 +147,9 @@ def test_main_config_source_file_not_found(mock_load_server, mock_load_file, moc
     assert "Configuration file not found" in caplog.text
     assert return_code == 1, "main() should return 1 on config error"
 
-@patch('modules.jira.main.GraphDatabase.driver')
-@patch('modules.jira.main.create_jira_connection')
-@patch('modules.jira.main.load_config_from_server', side_effect=Exception("Generic load error"))
+@patch('connectors.modules.jira.main.GraphDatabase.driver')
+@patch('connectors.modules.jira.main.create_jira_connection')
+@patch('connectors.modules.jira.main.load_config_from_server', side_effect=Exception("Generic load error"))
 def test_main_config_source_server_load_error(mock_load_server, mock_jira_conn, mock_driver, monkeypatch, caplog):
     """
     Test jira_main() when CONFIGURATION_SOURCE is 'SERVER' and loading fails.
