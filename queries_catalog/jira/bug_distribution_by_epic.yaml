@@ -1,0 +1,15 @@
+name: Bug Distribution by Epic
+description: Bugs grouped by epic.
+queries:
+  tabular: |-
+    MATCH (bug:Issue {type: 'Bug'})-[:PART_OF]->(e:Epic)
+        RETURN e.key, e.summary, count(bug) as bug_count
+        ORDER BY bug_count DESC
+  graph: |-
+    MATCH p1=(bug:Issue {type: 'Bug'})-[:PART_OF]->(e:Epic)
+        RETURN p1
+        LIMIT 100
+tags:
+- test
+- table
+- graph

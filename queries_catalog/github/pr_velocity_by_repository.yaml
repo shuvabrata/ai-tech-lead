@@ -1,0 +1,19 @@
+name: PR Velocity by Repository
+description: PR velocity and merge rate by repository.
+queries:
+  tabular: |-
+    MATCH (pr:PullRequest)-[:TARGETS]->(b:Branch)-[:BRANCH_OF]-(r:Repository)
+        RETURN r.name as repository,
+               count(pr) as total_prs,
+               sum(CASE WHEN pr.state = 'merged' THEN 1 ELSE 0 END) as merged,
+               sum(CASE WHEN pr.state = 'open' THEN 1 ELSE 0 END) as open,
+               round(sum(CASE WHEN pr.state = 'merged' THEN 1 ELSE 0 END) * 100.0 / count(pr), 1) as merge_rate
+        ORDER BY total_prs DESC
+  graph: |-
+    MATCH p1=(pr:PullRequest)-[:TARGETS]->(b:Branch)-[:BRANCH_OF]-(r:Repository)
+        RETURN p1
+        LIMIT 100
+tags:
+- test
+- table
+- graph

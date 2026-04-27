@@ -1,0 +1,34 @@
+name: Shortest Path Via Specific Node
+description: Find the shortest path between two people that goes THROUGH a specific
+  3rd node.
+parameters:
+- name: person1_id
+  env_var: PERSON1_ID
+  required: true
+- name: person2_id
+  env_var: PERSON2_ID
+  required: true
+- name: condition_node_id
+  env_var: CONDITION_NODE_ID
+  required: true
+queries:
+  tabular: |-
+    MATCH (p1:Person {id: $person1_id}), (p2:Person {id: $person2_id}), (c {id: $condition_node_id})
+    MATCH path1 = shortestPath((p1)-[*..6]-(c))
+    MATCH path2 = shortestPath((c)-[*..6]-(p2))
+    RETURN p1.name as person1,
+           p2.name as person2,
+           coalesce(c.name, c.key, c.title, c.number, labels(c)[0]) as intermediary_node,
+           labels(c)[0] as intermediary_type,
+           length(path1) + length(path2) as total_degrees_of_separation,
+           [n IN nodes(path1) | coalesce(n.name, n.key, n.title, n.path, labels(n)[0])] + [n IN nodes(path2)[1..] | coalesce(n.name, n.key, n.title, n.path, labels(n)[0])] as full_connection_path
+  graph: |-
+    MATCH (p1:Person {id: $person1_id}), (p2:Person {id: $person2_id}), (c {id: $condition_node_id})
+    MATCH path1 = shortestPath((p1)-[*..6]-(c))
+    MATCH path2 = shortestPath((c)-[*..6]-(p2))
+    RETURN path1, path2
+    LIMIT 100
+tags:
+- test
+- table
+- graph

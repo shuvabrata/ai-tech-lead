@@ -1,0 +1,14 @@
+name: Identity Mappings
+description: Find all identity mappings for a person.
+queries:
+  tabular: |-
+    MATCH (p:Person {name: "Add a valid name here"})-[:MAPS_TO]-(i:IdentityMapping)
+        RETURN p.name, i.provider, i.username, i.email
+  graph: |-
+    MATCH p1=(p:Person {name: "Add a valid name here"})-[:MAPS_TO]-(i:IdentityMapping)
+        RETURN p1
+        LIMIT 100
+tags:
+- test
+- table
+- graph

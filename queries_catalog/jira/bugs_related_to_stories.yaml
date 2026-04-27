@@ -1,0 +1,14 @@
+name: Bugs Related to Stories
+description: Bugs linked to specific stories.
+queries:
+  tabular: |-
+    MATCH (bug:Issue {type: 'Bug'})-[:RELATES_TO]-(story:Issue {type: 'Story'})
+        RETURN bug.key, story.key as story, bug.summary
+  graph: |-
+    MATCH p1=(bug:Issue {type: 'Bug'})-[:RELATES_TO]-(story:Issue {type: 'Story'})
+        RETURN p1
+        LIMIT 100
+tags:
+- test
+- table
+- graph

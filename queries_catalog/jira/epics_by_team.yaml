@@ -1,0 +1,15 @@
+name: Epics by Team
+description: Epics assigned to each team.
+queries:
+  tabular: |-
+    MATCH (e:Epic)-[:TEAM]-(t:Team)
+        RETURN t.name, count(e) as epic_count, collect(e.key) as epics
+        ORDER BY epic_count DESC
+  graph: |-
+    MATCH p1=(e:Epic)-[:TEAM]-(t:Team)
+        RETURN p1
+        LIMIT 100
+tags:
+- test
+- table
+- graph

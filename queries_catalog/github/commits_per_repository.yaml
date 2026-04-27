@@ -1,0 +1,17 @@
+name: Commits per Repository
+description: Count commits per repository.
+queries:
+  tabular: |-
+    MATCH (c:Commit)-[:PART_OF]->(b:Branch)-[:BRANCH_OF]-(r:Repository)
+        WHERE b.is_default = true
+        RETURN r.name as repo, count(c) as commits
+        ORDER BY commits DESC
+  graph: |-
+    MATCH p1=(c:Commit)-[:PART_OF]->(b:Branch)-[:BRANCH_OF]-(r:Repository)
+        WHERE b.is_default = true
+        RETURN p1
+        LIMIT 100
+tags:
+- test
+- table
+- graph

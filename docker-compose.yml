@@ -23,7 +23,7 @@ services:
   app:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.app
     container_name: wba-ai-app
     restart: unless-stopped
     environment:
@@ -46,7 +46,7 @@ services:
       MAX_TOKENS: ${MAX_TOKENS}
       LOG_FORMAT: ${LOG_FORMAT}
       LOG_LEVEL: ${LOG_LEVEL}
-      LOG_DIR: /app/logs
+      LOG_DIR: /var/log/app
       ENABLE_FILE_LOGGING: "1"
       # Override NEO4J_URI to use 'neo4j' service name instead of 'localhost'
       NEO4J_URI: bolt://neo4j:7687
@@ -65,7 +65,7 @@ services:
       # Mount .env file (read-only)
       - ./.env:/app/.env:ro
       # Mount logs directory
-      - ./logs:/app/logs
+      - ./logs:/var/log/app
     networks:
       - wba-ai-network
     depends_on:
@@ -118,17 +118,19 @@ services:
       - wba-ai-network
 
   jira-sync:
-    image: enterprise-graph-jira-sync:latest
-    container_name: enterprise-graph-jira-sync
+    build:
+      context: .
+      dockerfile: Dockerfile.jira-sync
+    container_name: web-ai-jira-sync
     command: python modules/jira/main.py
     env_file:
       - .env
     environment:
       NEO4J_URI: bolt://neo4j:7687
       PYTHONPATH: /app
-      LOG_DIR: /var/log/enterprise-graph
+      LOG_DIR: /var/log/jira-sync
     volumes:
-      - ./logs:/var/log/enterprise-graph
+      - ./logs:/var/log/jira-sync
     depends_on:
       - neo4j
     restart: "no"  # One-shot execution, run manually via docker compose run
@@ -136,17 +138,19 @@ services:
       - wba-ai-network
 
   github-sync:
-    image: enterprise-graph-github-sync:latest
-    container_name: enterprise-graph-github-sync
+    build:
+      context: .
+      dockerfile: Dockerfile.github-sync
+    container_name: web-ai-github-sync
     command: python modules/github/main.py
     env_file:
       - .env
     environment:
       NEO4J_URI: bolt://neo4j:7687
       PYTHONPATH: /app
-      LOG_DIR: /var/log/enterprise-graph
+      LOG_DIR: /var/log/github-sync
     volumes:
-      - ./logs:/var/log/enterprise-graph
+      - ./logs:/var/log/github-sync
     depends_on:
       - neo4j
     restart: "no"  # One-shot execution, run manually via docker compose run

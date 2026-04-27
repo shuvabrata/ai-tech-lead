@@ -1,0 +1,29 @@
+name: Direct Code Reviews
+description: Find all PRs created by one and reviewed by the other.
+parameters:
+- name: person1_id
+  env_var: PERSON1_ID
+  required: true
+- name: person2_id
+  env_var: PERSON2_ID
+  required: true
+queries:
+  tabular: |-
+    MATCH (p1:Person {id: $person1_id}), (p2:Person {id: $person2_id})
+    MATCH (author:Person)-[:CREATED_BY]-(pr:PullRequest)-[:REVIEWED_BY]-(reviewer:Person)
+    WHERE (author = p1 AND reviewer = p2) OR (author = p2 AND reviewer = p1)
+    RETURN author.name as author,
+           reviewer.name as reviewer,
+           count(pr) as review_count,
+           collect(pr.number)[0..5] as sample_prs
+    ORDER BY review_count DESC
+  graph: |-
+    MATCH (p1:Person {id: $person1_id}), (p2:Person {id: $person2_id})
+    MATCH path = (author:Person)-[:CREATED_BY]-(pr:PullRequest)-[:REVIEWED_BY]-(reviewer:Person)
+    WHERE (author = p1 AND reviewer = p2) OR (author = p2 AND reviewer = p1)
+    RETURN path
+    LIMIT 100
+tags:
+- test
+- table
+- graph

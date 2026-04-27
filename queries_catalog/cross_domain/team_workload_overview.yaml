@@ -1,0 +1,22 @@
+name: Team Workload Overview
+description: Team workload across GitHub and Jira.
+queries:
+  tabular: |-
+    MATCH (t:Team)-[:MEMBER_OF]-(p:Person)
+        OPTIONAL MATCH (p)-[:ASSIGNED_TO]-(i:Issue)
+        OPTIONAL MATCH (p)-[:AUTHORED_BY]-(c:Commit)
+        RETURN t.name as team,
+               count(DISTINCT p) as members,
+               count(DISTINCT i) as assigned_issues,
+               count(DISTINCT c) as commits
+        ORDER BY assigned_issues DESC
+  graph: |-
+    MATCH p1=(t:Team)-[:MEMBER_OF]-(p:Person)
+        OPTIONAL MATCH p2=(p)-[:ASSIGNED_TO]-(i:Issue)
+        OPTIONAL MATCH p3=(p)-[:AUTHORED_BY]-(c:Commit)
+        RETURN p1, p2, p3
+        LIMIT 100
+tags:
+- test
+- table
+- graph
