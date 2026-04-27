@@ -122,7 +122,7 @@ services:
       context: .
       dockerfile: Dockerfile.jira-sync
     container_name: web-ai-jira-sync
-    command: python modules/jira/main.py
+    command: python connectors/modules/jira/main.py
     env_file:
       - .env
     environment:
@@ -142,7 +142,7 @@ services:
       context: .
       dockerfile: Dockerfile.github-sync
     container_name: web-ai-github-sync
-    command: python modules/github/main.py
+    command: python connectors/modules/github/main.py
     env_file:
       - .env
     environment:
