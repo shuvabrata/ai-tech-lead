@@ -12,10 +12,7 @@ import sys
 import os
 import pytest
 
-# Add project root to path to import common modules
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
-from common.logger import logger, LogContext
+from app.common.logger import logger, LogContext
 
 
 @pytest.fixture(scope="session", autouse=True)

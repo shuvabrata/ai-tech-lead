@@ -2,8 +2,7 @@
 *
 
 # Include only what we need
-!app/
-!connectors/
+!src/
 !requirements.txt
 !requirements.app.txt
 !requirements.github-sync.txt
