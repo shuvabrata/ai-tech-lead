@@ -56,6 +56,7 @@ def test_each_layer_returns_data(layer: str):
     """Validate each collaboration layer has data in the current DB snapshot."""
     query_path = (
         Path(__file__).resolve().parent.parent
+        / "src"
         / "app"
         / "analytics"
         / "collaboration"

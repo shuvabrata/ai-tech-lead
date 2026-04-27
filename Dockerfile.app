@@ -12,7 +12,7 @@ COPY requirements.app.txt ./requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy app code (includes alembic/, alembic.ini, entrypoint.sh)
-COPY app/ ./app/
+COPY src/app/ ./app/
 
 # Create non-root user for security
 RUN useradd -m -u 1000 -s /bin/bash appuser && \
