@@ -1,4 +1,4 @@
-name: Unit Tests
+name: Pytest and Pylint
 
 on:
   pull_request:
