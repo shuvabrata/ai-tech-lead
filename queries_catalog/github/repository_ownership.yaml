@@ -1,0 +1,15 @@
+name: Repository Ownership
+description: View repositories with owning teams (WRITE access).
+queries:
+  tabular: |-
+    MATCH (t:Team)-[c:COLLABORATOR {permission: 'WRITE'}]-(r:Repository)
+        RETURN t.name, r.name, r.language
+        ORDER BY t.name, r.name
+  graph: |-
+    MATCH p1=(t:Team)-[c:COLLABORATOR {permission: 'WRITE'}]-(r:Repository)
+        RETURN p1
+        LIMIT 100
+tags:
+- test
+- table
+- graph

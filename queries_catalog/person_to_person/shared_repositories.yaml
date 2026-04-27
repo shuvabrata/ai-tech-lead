@@ -1,0 +1,25 @@
+name: Shared Repositories
+description: Find repositories both developers collaborate on.
+parameters:
+- name: person1_id
+  env_var: PERSON1_ID
+  required: true
+- name: person2_id
+  env_var: PERSON2_ID
+  required: true
+queries:
+  tabular: |-
+    MATCH (p1:Person {id: $person1_id})-[c1:COLLABORATOR]-(r:Repository)-[c2:COLLABORATOR]-(p2:Person {id: $person2_id})
+    RETURN r.name as repository,
+           c1.permission as person1_permission,
+           c2.permission as person2_permission
+    ORDER BY repository
+  graph: |-
+    MATCH (p1:Person {id: $person1_id}), (p2:Person {id: $person2_id})
+    MATCH path = (p1)-[c1:COLLABORATOR]-(r:Repository)-[c2:COLLABORATOR]-(p2)
+    RETURN path
+    LIMIT 100
+tags:
+- test
+- table
+- graph

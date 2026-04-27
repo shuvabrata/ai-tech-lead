@@ -1,0 +1,18 @@
+name: Test vs Production Code
+description: Test vs production code analysis.
+queries:
+  tabular: |-
+    MATCH (f:File)<-[:MODIFIES]-(c:Commit)
+        WITH f.is_test as is_test,
+             count(DISTINCT f) as file_count,
+             count(c) as commit_count
+        RETURN CASE WHEN is_test THEN 'Test Files' ELSE 'Production Files' END as type,
+               file_count, commit_count
+  graph: |-
+    MATCH p1=(f:File)<-[:MODIFIES]-(c:Commit)
+        RETURN p1
+        LIMIT 100
+tags:
+- test
+- table
+- graph

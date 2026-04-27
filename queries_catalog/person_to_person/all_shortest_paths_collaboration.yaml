@@ -1,0 +1,30 @@
+name: All Shortest Paths Collaboration
+description: Find ALL shortest paths if multiple connections of the same length exist.
+parameters:
+- name: person1_id
+  env_var: PERSON1_ID
+  required: true
+- name: person2_id
+  env_var: PERSON2_ID
+  required: true
+queries:
+  tabular: |-
+    MATCH (p1:Person {id: $person1_id}), (p2:Person {id: $person2_id})
+    MATCH paths = allShortestPaths((p1)-[*..6]-(p2))
+    UNWIND paths as path
+    RETURN p1.name as person1,
+           p2.name as person2,
+           length(path) as degrees_of_separation,
+           [n IN nodes(path) | coalesce(n.name, n.key, n.title, n.path, labels(n)[0])] as connection_path,
+           [r IN relationships(path) | type(r)] as relationship_types
+    LIMIT 10
+  graph: |-
+    MATCH (p1:Person {id: $person1_id}), (p2:Person {id: $person2_id})
+    MATCH paths = allShortestPaths((p1)-[*..6]-(p2))
+    UNWIND paths as path
+    RETURN path
+    LIMIT 100
+tags:
+- test
+- table
+- graph

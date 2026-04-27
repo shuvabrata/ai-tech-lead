@@ -1,0 +1,15 @@
+name: Repository Maintainers
+description: Find maintainers (people with WRITE access).
+queries:
+  tabular: |-
+    MATCH (p:Person)-[c:COLLABORATOR {permission: 'WRITE'}]-(r:Repository)
+        RETURN r.name, collect(p.name) as maintainers
+        ORDER BY r.name
+  graph: |-
+    MATCH p1=(p:Person)-[c:COLLABORATOR {permission: 'WRITE'}]-(r:Repository)
+        RETURN p1
+        LIMIT 100
+tags:
+- test
+- table
+- graph

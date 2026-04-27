@@ -1,0 +1,15 @@
+name: Epics by Initiative
+description: Epics grouped by initiative.
+queries:
+  tabular: |-
+    MATCH (e:Epic)-[:PART_OF]->(i:Initiative)
+        RETURN i.key, i.summary, collect(e.key) as epics
+        ORDER BY i.key
+  graph: |-
+    MATCH p1=(e:Epic)-[:PART_OF]->(i:Initiative)
+        RETURN p1
+        LIMIT 100
+tags:
+- test
+- table
+- graph

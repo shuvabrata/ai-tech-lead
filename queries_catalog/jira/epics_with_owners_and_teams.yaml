@@ -1,0 +1,22 @@
+name: Epics with Owners and Teams
+description: Complete epic context with owners, teams, and initiatives.
+queries:
+  tabular: |-
+    MATCH (e:Epic)-[:ASSIGNED_TO]-(owner:Person)
+        MATCH (e)-[:TEAM]-(team:Team)
+        MATCH (e)-[:PART_OF]->(i:Initiative)
+        RETURN e.key, e.summary,
+               owner.name as owner, owner.title as owner_title,
+               team.name as team,
+               i.key as initiative,
+               e.status, e.priority
+  graph: |-
+    MATCH p1=(e:Epic)-[:ASSIGNED_TO]-(owner:Person)
+        MATCH p2=(e)-[:TEAM]-(team:Team)
+        MATCH p3=(e)-[:PART_OF]->(i:Initiative)
+        RETURN p1, p2, p3
+        LIMIT 100
+tags:
+- test
+- table
+- graph

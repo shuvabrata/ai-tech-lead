@@ -1,0 +1,16 @@
+name: Top Contributors
+description: Top 10 contributors by commit count.
+queries:
+  tabular: |-
+    MATCH (p:Person)-[:AUTHORED_BY]-(c:Commit)
+        RETURN p.name as name, p.title as title, count(c) as commits
+        ORDER BY commits DESC
+        LIMIT 10
+  graph: |-
+    MATCH p1=(p:Person)-[:AUTHORED_BY]-(c:Commit)
+        RETURN p1
+        LIMIT 100
+tags:
+- test
+- table
+- graph
