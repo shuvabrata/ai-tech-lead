@@ -11,7 +11,7 @@ jobs:
   pytest-unit:
     runs-on: ubuntu-latest
     env:
-      PYTHONPATH: ${{ github.workspace }}
+      PYTHONPATH: ${{ github.workspace }}:${{ github.workspace }}/src
       DATABASE_URL: postgresql+asyncpg://username:pwd@localhost:5432/postgres
       NEO4J_ENABLED: "false"
       OPENAI_API_KEY: "sk-test-dummy-key-for-ci"
@@ -38,7 +38,7 @@ jobs:
   pylint:
     runs-on: ubuntu-latest
     env:
-      PYTHONPATH: ${{ github.workspace }}
+      PYTHONPATH: ${{ github.workspace }}:${{ github.workspace }}/src
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -55,7 +55,7 @@ jobs:
 
       - name: Run pylint on app and connectors
         run: |
-          SCORE=$(pylint app connectors --score=y --exit-zero | tee pylint.log | grep 'Your code has been rated at' | awk '{print $7}' | cut -d'/' -f1)
+          SCORE=$(pylint src/app src/connectors --score=y --exit-zero | tee pylint.log | grep 'Your code has been rated at' | awk '{print $7}' | cut -d'/' -f1)
           PASS=$(echo "$SCORE >= 9.0" | bc)
           if [ "$PASS" -ne 1 ]; then
             echo "Pylint score is less than 9.0 ($SCORE). Failing the job."
