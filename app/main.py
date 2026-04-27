@@ -4,14 +4,14 @@ from uuid import uuid4
 
 from fastapi import FastAPI, Request
 from starlette.middleware.wsgi import WSGIMiddleware
-from .api import endpoints
-from .api.projects.v1.router import router as projects_v1_router
-from .api.chats.v1.router import router as chats_v1_router
-from .api.graph.v1.router import router as graph_v1_router
-from .api.connectors.v1.router import router as connectors_v1_router
-from .dash_app.layout import create_dash_app
-from .common.logger import logger, LogContext
-from .settings import settings
+from app.api import endpoints
+from app.api.projects.v1.router import router as projects_v1_router
+from app.api.chats.v1.router import router as chats_v1_router
+from app.api.graph.v1.router import router as graph_v1_router
+from app.api.connectors.v1.router import router as connectors_v1_router
+from app.dash_app.layout import create_dash_app
+from app.common.logger import logger, LogContext
+from app.settings import settings
 
 
 @asynccontextmanager

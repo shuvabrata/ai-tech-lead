@@ -13,8 +13,8 @@ Strategy: Email-as-Master-Key
 
 from typing import Optional, Tuple
 from neo4j import Session
-from neo4j_db.models import Person, merge_person
-from commons.logger import logger
+from connectors.neo4j_db.models import Person, merge_person
+from connectors.commons.logger import logger
 
 
 def get_or_create_person(

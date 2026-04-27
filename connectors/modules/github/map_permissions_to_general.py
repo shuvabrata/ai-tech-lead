@@ -1,5 +1,6 @@
 from typing import Dict
 
+from connectors.commons.logger import logger
 def map_permissions_to_general(permissions: Dict[str, bool]) -> str:
     """
     Map GitHub permissions to general READ or WRITE access.

@@ -2,11 +2,11 @@ import re
 from datetime import datetime, timezone
 from typing import Optional, List
 
-from neo4j_db.models import Commit, Relationship, merge_commit, merge_relationship
-from modules.github.new_file_handler import new_file_handler
-from modules.github.retry_with_backoff import retry_with_backoff
-from commons.person_cache import PersonCache
-from commons.logger import logger
+from connectors.neo4j_db.models import Commit, Relationship, merge_commit, merge_relationship
+from connectors.modules.github.new_file_handler import new_file_handler
+from connectors.modules.github.retry_with_backoff import retry_with_backoff
+from connectors.commons.person_cache import PersonCache
+from connectors.commons.logger import logger
 
 from typing import Any
 

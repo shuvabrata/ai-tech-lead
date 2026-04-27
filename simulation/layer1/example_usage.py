@@ -6,7 +6,7 @@ Demonstrates how to merge nodes one at a time in real-world scenarios.
 import os
 
 from neo4j import GraphDatabase
-from db.models import (
+from connectors.db.models import (
     Person, Team, IdentityMapping, Relationship,
     merge_person, merge_team, merge_identity_mapping, merge_relationship,
     create_constraints

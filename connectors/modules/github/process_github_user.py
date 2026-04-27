@@ -7,9 +7,9 @@ Provides common functionality for processing GitHub users across different conte
 
 from datetime import datetime, timezone
 
-from neo4j_db.models import IdentityMapping, Relationship, merge_identity_mapping, merge_relationship
-from commons.identity_resolver import get_or_create_person
-from commons.logger import logger
+from connectors.neo4j_db.models import IdentityMapping, Relationship, merge_identity_mapping, merge_relationship
+from connectors.commons.identity_resolver import get_or_create_person
+from connectors.commons.logger import logger
 
 
 from typing import Any, Dict, List, Optional, Tuple

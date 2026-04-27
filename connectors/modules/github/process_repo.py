@@ -1,18 +1,21 @@
-from modules.github.new_repo_handler import new_repo_handler
-from modules.github.process_branches import process_branches
-from modules.github.process_collaborators import process_collaborators
-from modules.github.process_commits import process_commits
-from modules.github.process_pull_requests import process_pull_requests
-from modules.github.process_teams import process_teams
-from commons.config_validator import get_repo_branch_patterns, get_repo_extraction_sources
-from commons.person_cache import PersonCache
+from connectors.modules.github.new_repo_handler import new_repo_handler
+from connectors.modules.github.process_branches import process_branches
+from connectors.modules.github.process_collaborators import process_collaborators
+from connectors.modules.github.process_commits import process_commits
+from connectors.modules.github.process_pull_requests import process_pull_requests
+from connectors.modules.github.process_teams import process_teams
+from connectors.commons.config_validator import get_repo_branch_patterns, get_repo_extraction_sources
+from connectors.commons.person_cache import PersonCache
 from neo4j import Session
 from github.Repository import Repository
 
 from typing import Optional, Dict, Any, Tuple
 
-from commons.logger import logger, LogContext
-from modules.github.repo_last_synced_at import update__last_synced_at
+from connectors.commons.logger import logger, LogContext
+from connectors.modules.github.repo_last_synced_at import update__last_synced_at
+from connectors.modules.github.process_github_user import process_github_user
+from connectors.modules.github.new_branch_handler import new_branch_handler
+from connectors.modules.github.new_user_handler import new_user_handler
 
 
 def flush_person_cache(person_cache: PersonCache, session: Session) -> None:

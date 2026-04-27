@@ -9,7 +9,7 @@ import os
 import traceback
 
 from neo4j import GraphDatabase
-from db.models import (
+from connectors.db.models import (
     Epic, Relationship,
     merge_epic, merge_relationship,
     create_constraints, DIRECTIONAL_RELATIONSHIPS

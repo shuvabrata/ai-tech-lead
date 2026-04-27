@@ -1,6 +1,6 @@
-from commons.logger import logger
-from modules.github.new_user_handler import new_user_handler
-from modules.github.process_github_user import get_users_needing_refresh
+from connectors.commons.logger import logger
+from connectors.modules.github.new_user_handler import new_user_handler
+from connectors.modules.github.process_github_user import get_users_needing_refresh
 
 
 import os
@@ -34,7 +34,7 @@ def process_collaborators(
             batch_size = int(os.getenv('COLLABORATOR_BATCH_SIZE', '50'))
             if len(collaborators_to_process) > bulk_threshold:
                 logger.info(f"    Using bulk processing for {len(collaborators_to_process)} collaborators (threshold: {bulk_threshold})...")
-                from modules.github.bulk_user_handler import bulk_user_handler
+                from connectors.modules.github.bulk_user_handler import bulk_user_handler
                 bulk_user_handler(session, collaborators_to_process, repo_id, repo_created_at, batch_size)
             else:
                 logger.info(f"    Processing {len(collaborators_to_process)} collaborators individually...")
