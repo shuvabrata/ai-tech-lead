@@ -156,7 +156,7 @@ cd app && alembic upgrade head && cd ..
 uvicorn app.main:app --reload
 
 # Access points:
-# - FastAPI: http://localhost:8000/api/hello
+# - FastAPI: http://localhost:8000/api/health
 # - Dash UI: http://localhost:8000/app
 ```
 

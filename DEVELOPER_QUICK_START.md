@@ -86,7 +86,7 @@ uvicorn app.main:app --reload
 ```
 
 Access the services:
-- FastAPI API: http://localhost:8000/api/hello
+- FastAPI API: http://localhost:8000/api/health
 - Dash UI: http://localhost:8000/app
 
 ## Running Migrations Manually (Local Development)
