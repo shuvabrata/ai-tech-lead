@@ -68,6 +68,12 @@ services:
       - ./logs:/var/log/app
     networks:
       - wba-ai-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
     depends_on:
       postgres:
         condition: service_healthy
@@ -132,7 +138,10 @@ services:
     volumes:
       - ./logs:/var/log/jira-sync
     depends_on:
-      - neo4j
+      neo4j:
+        condition: service_started
+      app:
+        condition: service_healthy
     restart: "no"  # One-shot execution, run manually via docker compose run
     networks:
       - wba-ai-network
@@ -152,7 +161,10 @@ services:
     volumes:
       - ./logs:/var/log/github-sync
     depends_on:
-      - neo4j
+      neo4j:
+        condition: service_started
+      app:
+        condition: service_healthy
     restart: "no"  # One-shot execution, run manually via docker compose run
     networks:
       - wba-ai-network

@@ -32,7 +32,7 @@ The `-d` flag runs containers in detached mode (background).
 - Application starts and listens on port 8000
 
 **Access the application:**
-- FastAPI API: http://localhost:8000/api/hello
+- FastAPI API: http://localhost:8000/api/health
 - Dash UI: http://localhost:8000/app
 
 
