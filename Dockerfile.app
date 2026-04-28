@@ -2,7 +2,7 @@
 FROM python:3.11-slim
 
 # Install PostgreSQL client for database readiness check
-RUN apt-get update && apt-get install -y postgresql-client && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y postgresql-client curl && rm -rf /var/lib/apt/lists/*
 
 # Set work directory
 WORKDIR /app
