@@ -8,12 +8,14 @@ Integrate InfluxDB (for time-series data) and Elasticsearch (for search and anal
 
 ## Phases & Progress Trackers
 
-### Phase 1: Requirements & Design
-- [ ] Identify use cases for InfluxDB (metrics, logs, events) and Elasticsearch (search, log analytics, document retrieval)
-- [ ] Define data models and expected queries for each system
-- [ ] Design LLM prompt templates for query generation (InfluxQL/Flux for InfluxDB, DSL for Elasticsearch)
-- [ ] Update `.env` and settings to support enabling/disabling each integration
-- [ ] **Testing:** Review requirements with stakeholders and validate with sample user stories
+
+### Phase 1: System Integration Preparation ✅
+- [x] Add InfluxDB and Elasticsearch to the system architecture
+- [x] Update `docker-compose.yml` to include InfluxDB and Elasticsearch services with recommended settings
+- [x] Update `.env` and settings to support enabling/disabling each integration
+- [x] Provide example data initialization scripts for both (optional for now)
+- [x] Document local development and troubleshooting steps
+- [x] **Testing:** Verify containers start, are network-accessible, and ready for usage
 
 ### Phase 2: Infrastructure & Docker Compose
 - [ ] Add InfluxDB and Elasticsearch services to `docker-compose.yml` with recommended settings

@@ -78,7 +78,7 @@ services:
       postgres:
         condition: service_healthy
       neo4j:
-        condition: service_started
+        condition: service_healthy
       github-mcp:
         condition: service_healthy
 
@@ -122,7 +122,57 @@ services:
     restart: unless-stopped
     networks:
       - wba-ai-network
+    healthcheck:
+      test: ["CMD", "cypher-shell", "-u", "${NEO4J_USERNAME}", "-p", "${NEO4J_PASSWORD}", "RETURN 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
 
+  influxdb:
+    image: influxdb:2.7
+    container_name: wba-ai-influxdb
+    restart: unless-stopped
+    environment:
+      - DOCKER_INFLUXDB_INIT_MODE=setup
+      - DOCKER_INFLUXDB_INIT_USERNAME=${INFLUXDB_USERNAME}
+      - DOCKER_INFLUXDB_INIT_PASSWORD=${INFLUXDB_PASSWORD}
+      - DOCKER_INFLUXDB_INIT_ORG=${INFLUXDB_ORG}
+      - DOCKER_INFLUXDB_INIT_BUCKET=${INFLUXDB_BUCKET}
+      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=${INFLUXDB_ADMIN_TOKEN}
+    ports:
+      - "8086:8086"
+    volumes:
+      - influxdb_data:/var/lib/influxdb2
+    networks:
+      - wba-ai-network
+    healthcheck:
+      test: ["CMD", "influx", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.13.4
+    container_name: wba-ai-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
+      - xpack.security.enabled=false
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    networks:
+      - wba-ai-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9200/_cluster/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      
   jira-sync:
     build:
       context: .
@@ -139,7 +189,7 @@ services:
       - ./logs:/var/log/jira-sync
     depends_on:
       neo4j:
-        condition: service_started
+        condition: service_healthy
       app:
         condition: service_healthy
     restart: "no"  # One-shot execution, run manually via docker compose run
@@ -162,7 +212,7 @@ services:
       - ./logs:/var/log/github-sync
     depends_on:
       neo4j:
-        condition: service_started
+        condition: service_healthy
       app:
         condition: service_healthy
     restart: "no"  # One-shot execution, run manually via docker compose run
@@ -174,8 +224,9 @@ networks:
     driver: bridge
 
 volumes:
+  influxdb_data:
+  elasticsearch_data:
   pgdata:
-    driver: local
   neo4j_data:
   neo4j_logs:
   neo4j_import:
