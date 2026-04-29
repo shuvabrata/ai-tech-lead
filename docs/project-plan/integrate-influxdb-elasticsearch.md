@@ -18,10 +18,10 @@ Integrate InfluxDB (for time-series data) and Elasticsearch (for search and anal
 - [x] **Testing:** Verify containers start, are network-accessible, and ready for usage
 
 ### Phase 2: Infrastructure & Docker Compose
-- [ ] Add InfluxDB and Elasticsearch services to `docker-compose.yml` with recommended settings
+- [x] Add InfluxDB and Elasticsearch services to `docker-compose.yml` with recommended settings
 - [ ] Provide example data initialization scripts for both
-- [ ] Document local development and troubleshooting steps
-- [ ] **Testing:** Verify containers start, are network-accessible, and can ingest/query test data
+- [x] Document local development and troubleshooting steps
+- [x] **Testing:** Verify containers start, are network-accessible, and can ingest/query test data
 
 ### Phase 3: Backend Integration
 - [ ] Create `influxdb_chain.py` and `elasticsearch_chain.py` in `app/ai_agent/chains/`
