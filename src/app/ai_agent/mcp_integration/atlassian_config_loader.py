@@ -16,7 +16,7 @@ from typing import Any, Optional
 
 import anyio
 
-from app.db.session import ASYNC_SESSION_LOCAL
+from app.settings import settings as _settings
 
 
 
@@ -71,19 +71,48 @@ def load_atlassian_mcp_config() -> Optional[dict[str, Any]]:
     from app.api.connectors.v1.service import get_connector  # pylint: disable=import-outside-toplevel
 
     async def _fetch() -> Optional[dict[str, Any]]:
-        async with ASYNC_SESSION_LOCAL() as session:
-            try:
-                connector = await get_connector(session, "atlassian_mcp", include_secrets=True)
-            except ValueError:
-                return None
-            config = connector.get("config") or {}
-            if not isinstance(config, dict):
-                return None
-            return {
-                "enabled": bool(config.get("enabled", False)),
-                "server_url": config.get("server_url") or "",
-                "token": config.get("token") or "",
-            }
+        # We cannot reuse the module-level engine / ASYNC_SESSION_LOCAL because
+        # its asyncpg connections are bound to FastAPI's main event loop.  When
+        # this coroutine runs in a worker-thread event loop (via _run_async_sync)
+        # any attempt to use those connections raises:
+        #   RuntimeError: Task … got Future … attached to a different loop
+        # Creating a fresh, short-lived engine here ensures all asyncpg
+        # connections are bound to this thread's loop.
+        from sqlalchemy.ext.asyncio import (  # pylint: disable=import-outside-toplevel
+            AsyncSession,
+            async_sessionmaker,
+            create_async_engine,
+        )
+
+        _engine = create_async_engine(
+            _settings.DATABASE_URL,
+            echo=False,
+            future=True,
+            pool_size=1,
+            max_overflow=0,
+            connect_args={"timeout": 10, "command_timeout": 10},
+        )
+        _session_factory = async_sessionmaker(
+            bind=_engine,
+            class_=AsyncSession,
+            expire_on_commit=False,
+        )
+        try:
+            async with _session_factory() as session:
+                try:
+                    connector = await get_connector(session, "atlassian_mcp", include_secrets=True)
+                except ValueError:
+                    return None
+                config = connector.get("config") or {}
+                if not isinstance(config, dict):
+                    return None
+                return {
+                    "enabled": bool(config.get("enabled", False)),
+                    "server_url": config.get("server_url") or "",
+                    "token": config.get("token") or "",
+                }
+        finally:
+            await _engine.dispose()
 
     try:
         return _run_async_sync(_fetch)
