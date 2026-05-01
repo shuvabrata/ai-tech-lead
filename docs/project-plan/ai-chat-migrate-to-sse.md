@@ -71,7 +71,7 @@ async def augment_message_stream(user_message, provider) -> AsyncIterator[dict]:
 
 ## Phase-Wise Implementation Plan
 
-### Phase 1: Core AI & Provider Streaming capabilities
+### Phase 1: Core AI & Provider Streaming capabilities ✅ COMPLETED
 - **Logging and Metrics for Streaming:**
   - Instrument the `stream_chat` generator and all streaming-related code paths with logging for stream start, end, disconnects, errors, and durations using the centralized logger (`app.common.logger`).
   - Log key metadata: session ID, user agent (if available), event types, and error details.
@@ -92,9 +92,13 @@ async def augment_message_stream(user_message, provider) -> AsyncIterator[dict]:
   - Unit test: Simulate generator exit and ensure no resource leaks or unhandled exceptions.
   - Integration test: Simulate a client disconnect mid-stream using `httpx.AsyncClient` against the ASGI app directly (e.g., via `pytest-anyio`). `TestClient` is synchronous and buffers the full response before returning — it cannot abort mid-stream and must not be used for disconnect tests.
   - Integration test: Simulate a slow or stuck chain/LLM call and verify a timeout error event is sent to the client.
-- **Manual Tests:**
-  - Create a temporary CLI script to call `ai_agent.stream_chat` directly and print the output chunks to the console in real-time to verify the generation speed and event formats.
-  - Manual test: Use `curl` or Postman, start a stream, then disconnect; check backend logs for proper cleanup.
+- **Manual Tests:** ✅ COMPLETED
+  - **CLI script test** (`scripts/test_stream_chat.py`): Called `ai_agent.stream_chat` directly against a live system (OpenAI `gpt-4o` + Neo4j + MCP). Verified progressive token delivery, correct event sequence (`thinking_start` → `thinking_chunk` × 2 → `thinking_end` × 2 → `message_start` → `message_chunk` × N → `message_end`), and real-time console output.
+  - **curl disconnect test** (via `scripts/temp_stream_server.py`, a temporary minimal FastAPI server on port 8001):
+    - Full stream: `curl -N -X POST http://localhost:8001/stream/{session_id}` — confirmed all event types arrive progressively, stream terminates with `message_end`.
+    - Mid-stream disconnect: piped through `head -5` to kill the connection after 3 events (`thinking_start`, `thinking_chunk`, `thinking_end`). Server logged the disconnect and `disconnects` metric incremented to `1`.
+    - Metrics endpoint (`GET /metrics`) confirmed after both tests: `{"starts": 2, "completions": 1, "errors": 0, "disconnects": 1, "total_duration_seconds": 12.15}`.
+  - Temp server script (`scripts/temp_stream_server.py`) is retained for reference but is not part of the production codebase.
 
 ### Phase 2: FastAPI Streaming Endpoint
 - **Logging and Metrics for Streaming Endpoint:**

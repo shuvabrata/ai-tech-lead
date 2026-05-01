@@ -11,18 +11,42 @@ The module integrates with various chains (e.g., Neo4j) to augment
 user messages with relevant data from external sources.
 """
 
+import asyncio
+import json
 import os
 import sys
+import time
 import uuid
+from typing import AsyncIterator
 
 from dotenv import load_dotenv
 
 from app.common.logger import logger, LogContext
 from app.ai_agent.providers import get_provider
-from app.ai_agent.chains import augment_message
+from app.ai_agent.chains import augment_message, augment_message_stream
 
 # In-memory session store: {session_id: [messages]}
 _chat_sessions = {}
+
+# In-memory streaming metrics counters.
+# Keys: starts, completions, errors, disconnects, total_duration_seconds
+_streaming_metrics: dict = {
+    "starts": 0,
+    "completions": 0,
+    "errors": 0,
+    "disconnects": 0,
+    "total_duration_seconds": 0.0,
+}
+
+
+def get_streaming_metrics() -> dict:
+    """Return a snapshot of the current streaming metrics.
+
+    Returns:
+        Dictionary with counters for starts, completions, errors, disconnects,
+        and total duration in seconds.
+    """
+    return dict(_streaming_metrics)
 
 # Initialize LLM provider (OpenAI, Custom, etc.)
 load_dotenv()
@@ -116,6 +140,147 @@ def end_chat(session_id):
     """
     _chat_sessions.pop(session_id, None)
     logger.info(f"Chat session ended: {session_id}")
+
+
+async def stream_chat(
+    session_id: str,
+    user_message: str,
+    model: str = LLM_MODEL,
+    max_tokens: int = MAX_TOKENS,
+) -> AsyncIterator[str]:
+    """Async generator that streams a chat response as SSE-compatible JSON strings.
+
+    Yields one JSON-encoded string per event, each prefixed as a ``data:`` payload
+    for consumption by a ``StreamingResponse``.  Event types emitted in order:
+
+    - ``thinking_start``        — signals the start of the augmentation phase.
+    - ``thinking_chunk``        — internal context-gathering messages from chains.
+    - ``thinking_end``          — signals the end of the augmentation phase.
+    - ``message_start``         — signals the start of the LLM token stream.
+    - ``message_chunk``         — a single LLM token chunk.
+    - ``message_end``           — signals the stream is complete.
+    - ``error``                 — emitted if any unrecoverable error occurs.
+
+    When the stream ends normally the assembled response is appended to
+    ``_chat_sessions`` so that session history and token counting remain intact
+    for subsequent turns.  Token pruning (remove oldest 3 messages after the
+    system prompt when ``total_tokens > max_tokens``) is applied before sending
+    to the LLM, matching the behaviour of ``do_chat``.
+
+    ``asyncio.CancelledError`` (client disconnect) is re-raised after incrementing
+    the disconnect metric counter so that FastAPI can perform proper cleanup.
+
+    Args:
+        session_id: UUID of the chat session.
+        user_message: The user's message text.
+        model: LLM model to use (defaults to the module-level ``LLM_MODEL``).
+        max_tokens: Maximum tokens before history pruning.
+
+    Yields:
+        SSE-formatted strings (``data: {...}\\n\\n``).
+
+    Raises:
+        ValueError: If session_id is not found.
+        asyncio.CancelledError: Re-raised on client disconnect after metric update.
+    """
+    if session_id not in _chat_sessions:
+        raise ValueError("Session not found.")
+
+    _streaming_metrics["starts"] += 1
+    stream_start = time.monotonic()
+    assembled_tokens: list[str] = []
+
+    with LogContext(request_id=session_id):
+        logger.info(
+            "Stream started: session_id=%s message=%.80s",
+            session_id,
+            user_message,
+        )
+        try:
+            # ── Phase 1: Augmentation (thinking) ──────────────────────────
+            yield f"data: {json.dumps({'type': 'thinking_start'})}\n\n"
+
+            final_augmented_message = user_message
+            try:
+                async for event in augment_message_stream(user_message, provider=_provider):
+                    if event["type"] == "augmented_message":
+                        final_augmented_message = event["content"]
+                    else:
+                        logger.debug("Stream thinking event: %s", event.get("type"))
+                        yield f"data: {json.dumps(event)}\n\n"
+            except asyncio.TimeoutError:
+                logger.warning("Augmentation phase timed out for session %s", session_id)
+                yield f"data: {json.dumps({'type': 'thinking_chunk', 'content': 'Context gathering timed out.'})}\n\n"
+            except Exception as aug_exc:
+                logger.error("Augmentation phase error for session %s: %s", session_id, aug_exc)
+                yield f"data: {json.dumps({'type': 'thinking_chunk', 'content': f'Context gathering failed: {aug_exc}'})}\n\n"
+
+            # ── Phase 2: Build message list with token pruning ─────────────
+            messages = list(_chat_sessions[session_id])
+            messages.append({"role": "user", "content": final_augmented_message})
+
+            total_tokens = _provider.count_tokens(messages, model)
+            logger.info(
+                "Stream token count before pruning: session_id=%s tokens=%d max=%d",
+                session_id,
+                total_tokens,
+                max_tokens,
+            )
+            if total_tokens > max_tokens:
+                if len(messages) > 4:
+                    messages = [messages[0]] + messages[4:]
+
+            # ── Phase 3: LLM streaming ─────────────────────────────────────
+            yield f"data: {json.dumps({'type': 'message_start'})}\n\n"
+
+            try:
+                async with asyncio.timeout(180):
+                    async for token in _provider.stream_chat_completion(messages, model):
+                        assembled_tokens.append(token)
+                        yield f"data: {json.dumps({'type': 'message_chunk', 'content': token})}\n\n"
+            except asyncio.TimeoutError:
+                logger.error("LLM streaming timed out for session %s", session_id)
+                _streaming_metrics["errors"] += 1
+                yield f"data: {json.dumps({'type': 'error', 'content': 'LLM response timed out.'})}\n\n"
+                return
+
+            # ── Phase 4: Save to session history ───────────────────────────
+            assembled_response = "".join(assembled_tokens)
+            _chat_sessions[session_id].append({"role": "user", "content": final_augmented_message})
+            _chat_sessions[session_id].append({"role": "assistant", "content": assembled_response})
+
+            yield f"data: {json.dumps({'type': 'message_end'})}\n\n"
+
+            elapsed = time.monotonic() - stream_start
+            _streaming_metrics["completions"] += 1
+            _streaming_metrics["total_duration_seconds"] += elapsed
+            logger.info(
+                "Stream completed: session_id=%s duration=%.2fs tokens_generated=%d",
+                session_id,
+                elapsed,
+                len(assembled_tokens),
+            )
+
+        except asyncio.CancelledError:
+            elapsed = time.monotonic() - stream_start
+            _streaming_metrics["disconnects"] += 1
+            logger.warning(
+                "Stream disconnected by client: session_id=%s duration=%.2fs",
+                session_id,
+                elapsed,
+            )
+            raise
+
+        except Exception as exc:
+            elapsed = time.monotonic() - stream_start
+            _streaming_metrics["errors"] += 1
+            logger.error(
+                "Stream error: session_id=%s error=%s duration=%.2fs",
+                session_id,
+                exc,
+                elapsed,
+            )
+            yield f"data: {json.dumps({'type': 'error', 'content': str(exc)})}\n\n"
 
 def start_chat():
     """Start an interactive CLI chat session.

@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
-from typing import Any
+from typing import Any, AsyncIterator
 
 from app.ai_agent.mcp_integration.tool_executor import execute_tool_call, list_available_tools, _build_atlassian_manager
 from app.common.logger import logger
@@ -232,3 +233,55 @@ def augment_message_with_mcp(user_message: str, provider: Any) -> dict[str, Any]
         ),
     )
     return envelope
+
+
+async def augment_message_with_mcp_stream(
+    user_message: str,
+    provider: Any,
+) -> AsyncIterator[dict]:
+    """Async generator that augments a message with MCP context and yields thinking chunks.
+
+    Follows the chain streaming generator contract:
+    - Yields ``thinking_chunk`` events during processing.
+    - Yields a ``thinking_end`` event when processing is complete.
+    - Yields an ``augmented_message`` event carrying the MCP envelope dict.
+
+    The underlying ``augment_message_with_mcp`` call is blocking; it is executed
+    in a thread pool via ``asyncio.to_thread`` with a 60-second timeout.
+
+    Args:
+        user_message: The user's original message.
+        provider: LLM provider instance used for tool selection and relevance checks.
+
+    Yields:
+        dict: SSE-compatible event dictionaries.
+    """
+    backends = _enabled_backends()
+    if not backends:
+        yield {"type": "augmented_message", "content": {
+            "source": "mcp", "enabled": False, "applied": False, "context": "", "tool_calls": [],
+        }}
+        return
+
+    yield {"type": "thinking_chunk", "content": f"Querying MCP backends ({', '.join(backends)})..."}
+    try:
+        envelope = await asyncio.wait_for(
+            asyncio.to_thread(augment_message_with_mcp, user_message, provider),
+            timeout=60.0,
+        )
+    except asyncio.TimeoutError:
+        logger.warning("MCP augmentation timed out for message: %.80s", user_message)
+        envelope = {
+            "source": "mcp", "enabled": True, "applied": False,
+            "context": "", "tool_calls": [], "error": "timeout",
+        }
+        yield {"type": "thinking_chunk", "content": "MCP query timed out; proceeding without MCP context."}
+    except Exception as exc:
+        logger.error("MCP augmentation error: %s", exc)
+        envelope = {
+            "source": "mcp", "enabled": True, "applied": False,
+            "context": "", "tool_calls": [], "error": str(exc),
+        }
+        yield {"type": "thinking_chunk", "content": f"MCP query failed: {exc}"}
+    yield {"type": "thinking_end"}
+    yield {"type": "augmented_message", "content": envelope}
