@@ -26,38 +26,45 @@ Event schema:
 - `{"type": "error", "content": "..."}`
 
 ### 2. Backend Stream Generator
-`ai_agent.py` will expose a new generator function (e.g., `stream_chat`) instead of the blocking `do_chat`. 
-- Augmentation chains (like Neo4j) will yield `thinking` chunks.
+`ai_agent.py` will expose a new **async** generator function (`stream_chat`) alongside the existing blocking `do_chat` (preserved for backward compatibility).
+- Augmentation chains (`neo4j_chain.py`, `mcp_chain.py`, `chains.py`) will be updated to optionally yield `thinking` chunks during their processing (see Section 5).
 - The LLM provider (`LLMProvider`) must be updated to support a `stream_chat_completion` method that yields raw tokens.
+- `stream_chat_completion` is an **optional** method on `LLMProvider` — it raises `NotImplementedError` by default, consistent with the existing `chat_completion_with_tools` precedent. External/custom providers do not break until they choose to implement streaming.
+- `stream_chat` must assemble the complete final response text and append it to `_chat_sessions` (in-memory session store) when the stream ends, so session history and token counting remain correct for subsequent turns.
 - FastAPI will return a `StreamingResponse(media_type="text/event-stream")`.
 
 ### 3. Frontend JS Bridge
 Dash cannot natively append tokens to a UI element efficiently via Python callbacks (the network overhead would crash the app). We will use a JS Bridge:
 - **Dash:** Renders a placeholder container with unique HTML `id`s (e.g., `<details id="think-123">`, `<div id="msg-123">`).
-- **JS Bridge (`clientside_callback`):** Intercepts the submit action, uses the browser's native `fetch()` API to make the POST request, reads the stream (`response.body.getReader()`), and mutates the DOM elements directly by ID.
+- **JS Bridge (`clientside_callback`):** Intercepts the submit action, uses the browser's native `fetch()` API to make the POST request to `/api/v1/chats/{session_id}/stream`. Because the Dash app is WSGI-mounted at `/app` on a FastAPI (ASGI) server, the JS bridge must construct the full URL using the `API_BASE_URL` (already used by existing Dash callbacks as `http://localhost:8000` by default) — relative paths from the Dash context cannot reach FastAPI routes.
+- Reads the stream (`response.body.getReader()`), and mutates the DOM elements directly by ID.
 - **State Sync:** When the stream ends, JS triggers a Dash state update to save the final message history in `dcc.Store` for persistence across page navigation.
 
-## Phase-Wise Implementation Plan
+### 4. Sync-to-Async Migration (Required Pre-condition for Phase 1)
+All current chat functions are **synchronous**. A streaming async generator requires `async def` throughout the call chain. The following must be converted as part of Phase 1:
+- `do_chat` and `stream_chat` in `ai_agent.py`
+- `augment_message` in `chains.py`
+- `augment_message_with_neo4j` in `neo4j_chain.py`
+- `augment_message_with_mcp` in `mcp_chain.py`
 
-### Phase 5: External/Custom Provider Developer Documentation
-- After the core streaming implementation is complete and tested, draft a guide for external/custom LLM provider developers.
-- The guide should describe:
-  - The new required interface (`stream_chat_completion`), expected streaming behavior, and error handling.
-  - How to handle disconnects, timeouts, and resource cleanup in their provider code.
-  - Example code and test cases for compliance.
-- **Manual Task:**
-  - Review the final implementation and update the documentation to reflect any changes or lessons learned during integration.
-  - Distribute the documentation to all known external provider maintainers.
-- **Documentation and Migration Notes:**
-  - Update OpenAPI/Swagger documentation to include the new `/api/v1/chats/{session_id}/stream` endpoint, with event schema and example payloads.
-  - Add a migration section to USER_GUIDE.md and DEVELOPER_QUICK_START.md describing how to switch from the old HTTP chat endpoint to the new SSE streaming endpoint, including code and UI changes.
-  - Document the event types, error handling, and expected client behaviors for both backend and frontend developers.
-  - Add a troubleshooting section for common streaming issues (disconnects, timeouts, browser compatibility).
-  - Ensure all new/changed APIs are reflected in the API reference docs.
-- **Automated Tests (Docs & Migration):**
-  - Unit test: Validate OpenAPI schema includes the streaming endpoint and correct event types.
-  - Manual test: Follow migration steps in USER_GUIDE.md and verify a developer can upgrade an integration from HTTP to SSE using only the docs.
-  - Manual test: Review documentation for clarity, completeness, and accuracy.
+The FastAPI service layer (`service.py`) and router (`router.py`) endpoint functions must also be updated to `async def`. The Dash UI calls the HTTP API (not Python functions directly), so Dash callbacks are unaffected by this migration.
+
+### 5. Chain Streaming Generator Contract (Core Design Decision)
+The key design challenge: `augment_message` currently returns a single string, but streaming requires yielding `thinking` chunks **and** still producing a final augmented message string for the LLM. The agreed contract is:
+
+`augment_message` and its sub-chain functions become async generators that yield SSE-compatible dicts. A sentinel event type `augmented_message` carries the final context-enriched string:
+
+```python
+async def augment_message_stream(user_message, provider) -> AsyncIterator[dict]:
+    yield {"type": "thinking_chunk", "content": "Checking graph database..."}
+    # ... do Neo4j / MCP work ...
+    yield {"type": "thinking_end"}
+    yield {"type": "augmented_message", "content": final_augmented_string}
+```
+
+`stream_chat` in `ai_agent.py` consumes this generator: it forwards all `thinking_*` events to the SSE stream, and captures the `augmented_message` event internally to pass to the LLM. LLM token chunks are then yielded as `message_chunk` events. The original synchronous `augment_message` is preserved unchanged for use by `do_chat`.
+
+## Phase-Wise Implementation Plan
 
 ### Phase 1: Core AI & Provider Streaming capabilities
 - **Logging and Metrics for Streaming:**
@@ -65,9 +72,10 @@ Dash cannot natively append tokens to a UI element efficiently via Python callba
   - Log key metadata: session ID, user agent (if available), event types, and error details.
   - Add metrics counters/timers for stream starts, completions, errors, disconnects, and average duration (consider Prometheus or a simple in-memory/exported stats approach).
   - Ensure logs are structured and easily filterable for troubleshooting and monitoring.
-- Add `stream_chat_completion` to `LLMProvider` base class and implement it for the active provider (e.g., OpenAI using `stream=True`).
-- Update `ai_agent.py` to add a `stream_chat` generator function.
-- Modify `chains.py` and `neo4j_chain.py` so they can optionaly yield orchestration thought strings.
+- Migrate `do_chat`, `augment_message`, `augment_message_with_neo4j`, and `augment_message_with_mcp` to `async def` (see Architecture Section 4 — Sync-to-Async Migration).
+- Add `stream_chat_completion` as an optional method on `LLMProvider` base class (raises `NotImplementedError` by default, consistent with `chat_completion_with_tools`); implement it for `OpenAIProvider` using `stream=True`.
+- Add `stream_chat` async generator to `ai_agent.py`. At stream end, `stream_chat` must append the assembled final response to `_chat_sessions` so session history and token counting remain intact for subsequent turns.
+- Modify `chains.py`, `neo4j_chain.py`, and `mcp_chain.py` to support the async generator contract described in Architecture Section 5. The original synchronous `augment_message` must be preserved unchanged for use by `do_chat`.
 - **Backend Error Handling for Disconnects and Timeouts:**
   - Update the `stream_chat` generator in `ai_agent.py` to catch `asyncio.CancelledError` and generator exit events, handling client disconnects gracefully.
   - Use FastAPI’s request object (if available) to check for disconnects and break the generator loop.
@@ -111,15 +119,17 @@ Dash cannot natively append tokens to a UI element efficiently via Python callba
   - Use `curl` or Postman to send a POST request to the endpoint and visually verify that chunks arrive progressively over the network, not all at once.
 
 ### Phase 3: Dash UI Setup (Placeholders)
-- Update `chat.py` UI rendering. When a user asks a question, immediately inject the message structure:
-  - A `<details><summary>Analyzing Context...</summary>...</details>` element for thoughts.
-  - A markdown container for the final message.
-- Assign unique IDs to these elements based on the message ID.
+- `chat.py` already injects an `assistant_thinking` role message into `messages` inside the `queue_message` callback, which renders a placeholder while waiting for the backend response. Phase 3 must **update this existing pattern** rather than create new elements from scratch:
+  - Update the `assistant_thinking` case in `render_messages` to produce a `<details id="think-{client_id}"><summary>Analyzing Context...</summary><div id="think-body-{client_id}"></div></details>` element for the thinking stream.
+  - Add a companion `<div id="msg-{client_id}">` for the final streamed response text.
+- The `client_id` (already generated deterministically in `queue_message`) serves as the unique ID for both containers — no new ID generation logic is needed.
+- These IDs must be stable from the moment the placeholder is injected, as the JS bridge (Phase 4) targets them by ID for direct DOM mutation.
 - **Automated Tests:**
-  - Unit test the Dash callback (`queue_message`) to ensure it returns the expected updated HTML structure and generates deterministic, unique IDs.
+  - Unit test the `render_messages` function to ensure the `assistant_thinking` role produces HTML with the expected `id` attributes (`think-{client_id}` and `msg-{client_id}`).
+  - Unit test the `queue_message` callback to confirm the `client_id` in the injected `assistant_thinking` message is deterministic and unique per submission.
 - **Manual Tests:**
   - Submit a chat message via the UI.
-  - Inspect the browser DOM using DevTools to confirm the placeholder elements (`<details>` and `<div>`) are injected with the correct IDs immediately, before any backend response arrives.
+  - Inspect the browser DOM using DevTools to confirm the `<details>` and companion `<div>` are injected with the correct IDs immediately, before any backend response arrives.
 
 ### Phase 4: The JS Bridge (Clientside Callback)
 - **Accessibility and Robustness for JS Bridge:**
@@ -144,3 +154,23 @@ Dash cannot natively append tokens to a UI element efficiently via Python callba
   - **Happy Path:** Conduct an end-to-end chat in the browser. Verify the "Analyzing Context..." section streams internal thoughts and the main section streams the final response smoothly.
   - **State Persistence:** Refresh the browser page after a streamed response completes to verify the history was properly saved to the backend/`dcc.Store` and reloads without losing data.
   - **Error Handling:** Simulate a network drop or a backend crash mid-stream and ensure the JS bridge gracefully handles it and displays a user-friendly error message.
+
+### Phase 5: External/Custom Provider Developer Documentation
+- After the core streaming implementation is complete and tested, draft a guide for external/custom LLM provider developers.
+- The guide should describe:
+  - The `stream_chat_completion` interface: it is **optional** on `LLMProvider` (raises `NotImplementedError` by default, consistent with `chat_completion_with_tools`). Provider authors must implement it to enable streaming; without it, the `/stream` endpoint will return an error.
+  - Expected streaming behavior, error handling, and how to handle disconnects, timeouts, and resource cleanup in their provider code.
+  - Example code and test cases for compliance.
+- **Manual Task:**
+  - Review the final implementation and update the documentation to reflect any changes or lessons learned during integration.
+  - Distribute the documentation to all known external provider maintainers.
+- **Documentation and Migration Notes:**
+  - Update OpenAPI/Swagger documentation to include the new `/api/v1/chats/{session_id}/stream` endpoint, with event schema and example payloads.
+  - Add a migration section to USER_GUIDE.md and DEVELOPER_QUICK_START.md describing how to switch from the old HTTP chat endpoint to the new SSE streaming endpoint, including code and UI changes.
+  - Document the event types, error handling, and expected client behaviors for both backend and frontend developers.
+  - Add a troubleshooting section for common streaming issues (disconnects, timeouts, browser compatibility).
+  - Ensure all new/changed APIs are reflected in the API reference docs.
+- **Automated Tests (Docs & Migration):**
+  - Unit test: Validate OpenAPI schema includes the streaming endpoint and correct event types.
+  - Manual test: Follow migration steps in USER_GUIDE.md and verify a developer can upgrade an integration from HTTP to SSE using only the docs.
+  - Manual test: Review documentation for clarity, completeness, and accuracy.
