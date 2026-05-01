@@ -1,7 +1,11 @@
 """Neo4j chain module for querying graph database using LangChain."""
 
+from __future__ import annotations
+
+import asyncio
 from pathlib import Path
 import re
+from typing import AsyncIterator
 
 from langchain_neo4j import Neo4jGraph, GraphCypherQAChain
 from langchain_openai import ChatOpenAI
@@ -329,3 +333,42 @@ Please respond with this information in a natural, conversational way."""
         return augmented_message
     
     return user_message
+
+
+async def augment_message_with_neo4j_stream(
+    user_message: str,
+    provider=None,
+) -> AsyncIterator[dict]:
+    """Async generator that augments a message with Neo4j context and yields thinking chunks.
+
+    Follows the chain streaming generator contract:
+    - Yields ``thinking_chunk`` events during processing.
+    - Yields a ``thinking_end`` event when processing is complete.
+    - Yields an ``augmented_message`` event carrying the final context-enriched string.
+
+    The underlying ``augment_message_with_neo4j`` call is blocking; it is executed
+    in a thread pool via ``asyncio.to_thread`` with a 60-second timeout.
+
+    Args:
+        user_message: The user's original message.
+        provider: Optional LLM provider instance.
+
+    Yields:
+        dict: SSE-compatible event dictionaries.
+    """
+    yield {"type": "thinking_chunk", "content": "Checking graph database for relevant context..."}
+    try:
+        result = await asyncio.wait_for(
+            asyncio.to_thread(augment_message_with_neo4j, user_message, provider=provider),
+            timeout=60.0,
+        )
+    except asyncio.TimeoutError:
+        logger.warning("Neo4j augmentation timed out for message: %.80s", user_message)
+        result = user_message
+        yield {"type": "thinking_chunk", "content": "Graph database query timed out; proceeding without graph context."}
+    except Exception as exc:
+        logger.error("Neo4j augmentation error: %s", exc)
+        result = user_message
+        yield {"type": "thinking_chunk", "content": f"Graph database query failed: {exc}"}
+    yield {"type": "thinking_end"}
+    yield {"type": "augmented_message", "content": result}
