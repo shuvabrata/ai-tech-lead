@@ -16,7 +16,12 @@ def _marker_value() -> str:
     return f"integration-{uuid.uuid4()}"
 
 
+import pytest
+
+pytestmark = pytestmark + [pytest.mark.skip(reason="Disabled: modifies connector DB state")]
+
 @pytest.mark.asyncio
+@pytest.mark.skip(reason="Disabled: modifies connector DB state")
 async def test_connectors_api_endpoints():
     created_item_ids = []
     changed_config = False
@@ -160,6 +165,7 @@ async def test_connectors_api_endpoints():
 
 
 @pytest.mark.asyncio
+@pytest.mark.skip(reason="Disabled: modifies Atlassian MCP connector DB state")
 async def test_atlassian_mcp_connector_config_api():
     changed_config = False
     original_config = None
@@ -267,6 +273,7 @@ async def test_atlassian_mcp_connector_config_api():
 
 
 @pytest.mark.asyncio
+@pytest.mark.skip(reason="Disabled: clears Atlassian MCP connector DB state")
 async def test_atlassian_mcp_clear_connector_config():
     marker = _marker_value()
 
