@@ -1,8 +1,8 @@
 # Migration Plan: HTTP Chat to SSE Streaming
 
 ## Problem Statement
-- The current chat implementaion is HTTP based and it takes a long time for the LLM final response to be presented in the UI.
-- This does not provide a good user experienece like the usual LLM chat based interface which steams words as they are generated.
+- The current chat implementation is HTTP based and it takes a long time for the LLM final response to be presented in the UI.
+- This does not provide a good user experience like the usual LLM chat based interface which streams words as they are generated.
 
 ## Requirements
 - **Note:** This workspace contains only the OpenAI LLM provider implementation. Other LLM providers (custom, external) are developed and maintained outside this repository. After implementing streaming, documentation must be provided for external provider authors to update their code for compatibility.
@@ -40,14 +40,17 @@ Dash cannot natively append tokens to a UI element efficiently via Python callba
 - Reads the stream (`response.body.getReader()`), and mutates the DOM elements directly by ID.
 - **State Sync:** When the stream ends, JS triggers a Dash state update to save the final message history in `dcc.Store` for persistence across page navigation.
 
-### 4. Sync-to-Async Migration (Required Pre-condition for Phase 1)
-All current chat functions are **synchronous**. A streaming async generator requires `async def` throughout the call chain. The following must be converted as part of Phase 1:
-- `do_chat` and `stream_chat` in `ai_agent.py`
-- `augment_message` in `chains.py`
-- `augment_message_with_neo4j` in `neo4j_chain.py`
-- `augment_message_with_mcp` in `mcp_chain.py`
+### 4. Async Strategy (Additive — Do Not Convert Existing Functions)
+All existing chat functions (`do_chat`, `augment_message`, `augment_message_with_neo4j`, `augment_message_with_mcp`) are **synchronous and must remain so**. Converting them would break the CLI (`start_chat`) and risk blocking FastAPI's event loop if `async def` service/router handlers called blocking sync code.
 
-The FastAPI service layer (`service.py`) and router (`router.py`) endpoint functions must also be updated to `async def`. The Dash UI calls the HTTP API (not Python functions directly), so Dash callbacks are unaffected by this migration.
+The correct approach is **additive**: new async streaming variants are added alongside the existing synchronous functions. Nothing in the existing request path changes:
+- `stream_chat` is a **new** `async def` generator in `ai_agent.py`.
+- `augment_message_stream` is a **new** async generator in `chains.py` (alongside the unchanged `augment_message`).
+- Async streaming variants of the neo4j and mcp chain augmentors are added as new functions.
+- The **new** `/stream` router endpoint and its service function are `async def`.
+- The **existing** `/{session_id}/messages` endpoint and service functions stay as synchronous `def` — FastAPI already runs them safely in a thread pool.
+
+The Dash UI calls the HTTP API (not Python functions directly), so Dash callbacks are unaffected.
 
 ### 5. Chain Streaming Generator Contract (Core Design Decision)
 The key design challenge: `augment_message` currently returns a single string, but streaming requires yielding `thinking` chunks **and** still producing a final augmented message string for the LLM. The agreed contract is:
@@ -64,6 +67,8 @@ async def augment_message_stream(user_message, provider) -> AsyncIterator[dict]:
 
 `stream_chat` in `ai_agent.py` consumes this generator: it forwards all `thinking_*` events to the SSE stream, and captures the `augmented_message` event internally to pass to the LLM. LLM token chunks are then yielded as `message_chunk` events. The original synchronous `augment_message` is preserved unchanged for use by `do_chat`.
 
+**Event ownership:** `stream_chat` (not chain generators) is responsible for emitting the initial `{"type": "thinking_start"}` event before calling `augment_message_stream`, and `{"type": "message_start"}` before yielding the first LLM token. Chain generators must not emit `thinking_start` or `message_start` — they only yield `thinking_chunk`, `thinking_end`, and `augmented_message`.
+
 ## Phase-Wise Implementation Plan
 
 ### Phase 1: Core AI & Provider Streaming capabilities
@@ -72,10 +77,9 @@ async def augment_message_stream(user_message, provider) -> AsyncIterator[dict]:
   - Log key metadata: session ID, user agent (if available), event types, and error details.
   - Add metrics counters/timers for stream starts, completions, errors, disconnects, and average duration (consider Prometheus or a simple in-memory/exported stats approach).
   - Ensure logs are structured and easily filterable for troubleshooting and monitoring.
-- Migrate `do_chat`, `augment_message`, `augment_message_with_neo4j`, and `augment_message_with_mcp` to `async def` (see Architecture Section 4 — Sync-to-Async Migration).
+- Add new async streaming variants of chain augmentors (`augment_message_stream` in `chains.py`, and streaming variants in `neo4j_chain.py` and `mcp_chain.py`) following the async generator contract described in Architecture Section 5. Existing synchronous `augment_message`, `augment_message_with_neo4j`, and `augment_message_with_mcp` are **not modified** (see Architecture Section 4).
 - Add `stream_chat_completion` as an optional method on `LLMProvider` base class (raises `NotImplementedError` by default, consistent with `chat_completion_with_tools`); implement it for `OpenAIProvider` using `stream=True`.
-- Add `stream_chat` async generator to `ai_agent.py`. At stream end, `stream_chat` must append the assembled final response to `_chat_sessions` so session history and token counting remain intact for subsequent turns.
-- Modify `chains.py`, `neo4j_chain.py`, and `mcp_chain.py` to support the async generator contract described in Architecture Section 5. The original synchronous `augment_message` must be preserved unchanged for use by `do_chat`.
+- Add `stream_chat` as a **new** async generator in `ai_agent.py` (alongside the unchanged `do_chat`). At stream end, `stream_chat` must append the assembled final response to `_chat_sessions` so session history and token counting remain intact for subsequent turns. **Important:** replicate `do_chat`'s token pruning logic (remove oldest 3 messages after the system prompt when `total_tokens > max_tokens`) before sending to the LLM — streaming sessions are subject to the same token limits.
 - **Backend Error Handling for Disconnects and Timeouts:**
   - Update the `stream_chat` generator in `ai_agent.py` to catch `asyncio.CancelledError` and generator exit events, handling client disconnects gracefully.
   - Use FastAPI’s request object (if available) to check for disconnects and break the generator loop.
@@ -83,10 +87,10 @@ async def augment_message_stream(user_message, provider) -> AsyncIterator[dict]:
   - Add per-chain and per-LLM call timeouts (using `asyncio.wait_for` or provider-specific timeout options).
   - Ensure all async resources (DB sessions, HTTP clients) are closed if the stream is interrupted.
 - **Automated Tests:**
-  - Unit test `LLMProvider.stream_chat_completion` with a mocked streaming response to ensure it yields tokens correctly.
+  - Unit test `OpenAIProvider.stream_chat_completion` with a mocked streaming response to ensure it yields tokens correctly. (`LLMProvider.stream_chat_completion` only raises `NotImplementedError` by design; the behaviour under test lives in `OpenAIProvider`.)
   - Unit test `ai_agent.stream_chat` to verify it yields correctly formatted SSE JSON dictionaries (`thinking_start`, `message_chunk`, etc.).
   - Unit test: Simulate generator exit and ensure no resource leaks or unhandled exceptions.
-  - Integration test: Use FastAPI’s TestClient to simulate a client disconnect mid-stream and verify the backend logs cleanup and does not crash.
+  - Integration test: Simulate a client disconnect mid-stream using `httpx.AsyncClient` against the ASGI app directly (e.g., via `pytest-anyio`). `TestClient` is synchronous and buffers the full response before returning — it cannot abort mid-stream and must not be used for disconnect tests.
   - Integration test: Simulate a slow or stuck chain/LLM call and verify a timeout error event is sent to the client.
 - **Manual Tests:**
   - Create a temporary CLI script to call `ai_agent.stream_chat` directly and print the output chunks to the console in real-time to verify the generation speed and event formats.
@@ -97,10 +101,10 @@ async def augment_message_stream(user_message, provider) -> AsyncIterator[dict]:
   - Log every `/stream` endpoint invocation, including session ID, request metadata, and outcome (success, error, disconnect, timeout).
   - Record metrics for active streams, completed streams, errors, and disconnects.
   - Expose a simple `/metrics` endpoint (optional) for Prometheus or similar scraping, or log metrics periodically for external collection.
-- **Automated Tests (Logging & Metrics):**
+- **Automated Unit Tests (Logging & Metrics):**
   - Unit test: Simulate normal and error stream flows and assert logs are written for start, end, error, and disconnect events.
   - Unit test: Simulate multiple streams and verify metrics counters increment as expected.
-- **Automated Tests (Logging & Metrics):**
+- **Automated Integration Tests (Logging & Metrics):**
   - Integration test: Start and complete a stream, then check logs/metrics for correct entries.
   - Integration test: Simulate disconnects and errors, verify logs/metrics reflect the events.
   - (Optional) Integration test: Scrape `/metrics` endpoint and verify values.
@@ -122,11 +126,12 @@ async def augment_message_stream(user_message, provider) -> AsyncIterator[dict]:
 - `chat.py` already injects an `assistant_thinking` role message into `messages` inside the `queue_message` callback, which renders a placeholder while waiting for the backend response. Phase 3 must **update this existing pattern** rather than create new elements from scratch:
   - Update the `assistant_thinking` case in `render_messages` to produce a `<details id="think-{client_id}"><summary>Analyzing Context...</summary><div id="think-body-{client_id}"></div></details>` element for the thinking stream.
   - Add a companion `<div id="msg-{client_id}">` for the final streamed response text.
-- The `client_id` (already generated deterministically in `queue_message`) serves as the unique ID for both containers — no new ID generation logic is needed.
+- **Note:** `render_messages` returns Dash Python component objects, not raw HTML strings. Use `html.Details(id=f"think-{client_id}", ...)` and `html.Div(id=f"msg-{client_id}", ...)`. Do not use `dangerously_allow_html`.
+- The `client_id` (already generated as a timestamp-based unique value in `queue_message`) serves as the unique ID for both containers — no new ID generation logic is needed.
 - These IDs must be stable from the moment the placeholder is injected, as the JS bridge (Phase 4) targets them by ID for direct DOM mutation.
 - **Automated Tests:**
   - Unit test the `render_messages` function to ensure the `assistant_thinking` role produces HTML with the expected `id` attributes (`think-{client_id}` and `msg-{client_id}`).
-  - Unit test the `queue_message` callback to confirm the `client_id` in the injected `assistant_thinking` message is deterministic and unique per submission.
+  - Unit test the `queue_message` callback to confirm the `client_id` in the injected `assistant_thinking` message is unique per submission (two calls with the same `n_clicks` at different times must produce different IDs).
 - **Manual Tests:**
   - Submit a chat message via the UI.
   - Inspect the browser DOM using DevTools to confirm the `<details>` and companion `<div>` are injected with the correct IDs immediately, before any backend response arrives.
@@ -144,10 +149,12 @@ async def augment_message_stream(user_message, provider) -> AsyncIterator[dict]:
   - E2E test: Use accessibility testing tools (e.g., axe-core, pa11y) to check for violations during and after streaming.
   - E2E test: Simulate keyboard navigation and screen reader usage during streaming.
   - E2E test: Simulate stream errors and verify the UI recovers and remains accessible.
+- **Before implementing the JS bridge, disable or remove the existing `send_message` Python callback.** Currently `send_message` fires whenever `pending-send` store changes — the same trigger the JS bridge will use. Without removal, both the Python callback and the JS bridge will fire simultaneously: the Python callback hits the old `/messages` endpoint while the JS bridge hits `/stream`, causing a race condition and double responses. The `send_message` callback must be removed (or its trigger changed to a separate JS-only-controlled store) before Phase 4 work begins.
 - Implement a Dash `clientside_callback` in `chat.py` (or a separate JS file in `/assets`).
 - Use `fetch` to POST to the new streaming endpoint.
 - Parse the SSE chunks, append `thinking_chunk`s to the `<details>` block, and `message_chunk`s to the main message block.
-- Upon completion, fire an event back to a Dash Python callback to solidify the session history in the backend and `session-store`.
+- Upon completion, fire an event back to a Dash Python callback to update `dcc.Store` (`session-store`) with the final message history. Note: the backend `_chat_sessions` is already updated by `stream_chat` when the stream ends — this callback only needs to sync the frontend store.
+- **Guard against mid-stream Dash re-renders:** The JS bridge mutates DOM elements by ID directly. If any Dash callback re-renders the messages container during streaming (e.g., triggered as a side-effect when `session-store` is written), Dash will overwrite the DOM and erase all streamed content. Before implementing, audit which callbacks output to `chat-messages` and ensure none can fire while a stream is in progress (e.g., gate them on a `streaming-active` store flag set by the JS bridge at stream start and cleared at stream end).
 - **Automated Tests:**
   - End-to-End (E2E) test (e.g., using `dash.testing`) to send a message, wait for the stream to complete, and assert the final text exists in the DOM.
 - **Manual Tests:**
