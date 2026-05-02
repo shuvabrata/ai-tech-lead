@@ -417,6 +417,7 @@ def render_messages(messages):
         role = msg.get("role", "user")
         content = msg.get("content", "")
         timestamp = msg.get("timestamp", "")
+        client_id = msg.get("client_id", "")
         is_pending = msg.get("status") == "pending"
         display_timestamp = timestamp
         if is_pending:
@@ -557,6 +558,7 @@ def render_messages(messages):
                         html.Div([
                             html.Div(
                                 "Assistant is thinking…",
+                                id=f"think-body-{client_id}",
                                 style={
                                     "fontFamily": FONT_SANS,
                                     "backgroundColor": COLOR_BACKGROUND_WHITE,
@@ -592,10 +594,12 @@ def render_messages(messages):
                         "alignItems": "flex-start"
                     })
                 ], 
+                id=f"think-{client_id}",
                 className="chat-message-enter",
                 style={"marginBottom": SPACING_SMALL}
                 )
             )
+            rendered.append(html.Div(id=f"msg-{client_id}"))
         elif role == "error":
             # Error message - refined and subtle
             rendered.append(
