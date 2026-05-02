@@ -1,4 +1,4 @@
-"""Automated tests for Phase 3: Dash UI placeholder IDs.
+"""Automated tests for Dash UI placeholder IDs in the chat page.
 
 Coverage:
 - render_messages with assistant_thinking role produces think-{client_id} on outer div

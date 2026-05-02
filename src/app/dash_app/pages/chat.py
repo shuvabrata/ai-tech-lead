@@ -2,7 +2,7 @@ import os
 from datetime import datetime
 
 import dash_bootstrap_components as dbc
-from dash import html, dcc, Input, Output, State, callback, clientside_callback, no_update
+from dash import html, dcc, Input, Output, State, callback, clientside_callback, ClientsideFunction, no_update
 import requests
 
 from app.settings import settings
@@ -126,6 +126,7 @@ def get_layout():
             dcc.Store(id="session-store", storage_type="session"),
             dcc.Store(id="pending-send", storage_type="memory"),
             dcc.Store(id="sending-store", storage_type="memory", data={"sending": False}),
+            dcc.Store(id="streaming-active", storage_type="memory", data=False),
             html.Div(id="scroll-trigger", style={"display": "none"}),
             
             # Refined loading indicator
@@ -250,123 +251,44 @@ def queue_message(n_clicks, user_message, session_data):
     return render_messages(messages), "", session_data, pending_payload, {"sending": True}, datetime.utcnow().isoformat()
 
 
-# Callback to send queued message to API
-@callback(
-    [Output("chat-messages", "children", allow_duplicate=True),
-     Output("session-store", "data", allow_duplicate=True),
-     Output("pending-send", "data", allow_duplicate=True),
-     Output("sending-store", "data", allow_duplicate=True),
-     Output("scroll-trigger", "children", allow_duplicate=True)],
+# ── Clientside callback: immediately flag streaming as active ─────────────────
+clientside_callback(
+    ClientsideFunction(namespace="stream", function_name="startStream"),
+    Output("streaming-active", "data", allow_duplicate=True),
+    Input("pending-send", "data"),
+    prevent_initial_call=True,
+)
+
+# ── Clientside callback: SSE stream bridge ────────────────────────────────────
+clientside_callback(
+    ClientsideFunction(namespace="stream", function_name="runStream"),
+    [
+        Output("session-store", "data", allow_duplicate=True),
+        Output("pending-send", "data", allow_duplicate=True),
+        Output("sending-store", "data", allow_duplicate=True),
+        Output("scroll-trigger", "children", allow_duplicate=True),
+        Output("streaming-active", "data", allow_duplicate=True),
+    ],
     Input("pending-send", "data"),
     State("session-store", "data"),
-    prevent_initial_call=True
+    prevent_initial_call=True,
 )
-def send_message(pending_send, session_data):
-    """Send a queued message to the chat API and update session data"""
+
+
+# ── Python callback: re-render chat-messages when streaming finishes ──────────
+@callback(
+    Output("chat-messages", "children", allow_duplicate=True),
+    Input("streaming-active", "data"),
+    State("session-store", "data"),
+    prevent_initial_call=True,
+)
+def render_from_session(streaming_active, session_data):
+    """Re-render chat messages from session-store after the JS stream bridge finishes."""
+    if streaming_active:
+        return no_update
     if session_data is None:
-        session_data = {"session_id": None, "messages": []}
-    if not pending_send:
-        return no_update, no_update, None, {"sending": False}, ""
-
-    user_message = pending_send.get("message", "")
-    client_id = pending_send.get("client_id")
-    session_id = pending_send.get("session_id") or session_data.get("session_id")
-    if not user_message or not session_id:
-        return no_update, no_update, None, {"sending": False}, ""
-
-    api_base = os.getenv("API_BASE_URL", "http://localhost:8000")
-    messages = session_data.get("messages", [])
-
-    def clear_pending_status():
-        for msg in reversed(messages):
-            if msg.get("role") == "user" and msg.get("client_id") == client_id:
-                msg.pop("status", None)
-                break
-        for idx in range(len(messages) - 1, -1, -1):
-            msg = messages[idx]
-            if msg.get("role") == "assistant_thinking" and msg.get("client_id") == client_id:
-                messages.pop(idx)
-                break
-
-    try:
-        response = requests.post(
-            f"{api_base}/api/v1/chats/{session_id}/messages",
-            json={"message": user_message},
-            timeout=TIMEOUT_SECONDS
-        )
-
-        if response.status_code == 404:
-            try:
-                new_session_response = requests.post(
-                    f"{api_base}/api/v1/chats",
-                    json={"system_prompt": "You are a helpful AI technical assistant."},
-                    timeout=TIMEOUT_SECONDS
-                )
-                new_session_response.raise_for_status()
-                new_session_data = new_session_response.json()
-                session_id = new_session_data["session_id"]
-                session_data["session_id"] = session_id
-
-                # Reset to only the current message for the new session
-                pending_msg = None
-                for msg in messages:
-                    if msg.get("role") == "user" and msg.get("client_id") == client_id:
-                        pending_msg = msg
-                        break
-                if pending_msg is None:
-                    pending_msg = {
-                        "role": "user",
-                        "content": user_message,
-                        "timestamp": datetime.now().strftime("%I:%M %p"),
-                        "status": "pending",
-                        "client_id": client_id
-                    }
-                messages = [pending_msg]
-                session_data["messages"] = messages
-
-                response = requests.post(
-                    f"{api_base}/api/v1/chats/{session_id}/messages",
-                    json={"message": user_message},
-                    timeout=TIMEOUT_SECONDS
-                )
-                response.raise_for_status()
-            except Exception as retry_error:
-                clear_pending_status()
-                messages.append({
-                    "role": "error",
-                    "content": f"Session expired and failed to create new session: {str(retry_error)}",
-                    "timestamp": datetime.now().strftime("%I:%M %p")
-                })
-                session_data["messages"] = messages
-                return render_messages(messages), session_data, None, {"sending": False}, datetime.utcnow().isoformat()
-
-        response.raise_for_status()
-        data = response.json()
-
-        clear_pending_status()
-        ai_timestamp = datetime.now().strftime("%I:%M %p")
-        messages.append({"role": "assistant", "content": data["ai_message"], "timestamp": ai_timestamp})
-        session_data["messages"] = messages
-        return render_messages(messages), session_data, None, {"sending": False}, datetime.utcnow().isoformat()
-
-    except requests.exceptions.HTTPError as e:
-        clear_pending_status()
-        messages.append({
-            "role": "error",
-            "content": f"HTTP Error: {str(e)}",
-            "timestamp": datetime.now().strftime("%I:%M %p")
-        })
-        session_data["messages"] = messages
-        return render_messages(messages), session_data, None, {"sending": False}, datetime.utcnow().isoformat()
-    except Exception as e:
-        clear_pending_status()
-        messages.append({
-            "role": "error",
-            "content": f"Error: {str(e)}",
-            "timestamp": datetime.now().strftime("%I:%M %p")
-        })
-        session_data["messages"] = messages
-        return render_messages(messages), session_data, None, {"sending": False}, datetime.utcnow().isoformat()
+        return no_update
+    return render_messages(session_data.get("messages", []))
 
 
 # Disable input and button while sending

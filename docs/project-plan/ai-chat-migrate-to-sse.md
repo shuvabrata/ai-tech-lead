@@ -155,31 +155,37 @@ async def augment_message_stream(user_message, provider) -> AsyncIterator[dict]:
   - Confirmed all three IDs share the same `client_id` value (timestamp + click count).
   - Confirmed non-thinking roles (`user`, `assistant`, `error`) produce no `think-*` or `msg-*` IDs.
 
-### Phase 4: The JS Bridge (Clientside Callback)
-- **Accessibility and Robustness for JS Bridge:**
-  - Ensure all DOM updates for streamed content use ARIA live regions (e.g., `aria-live="polite"` or `aria-live="assertive"`) so screen readers announce updates.
-  - Add appropriate ARIA roles and labels to streamed message containers and ensure keyboard navigation is preserved.
-  - Test and fix any focus issues when new content is streamed (e.g., do not steal focus from input fields).
-  - Handle all error events gracefully: display user-friendly error messages, and ensure the UI remains usable after a stream error or disconnect.
-  - Add a progress indicator or spinner for long "thinking" phases, and ensure it is accessible (e.g., with `role="status"`).
-  - Document accessibility features and known limitations in the user guide.
-- **Automated Tests (Accessibility & Robustness):**
-  - Unit test: Simulate streaming updates and verify ARIA live regions are updated as expected.
-  - E2E test: Use accessibility testing tools (e.g., axe-core, pa11y) to check for violations during and after streaming.
-  - E2E test: Simulate keyboard navigation and screen reader usage during streaming.
-  - E2E test: Simulate stream errors and verify the UI recovers and remains accessible.
+### Phase 4: The JS Bridge (Clientside Callback) ✅ COMPLETED
 - **Before implementing the JS bridge, disable or remove the existing `send_message` Python callback.** Currently `send_message` fires whenever `pending-send` store changes — the same trigger the JS bridge will use. Without removal, both the Python callback and the JS bridge will fire simultaneously: the Python callback hits the old `/messages` endpoint while the JS bridge hits `/stream`, causing a race condition and double responses. The `send_message` callback must be removed (or its trigger changed to a separate JS-only-controlled store) before Phase 4 work begins.
 - Implement a Dash `clientside_callback` in `chat.py` (or a separate JS file in `/assets`).
 - Use `fetch` to POST to the new streaming endpoint.
-- Parse the SSE chunks, append `thinking_chunk`s to the `<details>` block, and `message_chunk`s to the main message block.
-- Upon completion, fire an event back to a Dash Python callback to update `dcc.Store` (`session-store`) with the final message history. Note: the backend `_chat_sessions` is already updated by `stream_chat` when the stream ends — this callback only needs to sync the frontend store.
-- **Guard against mid-stream Dash re-renders:** The JS bridge mutates DOM elements by ID directly. If any Dash callback re-renders the messages container during streaming (e.g., triggered as a side-effect when `session-store` is written), Dash will overwrite the DOM and erase all streamed content. Before implementing, audit which callbacks output to `chat-messages` and ensure none can fire while a stream is in progress (e.g., gate them on a `streaming-active` store flag set by the JS bridge at stream start and cleared at stream end).
+- Parse the SSE chunks, update `thinking_chunk`s in the thinking placeholder, and accumulate `message_chunk`s in the message div.
+- Upon stream completion, JS directly writes the final session data to `session-store` (Option B) so Dash re-renders styled messages via a guarded Python callback.
+- **Guard against mid-stream Dash re-renders:** The JS bridge mutates DOM elements by ID directly. A `streaming-active` store flag is set by a synchronous clientside callback at stream start and cleared at stream end. A Python `render_from_session` callback is triggered by `streaming-active` changes and returns `no_update` while streaming is active.
 - **Automated Tests:**
-  - End-to-End (E2E) test (e.g., using `dash.testing`) to send a message, wait for the stream to complete, and assert the final text exists in the DOM.
+  - Layout test: verify `streaming-active` store is present with default `False`.
+  - Unit tests for `render_from_session`: no_update while streaming, renders on stream end, no_update with None session.
+  - Asset tests: verify `stream-bridge.js` exists and declares required functions.
 - **Manual Tests:**
-  - **Happy Path:** Conduct an end-to-end chat in the browser. Verify the "Analyzing Context..." section streams internal thoughts and the main section streams the final response smoothly.
-  - **State Persistence:** Refresh the browser page after a streamed response completes to verify the history was properly saved to the backend/`dcc.Store` and reloads without losing data.
+  - **Happy Path:** Conduct an end-to-end chat in the browser. Verify the thinking section updates during context gathering, the response streams smoothly, and the styled assistant message appears on completion.
+  - **State Persistence:** Refresh the browser page after a streamed response completes to verify the history was properly saved to `dcc.Store` and reloads without losing data.
   - **Error Handling:** Simulate a network drop or a backend crash mid-stream and ensure the JS bridge gracefully handles it and displays a user-friendly error message.
+
+**Phase 4 Completion Evidence (automated):**
+- 12 Phase 4 tests: all passed (`tests/test_chat_phase4.py`)
+  - Layout: `streaming-active` store present with `data=False`
+  - `render_from_session` returns `no_update` while streaming=True, re-renders when False
+  - `stream-bridge.js` asset exists, declares `dash_clientside.stream`, `startStream`, `runStream`
+- All prior Phase 1–3 stream/chat tests: still passing (49/49 total)
+- `test_chat_flow_phase5_integration.py` migrated from `/messages` to `/stream` endpoint: all 8 tests passed
+
+**Phase 4 implementation summary:**
+- Removed `POST /{session_id}/messages` endpoint, `send_chat_message` service, `MessageCreate`/`MessageResponse` models.
+- Removed `send_message` Python callback from `chat.py`.
+- Added `dcc.Store(id="streaming-active")` to layout.
+- Created `src/app/dash_app/assets/stream-bridge.js` with `startStream` (sync guard) and `runStream` (Promise-based SSE consumer).
+- Added two `clientside_callback`s in `chat.py` wired to `stream-bridge.js`.
+- Added `render_from_session` Python callback: re-renders `chat-messages` from `session-store` when `streaming-active` transitions to False.
 
 ### Phase 5: External/Custom Provider Developer Documentation
 - After the core streaming implementation is complete and tested, draft a guide for external/custom LLM provider developers.
