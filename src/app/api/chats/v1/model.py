@@ -35,3 +35,8 @@ class ChatSessionStatus(BaseModel):
     session_id: str
     exists: bool
     message_count: Optional[int] = None  # Number of messages in session
+
+
+class StreamMessageCreate(BaseModel):
+    """Request model for streaming a chat message"""
+    message: str
