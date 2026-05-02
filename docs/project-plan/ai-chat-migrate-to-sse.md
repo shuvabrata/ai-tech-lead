@@ -129,19 +129,31 @@ async def augment_message_stream(user_message, provider) -> AsyncIterator[dict]:
   - Unknown session: `POST /api/v1/chats/nonexistent-session/stream` returned JSON `404` (not a broken SSE stream).
   - Metrics endpoint: `GET /api/v1/chats/metrics/stream` returned all expected keys (`starts`, `completions`, `errors`, `disconnects`, `total_duration_seconds`).
 
-### Phase 3: Dash UI Setup (Placeholders)
+### Phase 3: Dash UI Setup (Placeholders) ✅ COMPLETED
+- **Design decisions (confirmed):**
+  - Keep the existing `assistant_thinking` visual style unchanged (diamond icon, italic text, left border). Do not wrap in `<details>` — just add IDs to the existing elements.
+  - Summary/placeholder wording stays **"Assistant is thinking…"** (not "Analyzing Context...").
+  - The companion `<div id="msg-{client_id}">` starts as an empty div with no placeholder text — JS fills it when chunks arrive.
+  - `dcc.Loading` spinner hiding is deferred to Phase 4 (when the JS bridge takes over from `send_message`).
 - `chat.py` already injects an `assistant_thinking` role message into `messages` inside the `queue_message` callback, which renders a placeholder while waiting for the backend response. Phase 3 must **update this existing pattern** rather than create new elements from scratch:
-  - Update the `assistant_thinking` case in `render_messages` to produce a `<details id="think-{client_id}"><summary>Analyzing Context...</summary><div id="think-body-{client_id}"></div></details>` element for the thinking stream.
-  - Add a companion `<div id="msg-{client_id}">` for the final streamed response text.
-- **Note:** `render_messages` returns Dash Python component objects, not raw HTML strings. Use `html.Details(id=f"think-{client_id}", ...)` and `html.Div(id=f"msg-{client_id}", ...)`. Do not use `dangerously_allow_html`.
-- The `client_id` (already generated as a timestamp-based unique value in `queue_message`) serves as the unique ID for both containers — no new ID generation logic is needed.
+  - Add `id=f"think-{client_id}"` to the outer wrapper `html.Div` of the `assistant_thinking` block.
+  - Add `id=f"think-body-{client_id}"` to the inner text `html.Div` (the one currently showing "Assistant is thinking…") — this is where JS will append thinking chunks.
+  - Append a companion `html.Div(id=f"msg-{client_id}")` immediately after the thinking block — this is where JS will write the final streamed response.
+- **Note:** `render_messages` returns Dash Python component objects. Extract `client_id = msg.get("client_id", "")` inside the render loop to make it available for the `assistant_thinking` branch.
+- The `client_id` (already generated as a timestamp-based unique value in `queue_message`) serves as the unique ID for all three containers — no new ID generation logic is needed.
 - These IDs must be stable from the moment the placeholder is injected, as the JS bridge (Phase 4) targets them by ID for direct DOM mutation.
 - **Automated Tests:**
   - Unit test the `render_messages` function to ensure the `assistant_thinking` role produces HTML with the expected `id` attributes (`think-{client_id}` and `msg-{client_id}`).
   - Unit test the `queue_message` callback to confirm the `client_id` in the injected `assistant_thinking` message is unique per submission (two calls with the same `n_clicks` at different times must produce different IDs).
-- **Manual Tests:**
-  - Submit a chat message via the UI.
-  - Inspect the browser DOM using DevTools to confirm the `<details>` and companion `<div>` are injected with the correct IDs immediately, before any backend response arrives.
+- **Manual Tests:** ✅ COMPLETED
+  - Submitted a chat message via the UI while the app ran in Docker.
+  - Inspected the browser DOM using DevTools Elements panel while "Assistant is thinking…" was visible.
+  - Confirmed three elements with the correct `client_id` suffix were present immediately upon placeholder injection:
+    - `id="think-{client_id}"` — outer wrapper div
+    - `id="think-body-{client_id}"` — italic "Assistant is thinking…" text div
+    - `id="msg-{client_id}"` — empty companion div (no children) ready for Phase 4 JS to fill
+  - Confirmed all three IDs share the same `client_id` value (timestamp + click count).
+  - Confirmed non-thinking roles (`user`, `assistant`, `error`) produce no `think-*` or `msg-*` IDs.
 
 ### Phase 4: The JS Bridge (Clientside Callback)
 - **Accessibility and Robustness for JS Bridge:**
