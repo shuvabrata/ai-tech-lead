@@ -23,7 +23,7 @@ from dotenv import load_dotenv
 
 from app.common.logger import logger, LogContext
 from app.ai_agent.providers import get_provider
-from app.ai_agent.chains import augment_message, augment_message_stream
+from app.ai_agent.chains import augment_message_stream
 
 # In-memory session store: {session_id: [messages]}
 _chat_sessions = {}
@@ -79,58 +79,59 @@ def new_chat(system_prompt="You are a helpful AI assistant."):
 
 def do_chat(session_id, user_message, model=LLM_MODEL, max_tokens=MAX_TOKENS):
     """Perform chat for a session, maintaining message history.
-    
-    This function:
-    1. Validates the session exists
-    2. Augments the message with data from chains (e.g., Neo4j)
-    3. Manages token limits by pruning old messages if needed
-    4. Sends the message to the LLM provider and stores the response
-    
+
+    Synchronous wrapper around :func:`stream_chat` — runs the same async streaming
+    code path used by the UI by draining the generator via ``asyncio.run``.  This
+    ensures the CLI exercises identical logic to a UI-triggered message, making it
+    a reliable dev-testing tool.
+
+    Thinking-phase chunks are printed to stdout in grey; the assembled AI response
+    is returned once the stream is complete.
+
     Args:
         session_id: UUID of the chat session
         user_message: The user's message text
         model: LLM model to use (default from LLM_MODEL env or provider default)
         max_tokens: Maximum tokens allowed before pruning history
-        
+
     Returns:
         Tuple of (ai_message, total_tokens) where:
             - ai_message: The AI's response text
             - total_tokens: Current total token count for the session
-            
+
     Raises:
         ValueError: If session_id is not found
         RuntimeError: If LLM API call fails
     """
     with LogContext(request_id=session_id):
         logger.info(f"Received message for session {session_id}: {user_message}")
-        # Print user_message in green color font
         print(f"\033[92m{user_message}\033[0m")
-        
+
         if session_id not in _chat_sessions:
             raise ValueError("Session not found.")
-        
-        # Augment message with data from chains (e.g., Neo4j, MCPs)
-        augmented_message = augment_message(user_message, provider=_provider)
-        
-        messages = _chat_sessions[session_id]
-        messages.append({"role": "user", "content": augmented_message})
-        logger.debug(f"Current user_message: {user_message}. Session messages count: {len(messages)}")
-        
-        # Check token limits and prune if necessary
-        total_tokens = _provider.count_tokens(messages, model)
-        logger.info(f"Total tokens for session {session_id}: {total_tokens}. Max allowed before pruning: {max_tokens}")
-        if total_tokens > max_tokens:
-            # Remove oldest 3 messages after system prompt
-            if len(messages) > 4:
-                messages[:] = [messages[0]] + messages[4:]
-        
-        try:
-            ai_message = _provider.chat_completion(messages, model)
-            logger.debug(f"AI response: {ai_message}")
-            messages.append({"role": "assistant", "content": ai_message})
-            return ai_message, _provider.count_tokens(messages, model)
-        except Exception as e:
-            raise RuntimeError(f"LLM provider error: {e}") from e
+
+        assembled_tokens: list[str] = []
+
+        async def _drain() -> None:
+            async for raw in stream_chat(session_id, user_message, model, max_tokens):
+                # Each yielded value has the form "data: {...}\n\n"
+                payload = raw.removeprefix("data: ").strip()
+                if not payload:
+                    continue
+                event = json.loads(payload)
+                event_type = event.get("type", "")
+                if event_type == "thinking_chunk":
+                    print(f"\033[90m[thinking] {event.get('content', '')}\033[0m")
+                elif event_type == "message_chunk":
+                    assembled_tokens.append(event.get("content", ""))
+                elif event_type == "error":
+                    raise RuntimeError(event.get("content", "Stream error"))
+
+        asyncio.run(_drain())
+
+        ai_message = "".join(assembled_tokens)
+        total_tokens = _provider.count_tokens(_chat_sessions[session_id], model)
+        return ai_message, total_tokens
 
 def end_chat(session_id):
     """End a chat session and clear its history.
