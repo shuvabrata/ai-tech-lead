@@ -64,11 +64,8 @@ def _check_mcp_relevance(user_message: str, provider: Any) -> bool:
     criteria: list[str] = []
     if settings.GITHUB_MCP_ENABLED:
         criteria.append("- GitHub code, pull requests, commits, branches, issues, or repositories")
-    try:
-        if _build_atlassian_manager().atlassian_enabled:
-            criteria.append("- Jira issues/tickets/sprints/epics/boards, Confluence pages/spaces/docs, or Atlassian project context")
-    except Exception:
-        pass
+    if "Atlassian" in backends:
+        criteria.append("- Jira issues/tickets/sprints/epics/boards, Confluence pages/spaces/docs, or Atlassian project context")
 
     criteria_text = "\n".join(criteria)
 
