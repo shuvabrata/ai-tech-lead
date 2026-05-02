@@ -158,11 +158,38 @@ def test_check_mcp_relevance_prompt_github_only(monkeypatch):
     provider = _RelevanceProvider(answer="YES")
 
     monkeypatch.setattr(settings, "GITHUB_MCP_ENABLED", True)
-    monkeypatch.setattr(settings, "ATLASSIAN_MCP_ENABLED", False)
+    class FakeAtlassianManagerDisabled:
+        atlassian_enabled = False
+    monkeypatch.setattr(mcp_chain, "_build_atlassian_manager", lambda: FakeAtlassianManagerDisabled())
 
     assert mcp_chain._check_mcp_relevance("Summarize latest commits", provider) is True
     assert "Enabled MCP backends: GitHub" in provider.last_prompt
     assert "Confluence" not in provider.last_prompt
+
+
+def test_enabled_backends_atlassian_db_disabled_overrides_env(monkeypatch):
+    """DB-driven atlassian_enabled=False should exclude Atlassian even when env flag is True."""
+    monkeypatch.setattr(settings, "GITHUB_MCP_ENABLED", False)
+    monkeypatch.setattr(settings, "ATLASSIAN_MCP_ENABLED", True)
+
+    class FakeAtlassianManagerDisabled:
+        atlassian_enabled = False
+
+    monkeypatch.setattr(mcp_chain, "_build_atlassian_manager", lambda: FakeAtlassianManagerDisabled())
+
+    assert mcp_chain._enabled_backends() == []
+
+
+def test_enabled_backends_atlassian_manager_exception_treated_as_disabled(monkeypatch):
+    """If _build_atlassian_manager raises, Atlassian should be silently excluded."""
+    monkeypatch.setattr(settings, "GITHUB_MCP_ENABLED", False)
+
+    def _raise():
+        raise RuntimeError("DB unavailable")
+
+    monkeypatch.setattr(mcp_chain, "_build_atlassian_manager", _raise)
+
+    assert mcp_chain._enabled_backends() == []
 
 
 def test_augment_message_with_mcp_supports_dual_namespace_tool_calls(monkeypatch):
