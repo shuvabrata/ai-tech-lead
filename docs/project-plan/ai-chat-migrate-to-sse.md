@@ -100,7 +100,7 @@ async def augment_message_stream(user_message, provider) -> AsyncIterator[dict]:
     - Metrics endpoint (`GET /metrics`) confirmed after both tests: `{"starts": 2, "completions": 1, "errors": 0, "disconnects": 1, "total_duration_seconds": 12.15}`.
   - Temp server script (`scripts/temp_stream_server.py`) is retained for reference but is not part of the production codebase.
 
-### Phase 2: FastAPI Streaming Endpoint
+### Phase 2: FastAPI Streaming Endpoint ✅ COMPLETED
 - **Logging and Metrics for Streaming Endpoint:**
   - Log every `/stream` endpoint invocation, including session ID, request metadata, and outcome (success, error, disconnect, timeout).
   - Record metrics for active streams, completed streams, errors, and disconnects.
@@ -123,8 +123,11 @@ async def augment_message_stream(user_message, provider) -> AsyncIterator[dict]:
   - Integration test to consume the stream programmatically and validate the sequence of JSON event payloads.
   - Integration test: Simulate network drop during streaming and verify the backend logs the disconnect and does not leave open resources.
   - Integration test: Simulate backend timeout and verify the client receives an SSE error event.
-- **Manual Tests:**
-  - Use `curl` or Postman to send a POST request to the endpoint and visually verify that chunks arrive progressively over the network, not all at once.
+- **Manual Tests:** ✅ COMPLETED
+  - Full stream: `curl -N -X POST http://localhost:8000/api/v1/chats/{session_id}/stream` — confirmed `text/event-stream` content-type, progressive SSE delivery, correct event sequence through to `message_end`.
+  - Disconnect mid-stream: piped through `head -5`, disconnect metric incremented to `1` as confirmed via `GET /api/v1/chats/metrics/stream`.
+  - Unknown session: `POST /api/v1/chats/nonexistent-session/stream` returned JSON `404` (not a broken SSE stream).
+  - Metrics endpoint: `GET /api/v1/chats/metrics/stream` returned all expected keys (`starts`, `completions`, `errors`, `disconnects`, `total_duration_seconds`).
 
 ### Phase 3: Dash UI Setup (Placeholders)
 - `chat.py` already injects an `assistant_thinking` role message into `messages` inside the `queue_message` callback, which renders a placeholder while waiting for the backend response. Phase 3 must **update this existing pattern** rather than create new elements from scratch:
