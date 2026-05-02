@@ -6,12 +6,10 @@ from fastapi.responses import StreamingResponse
 
 from app.common.logger import logger
 from .model import  (
-    ChatCreate, 
-    ChatSession, 
-    MessageCreate, 
-    MessageResponse, 
-    ChatDeleteResponse, 
-    ChatSessionStatus, 
+    ChatCreate,
+    ChatSession,
+    ChatDeleteResponse,
+    ChatSessionStatus,
     StreamMessageCreate
 )
 from . import service
@@ -36,19 +34,6 @@ async def get_chat_session(session_id: str):
     """
     return service.get_chat_session_status(session_id)
 
-
-@router.post("/{session_id}/messages", response_model=MessageResponse)
-async def send_message(session_id: str, message: MessageCreate):
-    """
-    Send a message to an existing chat session.
-    Returns the AI's response and token count.
-    """
-    try:
-        return service.send_chat_message(session_id, message)
-    except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e)) from e
-    except RuntimeError as e:
-        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/{session_id}/stream")
