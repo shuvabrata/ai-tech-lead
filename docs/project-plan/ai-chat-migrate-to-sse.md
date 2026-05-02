@@ -172,12 +172,17 @@ async def augment_message_stream(user_message, provider) -> AsyncIterator[dict]:
   - **Error Handling:** Simulate a network drop or a backend crash mid-stream and ensure the JS bridge gracefully handles it and displays a user-friendly error message.
 
 **Phase 4 Completion Evidence (automated):**
-- 12 Phase 4 tests: all passed (`tests/test_chat_phase4.py`)
+- 12 Phase 4 tests: all passed (`tests/test_chat_stream_bridge.py`, renamed from `test_chat_phase4.py`)
   - Layout: `streaming-active` store present with `data=False`
   - `render_from_session` returns `no_update` while streaming=True, re-renders when False
   - `stream-bridge.js` asset exists, declares `dash_clientside.stream`, `startStream`, `runStream`
-- All prior Phase 1–3 stream/chat tests: still passing (49/49 total)
-- `test_chat_flow_phase5_integration.py` migrated from `/messages` to `/stream` endpoint: all 8 tests passed
+- All prior Phase 1–3 stream/chat tests: still passing
+- `tests/test_chat_mcp_integration.py` (renamed from `test_chat_flow_phase5_integration.py`) migrated from `/messages` to `/stream` endpoint: all 8 tests passed
+- All test files with phase-numbered names renamed to intent-based names:
+  - `test_chat_phase3.py` → `test_chat_ui_placeholders.py`
+  - `test_chat_phase4.py` → `test_chat_stream_bridge.py`
+  - `test_chat_flow_phase5_integration.py` → `test_chat_mcp_integration.py`
+  - `test_provider_contract_phase2.py` → `test_provider_tool_contract.py`
 
 **Phase 4 implementation summary:**
 - Removed `POST /{session_id}/messages` endpoint, `send_chat_message` service, `MessageCreate`/`MessageResponse` models.
@@ -186,6 +191,7 @@ async def augment_message_stream(user_message, provider) -> AsyncIterator[dict]:
 - Created `src/app/dash_app/assets/stream-bridge.js` with `startStream` (sync guard) and `runStream` (Promise-based SSE consumer).
 - Added two `clientside_callback`s in `chat.py` wired to `stream-bridge.js`.
 - Added `render_from_session` Python callback: re-renders `chat-messages` from `session-store` when `streaming-active` transitions to False.
+- **Post-completion colour fix:** Thinking panel text (`think-body-{client_id}`) now uses `COLOR_TEXT_MUTED` (`--color-text-muted`) for a properly muted appearance in both light and dark themes. Streaming message div (`msg-{client_id}`) now explicitly uses `COLOR_TEXT_DARK` (`--color-text-dark`) so streamed content renders at full contrast rather than inheriting a muted colour.
 
 ### Phase 5: External/Custom Provider Developer Documentation
 - After the core streaming implementation is complete and tested, draft a guide for external/custom LLM provider developers.

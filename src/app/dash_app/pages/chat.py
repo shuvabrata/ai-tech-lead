@@ -18,6 +18,8 @@ from app.dash_app.styles import (
     COLOR_CHARCOAL_MEDIUM,
     COLOR_GRAY_DARK,
     COLOR_GRAY_LIGHT,
+    COLOR_TEXT_MUTED,
+    COLOR_TEXT_DARK,
     COLOR_GRAY_LIGHTER,
     COLOR_BACKGROUND_WHITE,
     COLOR_BORDER,
@@ -484,7 +486,7 @@ def render_messages(messages):
                                 style={
                                     "fontFamily": FONT_SANS,
                                     "backgroundColor": COLOR_BACKGROUND_WHITE,
-                                    "color": COLOR_GRAY_DARK,
+                                    "color": COLOR_TEXT_MUTED,
                                     "padding": f"{SPACING_SMALL} 20px",
                                     "borderRadius": "2px",
                                     "wordWrap": "break-word",
@@ -521,7 +523,19 @@ def render_messages(messages):
                 style={"marginBottom": SPACING_SMALL}
                 )
             )
-            rendered.append(html.Div(id=f"msg-{client_id}"))
+            rendered.append(html.Div(
+                id=f"msg-{client_id}",
+                style={
+                    "fontFamily": FONT_SANS,
+                    "color": COLOR_TEXT_DARK,
+                    "fontSize": FONT_SIZE_LARGE,
+                    "lineHeight": "1.8",
+                    "padding": f"{SPACING_SMALL} 20px",
+                    "paddingLeft": "44px",
+                    "whiteSpace": "pre-wrap",
+                    "wordWrap": "break-word",
+                }
+            ))
         elif role == "error":
             # Error message - refined and subtle
             rendered.append(
