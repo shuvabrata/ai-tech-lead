@@ -9,6 +9,7 @@ from app.api.projects.v1.router import router as projects_v1_router
 from app.api.chats.v1.router import router as chats_v1_router
 from app.api.graph.v1.router import router as graph_v1_router
 from app.api.connectors.v1.router import router as connectors_v1_router
+from app.api.queries.v1.router import router as queries_v1_router
 from app.dash_app.layout import create_dash_app
 from app.common.logger import logger, LogContext
 from app.settings import settings
@@ -57,6 +58,7 @@ app.include_router(projects_v1_router, prefix="/api/v1")
 app.include_router(chats_v1_router, prefix="/api/v1")
 app.include_router(graph_v1_router, prefix="/api/v1")
 app.include_router(connectors_v1_router, prefix="/api/v1")
+app.include_router(queries_v1_router, prefix="/api/v1")
 
 dash_app = create_dash_app()
 app.mount("/app", WSGIMiddleware(dash_app.server))

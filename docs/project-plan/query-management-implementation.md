@@ -249,6 +249,8 @@ Avoid caching too early unless file loading becomes expensive. A simple in-proce
 
 ## Phase 2: Catalog API
 
+**Status**: Complete
+
 ### Objectives
 
 - Expose catalog metadata to the Dash frontend.
@@ -256,14 +258,14 @@ Avoid caching too early unless file loading becomes expensive. A simple in-proce
 
 ### Tasks
 
-- [ ] **2.1 Create API Package**
+- [x] **2.1 Create API Package**
   - Suggested files:
     - `src/app/api/queries/v1/model.py`
     - `src/app/api/queries/v1/service.py`
     - `src/app/api/queries/v1/router.py`
   - Follow the existing API package style used by `src/app/api/projects/v1/` and `src/app/api/graph/v1/`.
 
-- [ ] **2.2 Add List Endpoint**
+- [x] **2.2 Add List Endpoint**
   - `GET /api/v1/queries/catalog`
   - Optional query params:
     - `namespace`
@@ -272,8 +274,8 @@ Avoid caching too early unless file loading becomes expensive. A simple in-proce
     - `view=graph|tabular`
   - Return metadata and query text only if needed by the UI. If exposing Cypher is acceptable for the console, include it; otherwise provide detail endpoint for full text.
 
-- [ ] **2.3 Add Detail Endpoint**
-  - `GET /api/v1/queries/catalog/{catalog_id}`
+- [x] **2.3 Add Detail Endpoint**
+  - `GET /api/v1/queries/catalog/{namespace}/{slug}`
   - Return complete catalog entry with both query variants.
   - Support slash-containing IDs carefully. Options:
     - Use a path parameter like `/catalog/{namespace}/{slug}`.
@@ -281,10 +283,10 @@ Avoid caching too early unless file loading becomes expensive. A simple in-proce
   - Preferred route shape:
     - `GET /api/v1/queries/catalog/{namespace}/{slug}`
 
-- [ ] **2.4 Include Router**
+- [x] **2.4 Include Router**
   - Register the queries router in `src/app/main.py` or the existing API router assembly location.
 
-- [ ] **2.5 Tests**
+- [x] **2.5 Tests**
   - Suggested file: `tests/test_query_catalog_api.py`
   - Cover:
     - List endpoint.
@@ -652,3 +654,4 @@ Useful additions:
 
 - **2026-03-02**: Initial database-first query management plan created.
 - **2026-05-03**: Reworked plan to use YAML query catalog as source of truth and reserve PostgreSQL for future history, favorites, and user-owned queries.
+- **2026-05-03**: Completed Phase 1 catalog loader and Phase 2 catalog metadata API.
