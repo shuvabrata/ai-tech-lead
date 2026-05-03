@@ -208,7 +208,8 @@ __marimo__/
 .python-version
 
 # Custom LLM Provider (private/in-house implementation)
-src/app/ai_agent/providers/custom/
+src/app/ai_agent/providers/custom/**
+!src/app/ai_agent/providers/custom/CUSTOM_PROVIDER_DEVELOPMENT_GUIDE.md
 
 # Application logs
 logs/
