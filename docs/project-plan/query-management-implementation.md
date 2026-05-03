@@ -1,6 +1,6 @@
 # Query Catalog Integration - Implementation Plan
 
-**Status**: Planning Phase  
+**Status**: Implementation In Progress (Phases 1-3 Complete)  
 **Created**: March 2, 2026  
 **Last Updated**: May 3, 2026  
 **Related**: Graph Visualization, Query Catalog, Future Query History and Favorites
@@ -299,6 +299,8 @@ Avoid caching too early unless file loading becomes expensive. A simple in-proce
 
 ## Phase 3: Unified Graph Execution API
 
+**Status**: Complete
+
 ### Objectives
 
 - Replace raw-query-only execution with one request contract.
@@ -338,17 +340,17 @@ Validation rules:
 
 ### Tasks
 
-- [ ] **3.1 Replace Graph Query Request Model**
+- [x] **3.1 Replace Graph Query Request Model**
   - File: `src/app/api/graph/v1/model.py`
   - Replace or supersede `CypherQueryRequest` with `GraphExecuteRequest`.
   - Keep `GraphResponse` as the shared response model.
 
-- [ ] **3.2 Add Unified Execute Endpoint**
+- [x] **3.2 Add Unified Execute Endpoint**
   - File: `src/app/api/graph/v1/router.py`
   - Add `POST /api/v1/graph/execute`.
   - No backward compatibility is required for the old `/api/v1/graph/query` endpoint.
 
-- [ ] **3.3 Add Query Resolution Service**
+- [x] **3.3 Add Query Resolution Service**
   - File: `src/app/api/graph/v1/service.py`
   - Flow:
     - Resolve executable Cypher from raw query or catalog reference.
@@ -357,12 +359,12 @@ Validation rules:
     - Validate read-only Cypher.
     - Execute and format result.
 
-- [ ] **3.4 Add Parameterized Execution**
+- [x] **3.4 Add Parameterized Execution**
   - Current lower-level Neo4j execution already supports `parameters`.
   - Extend the graph service path so formatted execution accepts `query + parameters`.
   - Do not duplicate graph/tabular response formatting.
 
-- [ ] **3.5 Tests**
+- [x] **3.5 Tests**
   - Suggested file: `tests/test_graph_execute_api.py`
   - Cover:
     - Raw query execution request validation.
@@ -435,27 +437,33 @@ The existing query console should remain the lower-level editor. Selecting a cat
   - Catalog execution sends `source="catalog"` with `catalog_id`, `view`, and `parameters`.
   - Extract common response-to-UI rendering from `execute_query()` so both triggers render results through the same code path.
 
-- [ ] **4.4 Graph/Table Toggle**
+- [ ] **4.4 Remove Legacy Graph Query Endpoint**
+  - Delete old `/api/v1/graph/query` route after the Dash Graph page has migrated to `/api/v1/graph/execute`.
+  - Remove `CypherQueryRequest` if no remaining code or tests use it.
+  - Update or delete tests that target `/api/v1/graph/query`.
+  - Verify console and catalog execution both use the unified endpoint.
+
+- [ ] **4.5 Graph/Table Toggle**
   - Use `dbc.RadioItems` or a segmented control with values:
     - `graph`
     - `tabular`
   - Disable unavailable views if a query only has one variant.
   - Default to `graph` when available, otherwise `tabular`.
 
-- [ ] **4.5 Parameter Inputs**
+- [ ] **4.6 Parameter Inputs**
   - Generate inputs from query metadata.
   - Required parameters block execution until filled.
   - Use parameter names as labels initially.
   - Later enhancement: add parameter type, label, placeholder, and helper text to the YAML schema.
 
-- [ ] **4.6 Deep Links**
+- [ ] **4.7 Deep Links**
   - Support URLs like:
     - `/app/graph?catalog=github/top_contributors&view=graph`
     - `/app/graph?catalog=person_to_person/direct_code_reviews&view=tabular`
   - Initial behavior can select and populate the query.
   - Later behavior can auto-run when all required parameters are present.
 
-- [ ] **4.7 Tests and Verification**
+- [ ] **4.8 Tests and Verification**
   - Unit test pure helper functions where possible.
   - Manually verify:
     - Catalog loads.
@@ -655,3 +663,4 @@ Useful additions:
 - **2026-03-02**: Initial database-first query management plan created.
 - **2026-05-03**: Reworked plan to use YAML query catalog as source of truth and reserve PostgreSQL for future history, favorites, and user-owned queries.
 - **2026-05-03**: Completed Phase 1 catalog loader and Phase 2 catalog metadata API.
+- **2026-05-03**: Completed Phase 3 unified graph execution API with catalog query resolution and parameter validation.

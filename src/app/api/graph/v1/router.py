@@ -7,7 +7,8 @@ from app.analytics.collaboration.config import CollaborationNetworkConfig
 from app.common.logger import logger
 from .model import (
     CollaborationNetworkResponse, 
-    CypherQueryRequest, 
+    CypherQueryRequest,
+    GraphExecuteRequest,
     GraphResponse, 
     NodeExpansionRequest, 
     NodeExpansionResponse
@@ -15,6 +16,74 @@ from .model import (
 from . import service
 
 router = APIRouter(prefix="/graph", tags=["graph"])
+
+
+@router.post("/execute", response_model=GraphResponse)
+async def execute_graph(request: GraphExecuteRequest):
+    """
+    Execute either a raw Cypher query or a YAML catalog query.
+
+    Raw execution uses `source="raw"` with `query`. Catalog execution uses
+    `source="catalog"` with `catalog_id`, an explicit `view`, and any declared
+    Neo4j parameters.
+    """
+    try:
+        logger.info(
+            "Received graph execute request: "
+            f"source={request.source} catalog_id={request.catalog_id} view={request.view}"
+        )
+        response = service.execute_graph_request(request)
+        logger.info(
+            "Graph execute request completed. "
+            f"isGraph={response.isGraph}, nodes={len(response.nodes)}, "
+            f"rels={len(response.relationships)}, resultCount={response.resultCount}"
+        )
+        return response
+
+    except service.CatalogQueryNotFoundError as e:
+        logger.warning(f"Catalog query not found: {e}")
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "error": "Catalog query not found",
+                "message": str(e),
+                "catalog_id": request.catalog_id,
+            },
+        ) from e
+
+    except ValueError as e:
+        logger.warning(f"Graph execute validation error: {e}")
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "error": "Query validation failed",
+                "message": str(e),
+                "source": request.source,
+                "catalog_id": request.catalog_id,
+                "query": request.query[:200] if request.query else None,
+            },
+        ) from e
+
+    except RuntimeError as e:
+        logger.error(f"Graph execute runtime error: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error": "Query execution failed",
+                "message": str(e),
+                "hint": "Check Neo4j connection and query syntax",
+            },
+        ) from e
+
+    except Exception as e:
+        logger.error(f"Unexpected error executing graph request: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error": "Internal server error",
+                "message": "An unexpected error occurred while processing your graph request",
+            },
+        ) from e
 
 
 @router.post("/query", response_model=GraphResponse)

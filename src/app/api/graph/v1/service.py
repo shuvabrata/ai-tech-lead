@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Set
 from neo4j.graph import Node, Path, Relationship
 
 from app.common.logger import logger
+from app.query_catalog import CatalogLoadError, CatalogQuery, get_catalog_query
 from app.settings import settings
 from app.analytics.collaboration.algorithm import (
         build_graph,
@@ -17,7 +18,8 @@ from app.analytics.collaboration.algorithm import (
 from app.analytics.collaboration.config import CollaborationNetworkConfig
 from .model import (
     CollaborationNetworkResponse, 
-    GraphNode, GraphRelationship, GraphResponse, 
+    GraphExecuteRequest,
+    GraphNode, GraphRelationship, GraphResponse,
     NodeExpansionResponse, PaginationMeta
     )
 from .query import (
@@ -28,7 +30,75 @@ from .query import (
     )
 
 
-def execute_and_format_query(query: str) -> GraphResponse:
+class CatalogQueryNotFoundError(ValueError):
+    """Raised when a requested catalog query does not exist."""
+
+
+def execute_graph_request(request: GraphExecuteRequest) -> GraphResponse:
+    """Resolve and execute a raw or catalog-backed graph request."""
+    query, parameters = _resolve_executable_query(request)
+    return execute_and_format_query(query, parameters=parameters)
+
+
+def _resolve_executable_query(request: GraphExecuteRequest) -> tuple[str, Dict[str, Any]]:
+    if request.source == "raw":
+        if not request.query:
+            raise ValueError("source='raw' requires query")
+        return request.query, request.parameters
+
+    if not request.catalog_id:
+        raise ValueError("source='catalog' requires catalog_id")
+
+    catalog_query = _get_catalog_query_or_404(request.catalog_id)
+    if request.view == "auto":
+        raise ValueError("Catalog execution requires view='graph' or view='tabular'")
+    if request.view not in catalog_query.queries:
+        raise ValueError(
+            f"Catalog query '{request.catalog_id}' does not define a '{request.view}' view"
+        )
+
+    _validate_catalog_parameters(catalog_query, request.parameters)
+    return catalog_query.queries[request.view], request.parameters
+
+
+def _get_catalog_query_or_404(catalog_id: str) -> CatalogQuery:
+    try:
+        return get_catalog_query(catalog_id)
+    except CatalogLoadError as exc:
+        raise CatalogQueryNotFoundError(f"Catalog query not found: {catalog_id}") from exc
+
+
+def _validate_catalog_parameters(
+    catalog_query: CatalogQuery,
+    provided_parameters: Dict[str, Any],
+) -> None:
+    declared_names = {parameter.name for parameter in catalog_query.parameters}
+    provided_names = set(provided_parameters)
+    unknown_names = sorted(provided_names - declared_names)
+    if unknown_names:
+        raise ValueError(
+            "Unknown catalog parameter(s): " + ", ".join(unknown_names)
+        )
+
+    missing_names = [
+        parameter.name
+        for parameter in catalog_query.parameters
+        if parameter.required and _is_missing_parameter_value(provided_parameters.get(parameter.name))
+    ]
+    if missing_names:
+        raise ValueError(
+            "Missing required catalog parameter(s): " + ", ".join(missing_names)
+        )
+
+
+def _is_missing_parameter_value(value: Any) -> bool:
+    return value is None or (isinstance(value, str) and not value.strip())
+
+
+def execute_and_format_query(
+    query: str,
+    parameters: Dict[str, Any] | None = None,
+) -> GraphResponse:
     """Execute a Cypher query and format results as GraphResponse.
     
     This function orchestrates the entire query execution flow:
@@ -40,6 +110,7 @@ def execute_and_format_query(query: str) -> GraphResponse:
     
     Args:
         query: Cypher query string to execute
+        parameters: Optional Neo4j query parameters
         
     Returns:
         GraphResponse with nodes, relationships, or raw tabular data
@@ -64,7 +135,11 @@ def execute_and_format_query(query: str) -> GraphResponse:
     
     # Step 2: Execute query
     logger.info(f"Executing query: {query[:100]}...")
-    raw_results = execute_cypher_query(query, timeout=settings.NEO4J_QUERY_TIMEOUT)
+    raw_results = execute_cypher_query(
+        query,
+        timeout=settings.NEO4J_QUERY_TIMEOUT,
+        parameters=parameters,
+    )
 
     return _format_query_results(
         raw_results=raw_results,
