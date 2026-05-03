@@ -7,6 +7,7 @@ queries:
         WHERE size(repos) > 1
         RETURN p.name, p.title, perm, repos, size(repos) as repo_count
         ORDER BY repo_count DESC
+        LIMIT 10
   graph: |-
     MATCH p1=(p:Person)-[c:COLLABORATOR]-(r:Repository)
         RETURN p1

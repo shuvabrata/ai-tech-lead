@@ -6,6 +6,7 @@ queries:
         WHERE b.name CONTAINS 'PLAT-1'
         RETURN r.name, b.name
         ORDER BY r.name, b.name
+        LIMIT 10
   graph: |-
     MATCH p1=(b:Branch)-[:BRANCH_OF]-(r:Repository)
         WHERE b.name CONTAINS 'PLAT-1'

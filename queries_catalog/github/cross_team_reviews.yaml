@@ -9,6 +9,7 @@ queries:
                reviewer_team.name as reviewer_team,
                count(pr) as cross_team_reviews
         ORDER BY cross_team_reviews DESC
+        LIMIT 10
   graph: |-
     MATCH p1=(pr:PullRequest)-[:CREATED_BY]->(author:Person)-[:MEMBER_OF]-(author_team:Team)
         MATCH p2=(pr)-[:REVIEWED_BY]->(reviewer:Person)-[:MEMBER_OF]-(reviewer_team:Team)

@@ -14,6 +14,7 @@ queries:
            c1.permission as person1_permission,
            c2.permission as person2_permission
     ORDER BY repository
+        LIMIT 10
   graph: |-
     MATCH (p1:Person {id: $person1_id}), (p2:Person {id: $person2_id})
     MATCH path = (p1)-[c1:COLLABORATOR]-(r:Repository)-[c2:COLLABORATOR]-(p2)

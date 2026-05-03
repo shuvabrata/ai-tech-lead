@@ -5,6 +5,7 @@ queries:
     MATCH (c:Commit)-[:REFERENCES]->(i:Issue)
         RETURN count(DISTINCT c) as commits_with_refs,
                count(DISTINCT i) as issues_referenced
+        LIMIT 10
   graph: |-
     MATCH p1=(c:Commit)-[:REFERENCES]->(i:Issue)
         RETURN p1
