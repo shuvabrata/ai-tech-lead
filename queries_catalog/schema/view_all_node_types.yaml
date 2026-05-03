@@ -5,6 +5,7 @@ queries:
     MATCH (n)
         RETURN labels(n)[0] as type, count(*) as count
         ORDER BY count DESC
+        LIMIT 10
   graph: |-
     MATCH p1=(n)
         RETURN p1

@@ -5,6 +5,7 @@ queries:
     MATCH (t:Team)-[:MEMBER_OF]-(p:Person)
         RETURN t.name, collect(p.name) as members
         ORDER BY t.name
+        LIMIT 10
   graph: |-
     MATCH p1=(t:Team)-[:MEMBER_OF]-(p:Person)
         RETURN p1

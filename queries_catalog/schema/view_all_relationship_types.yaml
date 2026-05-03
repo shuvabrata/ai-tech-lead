@@ -5,6 +5,7 @@ queries:
     MATCH ()-[r]->()
         RETURN type(r) as relationship, count(*) as count
         ORDER BY count DESC
+        LIMIT 10
   graph: |-
     MATCH p1=()-[r]->()
         RETURN p1

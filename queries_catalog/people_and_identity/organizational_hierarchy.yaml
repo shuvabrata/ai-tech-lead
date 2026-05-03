@@ -5,6 +5,7 @@ queries:
     MATCH (p:Person)-[:REPORTS_TO]->(m:Person)
         RETURN p.name as employee, p.title, m.name as manager, m.title as manager_title
         ORDER BY m.name, p.name
+        LIMIT 10
   graph: |-
     MATCH p1=(p:Person)-[:REPORTS_TO]->(m:Person)
         RETURN p1

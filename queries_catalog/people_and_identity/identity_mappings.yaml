@@ -4,6 +4,7 @@ queries:
   tabular: |-
     MATCH (p:Person {name: "Add a valid name here"})-[:MAPS_TO]-(i:IdentityMapping)
         RETURN p.name, i.provider, i.username, i.email
+        LIMIT 10
   graph: |-
     MATCH p1=(p:Person {name: "Add a valid name here"})-[:MAPS_TO]-(i:IdentityMapping)
         RETURN p1
