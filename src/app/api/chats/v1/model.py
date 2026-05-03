@@ -13,16 +13,6 @@ class ChatSession(BaseModel):
     session_id: str
 
 
-class MessageCreate(BaseModel):
-    """Request model for sending a message"""
-    message: str
-
-
-class MessageResponse(BaseModel):
-    """Response model for chat message"""
-    session_id: str
-    ai_message: str
-
 
 class ChatDeleteResponse(BaseModel):
     """Response model for chat deletion"""
@@ -35,3 +25,8 @@ class ChatSessionStatus(BaseModel):
     session_id: str
     exists: bool
     message_count: Optional[int] = None  # Number of messages in session
+
+
+class StreamMessageCreate(BaseModel):
+    """Request model for streaming a chat message"""
+    message: str
