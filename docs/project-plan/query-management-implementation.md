@@ -477,63 +477,7 @@ The existing query console should remain the lower-level editor. Selecting a cat
 
 ---
 
-## Phase 5: Query History and Favorites
-
-### Objectives
-
-- Add user-owned query state without duplicating the shipped catalog.
-- Store executed raw Cypher and selected catalog references.
-
-### Database Scope
-
-Use PostgreSQL only for user state:
-
-```sql
-CREATE TABLE saved_queries (
-    id SERIAL PRIMARY KEY,
-    query_type VARCHAR(20) NOT NULL, -- history, favorite, custom
-    title VARCHAR(200),
-    description TEXT,
-    cypher_query TEXT,
-    catalog_id VARCHAR(200),
-    catalog_view VARCHAR(20),
-    parameters JSONB,
-    tags VARCHAR(100)[],
-    metadata JSONB,
-    is_active BOOLEAN DEFAULT TRUE,
-    execution_count INTEGER DEFAULT 0,
-    last_executed_at TIMESTAMP,
-    created_at TIMESTAMP DEFAULT NOW(),
-    updated_at TIMESTAMP DEFAULT NOW()
-);
-```
-
-Rules:
-
-- `history` can store either `cypher_query` or `catalog_id + catalog_view + parameters`.
-- `favorite` can reference a catalog query without copying its Cypher.
-- `custom` stores user-authored Cypher.
-- Catalog entries remain in YAML.
-
-### Future API Endpoints
-
-| Method | Endpoint | Description |
-| --- | --- | --- |
-| GET | `/history` | List recent query history |
-| POST | `/history` | Save executed query |
-| DELETE | `/history/{id}` | Remove history entry |
-| GET | `/favorites` | List favorite queries |
-| POST | `/favorites` | Create favorite |
-| PATCH | `/favorites/{id}` | Update favorite metadata |
-| DELETE | `/favorites/{id}` | Remove favorite |
-
-### Notes
-
-Favorites should store catalog references when possible. This lets a favorite benefit from future YAML query fixes without stale duplicated Cypher.
-
----
-
-## Phase 6: Catalog Metadata Improvements
+## Phase 5: Catalog Metadata Improvements
 
 ### Objectives
 
@@ -628,7 +572,6 @@ Useful additions:
 - Users can run a catalog query in fewer than three interactions.
 - Graph and tabular variants both work from the catalog UI.
 - Parameterized person-to-person queries can be executed without editing Cypher.
-- No shipped catalog query is duplicated into PostgreSQL.
 
 ---
 
