@@ -189,6 +189,8 @@ Execution response should reuse the existing Graph API response model:
 
 ## Phase 1: Catalog Loader and Validation
 
+**Status**: Complete
+
 ### Objectives
 
 - Load the YAML catalog from disk.
@@ -198,13 +200,13 @@ Execution response should reuse the existing Graph API response model:
 
 ### Tasks
 
-- [ ] **1.1 Create Catalog Module**
+- [x] **1.1 Create Catalog Module**
   - Suggested file: `src/app/query_catalog/__init__.py`
   - Suggested file: `src/app/query_catalog/loader.py`
   - Suggested file: `src/app/query_catalog/model.py`
   - Keep filesystem access isolated in this module.
 
-- [ ] **1.2 Define Pydantic Models**
+- [x] **1.2 Define Pydantic Models**
   - Suggested models:
     - `CatalogNamespace`
     - `CatalogParameter`
@@ -217,7 +219,7 @@ Execution response should reuse the existing Graph API response model:
     - Parameters have `name` and `required`.
     - Query IDs are stable and path-safe.
 
-- [ ] **1.3 Implement Loader**
+- [x] **1.3 Implement Loader**
   - Read `queries_catalog/catalog.yaml`.
   - Iterate namespaces in declared order.
   - Load `*.yaml` files from each namespace directory.
@@ -225,12 +227,12 @@ Execution response should reuse the existing Graph API response model:
   - Attach namespace metadata to each query.
   - Sort by namespace order, then query name.
 
-- [ ] **1.4 Validate Cypher Variants**
+- [x] **1.4 Validate Cypher Variants**
   - Reuse existing graph query read-only validation from `src/app/api/graph/v1/query.py`.
   - Validate both `graph` and `tabular` variants.
   - Fail fast at startup or return clear loader errors in tests.
 
-- [ ] **1.5 Tests**
+- [x] **1.5 Tests**
   - Suggested file: `tests/test_query_catalog_loader.py`
   - Cover:
     - Master catalog loads.

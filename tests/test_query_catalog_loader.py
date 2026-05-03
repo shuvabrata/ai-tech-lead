@@ -1,0 +1,101 @@
+"""Unit tests for the query catalog loader."""
+
+from pathlib import Path
+
+import pytest
+import yaml
+
+from app.query_catalog import CatalogLoadError, get_catalog_query, load_catalog, load_namespaces
+
+
+pytestmark = pytest.mark.unit
+
+
+CATALOG_DIR = Path(__file__).resolve().parent.parent / "queries_catalog"
+
+
+def test_load_namespaces_from_master_catalog():
+    namespaces = load_namespaces(CATALOG_DIR)
+
+    assert [namespace.directory for namespace in namespaces] == [
+        "schema",
+        "cross_domain",
+        "github",
+        "jira",
+        "people_and_identity",
+        "person_to_person",
+    ]
+    assert namespaces[0].name == "Schema"
+    assert namespaces[0].order == 0
+
+
+def test_load_catalog_normalizes_all_existing_entries():
+    queries = load_catalog(CATALOG_DIR)
+
+    assert len(queries) == 64
+    assert len({query.id for query in queries}) == len(queries)
+    assert all(query.available_views for query in queries)
+    assert all(query.namespace.name for query in queries)
+    assert all(query.source_path.startswith("queries_catalog/") for query in queries)
+
+
+def test_get_catalog_query_by_stable_id():
+    query = get_catalog_query("github/top_contributors", CATALOG_DIR)
+
+    assert query.name == "Top Contributors"
+    assert query.namespace.directory == "github"
+    assert query.slug == "top_contributors"
+    assert query.available_views == ["tabular", "graph"]
+    assert "LIMIT 10" in query.queries["tabular"]
+
+
+def test_parameterized_queries_are_detected():
+    queries = load_catalog(CATALOG_DIR)
+    parameterized = [query for query in queries if query.parameters]
+
+    assert len(parameterized) == 11
+    direct_reviews = get_catalog_query("person_to_person/direct_code_reviews", CATALOG_DIR)
+    assert [parameter.name for parameter in direct_reviews.parameters] == ["person1_id", "person2_id"]
+    assert all(parameter.required for parameter in direct_reviews.parameters)
+
+
+def test_rejects_invalid_query_shape(tmp_path):
+    catalog_dir = tmp_path / "queries_catalog"
+    namespace_dir = catalog_dir / "bad"
+    namespace_dir.mkdir(parents=True)
+    _write_yaml(
+        catalog_dir / "catalog.yaml",
+        {"namespaces": [{"name": "Bad", "directory": "bad"}]},
+    )
+    _write_yaml(
+        namespace_dir / "missing_queries.yaml",
+        {"name": "Missing Queries", "description": "No query variants."},
+    )
+
+    with pytest.raises(CatalogLoadError, match="queries mapping"):
+        load_catalog(catalog_dir)
+
+
+def test_rejects_non_read_only_catalog_query(tmp_path):
+    catalog_dir = tmp_path / "queries_catalog"
+    namespace_dir = catalog_dir / "bad"
+    namespace_dir.mkdir(parents=True)
+    _write_yaml(
+        catalog_dir / "catalog.yaml",
+        {"namespaces": [{"name": "Bad", "directory": "bad"}]},
+    )
+    _write_yaml(
+        namespace_dir / "write_query.yaml",
+        {
+            "name": "Write Query",
+            "description": "Should be rejected.",
+            "queries": {"tabular": "MATCH (n) DELETE n"},
+        },
+    )
+
+    with pytest.raises(CatalogLoadError, match="non-read-only tabular query"):
+        load_catalog(catalog_dir)
+
+
+def _write_yaml(path: Path, data: dict):
+    path.write_text(yaml.safe_dump(data), encoding="utf-8")
