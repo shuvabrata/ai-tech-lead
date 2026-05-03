@@ -14,6 +14,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy app code (includes alembic/, alembic.ini, entrypoint.sh)
 COPY src/app/ ./app/
 
+# Copy shipped query catalog used by the graph query workbench
+COPY queries_catalog/ ./queries_catalog/
+
 # Create non-root user for security
 RUN useradd -m -u 1000 -s /bin/bash appuser && \
     mkdir -p /var/log/app && \

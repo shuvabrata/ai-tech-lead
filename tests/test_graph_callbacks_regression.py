@@ -42,9 +42,10 @@ class _PostSequence:
     def __init__(self, responses):
         self._responses = responses
         self._idx = 0
+        self.calls = []
 
     def __call__(self, _url, json, timeout):
-        _ = (json, timeout)
+        self.calls.append({"url": _url, "json": json, "timeout": timeout})
         if self._idx >= len(self._responses):
             raise AssertionError("Unexpected extra requests.post call")
         response = self._responses[self._idx]
@@ -91,10 +92,24 @@ def test_execute_query_repeated_runs_refresh_baseline_and_filters(monkeypatch):
     monkeypatch.setattr(query_callbacks, "neo4j_to_cytoscape", _fake_neo4j_to_cytoscape)
 
     # First execute (Query A)
-    result_a = query_callbacks.execute_query(1, "MATCH (n)-[r]->(m) RETURN n, r, m LIMIT 10")
+    result_a = query_callbacks.execute_query(
+        1,
+        None,
+        "MATCH (n)-[r]->(m) RETURN n, r, m LIMIT 10",
+        None,
+        {},
+        None,
+    )
 
     # Second execute (Query B)
-    result_b = query_callbacks.execute_query(2, "MATCH (n) RETURN n LIMIT 1")
+    result_b = query_callbacks.execute_query(
+        2,
+        None,
+        "MATCH (n) RETURN n LIMIT 1",
+        None,
+        {},
+        None,
+    )
 
     # Output indices from execute_query callback contract
     ELEMENTS = 1
@@ -119,3 +134,17 @@ def test_execute_query_repeated_runs_refresh_baseline_and_filters(monkeypatch):
     assert result_b[REL_FILTER] == []
     assert result_b[WEIGHT_FILTER] == 0
     assert result_b[TOP_N_FILTER] == "all"
+
+    assert post_fake.calls[0]["url"].endswith("/api/v1/graph/execute")
+    assert post_fake.calls[0]["json"] == {
+        "source": "raw",
+        "query": "MATCH (n)-[r]->(m) RETURN n, r, m LIMIT 10",
+        "view": "auto",
+        "parameters": {},
+    }
+    assert post_fake.calls[1]["json"] == {
+        "source": "raw",
+        "query": "MATCH (n) RETURN n LIMIT 1",
+        "view": "auto",
+        "parameters": {},
+    }

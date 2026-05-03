@@ -1,29 +1,55 @@
 """Pydantic models for Graph API v1 - Cypher query execution and graph data."""
 
-from typing import Any, Dict, List, Optional
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from typing import Any, Dict, List, Literal, Optional
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.settings import settings
 
 
-class CypherQueryRequest(BaseModel):
-    """Request model for executing a Cypher query."""
-    
-    query: str = Field(
-        ...,
+class GraphExecuteRequest(BaseModel):
+    """Unified request model for raw and catalog-backed graph execution."""
+
+    source: Literal["raw", "catalog"] = Field(
+        default="raw",
+        description="Whether to execute a raw Cypher query or a catalog query",
+    )
+    query: Optional[str] = Field(
+        default=None,
         min_length=1,
         max_length=10000,
-        description="Cypher query to execute against Neo4j",
-        examples=["MATCH (n) RETURN n LIMIT 25"]
+        description="Cypher query to execute when source is raw",
+        examples=["MATCH (n) RETURN n LIMIT 25"],
     )
-    
-    @field_validator('query')
-    @classmethod
-    def validate_query_not_empty(cls, v: str) -> str:
-        """Ensure query is not just whitespace."""
-        if not v or not v.strip():
-            raise ValueError("Query cannot be empty or whitespace only")
-        return v.strip()
+    catalog_id: Optional[str] = Field(
+        default=None,
+        min_length=1,
+        description="Stable catalog id to execute when source is catalog",
+        examples=["github/top_contributors"],
+    )
+    view: Literal["auto", "graph", "tabular"] = Field(
+        default="auto",
+        description="Requested result view. Catalog queries require graph or tabular.",
+    )
+    parameters: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Neo4j query parameters",
+    )
+
+    @model_validator(mode="after")
+    def validate_source_contract(self) -> "GraphExecuteRequest":
+        """Validate source-specific required fields."""
+        if self.query is not None:
+            self.query = self.query.strip()
+        if self.catalog_id is not None:
+            self.catalog_id = self.catalog_id.strip()
+
+        if self.source == "raw" and not self.query:
+            raise ValueError("source='raw' requires query")
+
+        if self.source == "catalog" and not self.catalog_id:
+            raise ValueError("source='catalog' requires catalog_id")
+
+        return self
 
 
 class GraphNode(BaseModel):

@@ -5,7 +5,8 @@ Callbacks for query validation and execution.
 
 import time
 import requests
-from dash import html, Input, Output, State, callback
+from dash import ctx, html, Input, Output, State, callback
+from dash.exceptions import MissingCallbackContextException
 
 from app.settings import settings
 from app.common.logger import logger
@@ -91,12 +92,23 @@ def validate_query(query_text):
     Output("relationship-type-filter", "value", allow_duplicate=True),
     Output("weight-threshold-slider", "value", allow_duplicate=True),
     Output("top-n-toggle", "value", allow_duplicate=True)],
-    [Input("graph-execute-btn", "n_clicks")],
-    [State("graph-query-input", "value")],
+    [Input("graph-execute-btn", "n_clicks"),
+     Input("catalog-run-btn", "n_clicks")],
+    [State("graph-query-input", "value"),
+     State("selected-catalog-query-store", "data"),
+     State("catalog-parameters-store", "data"),
+     State("catalog-query-view-toggle", "value")],
     prevent_initial_call=True
 )
-def execute_query(_n_clicks, query_text):
-    """Execute Cypher query and display results"""
+def execute_query(
+    _raw_clicks,
+    _catalog_clicks,
+    query_text,
+    selected_catalog_query,
+    catalog_parameters,
+    catalog_view,
+):
+    """Execute raw console queries and catalog queries via the unified API."""
     # Default empty states
     empty_elements = []
     hide_style = {"display": "none"}
@@ -152,32 +164,64 @@ def execute_query(_n_clicks, query_text):
             [],
         )
     
-    # Validate query not empty
-    if not query_text or not query_text.strip():
-        error_display = create_error_alert(
-            "Please enter a Cypher query before executing.",
-            alert_type='warning',
-            heading=None
-        )
-        return error_response(error_display)
+    try:
+        triggered_id = ctx.triggered_id or "graph-execute-btn"
+    except MissingCallbackContextException:
+        triggered_id = "graph-execute-btn"
+
+    if triggered_id == "catalog-run-btn":
+        selected_catalog_query = selected_catalog_query or {}
+        catalog_id = selected_catalog_query.get("id")
+        if not catalog_id:
+            error_display = create_error_alert(
+                "Select a catalog query before running it.",
+                alert_type='warning',
+                heading=None
+            )
+            return error_response(error_display)
+
+        payload = {
+            "source": "catalog",
+            "catalog_id": catalog_id,
+            "view": catalog_view or "auto",
+            "parameters": catalog_parameters or {},
+        }
+        query_preview = catalog_id
+        query_length = len(catalog_id)
+    else:
+        # Validate query not empty
+        if not query_text or not query_text.strip():
+            error_display = create_error_alert(
+                "Please enter a Cypher query before executing.",
+                alert_type='warning',
+                heading=None
+            )
+            return error_response(error_display)
+
+        payload = {
+            "source": "raw",
+            "query": query_text,
+            "view": "auto",
+            "parameters": {},
+        }
+        query_preview = (query_text or "").strip().replace("\n", " ")[:120]
+        query_length = len((query_text or "").strip())
     
     # Get API base URL
     api_base = get_graph_api_base_url()
     
     # Track execution time
     start_time = time.time()
-    query_preview = (query_text or "").strip().replace("\n", " ")[:120]
     logger.info(
         "[GRAPH-DEBUG][query.execute] start "
-        f"query_len={len((query_text or '').strip())} api_base={api_base} "
-        f"preview='{query_preview}'"
+        f"trigger={triggered_id} query_len={query_length} api_base={api_base} preview='{query_preview}'"
     )
     
     try:
         # Send query to API
         response = requests.post(
-            f"{api_base}/api/v1/graph/query",
-            json={"query": query_text},
+            f"{api_base}/api/v1/graph/execute",
+            json=payload,
             timeout=TIMEOUT_SECONDS
         )
         
