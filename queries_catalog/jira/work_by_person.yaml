@@ -1,5 +1,9 @@
 name: Work by Person
 description: Work assigned to each person.
+summary: "Work assigned to each person."
+default_view: tabular
+owner: jira-analytics
+status: active
 queries:
   tabular: |-
     MATCH (i:Issue)-[:ASSIGNED_TO]-(p:Person)

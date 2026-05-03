@@ -1,5 +1,9 @@
 name: Epics by Team
 description: Epics assigned to each team.
+summary: "Epics assigned to each team."
+default_view: tabular
+owner: jira-analytics
+status: active
 queries:
   tabular: |-
     MATCH (e:Epic)-[:TEAM]-(t:Team)

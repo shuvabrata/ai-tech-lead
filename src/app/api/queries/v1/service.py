@@ -69,9 +69,12 @@ def _matches_search(catalog_query: CatalogQuery, search_text: str) -> bool:
             catalog_query.id,
             catalog_query.name,
             catalog_query.description,
+            catalog_query.summary or "",
             catalog_query.namespace.name,
             catalog_query.namespace.directory,
             " ".join(catalog_query.tags),
+            catalog_query.owner or "",
+            catalog_query.status or "",
         ]
     ).lower()
     return search_text in haystack

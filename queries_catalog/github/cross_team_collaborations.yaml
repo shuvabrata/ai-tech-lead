@@ -1,5 +1,9 @@
 name: Cross-Team Collaborations
 description: Teams with READ access to repositories.
+summary: "Teams with READ access to repositories."
+default_view: tabular
+owner: github-analytics
+status: active
 queries:
   tabular: |-
     MATCH (t:Team)-[c:COLLABORATOR {permission: 'READ'}]-(r:Repository)

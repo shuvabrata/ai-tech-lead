@@ -1,5 +1,9 @@
 name: Multi-Repository Contributors
 description: People working across multiple repos.
+summary: "People working across multiple repos."
+default_view: tabular
+owner: github-analytics
+status: active
 queries:
   tabular: |-
     MATCH (p:Person)-[c:COLLABORATOR]-(r:Repository)

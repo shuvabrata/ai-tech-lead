@@ -1,5 +1,9 @@
 name: Initiatives with Assignees
 description: Initiatives with assignees and reporters.
+summary: "Initiatives with assignees and reporters."
+default_view: tabular
+owner: jira-analytics
+status: active
 queries:
   tabular: |-
     MATCH (i:Initiative)-[:ASSIGNED_TO]-(assignee:Person),

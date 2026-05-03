@@ -1,5 +1,9 @@
 name: Stale Branches
 description: Stale branches (candidates for cleanup) - Data Quality check.
+summary: "Stale branches (candidates for cleanup) - Data Quality check."
+default_view: tabular
+owner: github-analytics
+status: active
 queries:
   tabular: |-
     MATCH (b:Branch)

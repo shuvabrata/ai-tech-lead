@@ -13,6 +13,7 @@ from app.common.logger import logger
 from app.dash_app.components.common import create_alert
 from app.dash_app.styles import (
     COLOR_BACKGROUND_WHITE,
+    COLOR_CHARCOAL,
     COLOR_BORDER,
     COLOR_CHARCOAL_MEDIUM,
     COLOR_TEXT_SECONDARY,
@@ -107,6 +108,9 @@ def determine_catalog_view(
         return current_view
     if requested_view in available_views:
         return requested_view
+    default_view = catalog_query.get("default_view")
+    if default_view in available_views:
+        return default_view
     if "graph" in available_views:
         return "graph"
     if available_views:
@@ -134,12 +138,69 @@ def _query_matches(query: dict, needle: str) -> bool:
             query.get("id", ""),
             query.get("name", ""),
             query.get("description", ""),
+            query.get("summary", ""),
             namespace.get("name", ""),
             namespace.get("directory", ""),
             " ".join(query.get("tags") or []),
+            query.get("owner", ""),
+            query.get("status", ""),
         ]
     ).lower()
     return needle in haystack
+
+
+def _status_badge_color(status: str | None) -> str:
+    if status == "active":
+        return "success"
+    if status == "draft":
+        return "warning"
+    if status == "deprecated":
+        return "secondary"
+    return "secondary"
+
+
+def _build_status_badge(status: str | None):
+    if not status:
+        return None
+    return dbc.Badge(
+        status.title(),
+        color=_status_badge_color(status),
+        className="ms-2",
+    )
+
+
+def _parameter_label(parameter: dict) -> str:
+    return parameter.get("label") or parameter.get("name") or "Parameter"
+
+
+def _parameter_placeholder(parameter: dict) -> str:
+    return parameter.get("placeholder") or parameter.get("env_var") or parameter.get("name") or ""
+
+
+def _build_parameter_help_text(parameter: dict):
+    help_parts: list = []
+    description = parameter.get("description")
+    env_var = parameter.get("env_var")
+    parameter_type = parameter.get("type")
+
+    if description:
+        help_parts.append(html.Span(description))
+    if parameter_type:
+        if help_parts:
+            help_parts.append(html.Br())
+        help_parts.append(html.Span(f"Type: {parameter_type}"))
+    if env_var:
+        if help_parts:
+            help_parts.append(html.Br())
+        help_parts.append(html.Span(f"Env hint: {env_var}"))
+
+    if not help_parts:
+        return None
+
+    return html.Div(
+        help_parts,
+        style={"fontSize": "11px", "color": COLOR_TEXT_SECONDARY, "marginTop": "4px"},
+    )
 
 
 @callback(
@@ -271,10 +332,17 @@ def render_catalog_query_list(
     for query in filtered:
         namespace = query.get("namespace") or {}
         subtitle = namespace.get("name", "")
+        status_badge = _build_status_badge(query.get("status"))
         items.append(
             dbc.ListGroupItem(
                 [
-                    html.Div(query.get("name", "Untitled"), style={"fontWeight": 600, "fontSize": "12px"}),
+                    html.Div(
+                        [
+                            html.Span(query.get("name", "Untitled")),
+                            status_badge,
+                        ],
+                        style={"fontWeight": 600, "fontSize": "12px"},
+                    ),
                     html.Div(subtitle, style={"fontSize": "11px", "color": COLOR_TEXT_SECONDARY}),
                 ],
                 id={"type": "catalog-query-select", "catalog_id": query.get("id")},
@@ -338,19 +406,44 @@ def render_catalog_query_detail(
     missing_required = required_parameters_missing(query, parameter_values)
 
     tags = query.get("tags") or []
+    status_badge = _build_status_badge(query.get("status"))
     detail_children = [
-        html.Div(query.get("name", "Untitled"), style={"fontSize": "16px", "fontWeight": 600}),
+        html.Div(
+            [
+                html.Span(query.get("name", "Untitled")),
+                status_badge,
+            ],
+            style={"fontSize": "16px", "fontWeight": 600, "color": COLOR_CHARCOAL},
+        ),
         html.Div(
             query.get("description", ""),
             style={"fontSize": "12px", "color": COLOR_TEXT_SECONDARY, "marginTop": "6px"},
         ),
     ]
 
+    summary = query.get("summary")
+    if summary:
+        detail_children.append(
+            html.Div(
+                summary,
+                style={"fontSize": "12px", "color": COLOR_CHARCOAL_MEDIUM, "marginTop": "6px"},
+            )
+        )
+
     if tags:
         detail_children.append(
             html.Div(
                 [dbc.Badge(tag, color="light", text_color="dark", className="me-1") for tag in tags],
                 className="mt-2",
+            )
+        )
+
+    owner = query.get("owner")
+    if owner:
+        detail_children.append(
+            html.Div(
+                f"Owner: {owner}",
+                style={"fontSize": "11px", "color": COLOR_TEXT_SECONDARY, "marginTop": "10px"},
             )
         )
 
@@ -369,12 +462,12 @@ def render_catalog_query_detail(
     parameter_children = []
     for parameter in query.get("parameters") or []:
         parameter_name = parameter.get("name")
-        env_var = parameter.get("env_var")
         required = parameter.get("required", False)
+        parameter_help = _build_parameter_help_text(parameter)
         parameter_children.append(
             html.Div([
                 html.Label(
-                    f"{parameter_name}{' *' if required else ''}",
+                    f"{_parameter_label(parameter)}{' *' if required else ''}",
                     style={"fontSize": "12px", "fontWeight": 600, "marginBottom": "4px"},
                 ),
                 dbc.Input(
@@ -382,12 +475,9 @@ def render_catalog_query_detail(
                     value=parameter_values.get(parameter_name, ""),
                     type="text",
                     size="sm",
-                    placeholder=env_var or parameter_name,
+                    placeholder=_parameter_placeholder(parameter),
                 ),
-                html.Div(
-                    f"Required parameter. Env hint: {env_var}" if required and env_var else (env_var or ""),
-                    style={"fontSize": "11px", "color": COLOR_TEXT_SECONDARY, "marginTop": "4px"},
-                ),
+                parameter_help,
             ], className="mb-3")
         )
 

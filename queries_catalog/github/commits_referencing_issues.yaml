@@ -1,5 +1,9 @@
 name: Commits Referencing Issues
 description: Commits referencing Jira issues by issue type.
+summary: "Commits referencing Jira issues by issue type."
+default_view: tabular
+owner: github-analytics
+status: active
 queries:
   tabular: |-
     MATCH (c:Commit)-[:REFERENCES]->(i:Issue)

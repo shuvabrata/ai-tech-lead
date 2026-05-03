@@ -1,12 +1,22 @@
 name: Shared Code Hotspots
 description: Find files (hotspots) that both developers have modified.
+summary: Compare two people by the files they have both changed.
+default_view: tabular
 parameters:
 - name: person1_id
   env_var: PERSON1_ID
   required: true
+  label: First person
+  type: person_id
+  placeholder: Enter first person id
+  description: Neo4j Person.id for the first person.
 - name: person2_id
   env_var: PERSON2_ID
   required: true
+  label: Second person
+  type: person_id
+  placeholder: Enter second person id
+  description: Neo4j Person.id for the second person.
 queries:
   tabular: |-
     MATCH (p1:Person {id: $person1_id}), (p2:Person {id: $person2_id})
@@ -26,3 +36,5 @@ tags:
 - test
 - table
 - graph
+owner: graph-team
+status: active

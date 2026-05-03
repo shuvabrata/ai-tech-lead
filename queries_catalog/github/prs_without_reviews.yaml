@@ -1,5 +1,9 @@
 name: PRs Without Reviews
 description: PRs without reviews - Data Quality check.
+summary: "PRs without reviews - Data Quality check."
+default_view: tabular
+owner: github-analytics
+status: active
 queries:
   tabular: |-
     MATCH (pr:PullRequest)

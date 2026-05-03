@@ -1,5 +1,9 @@
 name: View All Node Types
 description: Count all nodes by type.
+summary: "Count all nodes by type."
+default_view: tabular
+owner: graph-platform
+status: active
 queries:
   tabular: |-
     MATCH (n)
