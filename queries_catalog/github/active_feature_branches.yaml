@@ -6,6 +6,7 @@ queries:
         WHERE NOT b.is_default AND NOT b.is_deleted
         RETURN r.name, b.name, b.last_commit_timestamp
         ORDER BY b.last_commit_timestamp DESC
+        LIMIT 10
   graph: |-
     MATCH p1=(b:Branch)-[:BRANCH_OF]-(r:Repository)
         WHERE NOT b.is_default AND NOT b.is_deleted

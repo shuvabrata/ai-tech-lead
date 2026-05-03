@@ -13,6 +13,7 @@ queries:
     RETURN p1.name as person1,
            p2.name as person2,
            t.name as shared_team
+        LIMIT 10
   graph: |-
     MATCH (p1:Person {id: $person1_id}), (p2:Person {id: $person2_id})
     MATCH path = (p1)-[:MEMBER_OF]-(t:Team)-[:MEMBER_OF]-(p2)

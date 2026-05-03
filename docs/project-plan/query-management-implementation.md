@@ -1,531 +1,568 @@
-# Query Management System - Implementation Plan
+# Query Catalog Integration - Implementation Plan
 
 **Status**: Planning Phase  
 **Created**: March 2, 2026  
-**Last Updated**: March 2, 2026  
-**Related**: Graph Visualization (Phase 5.2, 5.3), Future AI Query Generation
+**Last Updated**: May 3, 2026  
+**Related**: Graph Visualization, Query Catalog, Future Query History and Favorites
 
 ## Overview
 
-A comprehensive query management system to store, organize, and serve Cypher queries for the Neo4j graph visualization feature. The system supports multiple query types (examples, history, favorites) with full CRUD capabilities, enabling both out-of-the-box examples and user personalization.
+Build a query catalog experience for the Graph page using the YAML files in `queries_catalog/` as the source of truth for shipped queries. The catalog already contains curated Cypher queries grouped by namespace, with both tabular and graph variants. The application should expose those queries through an API and present them in the Dash UI as a browsable, searchable workbench.
+
+This replaces the earlier database-first example-query plan. PostgreSQL should not be used for shipped catalog queries. Database-backed storage can be introduced later for user-owned data such as query history, favorites, custom saved queries, and catalog usage metrics.
 
 ### Key Features
-- **Example Queries**: Curated, pre-configured queries shipped with the application
-- **Query History**: Automatic tracking of executed queries (Phase 5.3)
-- **Favorite Queries**: User-saved queries for quick access (Phase 5.3)
-- **Full CRUD API**: Create, read, update, delete operations
-- **Categorization**: Tags, categories, and metadata for organization
-- **Frontend Integration**: Accordion UI, history dropdown, favorites list
+
+- **YAML Source of Truth**: Curated catalog queries live in `queries_catalog/` and are versioned with the repository.
+- **Namespace Organization**: Query groups come from `queries_catalog/catalog.yaml`.
+- **Graph and Table Variants**: Each catalog entry can expose `queries.graph` and `queries.tabular`.
+- **Parameter Support**: Parameterized queries, such as person-to-person queries, render inputs in the UI and execute with Neo4j parameters.
+- **Catalog API**: FastAPI endpoints serve normalized catalog metadata and execute catalog queries.
+- **Graph Page Integration**: The Graph page becomes a query workbench with catalog browsing plus the existing Cypher console.
+- **Future Personalization**: Query history, favorites, and custom saved queries can use PostgreSQL later without duplicating the shipped catalog.
 
 ### Design Principles
-- **Database-First**: PostgreSQL as single source of truth
-- **Extensible Schema**: Support multiple query types with single table
-- **REST API**: Following existing three-layer pattern (router → service → query)
-- **Secure**: User-scoped data, validation, read-only query enforcement
-- **Migration-Ready**: Alembic migrations for schema changes
+
+- **Catalog-first**: Shipped examples are files, not database rows.
+- **No Duplication**: Do not seed catalog YAML into PostgreSQL.
+- **Stable IDs**: Query IDs are derived from namespace directory and filename, such as `github/top_contributors`.
+- **Safe Execution**: Catalog queries are still validated as read-only before execution.
+- **Parameter Safety**: Use Neo4j parameters, not string interpolation.
+- **Incremental UI**: Reuse the existing Graph page executor and rendering behavior where possible.
+- **Clear Ownership**: YAML catalog owns shipped queries; database owns user-generated state later.
 
 ---
 
-## Architecture
+## Current Catalog Shape
 
-### Database Schema
+### Master Catalog
 
-**Table**: `saved_queries`
+File: `queries_catalog/catalog.yaml`
 
-```sql
-CREATE TABLE saved_queries (
-    id SERIAL PRIMARY KEY,
-    query_type VARCHAR(20) NOT NULL,  -- 'example', 'history', 'favorite'
-    title VARCHAR(200),                -- NULL for history entries
-    description TEXT,                   -- NULL for history entries
-    cypher_query TEXT NOT NULL,
-    category VARCHAR(50),               -- e.g., 'relationships', 'analytics', 'admin'
-    tags VARCHAR(100)[],                -- Array of tags for filtering
-    metadata JSONB,                     -- Flexible storage for additional data
-    is_active BOOLEAN DEFAULT TRUE,     -- Soft delete flag
-    display_order INTEGER,              -- For sorting examples
-    execution_count INTEGER DEFAULT 0,  -- Track popularity
-    last_executed_at TIMESTAMP,         -- For history sorting
-    created_at TIMESTAMP DEFAULT NOW(),
-    updated_at TIMESTAMP DEFAULT NOW()
-);
-
--- Indexes
-CREATE INDEX idx_saved_queries_type ON saved_queries(query_type);
-CREATE INDEX idx_saved_queries_category ON saved_queries(category);
-CREATE INDEX idx_saved_queries_active ON saved_queries(is_active);
-CREATE INDEX idx_saved_queries_last_executed ON saved_queries(last_executed_at DESC);
+```yaml
+namespaces:
+- name: Schema
+  directory: schema
+- name: Cross-Domain
+  directory: cross_domain
+- name: GitHub
+  directory: github
+- name: Jira
+  directory: jira
+- name: People & Identity
+  directory: people_and_identity
+- name: Person-to-Person
+  directory: person_to_person
 ```
 
-### Query Types
+### Query Entry
 
-1. **Example Queries** (`query_type='example'`)
-   - Pre-configured by developers
-   - Shipped with application (seeded via migration)
-   - Title, description, category required
-   - `is_active=True` for visible examples
-   - Sorted by `display_order`
+Example: `queries_catalog/github/top_contributors.yaml`
 
-2. **Query History** (`query_type='history'`)
-   - Auto-saved on execution
-   - No title/description (uses query text)
-   - Limited to last 50 entries (cleanup job)
-   - Sorted by `last_executed_at DESC`
+```yaml
+name: Top Contributors
+description: Top 10 contributors by commit count.
+queries:
+  tabular: |-
+    MATCH (p:Person)-[:AUTHORED_BY]-(c:Commit)
+    RETURN p.name as name, p.title as title, count(c) as commits
+    ORDER BY commits DESC
+    LIMIT 10
+  graph: |-
+    MATCH p1=(p:Person)-[:AUTHORED_BY]-(c:Commit)
+    RETURN p1
+    LIMIT 100
+tags:
+- test
+- table
+- graph
+```
 
-3. **Favorite Queries** (`query_type='favorite'`)
-   - User-created bookmarks (Phase 5.3+)
-   - User provides title/description
-   - Can be created from history or examples
-   - Future: Add `user_id` column for multi-user support
+Parameterized entries may include:
+
+```yaml
+parameters:
+- name: person1_id
+  env_var: PERSON1_ID
+  required: true
+- name: person2_id
+  env_var: PERSON2_ID
+  required: true
+```
+
+---
+
+## Target Architecture
+
+### Source of Truth
+
+| Data Type | Source |
+| --- | --- |
+| Shipped catalog queries | YAML files in `queries_catalog/` |
+| Namespace ordering and labels | `queries_catalog/catalog.yaml` |
+| Query history | PostgreSQL, future phase |
+| Favorites | PostgreSQL, future phase |
+| User-created custom queries | PostgreSQL, future phase |
+| Catalog usage metrics | PostgreSQL or analytics store, future phase |
+
+### Normalized Catalog Model
+
+The backend should normalize YAML into a stable shape:
+
+```json
+{
+  "id": "github/top_contributors",
+  "name": "Top Contributors",
+  "description": "Top 10 contributors by commit count.",
+  "namespace": {
+    "name": "GitHub",
+    "directory": "github"
+  },
+  "queries": {
+    "tabular": "...",
+    "graph": "..."
+  },
+  "available_views": ["tabular", "graph"],
+  "parameters": [],
+  "tags": ["test", "table", "graph"],
+  "source_path": "queries_catalog/github/top_contributors.yaml"
+}
+```
 
 ### API Endpoints
 
 **Base Path**: `/api/v1/queries`
 
-| Method | Endpoint | Description | Use Case |
-|--------|----------|-------------|----------|
-| GET | `/examples` | List all active example queries | Phase 5.2 - Populate accordion |
-| GET | `/examples/{id}` | Get specific example | View details |
-| POST | `/examples` | Create new example | Admin: Add new example |
-| PATCH | `/examples/{id}` | Update example | Admin: Modify existing |
-| DELETE | `/examples/{id}` | Soft delete example | Admin: Hide broken query |
-| GET | `/history` | List recent query history | Phase 5.3 - History dropdown |
-| POST | `/history` | Save executed query to history | Auto-save on execution |
-| DELETE | `/history/{id}` | Remove history entry | User cleanup |
-| GET | `/favorites` | List favorite queries | Phase 5.3 - Favorites list |
-| POST | `/favorites` | Create favorite | User saves query |
-| PATCH | `/favorites/{id}` | Update favorite | Edit title/description |
-| DELETE | `/favorites/{id}` | Remove favorite | Delete bookmark |
-| POST | `/{id}/execute` | Execute saved query | One-click execution |
+| Method | Endpoint | Description |
+| --- | --- | --- |
+| GET | `/catalog` | List normalized catalog entries |
+| GET | `/catalog/{catalog_id}` | Get one catalog entry |
+| POST | `/catalog/{catalog_id}/execute` | Execute graph or tabular variant with parameters |
+| GET | `/catalog/namespaces` | Optional endpoint for namespace metadata |
 
----
+Execution request:
 
-## Phase 1: Database Schema & Example Queries API
+```json
+{
+  "view": "graph",
+  "parameters": {
+    "person1_id": "person-1",
+    "person2_id": "person-2"
+  }
+}
+```
 
-### Objectives
-- Create database table for saved queries
-- Implement CRUD API for example queries
-- Seed initial example queries
-- Test with frontend integration (Phase 5.2)
+Execution response should reuse the existing Graph API response model where possible:
 
-### Tasks
-
-- [ ] **1.1 Create Database Model**
-  - File: `app/db/models/saved_query.py`
-  - Create SQLAlchemy model matching schema above
-  - Add `QueryType` enum: `EXAMPLE`, `HISTORY`, `FAVORITE`
-  - Add validation: required fields, query length limits
-  - Import in `app/db/models/__init__.py`
-
-- [ ] **1.2 Create Migration**
-  - Command: `alembic revision --autogenerate -m "create saved_queries table"`
-  - Review generated migration
-  - Add indexes manually if not auto-detected
-  - Test: `alembic upgrade head`
-
-- [ ] **1.3 Define Pydantic Models**
-  - File: `app/api/queries/v1/model.py`
-  - Models:
-    - `SavedQueryBase`: Common fields (title, description, cypher_query, etc.)
-    - `SavedQueryCreate`: For POST requests
-    - `SavedQueryUpdate`: For PATCH requests (all optional)
-    - `SavedQueryResponse`: For GET responses (includes id, timestamps)
-    - `ExampleQueryListResponse`: Paginated list wrapper
-  - Validation: Non-empty query, max lengths, valid query_type
-
-- [ ] **1.4 Implement Query Layer**
-  - File: `app/api/queries/v1/query.py`
-  - Functions:
-    - `get_examples(skip: int, limit: int)` - List active examples
-    - `get_example_by_id(id: int)` - Get single example
-    - `create_example(data: SavedQueryCreate)` - Insert new
-    - `update_example(id: int, data: SavedQueryUpdate)` - Update existing
-    - `soft_delete_example(id: int)` - Set is_active=False
-    - `get_examples_by_category(category: str)` - Filter by category
-  - All use async SQLAlchemy sessions
-  - Return ORM models
-
-- [ ] **1.5 Implement Service Layer**
-  - File: `app/api/queries/v1/service.py`
-  - Functions:
-    - `list_examples()` - Business logic for listing (sorting, filtering)
-    - `get_example_details(id)` - Validate existence
-    - `create_example_query(data)` - Validate Cypher query is read-only
-    - `update_example_query(id, data)` - Validate and update
-    - `delete_example_query(id)` - Soft delete with validation
-  - Integrate with existing graph API query validation
-  - Transform ORM models to Pydantic responses
-
-- [ ] **1.6 Implement Router**
-  - File: `app/api/queries/v1/router.py`
-  - Endpoints:
-    - `GET /api/v1/queries/examples` - List all examples
-    - `GET /api/v1/queries/examples/{id}` - Get example
-    - `POST /api/v1/queries/examples` - Create example
-    - `PATCH /api/v1/queries/examples/{id}` - Update example
-    - `DELETE /api/v1/queries/examples/{id}` - Delete example
-  - Error handling: 404 (not found), 400 (validation), 500 (database)
-  - Include router in `app/main.py`
-
-- [ ] **1.7 Seed Example Queries**
-  - File: `alembic/versions/YYYY_MM_DD_HHMM_seed_example_queries.py` (data migration)
-  - Seed 6-8 useful example queries:
-    1. **Show All People** (category: basic)
-       - Query: `MATCH (p:Person) RETURN p LIMIT 10`
-       - Description: "Display all people in the graph"
-    2. **People and Projects** (category: relationships)
-       - Query: `MATCH (p:Person)-[r:WORKS_ON]->(proj:Project) RETURN p, r, proj LIMIT 15`
-       - Description: "Show relationships between people and their projects"
-    3. **Project Dependencies** (category: relationships)
-       - Query: `MATCH (p1:Project)-[r:DEPENDS_ON]->(p2:Project) RETURN p1, r, p2 LIMIT 20`
-       - Description: "Visualize project dependency chains"
-    4. **Recent Issues** (category: analytics)
-       - Query: `MATCH (i:Issue) WHERE i.created_at > datetime() - duration('P7D') RETURN i LIMIT 25`
-       - Description: "Find issues created in the last 7 days"
-    5. **Active Branches** (category: code)
-       - Query: `MATCH (b:Branch)-[:BELONGS_TO]->(r:Repository) WHERE b.status = 'active' RETURN b, r LIMIT 20`
-       - Description: "Show active code branches and their repositories"
-    6. **Node Type Summary** (category: analytics)
-       - Query: `MATCH (n) RETURN labels(n) AS NodeType, count(n) AS Count ORDER BY Count DESC`
-       - Description: "Count nodes by type (tabular view)"
-  - Set appropriate `display_order`, `category`, `tags`
-
-- [ ] **1.8 Create Tests**
-  - File: `tests/test_queries_api.py`
-  - Test coverage:
-    - CRUD operations (create, read, update, delete)
-    - Validation (empty query, write operations)
-    - Filtering (by category, active status)
-    - Error handling (not found, invalid data)
-    - Seed data verification
-  - Target: 25+ tests
-
-### Verification
-```bash
-# List all example queries
-curl http://localhost:8000/api/v1/queries/examples
-
-# Get specific example
-curl http://localhost:8000/api/v1/queries/examples/1
-
-# Create new example (admin)
-curl -X POST http://localhost:8000/api/v1/queries/examples \
-  -H "Content-Type: application/json" \
-  -d '{
-    "title": "Test Query",
-    "description": "Sample description",
-    "cypher_query": "MATCH (n) RETURN n LIMIT 5",
-    "category": "basic",
-    "query_type": "example"
-  }'
-
-# Update example
-curl -X PATCH http://localhost:8000/api/v1/queries/examples/1 \
-  -H "Content-Type: application/json" \
-  -d '{"description": "Updated description"}'
-
-# Delete example
-curl -X DELETE http://localhost:8000/api/v1/queries/examples/1
+```json
+{
+  "nodes": [],
+  "relationships": [],
+  "rawResults": [],
+  "isGraph": true,
+  "resultCount": 0
+}
 ```
 
 ---
 
-## Phase 2: Frontend Integration (Example Queries)
+## Phase 1: Catalog Loader and Validation
 
 ### Objectives
-- Display example queries in Graph page
-- Click-to-populate functionality
-- Track example usage
+
+- Load the YAML catalog from disk.
+- Normalize all query entries.
+- Validate required fields and query variants.
+- Provide a small service API for other backend modules.
 
 ### Tasks
 
-- [ ] **2.1 Add Accordion Component**
-  - File: `app/dash_app/pages/graph.py`
-  - Add `dbc.Accordion` with id `example-queries-accordion`
-  - Position: Below query validation message, above Execute button
-  - Accordion items created dynamically from API data
-  - Each item shows: title, description, category badge, query preview
-  - Collapsed by default
+- [ ] **1.1 Create Catalog Module**
+  - Suggested file: `src/app/queries_catalog/__init__.py`
+  - Suggested file: `src/app/queries_catalog/loader.py`
+  - Suggested file: `src/app/queries_catalog/model.py`
+  - Keep filesystem access isolated in this module.
 
-- [ ] **2.2 Fetch Examples from API**
-  - File: `app/dash_app/pages/graph.py`
-  - Add callback on page load to fetch examples
-  - Endpoint: `GET /api/v1/queries/examples`
-  - Store in `dcc.Store` with id `examples-data-store`
-  - Handle API errors gracefully
+- [ ] **1.2 Define Pydantic Models**
+  - Suggested models:
+    - `CatalogNamespace`
+    - `CatalogParameter`
+    - `CatalogQuery`
+    - `CatalogQueryListResponse`
+    - `CatalogExecuteRequest`
+  - Validate:
+    - `name` is present.
+    - `description` is present.
+    - At least one of `queries.graph` or `queries.tabular` exists.
+    - Parameters have `name` and `required`.
+    - Query IDs are stable and path-safe.
 
-- [ ] **2.3 Populate Accordion**
-  - File: `app/dash_app/pages/graph.py`
-  - Callback: `populate_examples_accordion()`
-  - Input: `examples-data-store` data
-  - Output: `example-queries-accordion` children
-  - Group by category if needed
-  - Add "Use This Query" button for each example
+- [ ] **1.3 Implement Loader**
+  - Read `queries_catalog/catalog.yaml`.
+  - Iterate namespaces in declared order.
+  - Load `*.yaml` files from each namespace directory.
+  - Generate IDs as `{directory}/{filename_without_ext}`.
+  - Attach namespace metadata to each query.
+  - Sort by namespace order, then query name.
 
-- [ ] **2.4 Click-to-Populate Callback**
-  - File: `app/dash_app/pages/graph.py`
-  - Callback: `load_example_query()`
-  - Input: Button clicks from accordion items (pattern-matching callback)
-  - Output: `graph-query-input` value
-  - Populate textarea with selected example query
-  - Optional: Close accordion after selection
+- [ ] **1.4 Validate Cypher Variants**
+  - Reuse existing graph query read-only validation from `src/app/api/graph/v1/query.py`.
+  - Validate both `graph` and `tabular` variants.
+  - Fail fast at startup or return clear loader errors in tests.
 
-- [ ] **2.5 Track Usage**
-  - File: `app/dash_app/pages/graph.py`
-  - When example is used, increment `execution_count`
-  - Call backend API: `POST /api/v1/queries/examples/{id}/track`
-  - Update `last_executed_at` timestamp
-  - Use for analytics (most popular examples)
+- [ ] **1.5 Tests**
+  - Suggested file: `tests/test_query_catalog_loader.py`
+  - Cover:
+    - Master catalog loads.
+    - All query IDs are unique.
+    - Every query has at least one view.
+    - Existing parameterized queries are detected.
+    - Invalid YAML shape produces useful errors.
 
-### Verification
-- Open Graph page, verify accordion appears
-- Click "Use This Query" button
-- Verify query populates textarea
-- Execute query and verify it works
-- Check database: `execution_count` incremented
+### Notes
+
+Avoid caching too early unless file loading becomes expensive. A simple in-process cache is acceptable later, but tests should be able to reload from a temporary catalog path.
 
 ---
 
-## Phase 3: Query History (Auto-Save)
+## Phase 2: Catalog API
 
 ### Objectives
-- Auto-save executed queries
-- Display recent history
-- Load from history
+
+- Expose catalog metadata to the Dash frontend.
+- Execute catalog queries safely through a backend endpoint.
+- Support graph/table variants and parameters.
 
 ### Tasks
 
-- [ ] **3.1 Extend API for History**
-  - File: `app/api/queries/v1/router.py`
-  - Add endpoints:
-    - `GET /api/v1/queries/history?limit=50`
-    - `POST /api/v1/queries/history` (auto-save)
-    - `DELETE /api/v1/queries/history/{id}`
-  - Service layer handles history-specific logic:
-    - Limit to last 50 entries
-    - Auto-cleanup old entries
-    - No title/description required
+- [ ] **2.1 Create API Package**
+  - Suggested files:
+    - `src/app/api/queries/v1/model.py`
+    - `src/app/api/queries/v1/service.py`
+    - `src/app/api/queries/v1/router.py`
+  - Follow the existing API package style used by `src/app/api/projects/v1/` and `src/app/api/graph/v1/`.
 
-- [ ] **3.2 Auto-Save on Execution**
-  - File: `app/dash_app/pages/graph.py`
-  - Update `execute_query()` callback
-  - After successful execution, save to history:
-    - POST to `/api/v1/queries/history`
-    - Include query text and execution timestamp
-    - Silent failure (don't block on errors)
+- [ ] **2.2 Add List Endpoint**
+  - `GET /api/v1/queries/catalog`
+  - Optional query params:
+    - `namespace`
+    - `tag`
+    - `q` for search
+    - `view=graph|tabular`
+  - Return metadata and query text only if needed by the UI. If exposing Cypher is acceptable for the console, include it; otherwise provide detail endpoint for full text.
 
-- [ ] **3.3 History Dropdown**
-  - File: `app/dash_app/pages/graph.py`
-  - Add `dbc.Select` with id `query-history-select`
-  - Position: Above query textarea
-  - Options: Last 20 queries from history API
-  - Format: Truncated query text (first 50 chars)
+- [ ] **2.3 Add Detail Endpoint**
+  - `GET /api/v1/queries/catalog/{catalog_id}`
+  - Return complete catalog entry with both query variants.
+  - Support slash-containing IDs carefully. Options:
+    - Use a path parameter like `/catalog/{namespace}/{slug}`.
+    - Or encode IDs in URLs.
+  - Preferred route shape:
+    - `GET /api/v1/queries/catalog/{namespace}/{slug}`
+    - `POST /api/v1/queries/catalog/{namespace}/{slug}/execute`
 
-- [ ] **3.4 Load from History**
-  - File: `app/dash_app/pages/graph.py`
-  - Callback: `load_history_query()`
-  - Input: `query-history-select` value
-  - Output: `graph-query-input` value
-  - Fetch full query from history store
-  - Update `last_executed_at` timestamp
+- [ ] **2.4 Add Execute Endpoint**
+  - Validate requested view exists.
+  - Validate required parameters are present.
+  - Execute using Neo4j parameters, not string substitution.
+  - Reuse graph formatting from `src/app/api/graph/v1/service.py`.
 
-- [ ] **3.5 History Cleanup**
-  - File: `app/api/queries/v1/service.py`
-  - Function: `cleanup_old_history(max_entries=50)`
-  - Delete oldest entries beyond limit
-  - Run on each history save (or background job)
+- [ ] **2.5 Extend Existing Graph Execution Internals**
+  - Current public Graph API request only accepts `query`.
+  - Lower-level Neo4j execution already supports `parameters`.
+  - Add a service path that can execute `query + parameters` and format the result without duplicating graph transformation logic.
 
-### Verification
-- Execute multiple queries
-- Verify they appear in history dropdown
-- Select from history, verify query loads
-- Execute 60 queries, verify only last 50 kept
+- [ ] **2.6 Include Router**
+  - Register the queries router in `src/app/main.py` or the existing API router assembly location.
+
+- [ ] **2.7 Tests**
+  - Suggested file: `tests/test_query_catalog_api.py`
+  - Cover:
+    - List endpoint.
+    - Namespace filtering.
+    - Search.
+    - Detail lookup.
+    - Missing query returns 404.
+    - Missing required parameter returns 400.
+    - Invalid view returns 400.
 
 ---
 
-## Phase 4: Favorite Queries
+## Phase 3: Graph Page Catalog Workbench
 
 ### Objectives
-- Save queries as favorites
-- Organize favorites with titles/descriptions
-- Quick access to favorites
+
+- Present catalog queries directly inside the Graph page.
+- Let users browse, search, choose Graph/Table view, enter parameters, and run.
+- Keep the existing Cypher console available for inspection and manual edits.
+
+### Current Graph Page Files
+
+- Layout: `src/app/dash_app/pages/graph/layout.py`
+- Query execution callback: `src/app/dash_app/pages/graph/callbacks/query.py`
+- Analytics mode callbacks: `src/app/dash_app/pages/graph/callbacks/analytics_mode.py`
+- Collaboration mode callbacks: `src/app/dash_app/pages/graph/callbacks/collaboration.py`
+
+### UI Direction
+
+Use a catalog workbench rather than a long accordion:
+
+- Namespace tabs or dropdown.
+- Search input.
+- Query list grouped by namespace.
+- Query detail area with description and tags.
+- Graph/Table segmented control.
+- Parameter form for required parameters.
+- Buttons:
+  - `Run`
+  - `Load into Console`
+  - Future: `Save Favorite`
+
+The existing query console should remain the lower-level editor. Selecting a catalog query can populate the console. Running from the catalog can execute directly through the catalog API.
 
 ### Tasks
 
-- [ ] **4.1 Extend API for Favorites**
-  - File: `app/api/queries/v1/router.py`
-  - Add endpoints:
-    - `GET /api/v1/queries/favorites`
-    - `POST /api/v1/queries/favorites` (user creates)
-    - `PATCH /api/v1/queries/favorites/{id}` (edit)
-    - `DELETE /api/v1/queries/favorites/{id}` (remove)
+- [ ] **3.1 Add Layout Components**
+  - Update `src/app/dash_app/pages/graph/layout.py`.
+  - Add a new function such as `create_catalog_section()`.
+  - Place catalog controls above the Query Console or as a left-side workbench panel.
+  - Add stores:
+    - `dcc.Store(id="query-catalog-store")`
+    - `dcc.Store(id="selected-catalog-query-store")`
+    - `dcc.Store(id="catalog-parameters-store")`
 
-- [ ] **4.2 Add to Favorites Button**
-  - File: `app/dash_app/pages/graph.py`
-  - Add "⭐ Save as Favorite" button
-  - Position: Next to Execute button
-  - Opens modal for title/description input
+- [ ] **3.2 Create Catalog Callbacks**
+  - Suggested file: `src/app/dash_app/pages/graph/callbacks/catalog.py`
+  - Responsibilities:
+    - Fetch catalog from API on Graph page load.
+    - Filter by namespace/search/view.
+    - Render query list.
+    - Render selected query detail.
+    - Render parameter inputs.
+    - Populate console with selected query variant.
 
-- [ ] **4.3 Favorites Modal**
-  - File: `app/dash_app/pages/graph.py`
-  - `dbc.Modal` with form:
-    - Title input (required)
-    - Description textarea (optional)
-    - Category select (dropdown)
-    - Tags input (optional)
-  - Submit button saves to favorites API
+- [ ] **3.3 Direct Catalog Execution**
+  - Add a callback for the catalog `Run` button.
+  - Call `POST /api/v1/queries/catalog/{namespace}/{slug}/execute`.
+  - Reuse the same result rendering utilities already used by `callbacks/query.py`.
+  - Consider extracting common response-to-UI code from `execute_query()` to avoid duplication.
 
-- [ ] **4.4 Favorites List**
-  - File: `app/dash_app/pages/graph.py`
-  - Add `dbc.ListGroup` with id `favorites-list`
-  - Position: Sidebar or separate tab
-  - Each item shows: title, description, category
-  - Actions: Load, Edit, Delete
+- [ ] **3.4 Graph/Table Toggle**
+  - Use `dbc.RadioItems` or a segmented control with values:
+    - `graph`
+    - `tabular`
+  - Disable unavailable views if a query only has one variant.
+  - Default to `graph` when available, otherwise `tabular`.
 
-- [ ] **4.5 Load from Favorites**
-  - File: `app/dash_app/pages/graph.py`
-  - Click favorite item loads query
-  - Same as example/history functionality
+- [ ] **3.5 Parameter Inputs**
+  - Generate inputs from query metadata.
+  - Required parameters block execution until filled.
+  - Use parameter names as labels initially.
+  - Later enhancement: add parameter type, label, placeholder, and helper text to the YAML schema.
 
-### Verification
-- Execute query, save as favorite
-- Verify appears in favorites list
-- Edit favorite (change title)
-- Delete favorite
-- Load favorite query
+- [ ] **3.6 Deep Links**
+  - Support URLs like:
+    - `/app/graph?catalog=github/top_contributors&view=graph`
+    - `/app/graph?catalog=person_to_person/direct_code_reviews&view=tabular`
+  - Initial behavior can select and populate the query.
+  - Later behavior can auto-run when all required parameters are present.
 
----
-
-## Phase 5: Advanced Features (Future)
-
-### Optional Enhancements
-
-- [ ] **5.1 Query Templates with Parameters**
-  - Support placeholders: `MATCH (p:Person {name: $name}) RETURN p`
-  - UI inputs for parameter values
-  - Backend parameter substitution
-
-- [ ] **5.2 Shared Queries**
-  - Export query as shareable link
-  - Import from JSON/YAML
-  - Team query library
-
-- [ ] **5.3 Query Analytics**
-  - Most popular examples
-  - Most frequently executed queries
-  - Average execution time tracking
-
-- [ ] **5.4 Advanced Search**
-  - Full-text search across queries
-  - Filter by tags, category, date
-  - Fuzzy matching
-
-- [ ] **5.5 Query Versioning**
-  - Track query modifications
-  - Version history per favorite
-  - Rollback to previous versions
+- [ ] **3.7 Tests and Verification**
+  - Unit test pure helper functions where possible.
+  - Manually verify:
+    - Catalog loads.
+    - Search filters entries.
+    - Namespace selection works.
+    - Graph variant renders Cytoscape.
+    - Tabular variant renders table.
+    - Parameterized query shows inputs and validates required values.
 
 ---
 
-## Data Migration Strategy
+## Phase 4: Query History and Favorites
 
-### Initial Seed (Phase 1)
-```python
-# alembic/versions/YYYY_MM_DD_HHMM_seed_example_queries.py
-from alembic import op
-import sqlalchemy as sa
+### Objectives
 
-def upgrade():
-    op.execute("""
-        INSERT INTO saved_queries (
-            query_type, title, description, cypher_query, 
-            category, display_order, is_active
-        ) VALUES
-        ('example', 'Show All People', 
-         'Display all people in the graph',
-         'MATCH (p:Person) RETURN p LIMIT 10',
-         'basic', 1, TRUE),
-        -- ... more examples
-    """)
+- Add user-owned query state without duplicating the shipped catalog.
+- Store executed raw Cypher and selected catalog references.
 
-def downgrade():
-    op.execute("DELETE FROM saved_queries WHERE query_type = 'example'")
+### Database Scope
+
+Use PostgreSQL only for user state:
+
+```sql
+CREATE TABLE saved_queries (
+    id SERIAL PRIMARY KEY,
+    query_type VARCHAR(20) NOT NULL, -- history, favorite, custom
+    title VARCHAR(200),
+    description TEXT,
+    cypher_query TEXT,
+    catalog_id VARCHAR(200),
+    catalog_view VARCHAR(20),
+    parameters JSONB,
+    tags VARCHAR(100)[],
+    metadata JSONB,
+    is_active BOOLEAN DEFAULT TRUE,
+    execution_count INTEGER DEFAULT 0,
+    last_executed_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
 ```
 
-### Future Updates
-- Add new examples via data migrations
-- Deprecate old queries with `is_active=FALSE`
-- Update categories/tags as needed
+Rules:
+
+- `history` can store either `cypher_query` or `catalog_id + catalog_view + parameters`.
+- `favorite` can reference a catalog query without copying its Cypher.
+- `custom` stores user-authored Cypher.
+- Catalog entries remain in YAML.
+
+### Future API Endpoints
+
+| Method | Endpoint | Description |
+| --- | --- | --- |
+| GET | `/history` | List recent query history |
+| POST | `/history` | Save executed query |
+| DELETE | `/history/{id}` | Remove history entry |
+| GET | `/favorites` | List favorite queries |
+| POST | `/favorites` | Create favorite |
+| PATCH | `/favorites/{id}` | Update favorite metadata |
+| DELETE | `/favorites/{id}` | Remove favorite |
+
+### Notes
+
+Favorites should store catalog references when possible. This lets a favorite benefit from future YAML query fixes without stale duplicated Cypher.
+
+---
+
+## Phase 5: Catalog Metadata Improvements
+
+### Objectives
+
+Improve the YAML schema to make the UI more useful without hardcoding behavior.
+
+### Optional YAML Additions
+
+```yaml
+name: Direct Code Reviews
+description: Find all PRs created by one and reviewed by the other.
+summary: Code review collaboration between two people.
+default_view: graph
+parameters:
+- name: person1_id
+  label: First person
+  type: person_id
+  required: true
+  placeholder: Select a person
+- name: person2_id
+  label: Second person
+  type: person_id
+  required: true
+  placeholder: Select a person
+queries:
+  tabular: |-
+    ...
+  graph: |-
+    ...
+tags:
+- code-review
+- person-to-person
+```
+
+Useful additions:
+
+- `default_view`
+- Parameter `type`
+- Parameter `label`
+- Parameter `placeholder`
+- Parameter `description`
+- `recommended_layout`
+- `result_limit`
+- `owner`
+- `status`: active, draft, deprecated
 
 ---
 
 ## Security Considerations
 
-- **Query Validation**: All saved queries validated as read-only before storage
-- **Injection Prevention**: Parameterized queries, no string interpolation
-- **Soft Deletes**: Never hard-delete user data (use `is_active` flag)
-- **Future User Scoping**: Add `user_id` column when multi-user support added
-- **Rate Limiting**: Prevent abuse of history/favorites creation
-- **Input Sanitization**: Validate title/description fields (no XSS)
+- Validate all catalog Cypher as read-only.
+- Execute with Neo4j parameters.
+- Do not perform string interpolation for parameter values.
+- Validate parameter names against the catalog entry before execution.
+- Keep write operations blocked for raw console queries.
+- Avoid exposing filesystem paths in public API responses unless useful for internal debugging.
+- Future user-generated fields such as titles and descriptions should be sanitized for UI rendering.
 
 ---
 
 ## Testing Strategy
 
 ### Unit Tests
-- Query validation (read-only enforcement)
-- Model validation (Pydantic)
-- Service layer logic (sorting, filtering)
 
-### Integration Tests
-- CRUD operations end-to-end
-- API endpoints with real database
-- Seed data verification
-- History cleanup logic
+- Catalog YAML loader.
+- Stable ID generation.
+- Catalog schema validation.
+- Parameter requirement validation.
+- Search/filter helper functions.
 
-### Manual Testing
-- Frontend UI interactions
-- Example query execution
-- History auto-save
-- Favorites management
+### API Tests
+
+- Catalog list/detail endpoints.
+- Execute endpoint request validation.
+- Invalid namespace/slug handling.
+- Missing parameter handling.
+- Read-only validation failures.
+
+### Frontend Verification
+
+- Catalog section renders on Graph page.
+- Namespace and search controls work.
+- Query selection updates detail panel.
+- Graph/Table toggle updates selected variant.
+- `Load into Console` populates `graph-query-input`.
+- Catalog `Run` renders graph and table responses correctly.
 
 ---
 
 ## Success Metrics
 
-- **Phase 1**: 6+ example queries seeded, CRUD API working
-- **Phase 2**: Example queries visible in UI, click-to-populate functional
-- **Phase 3**: Query history auto-saves, last 50 accessible
-- **Phase 4**: Users can save/manage favorites
-- **Overall**: Reduced time to execute common queries (target: <5 seconds from load to execution)
+- All YAML catalog entries are discoverable in the Graph page.
+- Users can run a catalog query in fewer than three interactions.
+- Graph and tabular variants both work from the catalog UI.
+- Parameterized person-to-person queries can be executed without editing Cypher.
+- No shipped catalog query is duplicated into PostgreSQL.
 
 ---
 
 ## Dependencies
 
 ### New
-- None (uses existing PostgreSQL, SQLAlchemy, FastAPI)
+
+- None expected if PyYAML is already available in the project. If not, add it explicitly.
 
 ### Existing
-- `sqlalchemy` (async ORM)
-- `alembic` (migrations)
-- `fastapi` (REST API)
-- `pydantic` (validation)
-- `dash` (frontend)
+
+- `fastapi`
+- `pydantic`
+- `dash`
+- `dash_bootstrap_components`
+- Existing Graph API execution and formatting utilities
+- Existing YAML query catalog
 
 ---
 
 ## References
 
-- Graph Visualization Implementation: `graph-visualization-implementation.md`
-- Existing API patterns: `app/api/projects/v1/`, `app/api/chats/v1/`
-- Database models: `app/db/models/project.py`
+- Master catalog: `queries_catalog/catalog.yaml`
+- Query files: `queries_catalog/*/*.yaml`
+- Graph page layout: `src/app/dash_app/pages/graph/layout.py`
+- Graph query callback: `src/app/dash_app/pages/graph/callbacks/query.py`
+- Graph API: `src/app/api/graph/v1/`
+- Existing API style: `src/app/api/projects/v1/`
 
 ---
 
 ## Changelog
 
-- **2026-03-02**: Initial planning document created
-- **2026-03-02**: Defined 4-phase implementation approach
-- **2026-03-02**: Designed database schema with multi-type support
-- **2026-03-02**: Specified 6 initial example queries for seeding
+- **2026-03-02**: Initial database-first query management plan created.
+- **2026-05-03**: Reworked plan to use YAML query catalog as source of truth and reserve PostgreSQL for future history, favorites, and user-owned queries.

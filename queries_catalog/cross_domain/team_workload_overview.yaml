@@ -10,6 +10,7 @@ queries:
                count(DISTINCT i) as assigned_issues,
                count(DISTINCT c) as commits
         ORDER BY assigned_issues DESC
+        LIMIT 10
   graph: |-
     MATCH p1=(t:Team)-[:MEMBER_OF]-(p:Person)
         OPTIONAL MATCH p2=(p)-[:ASSIGNED_TO]-(i:Issue)

@@ -5,6 +5,7 @@ queries:
     MATCH (p:Project)<-[:PART_OF]-(i:Initiative)
         RETURN p.name, collect(i.summary) as initiatives
         ORDER BY p.name
+        LIMIT 10
   graph: |-
     MATCH p1=(p:Project)<-[:PART_OF]-(i:Initiative)
         RETURN p1
