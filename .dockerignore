@@ -3,6 +3,8 @@
 
 # Include only what we need
 !src/
+!queries_catalog/
+!queries_catalog/**
 !requirements.txt
 !requirements.app.txt
 !requirements.github-sync.txt
