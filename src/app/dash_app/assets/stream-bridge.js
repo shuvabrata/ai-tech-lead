@@ -12,7 +12,7 @@
  *                               callback guarded by streaming-active sees it as
  *                               true before it fires.
  *
- *   runStream(pendingData, sessionData) — returns a Promise that:
+     *   runStream(pendingData, sessionData, timeConfig) — returns a Promise that:
  *     1. Opens a fetch() POST to /api/v1/chats/{session_id}/stream
  *     2. Reads the SSE stream chunk-by-chunk, updating the DOM in real time:
  *          think-body-{client_id}  → thinking/progress text
@@ -45,7 +45,7 @@ window.dash_clientside.stream = {
      * Main SSE stream bridge.  Returns a Promise that consumes the SSE
      * response and resolves with the updated Dash store values.
      */
-    runStream: function (pendingData, sessionData) {
+    runStream: function (pendingData, sessionData, timeConfig) {
         if (!pendingData || !pendingData.session_id) {
             return window.dash_clientside.no_update;
         }
@@ -81,6 +81,24 @@ window.dash_clientside.stream = {
                 }
             }
 
+            function formatTimestamp() {
+                var timezone = (timeConfig && timeConfig.timezone) ? timeConfig.timezone : 'UTC';
+                try {
+                    return new Intl.DateTimeFormat('en-US', {
+                        timeZone: timezone,
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        hour12: true
+                    }).format(new Date());
+                } catch (err) {
+                    return new Intl.DateTimeFormat('en-US', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        hour12: true
+                    }).format(new Date());
+                }
+            }
+
             /* ── Session-store builder ────────────────────────────────── */
 
             function buildUpdatedSession(content, isError) {
@@ -103,10 +121,7 @@ window.dash_clientside.stream = {
                     delete messages[userMsgIdx].status;
                 }
 
-                var timestamp = new Date().toLocaleTimeString('en-US', {
-                    hour: '2-digit',
-                    minute: '2-digit'
-                });
+                var timestamp = formatTimestamp();
 
                 var entry = {
                     role: isError ? 'error' : 'assistant',

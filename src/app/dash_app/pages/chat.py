@@ -135,6 +135,11 @@ def get_layout():
             dcc.Store(id="pending-send", storage_type="memory"),
             dcc.Store(id="sending-store", storage_type="memory", data={"sending": False}),
             dcc.Store(id="streaming-active", storage_type="memory", data=False),
+            dcc.Store(
+                id="chat-time-config",
+                storage_type="memory",
+                data={"timezone": settings.TIMEZONE},
+            ),
             html.Div(id="scroll-trigger", style={"display": "none"}),
             
             # Refined loading indicator
@@ -279,6 +284,7 @@ clientside_callback(
     ],
     Input("pending-send", "data"),
     State("session-store", "data"),
+    State("chat-time-config", "data"),
     prevent_initial_call=True,
 )
 
