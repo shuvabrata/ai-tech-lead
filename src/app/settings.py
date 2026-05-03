@@ -1,3 +1,6 @@
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
+from pydantic import AliasChoices, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
@@ -38,7 +41,17 @@ class Settings(BaseSettings):
     GRAPH_UI_MAX_NODE_LABEL_CHARS: int = 10
     
     # UI Configuration
+    TIMEZONE: str = Field(default="UTC", validation_alias=AliasChoices("TIMEZONE", "TZ"))
     UI_DATETIME_FORMAT: str = "%b %d, %Y %I:%M %p"
+
+    @field_validator("TIMEZONE")
+    @classmethod
+    def validate_timezone(cls, value: str) -> str:
+        try:
+            ZoneInfo(value)
+        except ZoneInfoNotFoundError as exc:
+            raise ValueError(f"Invalid timezone: {value}") from exc
+        return value
 
     model_config = SettingsConfigDict(
         env_file=".env",
