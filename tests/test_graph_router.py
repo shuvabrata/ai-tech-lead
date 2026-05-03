@@ -14,9 +14,20 @@ from app.settings import settings
 
 
 BASE_URL = "http://localhost:8000"
+EXECUTE_URL = "/api/v1/graph/execute"
 
 
 pytestmark = [pytest.mark.integration, pytest.mark.server, pytest.mark.neo4j]
+
+
+def raw_execute_payload(query: str) -> dict:
+    """Build a raw graph execute request payload."""
+    return {
+        "source": "raw",
+        "query": query,
+        "view": "auto",
+        "parameters": {},
+    }
 
 
 @pytest.mark.asyncio
@@ -40,11 +51,11 @@ class TestGraphRouterEndpoints:
             assert "message" in data
     
     async def test_query_endpoint_nodes_only(self):
-        """Test POST /api/v1/graph/query with node-only query."""
+        """Test POST /api/v1/graph/execute with node-only query."""
         async with httpx.AsyncClient(base_url=BASE_URL) as client:
             response = await client.post(
-                "/api/v1/graph/query",
-                json={"query": "MATCH (n) RETURN n LIMIT 5"}
+                EXECUTE_URL,
+                json=raw_execute_payload("MATCH (n) RETURN n LIMIT 5")
             )
             
             assert response.status_code == 200
@@ -81,11 +92,11 @@ class TestGraphRouterEndpoints:
                 assert isinstance(node["properties"], dict)
     
     async def test_query_endpoint_with_relationships(self):
-        """Test POST /api/v1/graph/query with relationship query."""
+        """Test POST /api/v1/graph/execute with relationship query."""
         async with httpx.AsyncClient(base_url=BASE_URL) as client:
             response = await client.post(
-                "/api/v1/graph/query",
-                json={"query": "MATCH (n)-[r]->(m) RETURN n, r, m LIMIT 3"}
+                EXECUTE_URL,
+                json=raw_execute_payload("MATCH (n)-[r]->(m) RETURN n, r, m LIMIT 3")
             )
             
             assert response.status_code == 200
@@ -110,11 +121,11 @@ class TestGraphRouterEndpoints:
                 assert rel["endNode"] in node_ids
     
     async def test_query_endpoint_tabular_data(self):
-        """Test POST /api/v1/graph/query with aggregation query."""
+        """Test POST /api/v1/graph/execute with aggregation query."""
         async with httpx.AsyncClient(base_url=BASE_URL) as client:
             response = await client.post(
-                "/api/v1/graph/query",
-                json={"query": "MATCH (n) RETURN count(n) as nodeCount"}
+                EXECUTE_URL,
+                json=raw_execute_payload("MATCH (n) RETURN count(n) as nodeCount")
             )
             
             assert response.status_code == 200
@@ -136,15 +147,15 @@ class TestGraphRouterEndpoints:
         """Test query returning specific node properties."""
         async with httpx.AsyncClient(base_url=BASE_URL) as client:
             response = await client.post(
-                "/api/v1/graph/query",
-                json={
-                    "query": """
+                EXECUTE_URL,
+                json=raw_execute_payload(
+                    """
                     MATCH (n)
                     WHERE n.name IS NOT NULL
                     RETURN n.name as name, labels(n) as labels
                     LIMIT 3
                     """
-                }
+                )
             )
             
             assert response.status_code == 200
@@ -162,8 +173,8 @@ class TestGraphRouterEndpoints:
         """Test query that returns no results."""
         async with httpx.AsyncClient(base_url=BASE_URL) as client:
             response = await client.post(
-                "/api/v1/graph/query",
-                json={"query": "MATCH (n:NonExistentLabel999) RETURN n"}
+                EXECUTE_URL,
+                json=raw_execute_payload("MATCH (n:NonExistentLabel999) RETURN n")
             )
             
             assert response.status_code == 200
@@ -177,8 +188,8 @@ class TestGraphRouterEndpoints:
         """Test that Neo4j DateTime properties are properly serialized."""
         async with httpx.AsyncClient(base_url=BASE_URL) as client:
             response = await client.post(
-                "/api/v1/graph/query",
-                json={"query": "MATCH (n) RETURN n LIMIT 5"}
+                EXECUTE_URL,
+                json=raw_execute_payload("MATCH (n) RETURN n LIMIT 5")
             )
             
             assert response.status_code == 200
@@ -201,8 +212,8 @@ class TestGraphRouterValidation:
         """Test that CREATE queries are rejected with 400 error."""
         async with httpx.AsyncClient(base_url=BASE_URL) as client:
             response = await client.post(
-                "/api/v1/graph/query",
-                json={"query": "CREATE (n:Test {name: 'test'}) RETURN n"}
+                EXECUTE_URL,
+                json=raw_execute_payload("CREATE (n:Test {name: 'test'}) RETURN n")
             )
             
             assert response.status_code == 400
@@ -219,8 +230,8 @@ class TestGraphRouterValidation:
         """Test that DELETE queries are rejected."""
         async with httpx.AsyncClient(base_url=BASE_URL) as client:
             response = await client.post(
-                "/api/v1/graph/query",
-                json={"query": "MATCH (n:Test) DELETE n"}
+                EXECUTE_URL,
+                json=raw_execute_payload("MATCH (n:Test) DELETE n")
             )
             
             assert response.status_code == 400
@@ -231,8 +242,8 @@ class TestGraphRouterValidation:
         """Test that MERGE queries are rejected."""
         async with httpx.AsyncClient(base_url=BASE_URL) as client:
             response = await client.post(
-                "/api/v1/graph/query",
-                json={"query": "MERGE (n:Person {name: 'Alice'}) RETURN n"}
+                EXECUTE_URL,
+                json=raw_execute_payload("MERGE (n:Person {name: 'Alice'}) RETURN n")
             )
             
             assert response.status_code == 400
@@ -243,8 +254,8 @@ class TestGraphRouterValidation:
         """Test that SET queries are rejected."""
         async with httpx.AsyncClient(base_url=BASE_URL) as client:
             response = await client.post(
-                "/api/v1/graph/query",
-                json={"query": "MATCH (n) SET n.property = 'value' RETURN n"}
+                EXECUTE_URL,
+                json=raw_execute_payload("MATCH (n) SET n.property = 'value' RETURN n")
             )
             
             assert response.status_code == 400
@@ -253,8 +264,8 @@ class TestGraphRouterValidation:
         """Test that empty queries are rejected."""
         async with httpx.AsyncClient(base_url=BASE_URL) as client:
             response = await client.post(
-                "/api/v1/graph/query",
-                json={"query": ""}
+                EXECUTE_URL,
+                json=raw_execute_payload("")
             )
             
             # Should be rejected by Pydantic validation
@@ -264,8 +275,8 @@ class TestGraphRouterValidation:
         """Test that whitespace-only queries are rejected."""
         async with httpx.AsyncClient(base_url=BASE_URL) as client:
             response = await client.post(
-                "/api/v1/graph/query",
-                json={"query": "   \n\t   "}
+                EXECUTE_URL,
+                json=raw_execute_payload("   \n\t   ")
             )
             
             # Should be rejected by Pydantic validation
@@ -284,8 +295,8 @@ class TestGraphRouterErrorHandling:
         """Test that Cypher syntax errors return error with helpful message."""
         async with httpx.AsyncClient(base_url=BASE_URL) as client:
             response = await client.post(
-                "/api/v1/graph/query",
-                json={"query": "MATCH (n) RETURN INVALID_FUNCTION(n)"}
+                EXECUTE_URL,
+                json=raw_execute_payload("MATCH (n) RETURN INVALID_FUNCTION(n)")
             )
             
             # Syntax/function errors can return 400 (validation) or 500 (execution)
@@ -301,7 +312,7 @@ class TestGraphRouterErrorHandling:
         """Test request without query field."""
         async with httpx.AsyncClient(base_url=BASE_URL) as client:
             response = await client.post(
-                "/api/v1/graph/query",
+                EXECUTE_URL,
                 json={}
             )
             
@@ -312,7 +323,7 @@ class TestGraphRouterErrorHandling:
         """Test request with invalid JSON."""
         async with httpx.AsyncClient(base_url=BASE_URL) as client:
             response = await client.post(
-                "/api/v1/graph/query",
+                EXECUTE_URL,
                 content="not valid json",
                 headers={"Content-Type": "application/json"}
             )
@@ -326,8 +337,8 @@ class TestGraphRouterErrorHandling:
             long_query = "MATCH (n) RETURN n " + "// padding " * 2000
             
             response = await client.post(
-                "/api/v1/graph/query",
-                json={"query": long_query}
+                EXECUTE_URL,
+                json=raw_execute_payload(long_query)
             )
             
             # Should be rejected by Pydantic validation
@@ -365,15 +376,15 @@ class TestGraphRouterComplexQueries:
         """Test query with WHERE clause."""
         async with httpx.AsyncClient(base_url=BASE_URL) as client:
             response = await client.post(
-                "/api/v1/graph/query",
-                json={
-                    "query": """
+                EXECUTE_URL,
+                json=raw_execute_payload(
+                    """
                     MATCH (n)
                     WHERE n.name IS NOT NULL
                     RETURN n
                     LIMIT 5
                     """
-                }
+                )
             )
             
             assert response.status_code == 200
@@ -384,15 +395,15 @@ class TestGraphRouterComplexQueries:
         """Test query with OPTIONAL MATCH."""
         async with httpx.AsyncClient(base_url=BASE_URL) as client:
             response = await client.post(
-                "/api/v1/graph/query",
-                json={
-                    "query": """
+                EXECUTE_URL,
+                json=raw_execute_payload(
+                    """
                     MATCH (n)
                     OPTIONAL MATCH (n)-[r]->(m)
                     RETURN n, r, m
                     LIMIT 5
                     """
-                }
+                )
             )
             
             assert response.status_code == 200
@@ -403,16 +414,16 @@ class TestGraphRouterComplexQueries:
         """Test query with ORDER BY clause."""
         async with httpx.AsyncClient(base_url=BASE_URL) as client:
             response = await client.post(
-                "/api/v1/graph/query",
-                json={
-                    "query": """
+                EXECUTE_URL,
+                json=raw_execute_payload(
+                    """
                     MATCH (n)
                     WHERE n.name IS NOT NULL
                     RETURN n.name as name
                     ORDER BY n.name
                     LIMIT 5
                     """
-                }
+                )
             )
             
             assert response.status_code == 200
@@ -423,14 +434,14 @@ class TestGraphRouterComplexQueries:
         """Test query returning multiple scalar values."""
         async with httpx.AsyncClient(base_url=BASE_URL) as client:
             response = await client.post(
-                "/api/v1/graph/query",
-                json={
-                    "query": """
+                EXECUTE_URL,
+                json=raw_execute_payload(
+                    """
                     MATCH (n)
                     RETURN count(n) as total, 
                            collect(DISTINCT labels(n)) as labelsList
                     """
-                }
+                )
             )
             
             assert response.status_code == 200

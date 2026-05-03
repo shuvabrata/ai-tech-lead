@@ -6,26 +6,6 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 from app.settings import settings
 
 
-class CypherQueryRequest(BaseModel):
-    """Request model for executing a Cypher query."""
-    
-    query: str = Field(
-        ...,
-        min_length=1,
-        max_length=10000,
-        description="Cypher query to execute against Neo4j",
-        examples=["MATCH (n) RETURN n LIMIT 25"]
-    )
-    
-    @field_validator('query')
-    @classmethod
-    def validate_query_not_empty(cls, v: str) -> str:
-        """Ensure query is not just whitespace."""
-        if not v or not v.strip():
-            raise ValueError("Query cannot be empty or whitespace only")
-        return v.strip()
-
-
 class GraphExecuteRequest(BaseModel):
     """Unified request model for raw and catalog-backed graph execution."""
 

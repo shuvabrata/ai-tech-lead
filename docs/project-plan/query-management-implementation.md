@@ -439,7 +439,7 @@ The existing query console should remain the lower-level editor. Selecting a cat
   - Catalog execution sends `source="catalog"` with `catalog_id`, `view`, and `parameters`.
   - Extract common response-to-UI rendering from `execute_query()` so both triggers render results through the same code path.
 
-- [ ] **4.4 Remove Legacy Graph Query Endpoint**
+- [x] **4.4 Remove Legacy Graph Query Endpoint**
   - Delete old `/api/v1/graph/query` route after the Dash Graph page has migrated to `/api/v1/graph/execute`.
   - Remove `CypherQueryRequest` if no remaining code or tests use it.
   - Update or delete tests that target `/api/v1/graph/query`.
