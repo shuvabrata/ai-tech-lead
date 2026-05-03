@@ -1,5 +1,9 @@
 name: Hotspot Files
 description: Files with most modifications.
+summary: "Files with most modifications."
+default_view: tabular
+owner: github-analytics
+status: active
 queries:
   tabular: |-
     MATCH (f:File)<-[:MODIFIES]-(c:Commit)

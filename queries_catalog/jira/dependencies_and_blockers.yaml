@@ -1,5 +1,9 @@
 name: Dependencies and Blockers
 description: Issues blocking other issues.
+summary: "Issues blocking other issues."
+default_view: tabular
+owner: jira-analytics
+status: active
 queries:
   tabular: |-
     MATCH (i:Issue)-[:BLOCKS]->(blocked:Issue)

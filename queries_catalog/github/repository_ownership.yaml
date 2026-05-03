@@ -1,5 +1,9 @@
 name: Repository Ownership
 description: View repositories with owning teams (WRITE access).
+summary: "View repositories with owning teams (WRITE access)."
+default_view: tabular
+owner: github-analytics
+status: active
 queries:
   tabular: |-
     MATCH (t:Team)-[c:COLLABORATOR {permission: 'WRITE'}]-(r:Repository)

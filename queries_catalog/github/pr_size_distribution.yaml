@@ -1,5 +1,9 @@
 name: PR Size Distribution
 description: PR size distribution by commit count.
+summary: "PR size distribution by commit count."
+default_view: tabular
+owner: github-analytics
+status: active
 queries:
   tabular: |-
     MATCH (pr:PullRequest)

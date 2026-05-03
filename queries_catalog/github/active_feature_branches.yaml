@@ -1,5 +1,9 @@
 name: Active Feature Branches
 description: Find active non-default branches.
+summary: "Find active non-default branches."
+default_view: tabular
+owner: github-analytics
+status: active
 queries:
   tabular: |-
     MATCH (b:Branch)-[:BRANCH_OF]-(r:Repository)

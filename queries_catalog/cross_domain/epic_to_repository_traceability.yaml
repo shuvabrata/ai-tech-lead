@@ -1,5 +1,9 @@
 name: Epic to Repository Traceability
 description: Map epics to repositories via commits.
+summary: "Map epics to repositories via commits."
+default_view: tabular
+owner: data-platform
+status: active
 queries:
   tabular: |-
     MATCH (e:Epic)<-[:PART_OF]-(i:Issue)<-[:REFERENCES]-(c:Commit)

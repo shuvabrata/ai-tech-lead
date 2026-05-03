@@ -1,5 +1,9 @@
 name: Code Churn
 description: Files with most changes (additions + deletions).
+summary: "Files with most changes (additions + deletions)."
+default_view: tabular
+owner: github-analytics
+status: active
 queries:
   tabular: |-
     MATCH (f:File)<-[m:MODIFIES]-(c:Commit)

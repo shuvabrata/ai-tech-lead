@@ -1,5 +1,9 @@
 name: Epics by Initiative
 description: Epics grouped by initiative.
+summary: "Epics grouped by initiative."
+default_view: tabular
+owner: jira-analytics
+status: active
 queries:
   tabular: |-
     MATCH (e:Epic)-[:PART_OF]->(i:Initiative)

@@ -1,5 +1,9 @@
 name: Branches by Repository
 description: View all branches by repository.
+summary: "View all branches by repository."
+default_view: tabular
+owner: github-analytics
+status: active
 queries:
   tabular: |-
     MATCH (b:Branch)-[:BRANCH_OF]-(r:Repository)

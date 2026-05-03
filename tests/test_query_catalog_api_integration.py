@@ -34,6 +34,14 @@ async def test_catalog_list_endpoint_returns_normalized_catalog():
     assert first_item["namespace"]["directory"] == "schema"
     assert set(first_item["queries"]) == {"tabular", "graph"}
     assert first_item["available_views"] == ["tabular", "graph"]
+    assert first_item["summary"] == "Count all nodes by type."
+    assert first_item["default_view"] == "tabular"
+    assert first_item["owner"] == "graph-platform"
+    assert first_item["status"] == "active"
+    assert all(item["summary"] for item in data["items"])
+    assert all(item["default_view"] in {"tabular", "graph"} for item in data["items"])
+    assert all(item["owner"] for item in data["items"])
+    assert all(item["status"] == "active" for item in data["items"])
 
 
 async def test_catalog_namespaces_endpoint_returns_display_order():
@@ -75,11 +83,54 @@ async def test_catalog_list_endpoint_filters_by_search_text():
     data = response.json()
 
     assert data["count"] == 1
-    assert data["items"][0]["id"] == "person_to_person/direct_code_reviews"
-    assert data["items"][0]["parameters"] == [
-        {"name": "person1_id", "env_var": "PERSON1_ID", "required": True},
-        {"name": "person2_id", "env_var": "PERSON2_ID", "required": True},
+    item = data["items"][0]
+    assert item["id"] == "person_to_person/direct_code_reviews"
+    assert item["summary"] == "Compare two people by direct code review activity."
+    assert item["default_view"] == "tabular"
+    assert item["owner"] == "graph-team"
+    assert item["status"] == "active"
+    assert item["parameters"] == [
+        {
+            "name": "person1_id",
+            "env_var": "PERSON1_ID",
+            "required": True,
+            "label": "First person",
+            "type": "person_id",
+            "placeholder": "Enter first person id",
+            "description": "Neo4j Person.id for the first person.",
+        },
+        {
+            "name": "person2_id",
+            "env_var": "PERSON2_ID",
+            "required": True,
+            "label": "Second person",
+            "type": "person_id",
+            "placeholder": "Enter second person id",
+            "description": "Neo4j Person.id for the second person.",
+        },
     ]
+
+
+async def test_catalog_list_endpoint_searches_owner_and_status_metadata():
+    response = await _get("/api/v1/queries/catalog", params={"q": "graph-team active"})
+
+    assert response.status_code == 200
+    data = response.json()
+
+    assert data["count"] == 11
+    assert all(item["owner"] == "graph-team" for item in data["items"])
+    assert all(item["status"] == "active" for item in data["items"])
+
+
+async def test_catalog_list_endpoint_searches_namespace_owner_and_status_metadata():
+    response = await _get("/api/v1/queries/catalog", params={"q": "github-analytics active"})
+
+    assert response.status_code == 200
+    data = response.json()
+
+    assert data["count"] == 25
+    assert all(item["namespace"]["directory"] == "github" for item in data["items"])
+    assert all(item["owner"] == "github-analytics" for item in data["items"])
 
 
 async def test_catalog_list_endpoint_filters_by_view():
@@ -100,16 +151,21 @@ async def test_catalog_list_endpoint_rejects_invalid_view_filter():
 
 
 async def test_catalog_detail_endpoint_returns_full_query_entry():
-    response = await _get("/api/v1/queries/catalog/github/top_contributors")
+    response = await _get("/api/v1/queries/catalog/person_to_person/direct_code_reviews")
 
     assert response.status_code == 200
     data = response.json()
 
-    assert data["id"] == "github/top_contributors"
-    assert data["slug"] == "top_contributors"
-    assert data["name"] == "Top Contributors"
-    assert data["namespace"]["name"] == "GitHub"
+    assert data["id"] == "person_to_person/direct_code_reviews"
+    assert data["slug"] == "direct_code_reviews"
+    assert data["name"] == "Direct Code Reviews"
+    assert data["namespace"]["name"] == "Person-to-Person"
     assert data["available_views"] == ["tabular", "graph"]
+    assert data["default_view"] == "tabular"
+    assert data["summary"] == "Compare two people by direct code review activity."
+    assert data["owner"] == "graph-team"
+    assert data["status"] == "active"
+    assert data["parameters"][0]["label"] == "First person"
     assert "LIMIT 10" in data["queries"]["tabular"]
     assert "LIMIT 100" in data["queries"]["graph"]
 

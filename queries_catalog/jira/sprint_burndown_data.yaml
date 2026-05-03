@@ -1,5 +1,9 @@
 name: Sprint Burndown Data
 description: Sprint progress and burndown metrics.
+summary: "Sprint progress and burndown metrics."
+default_view: tabular
+owner: jira-analytics
+status: active
 queries:
   tabular: |-
     MATCH (s:Sprint)<-[:IN_SPRINT]-(i:Issue)

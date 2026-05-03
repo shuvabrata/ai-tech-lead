@@ -1,5 +1,9 @@
 name: Commits with Jira References
 description: Commits with Jira references.
+summary: "Commits with Jira references."
+default_view: tabular
+owner: github-analytics
+status: active
 queries:
   tabular: |-
     MATCH (c:Commit)-[:REFERENCES]->(i:Issue)

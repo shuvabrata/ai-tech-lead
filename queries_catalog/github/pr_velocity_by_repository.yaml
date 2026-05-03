@@ -1,5 +1,9 @@
 name: PR Velocity by Repository
 description: PR velocity and merge rate by repository.
+summary: "PR velocity and merge rate by repository."
+default_view: tabular
+owner: github-analytics
+status: active
 queries:
   tabular: |-
     MATCH (pr:PullRequest)-[:TARGETS]->(b:Branch)-[:BRANCH_OF]-(r:Repository)

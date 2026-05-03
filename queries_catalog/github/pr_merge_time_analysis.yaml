@@ -1,5 +1,9 @@
 name: PR Merge Time Analysis
 description: Average time to merge PRs.
+summary: "Average time to merge PRs."
+default_view: tabular
+owner: github-analytics
+status: active
 queries:
   tabular: |-
     MATCH (pr:PullRequest)

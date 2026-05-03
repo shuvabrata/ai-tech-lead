@@ -1,5 +1,9 @@
 name: Branches by Work Item
 description: Branches linked to specific work item.
+summary: "Branches linked to specific work item."
+default_view: tabular
+owner: github-analytics
+status: active
 queries:
   tabular: |-
     MATCH (b:Branch)-[:BRANCH_OF]-(r:Repository)

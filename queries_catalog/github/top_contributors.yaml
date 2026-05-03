@@ -1,5 +1,9 @@
 name: Top Contributors
 description: Top 10 contributors by commit count.
+summary: "Top 10 contributors by commit count."
+default_view: tabular
+owner: github-analytics
+status: active
 queries:
   tabular: |-
     MATCH (p:Person)-[:AUTHORED_BY]-(c:Commit)

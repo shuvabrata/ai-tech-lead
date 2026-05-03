@@ -1,5 +1,9 @@
 name: Repository Maintainers
 description: Find maintainers (people with WRITE access).
+summary: "Find maintainers (people with WRITE access)."
+default_view: tabular
+owner: github-analytics
+status: active
 queries:
   tabular: |-
     MATCH (p:Person)-[c:COLLABORATOR {permission: 'WRITE'}]-(r:Repository)

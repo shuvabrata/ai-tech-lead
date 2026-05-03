@@ -37,6 +37,10 @@ def test_load_catalog_normalizes_all_existing_entries():
     assert all(query.available_views for query in queries)
     assert all(query.namespace.name for query in queries)
     assert all(query.source_path.startswith("queries_catalog/") for query in queries)
+    assert all(query.summary for query in queries)
+    assert all(query.default_view in {"tabular", "graph"} for query in queries)
+    assert all(query.owner for query in queries)
+    assert all(query.status == "active" for query in queries)
 
 
 def test_get_catalog_query_by_stable_id():
@@ -57,6 +61,14 @@ def test_parameterized_queries_are_detected():
     direct_reviews = get_catalog_query("person_to_person/direct_code_reviews", CATALOG_DIR)
     assert [parameter.name for parameter in direct_reviews.parameters] == ["person1_id", "person2_id"]
     assert all(parameter.required for parameter in direct_reviews.parameters)
+    assert direct_reviews.summary == "Compare two people by direct code review activity."
+    assert direct_reviews.default_view == "tabular"
+    assert direct_reviews.owner == "graph-team"
+    assert direct_reviews.status == "active"
+    assert direct_reviews.parameters[0].label == "First person"
+    assert direct_reviews.parameters[0].type == "person_id"
+    assert direct_reviews.parameters[0].placeholder == "Enter first person id"
+    assert direct_reviews.parameters[0].description == "Neo4j Person.id for the first person."
 
 
 def test_rejects_invalid_query_shape(tmp_path):
@@ -94,6 +106,50 @@ def test_rejects_non_read_only_catalog_query(tmp_path):
     )
 
     with pytest.raises(CatalogLoadError, match="non-read-only tabular query"):
+        load_catalog(catalog_dir)
+
+
+def test_rejects_default_view_for_missing_variant(tmp_path):
+    catalog_dir = tmp_path / "queries_catalog"
+    namespace_dir = catalog_dir / "bad"
+    namespace_dir.mkdir(parents=True)
+    _write_yaml(
+        catalog_dir / "catalog.yaml",
+        {"namespaces": [{"name": "Bad", "directory": "bad"}]},
+    )
+    _write_yaml(
+        namespace_dir / "invalid_default_view.yaml",
+        {
+            "name": "Invalid Default View",
+            "description": "Should be rejected.",
+            "default_view": "graph",
+            "queries": {"tabular": "MATCH (n) RETURN n LIMIT 1"},
+        },
+    )
+
+    with pytest.raises(CatalogLoadError, match="default_view must match an available query variant"):
+        load_catalog(catalog_dir)
+
+
+def test_rejects_invalid_status_value(tmp_path):
+    catalog_dir = tmp_path / "queries_catalog"
+    namespace_dir = catalog_dir / "bad"
+    namespace_dir.mkdir(parents=True)
+    _write_yaml(
+        catalog_dir / "catalog.yaml",
+        {"namespaces": [{"name": "Bad", "directory": "bad"}]},
+    )
+    _write_yaml(
+        namespace_dir / "invalid_status.yaml",
+        {
+            "name": "Invalid Status",
+            "description": "Should be rejected.",
+            "status": "retired",
+            "queries": {"tabular": "MATCH (n) RETURN n LIMIT 1"},
+        },
+    )
+
+    with pytest.raises(CatalogLoadError, match="status"):
         load_catalog(catalog_dir)
 
 
