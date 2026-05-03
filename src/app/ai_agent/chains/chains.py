@@ -60,6 +60,7 @@ async def augment_message_stream(
     """
     envelopes = []
     neo4j_augmented_message = user_message
+    sources_used: list[dict] = []
 
     if settings.NEO4J_ENABLED:
         async for event in augment_message_with_neo4j_stream(user_message, provider=provider):
@@ -71,6 +72,11 @@ async def augment_message_stream(
                         "context": neo4j_augmented_message,
                         "applied": True,
                     })
+                    neo4j_source: dict = {"type": "neo4j", "applied": True}
+                    neo4j_source.update(event.get("meta") or {})
+                    sources_used.append(neo4j_source)
+                else:
+                    sources_used.append({"type": "neo4j", "applied": False})
             else:
                 yield event
 
@@ -79,15 +85,24 @@ async def augment_message_stream(
             mcp_envelope = event["content"]
             if isinstance(mcp_envelope, dict) and mcp_envelope.get("applied"):
                 envelopes.append(mcp_envelope)
+                sources_used.append({
+                    "type": "mcp",
+                    "applied": True,
+                    "tools": [
+                        tc.get("name") for tc in mcp_envelope.get("tool_calls", []) if tc.get("name")
+                    ],
+                })
+            else:
+                sources_used.append({"type": "mcp", "applied": False})
         else:
             yield event
 
     if not envelopes:
-        yield {"type": "augmented_message", "content": user_message}
+        yield {"type": "augmented_message", "content": user_message, "sources_used": sources_used}
         return
 
     if len(envelopes) == 1 and envelopes[0].get("source") == "neo4j":
-        yield {"type": "augmented_message", "content": neo4j_augmented_message}
+        yield {"type": "augmented_message", "content": neo4j_augmented_message, "sources_used": sources_used}
         return
 
-    yield {"type": "augmented_message", "content": _compose_multi_source_message(user_message, envelopes)}
+    yield {"type": "augmented_message", "content": _compose_multi_source_message(user_message, envelopes), "sources_used": sources_used}

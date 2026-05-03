@@ -63,6 +63,65 @@ LLM_MODEL = os.getenv("LLM_MODEL") or _provider.default_model
 MAX_TOKENS = int(os.getenv("MAX_TOKENS", "16000"))
 
 
+def _normalize_stream_metadata_payload(metadata_payload: dict) -> dict:
+    """Return a normalized metadata payload safe for logging/UI display.
+
+    Keeps the wire schema stable while trimming noisy string fields so very long
+    values (for example generated Cypher queries) do not bloat logs/UI.
+    """
+    safe_payload = dict(metadata_payload)
+    safe_sources: list[dict] = []
+
+    for source in safe_payload.get("sources", []) or []:
+        if not isinstance(source, dict):
+            continue
+        safe_source = dict(source)
+
+        # Keep long queries readable but bounded.
+        query = safe_source.get("neo4j_query")
+        if isinstance(query, str) and len(query) > 300:
+            safe_source["neo4j_query"] = f"{query[:300]}..."
+
+        # Bound oversized tool lists.
+        tools = safe_source.get("tools")
+        if isinstance(tools, list) and len(tools) > 10:
+            safe_source["tools"] = tools[:10] + [f"+{len(tools) - 10} more"]
+
+        safe_sources.append(safe_source)
+
+    safe_payload["sources"] = safe_sources
+    return safe_payload
+
+
+def _build_and_log_stream_metadata(
+    session_id: str,
+    prompt_tokens: int,
+    completion_tokens: int,
+    total_tokens: int,
+    elapsed_seconds: float,
+    model: str,
+    sources: list,
+) -> dict:
+    """Build per-response metadata, normalize it, then log and return it."""
+    payload = {
+        "tokens": {
+            "prompt": prompt_tokens,
+            "completion": completion_tokens,
+            "total": total_tokens,
+        },
+        "duration_seconds": round(elapsed_seconds, 2),
+        "model": model,
+        "sources": sources,
+    }
+    normalized_payload = _normalize_stream_metadata_payload(payload)
+    logger.info(
+        "Stream metadata: session_id=%s metadata=%s",
+        session_id,
+        json.dumps(normalized_payload, default=str),
+    )
+    return normalized_payload
+
+
 def new_chat(system_prompt="You are a helpful AI assistant."):
     """Create a new chat session and return its session_id (GUID).
     
@@ -202,10 +261,12 @@ async def stream_chat(
             yield f"data: {json.dumps({'type': 'thinking_start'})}\n\n"
 
             final_augmented_message = user_message
+            chain_sources: list = []
             try:
                 async for event in augment_message_stream(user_message, provider=_provider):
                     if event["type"] == "augmented_message":
                         final_augmented_message = event["content"]
+                        chain_sources = event.get("sources_used", [])
                     else:
                         logger.debug("Stream thinking event: %s", event.get("type"))
                         yield f"data: {json.dumps(event)}\n\n"
@@ -250,9 +311,23 @@ async def stream_chat(
             _chat_sessions[session_id].append({"role": "user", "content": final_augmented_message})
             _chat_sessions[session_id].append({"role": "assistant", "content": assembled_response})
 
+            # ── Phase 5: Emit per-response metadata (before message_end so JS
+            #            can attach it to the session message on resolve) ────
+            elapsed = time.monotonic() - stream_start
+            final_tokens = _provider.count_tokens(_chat_sessions[session_id], model)
+            metadata_payload = _build_and_log_stream_metadata(
+                session_id=session_id,
+                prompt_tokens=total_tokens,
+                completion_tokens=len(assembled_tokens),
+                total_tokens=final_tokens,
+                elapsed_seconds=elapsed,
+                model=model,
+                sources=chain_sources,
+            )
+            yield f"data: {json.dumps({'type': 'metadata', 'content': metadata_payload})}\n\n"
+
             yield f"data: {json.dumps({'type': 'message_end'})}\n\n"
 
-            elapsed = time.monotonic() - stream_start
             _streaming_metrics["completions"] += 1
             _streaming_metrics["total_duration_seconds"] += elapsed
             logger.info(
