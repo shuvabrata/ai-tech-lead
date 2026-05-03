@@ -17,6 +17,7 @@ queries:
            count(issue) as issue_count,
            collect(issue.key)[0..5] as sample_issues
     ORDER BY issue_count DESC
+        LIMIT 10
   graph: |-
     MATCH (p1:Person {id: $person1_id}), (p2:Person {id: $person2_id})
     MATCH path = (reporter:Person)-[:REPORTED_BY]-(issue:Issue)-[:ASSIGNED_TO]-(assignee:Person)

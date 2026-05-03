@@ -22,6 +22,7 @@ queries:
            labels(c)[0] as intermediary_type,
            length(path1) + length(path2) as total_degrees_of_separation,
            [n IN nodes(path1) | coalesce(n.name, n.key, n.title, n.path, labels(n)[0])] + [n IN nodes(path2)[1..] | coalesce(n.name, n.key, n.title, n.path, labels(n)[0])] as full_connection_path
+        LIMIT 10
   graph: |-
     MATCH (p1:Person {id: $person1_id}), (p2:Person {id: $person2_id}), (c {id: $condition_node_id})
     MATCH path1 = shortestPath((p1)-[*..6]-(c))

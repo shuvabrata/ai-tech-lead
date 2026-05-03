@@ -17,6 +17,7 @@ queries:
            count(pr) as review_count,
            collect(pr.number)[0..5] as sample_prs
     ORDER BY review_count DESC
+        LIMIT 10
   graph: |-
     MATCH (p1:Person {id: $person1_id}), (p2:Person {id: $person2_id})
     MATCH path = (author:Person)-[:CREATED_BY]-(pr:PullRequest)-[:REVIEWED_BY]-(reviewer:Person)

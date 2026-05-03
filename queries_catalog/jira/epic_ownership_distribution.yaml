@@ -5,6 +5,7 @@ queries:
     MATCH (e:Epic)-[:ASSIGNED_TO]-(p:Person)
         RETURN p.name, p.role, count(e) as epic_count
         ORDER BY epic_count DESC
+        LIMIT 10
   graph: |-
     MATCH p1=(e:Epic)-[:ASSIGNED_TO]-(p:Person)
         RETURN p1

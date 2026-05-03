@@ -8,6 +8,7 @@ queries:
              count(c) as commit_count
         RETURN CASE WHEN is_test THEN 'Test Files' ELSE 'Production Files' END as type,
                file_count, commit_count
+        LIMIT 10
   graph: |-
     MATCH p1=(f:File)<-[:MODIFIES]-(c:Commit)
         RETURN p1

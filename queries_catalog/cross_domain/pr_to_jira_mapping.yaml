@@ -7,6 +7,7 @@ queries:
                collect(DISTINCT i.key) as jira_issues,
                size(collect(DISTINCT i.key)) as issue_count
         ORDER BY issue_count DESC
+        LIMIT 10
   graph: |-
     MATCH p1=(pr:PullRequest)-[:INCLUDES]->(c:Commit)-[:REFERENCES]->(i:Issue)
         RETURN p1
