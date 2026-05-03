@@ -1,5 +1,9 @@
 name: Epic Timeline
 description: Epic timeline by start date.
+summary: "Epic timeline by start date."
+default_view: tabular
+owner: jira-analytics
+status: active
 queries:
   tabular: |-
     MATCH (e:Epic)

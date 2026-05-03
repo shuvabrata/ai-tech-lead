@@ -1,6 +1,6 @@
 # Query Catalog Integration - Implementation Plan
 
-**Status**: Implementation In Progress (Phases 1-4 Complete)  
+**Status**: Implementation Complete (Phases 1-5 Complete)  
 **Created**: March 2, 2026  
 **Last Updated**: May 3, 2026  
 **Related**: Graph Visualization, Query Catalog, Future Query History and Favorites
@@ -479,11 +479,33 @@ The existing query console should remain the lower-level editor. Selecting a cat
 
 ## Phase 5: Catalog Metadata Improvements
 
+**Status**: Complete
+
 ### Objectives
 
-Improve the YAML schema to make the UI more useful without hardcoding behavior.
+Improve the YAML schema and Graph page so catalog queries can express richer UI metadata without hardcoding query-specific behavior in Python callbacks.
 
-### Optional YAML Additions
+### In Scope
+
+- Query-level metadata:
+  - `summary`
+  - `default_view`
+  - `owner`
+  - `status`: `active`, `draft`, `deprecated`
+- Parameter-level metadata:
+  - `label`
+  - `type`
+  - `placeholder`
+  - `description`
+
+### Out of Scope
+
+- `recommended_layout`
+- `result_limit`
+- New persistence or PostgreSQL-backed state
+- Auto-generated parameter widgets backed by live lookups
+
+### Target YAML Shape
 
 ```yaml
 name: Direct Code Reviews
@@ -501,6 +523,7 @@ parameters:
   type: person_id
   required: true
   placeholder: Select a person
+  description: Choose the second person in the comparison.
 queries:
   tabular: |-
     ...
@@ -509,19 +532,95 @@ queries:
 tags:
 - code-review
 - person-to-person
+owner: graph-team
+status: active
 ```
 
-Useful additions:
+### Schema Rules
 
-- `default_view`
-- Parameter `type`
-- Parameter `label`
-- Parameter `placeholder`
-- Parameter `description`
-- `recommended_layout`
-- `result_limit`
-- `owner`
-- `status`: active, draft, deprecated
+- `default_view` must be one of `graph` or `tabular`.
+- `default_view` must reference a query variant that actually exists in `queries`.
+- `status` must be one of `active`, `draft`, or `deprecated`.
+- `summary`, `owner`, parameter `label`, parameter `placeholder`, and parameter `description` are optional strings.
+
+### Implementation Plan
+
+- [x] **5.1 Extend Catalog Models**
+  - Update `src/app/query_catalog/model.py`.
+  - Add typed fields to `CatalogQuery`:
+    - `summary: str | None`
+    - `default_view: CatalogView | None`
+    - `owner: str | None`
+    - `status: Literal["active", "draft", "deprecated"] | None`
+  - Add typed fields to `CatalogParameter`:
+    - `label: str | None`
+    - `type: str | None`
+    - `placeholder: str | None`
+    - `description: str | None`
+  - Keep `env_var` support for internal hints and backwards compatibility.
+
+- [x] **5.2 Update Loader Validation**
+  - Update `src/app/query_catalog/loader.py`.
+  - Load the new top-level fields from YAML into `CatalogQuery`.
+  - Validate that `default_view`, when present, exists in `queries`.
+  - Preserve current read-only Cypher validation and parameter requirement validation.
+  - Continue allowing older YAML files that omit the new metadata.
+
+- [x] **5.3 Expose Metadata Through Catalog API**
+  - Reuse the existing catalog API response shape in `src/app/api/queries/v1/model.py`.
+  - Ensure list and detail endpoints include the new query and parameter metadata.
+  - Keep backward compatibility for existing consumers by making all new fields optional.
+
+- [x] **5.4 Use Metadata in the Graph Page**
+  - Update `src/app/dash_app/pages/graph/callbacks/catalog.py`.
+  - Change selected-view logic to honor `default_view` before falling back to current graph-first behavior.
+  - Render parameter `label` instead of raw parameter name when present.
+  - Render parameter `placeholder` instead of `env_var` when present.
+  - Render parameter `description` as helper text below the input.
+  - Show `summary`, `owner`, and `status` in the catalog detail panel when present.
+  - Treat parameter `type` as metadata only in this phase; keep inputs as text controls unless a later phase defines type-specific widgets.
+
+- [x] **5.5 Update Catalog Filtering and Presentation**
+  - Extend search helpers so `summary`, `owner`, and `status` can be matched by free-text search.
+  - Optionally show `draft` and `deprecated` with subdued or warning-style badges in the detail panel and list.
+  - Do not exclude inactive queries automatically in this phase; status is informational unless future UX requires filtering.
+
+- [x] **5.6 Backfill YAML Metadata**
+  - Update the parameterized person-to-person query YAML files first because they benefit most from labels and placeholders.
+  - Add `default_view` where the intended starting mode is clear.
+  - Add `summary`, `owner`, and `status` incrementally across the shipped catalog.
+  - Keep edits conservative: only add metadata where it improves UX or discoverability.
+
+- [x] **5.7 Tests and Verification**
+  - Update loader tests in `tests/test_query_catalog_loader.py` for:
+    - optional metadata loading
+    - `default_view` validation
+    - `status` validation
+    - parameter metadata parsing
+  - Update API tests in:
+    - `tests/test_query_catalog_api.py`
+    - `tests/test_query_catalog_api_integration.py`
+  - Update Graph page callback tests in `tests/test_graph_catalog_callbacks.py` for:
+    - `default_view` selection
+    - richer parameter labels/placeholders/descriptions
+    - detail panel rendering of `summary`, `owner`, and `status`
+  - Manually verify:
+    - parameterized queries show friendly labels and placeholders
+    - default view selection behaves correctly
+    - optional metadata appears cleanly in both light and dark theme
+
+### Files Expected to Change
+
+- `src/app/query_catalog/model.py`
+- `src/app/query_catalog/loader.py`
+- `src/app/api/queries/v1/model.py`
+- `src/app/api/queries/v1/service.py`
+- `src/app/dash_app/pages/graph/callbacks/catalog.py`
+- `queries_catalog/*/*.yaml`
+- `tests/test_query_catalog_loader.py`
+- `tests/test_query_catalog_api.py`
+- `tests/test_query_catalog_api_integration.py`
+- `tests/test_graph_catalog_callbacks.py`
 
 ---
 
@@ -610,3 +709,5 @@ Useful additions:
 - **2026-05-03**: Completed Phase 1 catalog loader and Phase 2 catalog metadata API.
 - **2026-05-03**: Completed Phase 3 unified graph execution API with catalog query resolution and parameter validation.
 - **2026-05-03**: Completed Phase 4 Graph page catalog workbench, legacy graph query endpoint removal, and manual verification.
+- **2026-05-03**: Completed Phase 5 catalog metadata enrichment across loader, API, Graph page, and parameterized query YAML files.
+- **2026-05-03**: Extended Phase 5 metadata backfill to the full shipped catalog across all namespaces.

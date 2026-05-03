@@ -1,5 +1,9 @@
 name: Most Active Reviewers
 description: Most active code reviewers.
+summary: "Most active code reviewers."
+default_view: tabular
+owner: github-analytics
+status: active
 queries:
   tabular: |-
     MATCH (pr:PullRequest)-[:REVIEWED_BY]->(p:Person)

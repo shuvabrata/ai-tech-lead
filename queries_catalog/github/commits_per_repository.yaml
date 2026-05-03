@@ -1,5 +1,9 @@
 name: Commits per Repository
 description: Count commits per repository.
+summary: "Count commits per repository."
+default_view: tabular
+owner: github-analytics
+status: active
 queries:
   tabular: |-
     MATCH (c:Commit)-[:PART_OF]->(b:Branch)-[:BRANCH_OF]-(r:Repository)

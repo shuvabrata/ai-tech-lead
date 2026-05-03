@@ -1,5 +1,9 @@
 name: Developer Activity by Language
 description: Developer activity by programming language.
+summary: "Developer activity by programming language."
+default_view: tabular
+owner: github-analytics
+status: active
 queries:
   tabular: |-
     MATCH (p:Person)-[:AUTHORED_BY]-(c:Commit)-[:MODIFIES]->(f:File)

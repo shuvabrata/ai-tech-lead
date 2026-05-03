@@ -1,5 +1,9 @@
 name: Epics with Owners and Teams
 description: Complete epic context with owners, teams, and initiatives.
+summary: "Complete epic context with owners, teams, and initiatives."
+default_view: tabular
+owner: jira-analytics
+status: active
 queries:
   tabular: |-
     MATCH (e:Epic)-[:ASSIGNED_TO]-(owner:Person)

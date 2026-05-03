@@ -1,5 +1,9 @@
 name: Review Bottlenecks
 description: Review requests not yet completed - Data Quality check.
+summary: "Review requests not yet completed - Data Quality check."
+default_view: tabular
+owner: github-analytics
+status: active
 queries:
   tabular: |-
     MATCH (pr:PullRequest)-[:REQUESTED_REVIEWER]->(p:Person)

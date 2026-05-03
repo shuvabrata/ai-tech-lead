@@ -1,5 +1,9 @@
 name: Top PR Contributors
 description: Top PR contributors by creation count.
+summary: "Top PR contributors by creation count."
+default_view: tabular
+owner: github-analytics
+status: active
 queries:
   tabular: |-
     MATCH (pr:PullRequest)-[:CREATED_BY]->(p:Person)

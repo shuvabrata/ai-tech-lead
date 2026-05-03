@@ -1,5 +1,9 @@
 name: Developer Impact Analysis
 description: Developer contributions across all domains.
+summary: "Developer contributions across all domains."
+default_view: tabular
+owner: data-platform
+status: active
 queries:
   tabular: |-
     MATCH (p:Person)

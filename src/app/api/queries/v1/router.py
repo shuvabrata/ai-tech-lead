@@ -11,7 +11,7 @@ from app.query_catalog import CatalogQuery
 router = APIRouter(prefix="/queries", tags=["queries"])
 
 
-@router.get("/catalog", response_model=CatalogQueryListResponse)
+@router.get("/catalog", response_model=CatalogQueryListResponse, response_model_exclude_none=True)
 async def list_catalog_queries(
     namespace: str | None = Query(default=None, description="Filter by namespace name or directory"),
     tag: str | None = Query(default=None, description="Filter by exact tag"),
@@ -30,7 +30,7 @@ async def list_catalog_namespaces():
     return CatalogNamespaceListResponse(items=items, count=len(items))
 
 
-@router.get("/catalog/{namespace}/{slug}", response_model=CatalogQuery)
+@router.get("/catalog/{namespace}/{slug}", response_model=CatalogQuery, response_model_exclude_none=True)
 async def get_catalog_query(namespace: str, slug: str):
     """Get one normalized query catalog entry."""
     catalog_query = service.get_catalog_query(namespace=namespace, slug=slug)

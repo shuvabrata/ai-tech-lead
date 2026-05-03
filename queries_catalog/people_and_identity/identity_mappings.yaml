@@ -1,5 +1,9 @@
 name: Identity Mappings
 description: Find all identity mappings for a person.
+summary: "Find all identity mappings for a person."
+default_view: tabular
+owner: identity-analytics
+status: active
 queries:
   tabular: |-
     MATCH (p:Person {name: "Add a valid name here"})-[:MAPS_TO]-(i:IdentityMapping)

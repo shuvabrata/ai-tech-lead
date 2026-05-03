@@ -1,5 +1,9 @@
 name: Protected Branches
 description: Protected branches across all repos.
+summary: "Protected branches across all repos."
+default_view: tabular
+owner: github-analytics
+status: active
 queries:
   tabular: |-
     MATCH (b:Branch)-[:BRANCH_OF]-(r:Repository)

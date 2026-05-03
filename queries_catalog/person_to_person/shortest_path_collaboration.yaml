@@ -2,13 +2,23 @@ name: Shortest Path Collaboration
 description: |-
   Find the shortest path of collaboration between two people.
   Purpose: Answers the question "What is the shortest general path of collaboration between these two people across any domain?"
+summary: Trace the shortest overall collaboration path between two people across domains.
+default_view: graph
 parameters:
 - name: person1_id
   env_var: PERSON1_ID
   required: true
+  label: First person
+  type: person_id
+  placeholder: Enter first person id
+  description: Neo4j Person.id for the first person.
 - name: person2_id
   env_var: PERSON2_ID
   required: true
+  label: Second person
+  type: person_id
+  placeholder: Enter second person id
+  description: Neo4j Person.id for the second person.
 queries:
   tabular: |-
     MATCH (p1:Person {id: $person1_id}), (p2:Person {id: $person2_id})
@@ -28,3 +38,5 @@ tags:
 - test
 - table
 - graph
+owner: graph-team
+status: active
