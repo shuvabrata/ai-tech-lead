@@ -16,6 +16,7 @@ import pytest
 from dash import no_update
 
 from app.dash_app.pages.chat import get_layout, render_from_session
+from app.settings import settings
 
 pytestmark = pytest.mark.unit
 
@@ -61,6 +62,14 @@ def test_streaming_active_store_defaults_to_false():
     store = _find_by_id(layout, "streaming-active")
     assert store is not None
     assert store.data is False
+
+
+def test_chat_time_config_store_exposes_app_timezone():
+    """The browser bridge receives the same configured timezone as the Python UI."""
+    layout = get_layout()
+    store = _find_by_id(layout, "chat-time-config")
+    assert store is not None
+    assert store.data == {"timezone": settings.TIMEZONE}
 
 
 # ── render_from_session callback tests ────────────────────────────────────────
@@ -150,6 +159,14 @@ def test_stream_bridge_js_contains_run_stream_function():
     with open(_STREAM_BRIDGE, encoding="utf-8") as fh:
         content = fh.read()
     assert "runStream" in content
+
+
+def test_stream_bridge_js_formats_time_using_configured_timezone():
+    """stream-bridge.js should format timestamps with Intl.DateTimeFormat and a timeZone option."""
+    with open(_STREAM_BRIDGE, encoding="utf-8") as fh:
+        content = fh.read()
+    assert "Intl.DateTimeFormat" in content
+    assert "timeZone" in content
 
 
 def test_stream_bridge_js_handles_stream_endpoint():
