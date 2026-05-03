@@ -1,6 +1,6 @@
 # Query Catalog Integration - Implementation Plan
 
-**Status**: Implementation In Progress (Phases 1-3 Complete)  
+**Status**: Implementation In Progress (Phases 1-4 Complete)  
 **Created**: March 2, 2026  
 **Last Updated**: May 3, 2026  
 **Related**: Graph Visualization, Query Catalog, Future Query History and Favorites
@@ -379,7 +379,7 @@ Validation rules:
 
 ## Phase 4: Graph Page Catalog Workbench
 
-**Status**: In Progress
+**Status**: Complete
 
 ### Objectives
 
@@ -465,7 +465,7 @@ The existing query console should remain the lower-level editor. Selecting a cat
   - Initial behavior can select and populate the query.
   - Later behavior can auto-run when all required parameters are present.
 
-- [ ] **4.8 Tests and Verification**
+- [x] **4.8 Tests and Verification**
   - Unit test pure helper functions where possible.
   - Manually verify:
     - Catalog loads.
@@ -609,3 +609,4 @@ Useful additions:
 - **2026-05-03**: Reworked plan to use YAML query catalog as source of truth and reserve PostgreSQL for future history, favorites, and user-owned queries.
 - **2026-05-03**: Completed Phase 1 catalog loader and Phase 2 catalog metadata API.
 - **2026-05-03**: Completed Phase 3 unified graph execution API with catalog query resolution and parameter validation.
+- **2026-05-03**: Completed Phase 4 Graph page catalog workbench, legacy graph query endpoint removal, and manual verification.
