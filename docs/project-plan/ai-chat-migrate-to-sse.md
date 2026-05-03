@@ -1,4 +1,4 @@
-# Migration Plan: HTTP Chat to SSE Streaming
+# Migration Plan: HTTP Chat to SSE Streaming ✅ COMPLETED
 
 ## Problem Statement
 - The current chat implementation is HTTP based and it takes a long time for the LLM final response to be presented in the UI.
@@ -193,7 +193,7 @@ async def augment_message_stream(user_message, provider) -> AsyncIterator[dict]:
 - Added `render_from_session` Python callback: re-renders `chat-messages` from `session-store` when `streaming-active` transitions to False.
 - **Post-completion colour fix:** Thinking panel text (`think-body-{client_id}`) now uses `COLOR_TEXT_MUTED` (`--color-text-muted`) for a properly muted appearance in both light and dark themes. Streaming message div (`msg-{client_id}`) now explicitly uses `COLOR_TEXT_DARK` (`--color-text-dark`) so streamed content renders at full contrast rather than inheriting a muted colour.
 
-### Phase 5: External/Custom Provider Developer Documentation
+### Phase 5: External/Custom Provider Developer Documentation ✅ COMPLETED
 - After the core streaming implementation is complete and tested, draft a guide for external/custom LLM provider developers.
 - The guide should describe:
   - The `stream_chat_completion` interface: it is **optional** on `LLMProvider` (raises `NotImplementedError` by default, consistent with `chat_completion_with_tools`). Provider authors must implement it to enable streaming; without it, the `/stream` endpoint will return an error.
@@ -212,3 +212,9 @@ async def augment_message_stream(user_message, provider) -> AsyncIterator[dict]:
   - Unit test: Validate OpenAPI schema includes the streaming endpoint and correct event types.
   - Manual test: Follow migration steps in USER_GUIDE.md and verify a developer can upgrade an integration from HTTP to SSE using only the docs.
   - Manual test: Review documentation for clarity, completeness, and accuracy.
+
+**Phase 5 Completion Evidence:**
+- `src/app/ai_agent/providers/custom/CUSTOM_PROVIDER_DEVELOPMENT_GUIDE.md` written and committed.
+- Guide covers: architecture overview, required interface, `stream_chat_completion` async generator contract, `chat_completion_with_tools` return shape, token counting options (estimation / tiktoken / API-reported), two worked examples (minimal non-streaming and full streaming with `httpx`), provider registration steps, environment variables, SSE metadata event shape, unit/integration/smoke tests, compliance checklist, and 6-item troubleshooting section.
+- `.gitignore` updated to track the guide while continuing to exclude private provider Python implementations (`src/app/ai_agent/providers/custom/*.py`).
+- All event type names verified against `ai_agent.py` source (error event is `{"type": "error"}`, not `stream_error`).
