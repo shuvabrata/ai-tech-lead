@@ -1,5 +1,9 @@
 name: Epic Ownership Distribution
 description: Epic ownership by person.
+summary: "Epic ownership by person."
+default_view: tabular
+owner: jira-analytics
+status: active
 queries:
   tabular: |-
     MATCH (e:Epic)-[:ASSIGNED_TO]-(p:Person)

@@ -1,5 +1,9 @@
 name: Organizational Hierarchy
 description: View reporting structure.
+summary: "View reporting structure."
+default_view: graph
+owner: identity-analytics
+status: active
 queries:
   tabular: |-
     MATCH (p:Person)-[:REPORTS_TO]->(m:Person)

@@ -1,5 +1,9 @@
 name: Team Workload Overview
 description: Team workload across GitHub and Jira.
+summary: "Team workload across GitHub and Jira."
+default_view: graph
+owner: data-platform
+status: active
 queries:
   tabular: |-
     MATCH (t:Team)-[:MEMBER_OF]-(p:Person)

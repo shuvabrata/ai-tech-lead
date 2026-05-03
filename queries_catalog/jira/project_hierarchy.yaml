@@ -1,5 +1,9 @@
 name: Project Hierarchy
 description: Projects and their initiatives.
+summary: "Projects and their initiatives."
+default_view: tabular
+owner: jira-analytics
+status: active
 queries:
   tabular: |-
     MATCH (p:Project)<-[:PART_OF]-(i:Initiative)

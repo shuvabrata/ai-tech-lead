@@ -6,6 +6,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 CatalogView = Literal["tabular", "graph"]
+CatalogStatus = Literal["active", "draft", "deprecated"]
 _SAFE_ID_SEGMENT = re.compile(r"^[a-z0-9][a-z0-9_]*$")
 
 
@@ -32,8 +33,12 @@ class CatalogParameter(BaseModel):
     name: str = Field(..., min_length=1)
     env_var: str | None = None
     required: bool
+    label: str | None = Field(default=None, min_length=1)
+    type: str | None = Field(default=None, min_length=1)
+    placeholder: str | None = Field(default=None, min_length=1)
+    description: str | None = Field(default=None, min_length=1)
 
-    model_config = ConfigDict(extra="allow")
+    model_config = ConfigDict(extra="forbid")
 
 
 class CatalogQuery(BaseModel):
@@ -44,10 +49,14 @@ class CatalogQuery(BaseModel):
     namespace: CatalogNamespace
     name: str = Field(..., min_length=1)
     description: str = Field(..., min_length=1)
+    summary: str | None = Field(default=None, min_length=1)
     queries: dict[CatalogView, str]
     available_views: list[CatalogView]
+    default_view: CatalogView | None = None
     parameters: list[CatalogParameter] = Field(default_factory=list)
     tags: list[str] = Field(default_factory=list)
+    owner: str | None = Field(default=None, min_length=1)
+    status: CatalogStatus | None = None
     source_path: str
 
     model_config = ConfigDict(extra="forbid")
@@ -66,5 +75,8 @@ class CatalogQuery(BaseModel):
         expected_views = list(self.queries.keys())
         if self.available_views != expected_views:
             raise ValueError("available_views must match query variant order")
+
+        if self.default_view is not None and self.default_view not in self.queries:
+            raise ValueError("default_view must match an available query variant")
 
         return self

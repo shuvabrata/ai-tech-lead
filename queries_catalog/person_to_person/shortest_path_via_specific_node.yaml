@@ -1,16 +1,30 @@
 name: Shortest Path Via Specific Node
 description: Find the shortest path between two people that goes THROUGH a specific
   3rd node.
+summary: Trace the shortest connection between two people through a required intermediary node.
+default_view: graph
 parameters:
 - name: person1_id
   env_var: PERSON1_ID
   required: true
+  label: First person
+  type: person_id
+  placeholder: Enter first person id
+  description: Neo4j Person.id for the first person.
 - name: person2_id
   env_var: PERSON2_ID
   required: true
+  label: Second person
+  type: person_id
+  placeholder: Enter second person id
+  description: Neo4j Person.id for the second person.
 - name: condition_node_id
   env_var: CONDITION_NODE_ID
   required: true
+  label: Intermediary node
+  type: node_id
+  placeholder: Enter intermediary node id
+  description: Node id that the path must pass through.
 queries:
   tabular: |-
     MATCH (p1:Person {id: $person1_id}), (p2:Person {id: $person2_id}), (c {id: $condition_node_id})
@@ -33,3 +47,5 @@ tags:
 - test
 - table
 - graph
+owner: graph-team
+status: active

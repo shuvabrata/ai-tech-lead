@@ -1,5 +1,9 @@
 name: PR to Jira Mapping
 description: PRs linked to Jira issues via commits.
+summary: "PRs linked to Jira issues via commits."
+default_view: tabular
+owner: data-platform
+status: active
 queries:
   tabular: |-
     MATCH (pr:PullRequest)-[:INCLUDES]->(c:Commit)-[:REFERENCES]->(i:Issue)

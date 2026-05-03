@@ -1,5 +1,9 @@
 name: Test vs Production Code
 description: Test vs production code analysis.
+summary: "Test vs production code analysis."
+default_view: tabular
+owner: github-analytics
+status: active
 queries:
   tabular: |-
     MATCH (f:File)<-[:MODIFIES]-(c:Commit)

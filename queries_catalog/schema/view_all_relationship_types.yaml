@@ -1,5 +1,9 @@
 name: View All Relationship Types
 description: Count all relationships by type.
+summary: "Count all relationships by type."
+default_view: graph
+owner: graph-platform
+status: active
 queries:
   tabular: |-
     MATCH ()-[r]->()

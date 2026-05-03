@@ -1,5 +1,9 @@
 name: Cross-Team Reviews
 description: Cross-team code review collaboration.
+summary: "Cross-team code review collaboration."
+default_view: graph
+owner: github-analytics
+status: active
 queries:
   tabular: |-
     MATCH (pr:PullRequest)-[:CREATED_BY]->(author:Person)-[:MEMBER_OF]-(author_team:Team)

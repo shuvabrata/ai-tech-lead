@@ -153,10 +153,14 @@ def _load_query_file(
             namespace=namespace,
             name=raw_query.get("name"),
             description=raw_query.get("description"),
+            summary=raw_query.get("summary"),
             queries=queries,
             available_views=list(queries.keys()),
+            default_view=raw_query.get("default_view"),
             parameters=parameters,
             tags=tags,
+            owner=raw_query.get("owner"),
+            status=raw_query.get("status"),
             source_path=str(query_file.relative_to(base_dir.parent)),
         )
     except ValueError as exc:
