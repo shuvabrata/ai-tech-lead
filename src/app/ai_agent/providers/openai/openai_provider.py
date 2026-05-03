@@ -6,7 +6,7 @@ supporting models like GPT-4o and GPT-5.
 
 import json
 import os
-from typing import Any, Dict, List, Optional
+from typing import Any, AsyncIterator, Dict, List, Optional
 
 import openai
 from dotenv import load_dotenv
@@ -52,6 +52,7 @@ class OpenAIProvider(LLMProvider):
             raise ValueError("OPENAI_API_KEY not found in environment variables")
         
         openai.api_key = api_key
+        self._api_key = api_key
         self._default_model = os.getenv("LLM_MODEL", "gpt-5")
         logger.info(f"OpenAI provider initialized with model: {self._default_model}")
     
@@ -188,3 +189,49 @@ class OpenAIProvider(LLMProvider):
             True if model is in SUPPORTED_MODELS set.
         """
         return model in self.SUPPORTED_MODELS
+
+    async def stream_chat_completion(
+        self,
+        messages: List[Dict[str, str]],
+        model: Optional[str] = None,
+    ) -> AsyncIterator[str]:
+        """Async generator that streams OpenAI chat completion tokens.
+
+        Args:
+            messages: List of message dicts with 'role' and 'content' keys.
+            model: Optional model name. If None, uses default_model.
+
+        Yields:
+            Token strings as they arrive from the OpenAI streaming API.
+
+        Raises:
+            ValueError: If model is not supported.
+            RuntimeError: If the OpenAI streaming API call fails.
+        """
+        model_to_use = model or self._default_model
+
+        if not self.validate_model(model_to_use):
+            raise ValueError(f"Model '{model_to_use}' is not supported by OpenAI provider")
+
+        async_client = openai.AsyncOpenAI(api_key=self._api_key)
+        try:
+            logger.debug(
+                "Starting streaming request to OpenAI model: %s (%s messages)",
+                model_to_use,
+                len(messages),
+            )
+            stream = await async_client.chat.completions.create(
+                model=model_to_use,
+                messages=messages,
+                stream=True,
+                timeout=180,
+            )
+            async for chunk in stream:
+                delta = chunk.choices[0].delta
+                if delta.content:
+                    yield delta.content
+        except Exception as e:
+            logger.error("OpenAI streaming API error: %s", e)
+            raise RuntimeError(f"OpenAI streaming error: {e}") from e
+        finally:
+            await async_client.close()

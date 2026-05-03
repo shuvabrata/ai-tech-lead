@@ -1,7 +1,11 @@
 """Neo4j chain module for querying graph database using LangChain."""
 
+from __future__ import annotations
+
+import asyncio
 from pathlib import Path
 import re
+from typing import AsyncIterator
 
 from langchain_neo4j import Neo4jGraph, GraphCypherQAChain
 from langchain_openai import ChatOpenAI
@@ -115,14 +119,14 @@ Rules:
 
     if not cypher_query:
         logger.warning("Provider returned empty Cypher query")
-        return None
+        return None, None
 
     # Log the generated Cypher query in green (similar to LangChain's verbose=True)
     logger.info(f"Generated Cypher query:\n\033[92m{cypher_query}\033[0m")
 
     if not validate_read_only_query(cypher_query):
         logger.warning(f"Provider-generated query failed read-only validation: {cypher_query}")
-        return None
+        return None, None
 
     query_results = execute_cypher_query(cypher_query, timeout=settings.NEO4J_QUERY_TIMEOUT)
 
@@ -145,7 +149,7 @@ Rules:
 
     return provider.chat_completion(
         [{"role": "user", "content": result_prompt}]
-    )
+    ), cypher_query
 
 
 def check_neo4j_relevance(user_message, provider=None):
@@ -187,7 +191,7 @@ Respond with only 'YES' if relevant to the above domains, or 'NO' if not."""
         return False
 
 
-def query_neo4j_with_chain(user_message, provider=None):
+def query_neo4j_with_chain(user_message, provider=None, _meta_out=None):
     """Query Neo4j using LangChain's GraphCypherQAChain.
     
     This function uses LangChain to automatically:
@@ -198,6 +202,8 @@ def query_neo4j_with_chain(user_message, provider=None):
     Args:
         user_message: The user's question in natural language
         provider: Optional LLM provider instance. If None, uses default OpenAI.
+        _meta_out: Optional mutable dict populated in-place with ``neo4j_query``
+            (the Cypher query that was executed) when available.
         
     Returns:
         String result from the chain, or None if query fails
@@ -214,7 +220,10 @@ def query_neo4j_with_chain(user_message, provider=None):
     try:
         if settings.FF_NEO4J_USE_PROVIDER_PIPELINE:
             logger.info("Using feature-flagged provider-native Neo4j pipeline")
-            return _query_neo4j_with_provider_pipeline(user_message, provider, graph)
+            result, cypher_query = _query_neo4j_with_provider_pipeline(user_message, provider, graph)
+            if _meta_out is not None and cypher_query:
+                _meta_out["neo4j_query"] = cypher_query
+            return result
 
         if provider.name != "openai":
             logger.warning(
@@ -269,6 +278,12 @@ Cypher Query:"""
         # Use the chain's natural language result - it's already formatted nicely
         # Only fall back to raw context data if the chain couldn't generate an answer
         chain_result = result.get("result", None)
+
+        if _meta_out is not None and "intermediate_steps" in result:
+            steps = result["intermediate_steps"]
+            if steps:
+                _meta_out["neo4j_query"] = steps[0].get("query", "")
+
         if chain_result and "don't know" not in chain_result.lower():
             return chain_result
         
@@ -284,7 +299,7 @@ Cypher Query:"""
         return None
 
 
-def augment_message_with_neo4j(user_message, provider=None):
+def augment_message_with_neo4j(user_message, provider=None, _meta_out=None):
     """Augment user message with Neo4j data if relevant.
     
     This is the main entry point for Neo4j integration. It:
@@ -315,7 +330,7 @@ def augment_message_with_neo4j(user_message, provider=None):
     logger.info("User message is relevant to Neo4j")
     
     # Query Neo4j using chain mode
-    context_data = query_neo4j_with_chain(user_message, provider)
+    context_data = query_neo4j_with_chain(user_message, provider, _meta_out=_meta_out)
     
     if context_data:
         augmented_message = f"""The following answer was retrieved from the database:
@@ -329,3 +344,43 @@ Please respond with this information in a natural, conversational way."""
         return augmented_message
     
     return user_message
+
+
+async def augment_message_with_neo4j_stream(
+    user_message: str,
+    provider=None,
+) -> AsyncIterator[dict]:
+    """Async generator that augments a message with Neo4j context and yields thinking chunks.
+
+    Follows the chain streaming generator contract:
+    - Yields ``thinking_chunk`` events during processing.
+    - Yields a ``thinking_end`` event when processing is complete.
+    - Yields an ``augmented_message`` event carrying the final context-enriched string.
+
+    The underlying ``augment_message_with_neo4j`` call is blocking; it is executed
+    in a thread pool via ``asyncio.to_thread`` with a 60-second timeout.
+
+    Args:
+        user_message: The user's original message.
+        provider: Optional LLM provider instance.
+
+    Yields:
+        dict: SSE-compatible event dictionaries.
+    """
+    yield {"type": "thinking_chunk", "content": "Checking graph database for relevant context..."}
+    meta_out: dict = {}
+    try:
+        result = await asyncio.wait_for(
+            asyncio.to_thread(augment_message_with_neo4j, user_message, provider=provider, _meta_out=meta_out),
+            timeout=60.0,
+        )
+    except asyncio.TimeoutError:
+        logger.warning("Neo4j augmentation timed out for message: %.80s", user_message)
+        result = user_message
+        yield {"type": "thinking_chunk", "content": "Graph database query timed out; proceeding without graph context."}
+    except Exception as exc:
+        logger.error("Neo4j augmentation error: %s", exc)
+        result = user_message
+        yield {"type": "thinking_chunk", "content": f"Graph database query failed: {exc}"}
+    yield {"type": "thinking_end"}
+    yield {"type": "augmented_message", "content": result, "meta": meta_out}

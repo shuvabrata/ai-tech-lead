@@ -1,4 +1,4 @@
-"""Phase 2 verification tests for provider contract extension.
+"""Verification tests for the LLM provider tool-use contract.
 
 Verifies:
 1. Existing non-tool chat calls still work without code changes in current callers
