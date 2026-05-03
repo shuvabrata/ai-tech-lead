@@ -14,8 +14,12 @@ from .components import create_expansion_modal, create_context_menu
 from app.dash_app.styles import (
     FONT_SANS,
     FONT_WEIGHT_SEMIBOLD,
+    COLOR_BACKGROUND_WHITE,
+    COLOR_BORDER,
+    COLOR_CHARCOAL_MEDIUM,
     COLOR_GRAY_DARK,
     COLOR_GRAY_LIGHTER,
+    COLOR_TEXT_SECONDARY,
     SPACING_XXSMALL,
     GRAPH_SECTION_CONTAINER_STYLE,
     GRAPH_SECTION_TITLE_STYLE,
@@ -498,6 +502,121 @@ def create_query_input_section():
     ], id="graph-query-section", style=GRAPH_QUERY_SECTION_CONTAINER_STYLE)
 
 
+def create_catalog_section():
+    """Create the catalog workbench used to browse and run shipped queries."""
+    return html.Div([
+        html.Div(
+            "Query Catalog",
+            style=GRAPH_SECTION_TITLE_STYLE
+        ),
+        dbc.Row([
+            dbc.Col([
+                html.Label("Namespace", className="mb-1", style=GRAPH_HELPER_TEXT_STYLE),
+                dbc.Select(
+                    id="catalog-namespace-filter",
+                    options=[{"label": "All namespaces", "value": "__all__"}],
+                    value="__all__",
+                    size="sm",
+                ),
+            ], md=4),
+            dbc.Col([
+                html.Label("Search", className="mb-1", style=GRAPH_HELPER_TEXT_STYLE),
+                dbc.Input(
+                    id="catalog-search-input",
+                    placeholder="Find a query by name, tag, or description",
+                    type="text",
+                    size="sm",
+                ),
+            ], md=5),
+            dbc.Col([
+                html.Label("View", className="mb-1", style=GRAPH_HELPER_TEXT_STYLE),
+                dbc.Select(
+                    id="catalog-view-filter",
+                    options=[
+                        {"label": "All views", "value": "__all__"},
+                        {"label": "Graph", "value": "graph"},
+                        {"label": "Tabular", "value": "tabular"},
+                    ],
+                    value="__all__",
+                    size="sm",
+                ),
+            ], md=3),
+        ], className="g-3 mb-3"),
+        dbc.Row([
+            dbc.Col([
+                html.Div(
+                    id="query-catalog-load-status",
+                    className="mb-2",
+                ),
+                html.Div(
+                    id="catalog-query-list",
+                    children=html.Div(
+                        "Loading catalog queries...",
+                        style={"fontSize": "12px", "color": COLOR_TEXT_SECONDARY}
+                    ),
+                    style={
+                        "maxHeight": "360px",
+                        "overflowY": "auto",
+                        "border": f"1px solid {COLOR_BORDER}",
+                        "borderRadius": "4px",
+                        "padding": "8px",
+                        "backgroundColor": COLOR_BACKGROUND_WHITE,
+                        "color": COLOR_CHARCOAL_MEDIUM,
+                    }
+                ),
+            ], md=4),
+            dbc.Col([
+                html.Div(
+                    id="catalog-query-detail",
+                    children=html.Div(
+                        "Select a catalog query to inspect it here.",
+                        style={"fontSize": "12px", "color": COLOR_TEXT_SECONDARY}
+                    ),
+                    style={
+                        "minHeight": "180px",
+                        "border": f"1px solid {COLOR_BORDER}",
+                        "borderRadius": "4px",
+                        "padding": "12px",
+                        "backgroundColor": COLOR_BACKGROUND_WHITE,
+                        "color": COLOR_CHARCOAL_MEDIUM,
+                    },
+                ),
+                html.Div([
+                    html.Label("Selected view", className="mb-1 mt-3", style=GRAPH_HELPER_TEXT_STYLE),
+                    dbc.RadioItems(
+                        id="catalog-query-view-toggle",
+                        options=[],
+                        value=None,
+                        inline=True,
+                    ),
+                ]),
+                html.Div(
+                    id="catalog-parameter-inputs",
+                    className="mt-3",
+                ),
+                html.Div([
+                    dbc.Button(
+                        "Run",
+                        id="catalog-run-btn",
+                        color="primary",
+                        size="sm",
+                        className="me-2",
+                        disabled=True,
+                    ),
+                    dbc.Button(
+                        "Load into Console",
+                        id="catalog-load-console-btn",
+                        outline=True,
+                        color="secondary",
+                        size="sm",
+                        disabled=True,
+                    ),
+                ], className="mt-3"),
+            ], md=8),
+        ], className="g-3"),
+    ], id="graph-catalog-section", style=GRAPH_QUERY_SECTION_CONTAINER_STYLE)
+
+
 def create_stores():
     """Create all dcc.Store components for state management
     
@@ -513,6 +632,11 @@ def create_stores():
         
         # Store for details panel collapsed state
         dcc.Store(id="graph-fullwidth-state", data=False),
+
+        # Catalog workbench metadata/state
+        dcc.Store(id="query-catalog-store", data=[]),
+        dcc.Store(id="selected-catalog-query-store", data=None),
+        dcc.Store(id="catalog-parameters-store", data={}),
         
         # --- Phase 1.1b: Node Expansion Stores ---
         # Store for tracking expanded nodes: {node_id: {direction: "both", count: 23, timestamp: "..."}}
@@ -592,6 +716,9 @@ def get_layout():
 
         # Results Section (graph visualization + details panel)
         create_results_section(),
+
+        # Catalog workbench
+        create_catalog_section(),
         
         # Query Input Section
         create_query_input_section(),

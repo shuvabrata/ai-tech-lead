@@ -379,6 +379,8 @@ Validation rules:
 
 ## Phase 4: Graph Page Catalog Workbench
 
+**Status**: In Progress
+
 ### Objectives
 
 - Present catalog queries directly inside the Graph page.
@@ -411,7 +413,7 @@ The existing query console should remain the lower-level editor. Selecting a cat
 
 ### Tasks
 
-- [ ] **4.1 Add Layout Components**
+- [x] **4.1 Add Layout Components**
   - Update `src/app/dash_app/pages/graph/layout.py`.
   - Add a new function such as `create_catalog_section()`.
   - Place catalog controls above the Query Console or as a left-side workbench panel.
@@ -420,7 +422,7 @@ The existing query console should remain the lower-level editor. Selecting a cat
     - `dcc.Store(id="selected-catalog-query-store")`
     - `dcc.Store(id="catalog-parameters-store")`
 
-- [ ] **4.2 Create Catalog Callbacks**
+- [x] **4.2 Create Catalog Callbacks**
   - Suggested file: `src/app/dash_app/pages/graph/callbacks/catalog.py`
   - Responsibilities:
     - Fetch catalog from API on Graph page load.
@@ -430,7 +432,7 @@ The existing query console should remain the lower-level editor. Selecting a cat
     - Render parameter inputs.
     - Populate console with selected query variant.
 
-- [ ] **4.3 Unified Execution Callback**
+- [x] **4.3 Unified Execution Callback**
   - Add a callback for the catalog `Run` button.
   - Update the existing console execute callback to call `POST /api/v1/graph/execute`.
   - Console execution sends `source="raw"` with `query`.
@@ -443,20 +445,20 @@ The existing query console should remain the lower-level editor. Selecting a cat
   - Update or delete tests that target `/api/v1/graph/query`.
   - Verify console and catalog execution both use the unified endpoint.
 
-- [ ] **4.5 Graph/Table Toggle**
+- [x] **4.5 Graph/Table Toggle**
   - Use `dbc.RadioItems` or a segmented control with values:
     - `graph`
     - `tabular`
   - Disable unavailable views if a query only has one variant.
   - Default to `graph` when available, otherwise `tabular`.
 
-- [ ] **4.6 Parameter Inputs**
+- [x] **4.6 Parameter Inputs**
   - Generate inputs from query metadata.
   - Required parameters block execution until filled.
   - Use parameter names as labels initially.
   - Later enhancement: add parameter type, label, placeholder, and helper text to the YAML schema.
 
-- [ ] **4.7 Deep Links**
+- [x] **4.7 Deep Links**
   - Support URLs like:
     - `/app/graph?catalog=github/top_contributors&view=graph`
     - `/app/graph?catalog=person_to_person/direct_code_reviews&view=tabular`
