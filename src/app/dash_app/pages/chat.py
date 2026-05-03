@@ -1,10 +1,11 @@
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 
 import dash_bootstrap_components as dbc
 from dash import html, dcc, Input, Output, State, callback, clientside_callback, ClientsideFunction, no_update
 import requests
 
+from app.common.timezone import now_in_app_timezone
 from app.settings import settings
 from app.dash_app.components.common import create_diamond_icon
 from app.dash_app.styles import (
@@ -35,6 +36,11 @@ from app.dash_app.styles import (
 )
 
 TIMEOUT_SECONDS = settings.HTTP_REQUEST_TIMEOUT
+
+
+def _ui_timestamp() -> str:
+    return now_in_app_timezone().strftime("%I:%M %p")
+
 
 def get_layout():
     """Return the chat page layout with Executive Dashboard aesthetic"""
@@ -129,6 +135,11 @@ def get_layout():
             dcc.Store(id="pending-send", storage_type="memory"),
             dcc.Store(id="sending-store", storage_type="memory", data={"sending": False}),
             dcc.Store(id="streaming-active", storage_type="memory", data=False),
+            dcc.Store(
+                id="chat-time-config",
+                storage_type="memory",
+                data={"timezone": settings.TIMEZONE},
+            ),
             html.Div(id="scroll-trigger", style={"display": "none"}),
             
             # Refined loading indicator
@@ -221,14 +232,14 @@ def queue_message(n_clicks, user_message, session_data):
         messages.append({
             "role": "error",
             "content": f"Error: Could not create chat session. {error_msg}",
-            "timestamp": datetime.now().strftime("%I:%M %p")
+            "timestamp": _ui_timestamp()
         })
         session_data["messages"] = messages
-        return render_messages(messages), "", session_data, no_update, {"sending": False}, datetime.utcnow().isoformat()
+        return render_messages(messages), "", session_data, no_update, {"sending": False}, datetime.now(timezone.utc).isoformat()
 
     messages = session_data.get("messages", [])
-    timestamp = datetime.now().strftime("%I:%M %p")
-    client_id = f"{datetime.utcnow().strftime('%Y%m%d%H%M%S%f')}-{n_clicks or 0}"
+    timestamp = _ui_timestamp()
+    client_id = f"{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S%f')}-{n_clicks or 0}"
     messages.append({
         "role": "user",
         "content": user_message,
@@ -239,7 +250,7 @@ def queue_message(n_clicks, user_message, session_data):
     messages.append({
         "role": "assistant_thinking",
         "content": "",
-        "timestamp": datetime.now().strftime("%I:%M %p"),
+        "timestamp": _ui_timestamp(),
         "client_id": client_id
     })
     session_data["messages"] = messages
@@ -250,7 +261,7 @@ def queue_message(n_clicks, user_message, session_data):
         "client_id": client_id
     }
 
-    return render_messages(messages), "", session_data, pending_payload, {"sending": True}, datetime.utcnow().isoformat()
+    return render_messages(messages), "", session_data, pending_payload, {"sending": True}, datetime.now(timezone.utc).isoformat()
 
 
 # ── Clientside callback: immediately flag streaming as active ─────────────────
@@ -273,6 +284,7 @@ clientside_callback(
     ],
     Input("pending-send", "data"),
     State("session-store", "data"),
+    State("chat-time-config", "data"),
     prevent_initial_call=True,
 )
 
