@@ -56,6 +56,7 @@ window.dash_clientside.stream = {
 
         return new Promise(function (resolve) {
             var fullMessage = '';
+            var fullMetadata = null;
             var resolved    = false;
 
             /* ── DOM helpers ──────────────────────────────────────────── */
@@ -107,11 +108,15 @@ window.dash_clientside.stream = {
                     minute: '2-digit'
                 });
 
-                messages.push({
+                var entry = {
                     role: isError ? 'error' : 'assistant',
                     content: content,
                     timestamp: timestamp
-                });
+                };
+                if (!isError && fullMetadata) {
+                    entry.meta = fullMetadata;
+                }
+                messages.push(entry);
 
                 return Object.assign({}, sessionData, { messages: messages });
             }
@@ -165,6 +170,9 @@ window.dash_clientside.stream = {
                         case 'message_chunk':
                             fullMessage += (event.content || '');
                             updateMsgContent(fullMessage);
+                            break;
+                        case 'metadata':
+                            fullMetadata = event.content || null;
                             break;
                         case 'message_end':
                             resolveWith(fullMessage, false);

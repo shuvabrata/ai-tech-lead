@@ -304,6 +304,63 @@ def toggle_sending_state(sending_data):
     return sending, sending
 
 
+def _render_response_meta(meta: dict) -> list:
+    """Build a compact metadata bar for an assistant message.
+
+    Returns a list with a single Div (or empty list if nothing to show).
+    Displayed fields: tokens used, duration, sources (Neo4j / MCP tools).
+    """
+    parts = []
+
+    tokens = meta.get("tokens") or {}
+    total = tokens.get("total")
+    if total:
+        parts.append(f"{total} tokens")
+
+    duration = meta.get("duration_seconds")
+    if duration is not None:
+        parts.append(f"{duration}s")
+
+    model = meta.get("model")
+    if model:
+        parts.append(model)
+
+    for source in meta.get("sources") or []:
+        if not source.get("applied"):
+            continue
+        src_type = source.get("type", "")
+        if src_type == "neo4j":
+            label = "Neo4j"
+            query = source.get("neo4j_query")
+            if query:
+                label = f"Neo4j: {query[:60]}{'…' if len(query) > 60 else ''}"
+            parts.append(label)
+        elif src_type == "mcp":
+            tools = source.get("tools") or []
+            if tools:
+                parts.append(f"MCP: {', '.join(tools)}")
+            else:
+                parts.append("MCP")
+
+    if not parts:
+        return []
+
+    return [
+        html.Div(
+            " · ".join(parts),
+            style={
+                "fontFamily": FONT_SANS,
+                "fontSize": "10px",
+                "color": COLOR_GRAY_LIGHT,
+                "marginTop": SPACING_XXSMALL,
+                "letterSpacing": "0.3px",
+                "lineHeight": "1.4",
+                "opacity": "0.75",
+            }
+        )
+    ]
+
+
 def render_messages(messages):
     """Render the message history with Executive Dashboard aesthetic"""
     if not messages:
@@ -395,6 +452,7 @@ def render_messages(messages):
                 )
             )
         elif role == "assistant":
+            meta = msg.get("meta") or {}
             # AI message - refined left-aligned with elegant separator
             rendered.append(
                 html.Div([
@@ -445,7 +503,8 @@ def render_messages(messages):
                                     "letterSpacing": "0.3px",
                                     "fontWeight": FONT_WEIGHT_MEDIUM
                                 }
-                            )
+                            ),
+                            *(_render_response_meta(meta) if meta else []),
                         ], style={"display": "inline-block", "maxWidth": "75%"})
                     ], style={
                         "display": "flex",
