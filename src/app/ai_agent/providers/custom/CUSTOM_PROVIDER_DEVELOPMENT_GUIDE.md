@@ -173,7 +173,7 @@ async def stream_chat_completion(
 | Must be an async generator | Use `yield` to emit tokens |
 | Yield token strings | Raw text fragments; no wrapping or SSE framing |
 | Handle `asyncio.CancelledError` | Client disconnect — release resources in `finally` |
-| Raise `RuntimeError` on API failure | Caught by `stream_chat` and forwarded as a `stream_error` SSE event |
+| Raise `RuntimeError` on API failure | Caught by `stream_chat` and forwarded as an `error` SSE event (`{"type": "error", "content": "..."}`) |
 
 See [Section 6](#6-worked-example--full-streaming-provider) for a complete implementation.
 
