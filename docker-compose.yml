@@ -59,6 +59,8 @@ services:
       GITHUB_MCP_TOKEN: ${GITHUB_MCP_TOKEN:-}
       # In Docker, use service-to-service networking, not localhost.
       GITHUB_MCP_SERVER_URL: http://github-mcp:8082/mcp
+      # RabbitMQ configuration
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASSWORD:-guest}@rabbitmq:5672/
     ports:
       - "8000:8000"
     volumes:
@@ -80,6 +82,8 @@ services:
       neo4j:
         condition: service_healthy
       github-mcp:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
 
   github-mcp:
@@ -128,6 +132,26 @@ services:
       timeout: 5s
       retries: 5
       start_period: 20s
+      
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    container_name: wba-ai-rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-guest}
+    ports:
+      - "5672:5672"   # AMQP protocol
+      - "15672:15672" # Management UI
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - wba-ai-network
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   influxdb:
     image: influxdb:2.7
@@ -231,3 +255,4 @@ volumes:
   neo4j_logs:
   neo4j_import:
   neo4j_plugins:
+  rabbitmq_data:

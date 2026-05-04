@@ -1,7 +1,7 @@
 # Implementation Plan: ActivitySignal Event-Driven Ingestion
 
 ## Vision
-Transition the current monolithic data ingestion architecture (fetch & write) into an event-driven, decoupled system. This will be achieved by introducing RabbitMQ as a message broker, building generic producers for GitHub and Jira that emit standardized `ActivitySignal` JSON payloads, and building a universal Neo4j consumer that reads these signals and upserts them into the graph database. 
+Transition the current monolithic data ingestion architecture (fetch & write) into an event-driven, decoupled system. This will be achieved by introducing RabbitMQ as a message broker, building generic producers for GitHub and Jira that emit standardized `ActivitySignal` JSON payloads, and building specific Neo4j consumers for each entity type that read these signals and upsert them into the graph database. 
 
 Legacy modules will remain intact and functional during this transition to ensure stability. Over time, the legacy direct-to-DB modules will be deprecated.
 
@@ -12,12 +12,24 @@ Legacy modules will remain intact and functional during this transition to ensur
 
 - [ ] **Docker Compose Update:** Add a `rabbitmq` service to `docker-compose.yml` using the `rabbitmq:3.13-management` image. Expose port `15672` for the Management UI and add health checks. Add dependency in the `app` container.
 - [ ] **Environment Configuration:** Add RabbitMQ connection variables to `.env.example` and expose the RabbitMQ URL to FastAPI settings via `src/app/settings.py`.
-- [ ] **Queue/Exchange Initialization (App Container):**
-  - Create an initialization script (`src/app/scripts/init_rabbitmq.py`) that runs during the `app` container startup sequence.
+- [ ] **Queue/Exchange Initialization (Docker Entrypoint):**
+  - Create an initialization script (`src/app/scripts/init_rabbitmq.py`).
+  - Update the existing `src/app/entrypoint.sh` script to execute the initialization script (`python app/scripts/init_rabbitmq.py`) before starting the Uvicorn web server.
   - **Exchange Definition:** Create a `topic` exchange named `activity_signals`.
+  - **DLQ Setup:** Create a dead-letter exchange (e.g., `activity_signals_dlx`) and a generic DLQ bound to it (e.g., `activity_signals_dlq`).
   - **Routing Strategy:** Standardize routing keys as `<source>.<entity_type>` (e.g., `github.PullRequest`, `jira.Issue`).
-  - **Queue Definition:** Declare a durable queue `neo4j_ingestion_queue`.
-  - **Binding:** Bind `neo4j_ingestion_queue` to the `activity_signals` exchange using the routing key `#` (wildcard for all sources and entities) so the Neo4j consumer receives all graph data.
+  - **Queue Definition (SQS-Like Behavior):** Declare specific **Quorum Queues** for each entity type (e.g., `github_pullrequest_queue`, `jira_issue_queue`). 
+    - Set `x-dead-letter-exchange` to `activity_signals_dlx` (DLQ routing).
+    - Set `x-delivery-limit` to handle poison messages (analogous to SQS `maxReceiveCount`).
+    - *Note on Visibility Timeout:* Handled natively by RabbitMQ's unacknowledged state + `consumer_timeout` (default 30 mins) to requeue messages if a consumer hangs.
+  - **Bindings:** Bind each specific queue to the `activity_signals` exchange using exact routing keys (e.g., bind `github_pullrequest_queue` with routing key `github.PullRequest`, `jira_issue_queue` with `jira.Issue`).
+- [ ] **Persistence Guarantees:**
+  - **Exchanges:** Explicitly set `durable=True` when declaring `activity_signals` and `activity_signals_dlx` so they survive broker restarts.
+  - **Messages:** Ensure producers set `delivery_mode=2` (Persistent) when publishing, guaranteeing messages are flushed to disk before the broker acknowledges the publisher.
+- [ ] **Testing & Validation (Phase 1 Infra):**
+  - Write an integration test to verify RabbitMQ connectivity and successful initialization of exchanges and queues.
+  - **Visibility Test:** Publish a test message, consume it without acknowledging, and verify it remains invisible to other consumers but gets requeued if the connection drops.
+  - **DLQ Test:** Publish a test message, deliberately `nack` (reject) it with `requeue=true` repeatedly until it hits the `x-delivery-limit`, and verify it successfully routes to the DLQ.
 
 ---
 
@@ -29,7 +41,7 @@ Legacy modules will remain intact and functional during this transition to ensur
   - Enforce the mandatory attributes for each `entity_type` (e.g., Issue, Commit, Person) as defined in Section 4 of the spec.
   - Enforce relationship types (`BELONGS_TO`, `ASSIGNED_TO`, etc.) as defined in Section 5.
 - [ ] **RabbitMQ Utility Module:** Create `src/common/messaging/rabbitmq.py`.
-  - Implement an asynchronous publisher (`RabbitMQPublisher`) to batch and send Pydantic models as JSON to the exchange.
+  - Implement an asynchronous publisher (`RabbitMQPublisher`) to batch and send Pydantic models as JSON to the exchange. Enforce a strict **Batch Size Limit** (e.g., max 100 signals or < 512KB per AMQP message) to adhere to RabbitMQ best practices and prevent broker memory spikes.
   - Implement an asynchronous consumer (`RabbitMQConsumer`) to listen to the queue and yield valid Pydantic models.
 
 ---
@@ -56,22 +68,24 @@ Legacy modules will remain intact and functional during this transition to ensur
   - For each entity (Repository, Branch, Commit, PullRequest, Person), map the raw API JSON to the `ActivitySignal` Pydantic model.
   - Map GitHub relations to the allowed relationship types (e.g., PR -> `AUTHORED_BY` -> Person, Commit -> `PART_OF` -> Branch).
   - Generate UUIDs for `signal_id` and attach standard metadata (`source_config`, `version`, timestamps).
+  - **Payload Truncation:** Truncate excessively large text fields (e.g., PR bodies, long commit messages) to a safe limit (e.g., 2000 chars) before adding them to `attributes`, keeping the signal lightweight.
   - Publish signals to RabbitMQ.
 - [ ] **Jira Producer (`jira_producer.py`):**
   - Import the decoupled Jira fetchers.
   - Map Jira entities (Project, Initiative, Epic, Issue, Sprint, Person) to the `ActivitySignal` model.
   - Map Jira relations (e.g., Issue -> `BELONGS_TO` -> Epic, Issue -> `ASSIGNED_TO` -> Person).
+  - **Payload Truncation:** Truncate excessively large fields (e.g., Jira issue descriptions) to protect broker and database memory.
   - Publish signals to RabbitMQ.
 
 ---
 
-## Phase 5: Building the Neo4j Consumer
-**Goal:** Build a robust, generic consumer that pulls `ActivitySignals` and populates the graph database idempotently.
+## Phase 5: Building the Neo4j Consumers
+**Goal:** Build robust, entity-specific consumers that pull ActivitySignals from their respective queues and populate the graph database idempotently.
 
 *Location: `src/consumers/neo4j_consumer.py`*
 
 - [ ] **Event Loop & Ingestion:**
-  - Connect to the `neo4j_ingestion_queue` using the `RabbitMQConsumer` utility.
+  - Connect to the specific entity queues (e.g., `github_pullrequest_queue`) using the `RabbitMQConsumer` utility.
   - Validate incoming JSON against the `ActivitySignal` Pydantic model. Route invalid signals to a Dead Letter Queue (DLQ) or quarantine table.
 - [ ] **Canonical Node Upsert Logic:**
   - Implement logic to `MERGE` nodes based *strictly* on the canonical identity composite key: `(source, entity_type, external_id)`.
