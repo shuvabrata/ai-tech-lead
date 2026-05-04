@@ -46,6 +46,7 @@ def load_config_from_server() -> Dict[str, Any]:
                 "access_token": raw_config.get("access_token"),
                 "branch_name_patterns": raw_config.get("branch_name_patterns", []),
                 "extraction_sources": raw_config.get("extraction_sources", []),
+                "search_filters": raw_config.get("search_filters", {})
             }
             transformed_configs.append(config_item)
 
