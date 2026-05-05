@@ -37,12 +37,15 @@ Legacy modules will remain intact and functional during this transition to ensur
 **Goal:** Establish the strict schema and utilities required by the `spec-activity-signal.md` document.
 
 - [ ] **Pydantic Schema Definition:** Create `src/common/activity_signal/models.py`.
-  - Define the base `ActivitySignal` Pydantic model with strict validation for `signal_id`, `source`, `entity_type`, `external_id`, `attributes`, and `relationships`.
-  - Enforce the mandatory attributes for each `entity_type` (e.g., Issue, Commit, Person) as defined in Section 4 of the spec.
+  - Define the base `ActivitySignal` Pydantic model with strict validation for the core identifiers (`signal_id`, `source`, `entity_type`, `external_id`) AND the required metadata fields per Section 6 of the spec (`source_config`, `connector_url`, `event_time`, `version`). *Note: `ingestion_time` is excluded from the Producer model as it is set by the Consumer.*
+  - Use **Pydantic Discriminated Unions** to enforce the mandatory attributes for each `entity_type` (e.g., Issue, Commit, Person) as defined in Section 4 of the spec. Create specific sub-models for attributes (e.g., `CommitAttributes`, `IssueAttributes`) configured to allow extra custom fields (`model_config = ConfigDict(extra='allow')`).
   - Enforce relationship types (`BELONGS_TO`, `ASSIGNED_TO`, etc.) as defined in Section 5.
+  - **Flexible Relationship Targets:** Ensure the relationship `target` schema allows flexible lookup dictionaries (e.g., just an `email` field to identify a Person). It should NOT strictly enforce the `(source, entity_type, external_id)` tuple.
 - [ ] **RabbitMQ Utility Module:** Create `src/common/messaging/rabbitmq.py`.
-  - Implement an asynchronous publisher (`RabbitMQPublisher`) to batch and send Pydantic models as JSON to the exchange. Enforce a strict **Batch Size Limit** (e.g., max 100 signals or < 512KB per AMQP message) to adhere to RabbitMQ best practices and prevent broker memory spikes.
+  - Implement an asynchronous publisher (`RabbitMQPublisher`) to send individual Pydantic models as JSON to the exchange. **Note:** Batching is intentionally NOT supported to keep payloads small and optimize RabbitMQ performance.
   - Implement an asynchronous consumer (`RabbitMQConsumer`) to listen to the queue and yield valid Pydantic models.
+    - **Ingestion Time:** The Consumer is responsible for injecting the `ingestion_time` timestamp upon successfully receiving the message.
+    - **Error Handling (Nack & DLQ):** If a message fails Pydantic validation, or if the consumer encounters any other failure, the utility must `nack` the message so that RabbitMQ routes it to the Dead Letter Queue (DLQ).
 
 ---
 
