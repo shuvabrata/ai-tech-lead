@@ -119,7 +119,7 @@ These three fields together uniquely identify a node in the graph.
 - The `relationships` array in ActivitySignal represents the observed state of relationships for the node at the time of the event.
 - Each relationship object must include:
   - `type`: The relationship type (see Supported Relationship Types)
-  - `direction`: The direction of the relationship (e.g., OUT, IN)
+  - `direction`: (Optional) The direction of the relationship (e.g., OUT, IN). If omitted, consumers MUST default to OUT.
   - `target`: A dict of properties sufficient to uniquely identify the target node (e.g., source, entity_type, external_id, or other identifying attributes)
 - Relationship creation or deletion is NOT explicitly signaled by the producer. Instead, the ActivitySignal producer emits the current observed state at a given time.
 - The consumer is responsible for inferring relationship creation or deletion by comparing the sequence of ActivitySignals over time (i.e., by diffing the time series of events).

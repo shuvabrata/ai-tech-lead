@@ -79,16 +79,29 @@ Legacy modules will remain intact and functional during this transition to ensur
 - [ ] **GitHub Producer (`github_producer.py`):**
   - Import the decoupled GitHub `fetch_*` and `map_*` utilities.
   - For each entity (Repository, Branch, Commit, PullRequest, Person), convert the mapped data into the strict `ActivitySignal` Pydantic model.
-  - Map GitHub relations to the allowed relationship types (e.g., PR -> `AUTHORED_BY` -> Person, Commit -> `PART_OF` -> Branch).
-  - Generate UUIDs for `signal_id` and attach standard metadata (`source_config`, `version`, timestamps).
+  - **Validation Handling:** If a mapped entity is missing mandatory attributes (per Spec Section 4), log a warning and skip publishing to prevent poisoning the queue.
+  - Map GitHub relations to the allowed relationship types (e.g., PR -> `AUTHORED_BY` -> Person, Commit -> `PART_OF` -> Branch). Generate flexible `target` lookup dicts. Direction is optional and defaults to `OUT`.
+  - Generate UUIDs for `signal_id` and attach standard metadata (`source_config`, `connector_url`, `version`).
+  - **Event Time Mapping:** Explicitly map the entity's source `updated_at` (or `created_at` if new) to the `event_time` to ensure correct temporal ordering downstream.
   - **Payload Truncation:** Truncate excessively large text fields (e.g., PR bodies, long commit messages) to a safe limit (e.g., 2000 chars) before adding them to `attributes`, keeping the signal lightweight.
-  - Publish signals to RabbitMQ.
+  - Publish signals individually (no batching) to RabbitMQ using the `RabbitMQPublisher`, dynamically constructing the routing key as `<source>.<entity_type>` (e.g., `github.PullRequest`).
 - [ ] **Jira Producer (`jira_producer.py`):**
   - Import the decoupled Jira `fetch_*` and `map_*` utilities.
   - Convert mapped Jira entities (Project, Initiative, Epic, Issue, Sprint, Person) into the strict `ActivitySignal` Pydantic model.
-  - Map Jira relations (e.g., Issue -> `BELONGS_TO` -> Epic, Issue -> `ASSIGNED_TO` -> Person).
+  - **Validation Handling:** Drop and log entities missing mandatory attributes to enforce schema strictness.
+  - Map Jira relations generating flexible `target` lookup dicts. Direction is optional and defaults to `OUT`.
+  - Generate UUIDs for `signal_id` and attach standard metadata (`source_config`, `connector_url`, `version`).
+  - **Event Time Mapping:** Explicitly map the Jira issue's `updated` (or `created`) field to `event_time`.
   - **Payload Truncation:** Truncate excessively large fields (e.g., Jira issue descriptions) to protect broker and database memory.
-  - Publish signals to RabbitMQ.
+  - Publish signals individually (no batching) to RabbitMQ using the `RabbitMQPublisher`, setting the routing key as `jira.<entity_type>`.
+- [ ] **Runtime & Dockerization:**
+  - Architect `github_producer.py` and `jira_producer.py` to be executable as standalone Python processes.
+  - Create Dockerfile(s) for the producers (e.g., `Dockerfile.producer`) to package them with minimal dependencies required for fetching and publishing.
+  - Update `docker-compose.yml` to include the producers as independent services (e.g., `github-producer`, `jira-producer`), passing the necessary environment variables (RabbitMQ connection, API credentials).
+- [ ] **Testing & Validation (Phase 4):**
+  - **Unit Testing:** Mock the `fetch_*` utilities and verify that `map_*` outputs are correctly transformed into valid `ActivitySignal` Pydantic models. Ensure schema violations correctly log and skip without crashing the process.
+  - **Routing Verification:** Mock the `RabbitMQPublisher` to assert that messages are published individually and that routing keys (e.g., `github.PullRequest`) are constructed perfectly.
+  - **Container Dry-Run:** Build the producer Docker container and execute a local dry-run to ensure the standalone loop initializes, connects to the API, and prepares to publish without failing.
 
 ---
 
