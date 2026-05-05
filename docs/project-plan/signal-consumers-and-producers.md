@@ -49,33 +49,43 @@ Legacy modules will remain intact and functional during this transition to ensur
 
 ---
 
-## Phase 3: Decoupling Existing Modules (Refactoring for Reuse)
-**Goal:** Separate API fetching logic from DB writing logic in the existing `src/connectors/modules/` without breaking their legacy functionality.
+## Phase 3: Decoupling Existing Modules (Fetch & Map Extraction)
+**Goal:** Separate network I/O (fetching) and data parsing (mapping) from the database writing logic in the existing `src/connectors/modules/`. 
+
+*Note on `*handler.py` files:* The existing handlers (e.g., `new_issue_handler.py`) tightly couple data parsing with Neo4j Cypher execution. The new Phase 5 Neo4j Consumers will **not** reuse these handlers, as Phase 5 relies on generic `ActivitySignal` upserts. Therefore, this phase focuses on extracting the *parsing/mapping* logic out of the handlers so the new Producers can reuse it, while leaving the DB write logic isolated as legacy code.
+
+*Architectural Design Note (Streaming ETL):* This refactoring deliberately shifts the system toward a **Decoupled, Event-Driven Streaming ETL** pipeline:
+- **Extract (`fetch_*`):** Isolates network I/O, allowing API fetching to run optimally without database bottlenecks.
+- **Transform (`map_*`):** Creates pure, testable functions that convert raw JSON into standardized `ActivitySignal` dictionaries.
+- **Load (Publish/Subscribe):** By decoupling the load phase (now handled downstream by Phase 5 consumers), the system gains resilience (backpressure handling), idempotency (safe replays), and extensible multi-sink capabilities (e.g., adding an Elasticsearch consumer for free).
 
 - [ ] **GitHub Module Refactoring:**
-  - Extract the raw data fetching logic (GitHub API pagination, rate-limiting, etc.) into reusable `fetch_*` service functions or clients.
-  - Ensure the legacy entrypoint continues to call these `fetch_*` functions and passes the results to the old Neo4j writing functions.
+  - **Fetchers:** Extract raw data fetching logic (GitHub API pagination, GraphQL, rate-limiting) into reusable `fetch_*` service functions.
+  - **Mappers:** Isolate the data transformation logic (e.g., identifying parent commits, extracting PR reviewers from raw JSON) into pure `map_*` functions that return standardized dictionaries.
+  - **Legacy Wiring:** Ensure the legacy entrypoint continues to call `fetch_*` -> `map_*` -> and passes the results to the old Neo4j writing functions to maintain stability.
 - [ ] **Jira Module Refactoring:**
-  - Extract the Jira REST/GraphQL fetching logic into reusable `fetch_*` service functions.
-  - Keep the legacy Jira entrypoint intact, relying on the newly decoupled fetch functions.
+  - **Fetchers:** Extract the Jira REST API fetching and pagination logic into reusable `fetch_*` service functions.
+  - **Mappers:** Extract field resolution and entity mapping out of files like `new_issue_handler.py` into pure `map_*` functions. 
+    - *Crucial:* This mapping layer must resolve dynamic custom fields (like the `customfield_10020` Sprint issue documented in `TODO.md`) before returning the data dictionary.
+  - **Legacy Wiring:** Keep the legacy Jira handlers intact, but strip them of parsing logic so they rely on the decoupled fetchers and mappers, acting purely as database executors.
 
 ---
 
 ## Phase 4: Building the Producers
-**Goal:** Create the new event-driven entrypoints that utilize the decoupled fetchers to generate `ActivitySignal` payloads.
+**Goal:** Create the new event-driven entrypoints that utilize the decoupled fetchers and mappers to generate standardized `ActivitySignal` payloads.
 
 *Location: `src/connectors/producers/`*
 
 - [ ] **GitHub Producer (`github_producer.py`):**
-  - Import the decoupled GitHub fetchers.
-  - For each entity (Repository, Branch, Commit, PullRequest, Person), map the raw API JSON to the `ActivitySignal` Pydantic model.
+  - Import the decoupled GitHub `fetch_*` and `map_*` utilities.
+  - For each entity (Repository, Branch, Commit, PullRequest, Person), convert the mapped data into the strict `ActivitySignal` Pydantic model.
   - Map GitHub relations to the allowed relationship types (e.g., PR -> `AUTHORED_BY` -> Person, Commit -> `PART_OF` -> Branch).
   - Generate UUIDs for `signal_id` and attach standard metadata (`source_config`, `version`, timestamps).
   - **Payload Truncation:** Truncate excessively large text fields (e.g., PR bodies, long commit messages) to a safe limit (e.g., 2000 chars) before adding them to `attributes`, keeping the signal lightweight.
   - Publish signals to RabbitMQ.
 - [ ] **Jira Producer (`jira_producer.py`):**
-  - Import the decoupled Jira fetchers.
-  - Map Jira entities (Project, Initiative, Epic, Issue, Sprint, Person) to the `ActivitySignal` model.
+  - Import the decoupled Jira `fetch_*` and `map_*` utilities.
+  - Convert mapped Jira entities (Project, Initiative, Epic, Issue, Sprint, Person) into the strict `ActivitySignal` Pydantic model.
   - Map Jira relations (e.g., Issue -> `BELONGS_TO` -> Epic, Issue -> `ASSIGNED_TO` -> Person).
   - **Payload Truncation:** Truncate excessively large fields (e.g., Jira issue descriptions) to protect broker and database memory.
   - Publish signals to RabbitMQ.
