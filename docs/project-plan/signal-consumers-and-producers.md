@@ -79,6 +79,9 @@ Legacy modules will remain intact and functional during this transition to ensur
 
 *Location: `src/connectors/producers/`*
 
+- [ ] **Producer State Management (The Sync Cursor):**
+  - Implement a lightweight persistence mechanism (e.g., a table in the existing Postgres DB or a persistent SQLite volume) for the producers to store their `last_synced_at` timestamps per repository/project.
+  - **Crucial:** The producers must *never* query Neo4j to find their sync state, maintaining strict decoupling from the consumers.
 - [ ] **GitHub Producer (`github_producer.py`):**
   - Import the decoupled GitHub `fetch_*` and `map_*` utilities.
   - For each entity (Repository, Branch, Commit, PullRequest, Person), convert the mapped data into the strict `ActivitySignal` Pydantic model.
@@ -143,6 +146,11 @@ Legacy modules will remain intact and functional during this transition to ensur
 - [ ] **Error & Scale Testing:**
   - Test partial network failures, RabbitMQ restarts, and out-of-order event publishing.
   - Ensure the Consumer creates stub nodes successfully and resolves them when the actual node signal arrives.
+- [ ] **DLQ Remediation & Operations:**
+  - Create a utility script (`src/app/scripts/redrive_dlq.py`) capable of inspecting messages in the `activity_signals_dlq` and re-publishing them to the main exchange after consumer bugs are fixed.
+- [ ] **End-to-End Observability:**
+  - Implement structured logging in both the Producers and Consumers.
+  - Ensure the `signal_id` is logged as a correlation ID at every step (fetch, publish, consume, upsert) to enable tracing of an event across the distributed system boundary.
 - [ ] **Automated Regression Suite Integration:**
   - Ensure all new automated tests (Phases 3, 4, and 5) are integrated into the main `pytest` test suite.
   - Run the full suite to verify a 100% pass rate across both the new event-driven system and existing features before considering the rollout complete.
