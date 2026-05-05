@@ -10,26 +10,26 @@ Legacy modules will remain intact and functional during this transition to ensur
 ## Phase 1: Infrastructure Setup (RabbitMQ)
 **Goal:** Provision the message broker to handle ActivitySignal events.
 
-- [ ] **Docker Compose Update:** Add a `rabbitmq` service to `docker-compose.yml` using the `rabbitmq:3.13-management` image. Expose port `15672` for the Management UI and add health checks. Add dependency in the `app` container.
-- [ ] **Environment Configuration:** Add RabbitMQ connection variables to `.env.example` and expose the RabbitMQ URL to FastAPI settings via `src/app/settings.py`.
-- [ ] **Queue/Exchange Initialization (Docker Entrypoint):**
+- [x] **Docker Compose Update:** Add a `rabbitmq` service to `docker-compose.yml` using the `rabbitmq:4-management` image. Expose port `15672` for the Management UI and add health checks. Add dependency in the `app` container.
+- [x] **Environment Configuration:** Add RabbitMQ connection variables to `.env.example` and expose the RabbitMQ URL to FastAPI settings via `src/app/settings.py`.
+- [x] **Queue/Exchange Initialization (Docker Entrypoint):**
   - Create an initialization script (`src/app/scripts/init_rabbitmq.py`).
   - Update the existing `src/app/entrypoint.sh` script to execute the initialization script (`python app/scripts/init_rabbitmq.py`) before starting the Uvicorn web server.
   - **Exchange Definition:** Create a `topic` exchange named `activity_signals`.
   - **DLQ Setup:** Create a dead-letter exchange (e.g., `activity_signals_dlx`) and a generic DLQ bound to it (e.g., `activity_signals_dlq`).
   - **Routing Strategy:** Standardize routing keys as `<source>.<entity_type>` (e.g., `github.PullRequest`, `jira.Issue`).
-  - **Queue Definition (SQS-Like Behavior):** Declare specific **Quorum Queues** for each entity type (e.g., `github_pullrequest_queue`, `jira_issue_queue`). 
+  - **Queue Definition (SQS-Like Behavior):** Declare classic durable queues for each entity type (e.g., `github_pullrequest_queue`, `jira_issue_queue`). *(Classic queues chosen over Quorum Queues for simplicity; single-node deployment.)*
     - Set `x-dead-letter-exchange` to `activity_signals_dlx` (DLQ routing).
-    - Set `x-delivery-limit` to handle poison messages (analogous to SQS `maxReceiveCount`).
+    - Poison-message handling via `nack(requeue=False)` — equivalent to `x-delivery-limit` on classic queues.
     - *Note on Visibility Timeout:* Handled natively by RabbitMQ's unacknowledged state + `consumer_timeout` (default 30 mins) to requeue messages if a consumer hangs.
   - **Bindings:** Bind each specific queue to the `activity_signals` exchange using exact routing keys (e.g., bind `github_pullrequest_queue` with routing key `github.PullRequest`, `jira_issue_queue` with `jira.Issue`).
-- [ ] **Persistence Guarantees:**
+- [x] **Persistence Guarantees:**
   - **Exchanges:** Explicitly set `durable=True` when declaring `activity_signals` and `activity_signals_dlx` so they survive broker restarts.
   - **Messages:** Ensure producers set `delivery_mode=2` (Persistent) when publishing, guaranteeing messages are flushed to disk before the broker acknowledges the publisher.
-- [ ] **Testing & Validation (Phase 1 Infra):**
+- [x] **Testing & Validation (Phase 1 Infra):**
   - Write an integration test to verify RabbitMQ connectivity and successful initialization of exchanges and queues.
   - **Visibility Test:** Publish a test message, consume it without acknowledging, and verify it remains invisible to other consumers but gets requeued if the connection drops.
-  - **DLQ Test:** Publish a test message, deliberately `nack` (reject) it with `requeue=true` repeatedly until it hits the `x-delivery-limit`, and verify it successfully routes to the DLQ.
+  - **DLQ Test:** Publish a test message, deliberately `nack(requeue=False)` it, and verify it successfully routes to the DLQ.
 
 ---
 

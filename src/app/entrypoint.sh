@@ -14,7 +14,12 @@ done
 # Run database migrations
 cd /app/app && alembic upgrade head
 
->&2 echo "Migrations complete - starting application"
+>&2 echo "Migrations complete - initializing RabbitMQ"
+
+# Initialize RabbitMQ exchanges and queues for the ActivitySignal pipeline
+cd /app && python app/scripts/init_rabbitmq.py
+
+>&2 echo "RabbitMQ initialization complete - starting application"
 
 # Start the application
 cd /app && uvicorn app.main:app --host 0.0.0.0 --port 8000
