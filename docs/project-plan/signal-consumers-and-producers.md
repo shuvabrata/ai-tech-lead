@@ -68,6 +68,9 @@ Legacy modules will remain intact and functional during this transition to ensur
   - **Mappers:** Extract field resolution and entity mapping out of files like `new_issue_handler.py` into pure `map_*` functions. 
     - *Crucial:* This mapping layer must resolve dynamic custom fields (like the `customfield_10020` Sprint issue documented in `TODO.md`) before returning the data dictionary.
   - **Legacy Wiring:** Keep the legacy Jira handlers intact, but strip them of parsing logic so they rely on the decoupled fetchers and mappers, acting purely as database executors.
+- [ ] **Testing & Validation (Phase 3):**
+  - **Test Migration:** Review existing automated unit tests for legacy handlers (e.g., GitHub/Jira tests in the `tests/` directory). Extract the data transformation assertions and adapt them into new automated unit tests specifically targeting the pure `map_*` functions.
+  - **Regression Testing:** Run the full existing automated test suite (using `pytest`) to guarantee that the legacy direct-to-db logic continues to function perfectly after decoupling.
 
 ---
 
@@ -99,7 +102,7 @@ Legacy modules will remain intact and functional during this transition to ensur
   - Create Dockerfile(s) for the producers (e.g., `Dockerfile.producer`) to package them with minimal dependencies required for fetching and publishing.
   - Update `docker-compose.yml` to include the producers as independent services (e.g., `github-producer`, `jira-producer`), passing the necessary environment variables (RabbitMQ connection, API credentials).
 - [ ] **Testing & Validation (Phase 4):**
-  - **Unit Testing:** Mock the `fetch_*` utilities and verify that `map_*` outputs are correctly transformed into valid `ActivitySignal` Pydantic models. Ensure schema violations correctly log and skip without crashing the process.
+  - **Unit Testing:** Review existing producer scripts/tests and add new automated unit tests. Mock the `fetch_*` utilities and verify that `map_*` outputs are correctly transformed into valid `ActivitySignal` Pydantic models. Ensure schema violations correctly log and skip without crashing the process.
   - **Routing Verification:** Mock the `RabbitMQPublisher` to assert that messages are published individually and that routing keys (e.g., `github.PullRequest`) are constructed perfectly.
   - **Container Dry-Run:** Build the producer Docker container and execute a local dry-run to ensure the standalone loop initializes, connects to the API, and prepares to publish without failing.
 
@@ -125,7 +128,7 @@ Legacy modules will remain intact and functional during this transition to ensur
   - **Deployment Strategy:** Update `docker-compose.yml` to define targeted consumer services. To ensure at least one consumer per routing key/queue, group them logically (e.g., a `github-consumer` service listening to all GitHub queues, a `jira-consumer` service listening to Jira queues).
   - **Horizontal Scaling:** Ensure the architecture supports running multiple container instances of the same consumer service (RabbitMQ will automatically round-robin load-balance the messages across instances).
 - [ ] **Testing & Validation (Phase 5):**
-  - **Unit Testing:** Mock the RabbitMQ queue and Neo4j driver to ensure valid `ActivitySignal` models generate the correct Cypher queries (including stub nodes and default `OUT` directions).
+  - **Unit Testing:** Review existing database insertion tests. Add new automated unit tests mocking the RabbitMQ queue and Neo4j driver to ensure valid `ActivitySignal` models generate the correct Cypher queries (including stub nodes and default `OUT` directions).
   - **Integration Testing:** Run a local containerized consumer, publish test signals to RabbitMQ, and verify the data accurately reflects in Neo4j.
 
 ---
@@ -140,6 +143,9 @@ Legacy modules will remain intact and functional during this transition to ensur
 - [ ] **Error & Scale Testing:**
   - Test partial network failures, RabbitMQ restarts, and out-of-order event publishing.
   - Ensure the Consumer creates stub nodes successfully and resolves them when the actual node signal arrives.
+- [ ] **Automated Regression Suite Integration:**
+  - Ensure all new automated tests (Phases 3, 4, and 5) are integrated into the main `pytest` test suite.
+  - Run the full suite to verify a 100% pass rate across both the new event-driven system and existing features before considering the rollout complete.
 - [ ] **Deprecation:**
   - Update documentation to mark `src/connectors/modules/*` direct-to-db entrypoints as deprecated.
   - Schedule the removal of the old `write_to_neo4j()` legacy code once the event-driven system proves stable in production.
