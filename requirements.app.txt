@@ -10,12 +10,12 @@ sqlalchemy==2.0.49
 asyncpg==0.31.0
 pydantic-settings==2.14.0
 psycopg2-binary==2.9.12
-openai==2.32.0
+openai==2.34.0
 tiktoken==0.12.0
 python-dotenv==1.2.2
 pyyaml==6.0.3
 cryptography==47.0.0
-langchain==1.2.15
+langchain==1.2.17
 langchain-openai==1.2.1
 langchain-community==0.4.1
 langchain-neo4j==0.9.0
@@ -23,6 +23,6 @@ requests==2.33.1
 networkx==3.6.1
 python-louvain==0.16
 mcp[cli]==1.27.0
-neo4j==6.1.0
+neo4j==6.2.0
 influxdb-client==1.50.0
 elasticsearch==9.3.0
