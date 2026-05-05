@@ -105,24 +105,28 @@ Legacy modules will remain intact and functional during this transition to ensur
 
 ---
 
-## Phase 5: Building the Neo4j Consumers
-**Goal:** Build robust, entity-specific consumers that pull ActivitySignals from their respective queues and populate the graph database idempotently.
+## Phase 5: Building the ActivitySignal Consumers
+**Goal:** Build robust, scalable consumers that pull ActivitySignals from their respective queues and populate downstream databases idempotently. While Neo4j is the initial backend, the architecture must remain sink-agnostic to easily support future databases (e.g., Elasticsearch, InfluxDB).
 
-*Location: `src/consumers/neo4j_consumer.py`*
+*Location: `src/consumers/main.py` and `src/consumers/sinks/neo4j_sink.py`*
 
 - [ ] **Event Loop & Ingestion:**
   - Connect to the specific entity queues (e.g., `github_pullrequest_queue`) using the `RabbitMQConsumer` utility.
   - Validate incoming JSON against the `ActivitySignal` Pydantic model. Route invalid signals to a Dead Letter Queue (DLQ) or quarantine table.
-- [ ] **Canonical Node Upsert Logic:**
-  - Implement logic to `MERGE` nodes based *strictly* on the canonical identity composite key: `(source, entity_type, external_id)`.
-  - Use `SET` to update properties dynamically from the `attributes` dictionary.
-  - Handle deduplication (ignore messages if `signal_id` has already been processed/logged).
-- [ ] **Relationship & Stub Node Handling:**
-  - For each item in the `relationships` array, implement a `MERGE` for the relationship (`type`, `direction`).
-  - Implement **Stub Nodes**: If a relationship references a target `(source, entity_type, external_id)` that doesn't exist yet, create it as a "stub" (a node containing *only* the canonical identity), ensuring out-of-order events do not fail the insertion.
-- [ ] **Idempotency & Event Log Tracking:**
-  - Log processed `signal_id`s in Neo4j or a secondary store (Redis/Postgres) to ensure strictly at-least-once or exactly-once semantics.
-  - Process signals using `event_time` to prevent older signals from overwriting newer attributes.
+  - **Metadata Injection:** The consumer is responsible for injecting the `ingestion_time` timestamp.
+- [ ] **Neo4j Sink Implementation (`neo4j_sink.py`):**
+  - **Canonical Node Upsert:** Implement logic to `MERGE` nodes based *strictly* on the canonical identity composite key: `(source, entity_type, external_id)`. Use `SET` to update properties dynamically from the `attributes` dictionary.
+  - **Relationship Handling:** For each item in the `relationships` array, implement a `MERGE` for the relationship. **Rule Enforcement:** If `direction` is omitted from the signal, default it to `OUT`.
+  - **Stub Nodes:** If a relationship references a target `(source, entity_type, external_id)` that doesn't exist yet, create it as a "stub" (a node containing *only* the canonical identity), ensuring out-of-order events do not fail the insertion.
+  - **Idempotency:** Log processed `signal_id`s in Neo4j or a secondary store (e.g., Postgres) to ensure exactly-once semantics. Process signals using `event_time` to prevent older signals from overwriting newer attributes.
+- [ ] **Runtime, Dockerization & Deployment Topology:**
+  - Architect the consumer to be an executable, standalone Python process that accepts a list of queues to listen to via environment variables (e.g., `LISTEN_QUEUES=github_pullrequest_queue,github_commit_queue`).
+  - Create a `Dockerfile.consumer` to package the consumer independently.
+  - **Deployment Strategy:** Update `docker-compose.yml` to define targeted consumer services. To ensure at least one consumer per routing key/queue, group them logically (e.g., a `github-consumer` service listening to all GitHub queues, a `jira-consumer` service listening to Jira queues).
+  - **Horizontal Scaling:** Ensure the architecture supports running multiple container instances of the same consumer service (RabbitMQ will automatically round-robin load-balance the messages across instances).
+- [ ] **Testing & Validation (Phase 5):**
+  - **Unit Testing:** Mock the RabbitMQ queue and Neo4j driver to ensure valid `ActivitySignal` models generate the correct Cypher queries (including stub nodes and default `OUT` directions).
+  - **Integration Testing:** Run a local containerized consumer, publish test signals to RabbitMQ, and verify the data accurately reflects in Neo4j.
 
 ---
 
