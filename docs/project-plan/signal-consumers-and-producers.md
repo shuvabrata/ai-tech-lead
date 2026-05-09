@@ -74,16 +74,16 @@ These recommendations ensure maintainability, extensibility, and schema safety a
 - **Transform (`map_*`):** Creates pure, testable functions that convert raw JSON into standardized `ActivitySignal` dictionaries.
 - **Load (Publish/Subscribe):** By decoupling the load phase (now handled downstream by Phase 5 consumers), the system gains resilience (backpressure handling), idempotency (safe replays), and extensible multi-sink capabilities (e.g., adding an Elasticsearch consumer for free).
 
-- [ ] **GitHub Module Refactoring:**
+- [x] **GitHub Module Refactoring:**
   - **Fetchers:** Extract raw data fetching logic (GitHub API pagination, GraphQL, rate-limiting) into reusable `fetch_*` service functions.
   - **Mappers:** Isolate the data transformation logic (e.g., identifying parent commits, extracting PR reviewers from raw JSON) into pure `map_*` functions that return standardized dictionaries.
   - **Legacy Wiring:** Ensure the legacy entrypoint continues to call `fetch_*` -> `map_*` -> and passes the results to the old Neo4j writing functions to maintain stability.
-- [ ] **Jira Module Refactoring:**
+- [x] **Jira Module Refactoring:**
   - **Fetchers:** Extract the Jira REST API fetching and pagination logic into reusable `fetch_*` service functions.
   - **Mappers:** Extract field resolution and entity mapping out of files like `new_issue_handler.py` into pure `map_*` functions. 
     - *Crucial:* This mapping layer must resolve dynamic custom fields (like the `customfield_10020` Sprint issue documented in `TODO.md`) before returning the data dictionary.
   - **Legacy Wiring:** Keep the legacy Jira handlers intact, but strip them of parsing logic so they rely on the decoupled fetchers and mappers, acting purely as database executors.
-- [ ] **Testing & Validation (Phase 3):**
+- [x] **Testing & Validation (Phase 3):**
   - **Test Migration:** Review existing automated unit tests for legacy handlers (e.g., GitHub/Jira tests in the `tests/` directory). Extract the data transformation assertions and adapt them into new automated unit tests specifically targeting the pure `map_*` functions.
   - **Regression Testing:** Run the full existing automated test suite (using `pytest`) to guarantee that the legacy direct-to-db logic continues to function perfectly after decoupling.
 
