@@ -10,7 +10,7 @@ import os
 import traceback
 
 from neo4j import GraphDatabase
-from connectors.db.models import (
+from connectors.neo4j_db.models import (
     Person, Team, IdentityMapping, Relationship,
     merge_person, merge_team, merge_identity_mapping, merge_relationship,
     create_constraints, DIRECTIONAL_RELATIONSHIPS

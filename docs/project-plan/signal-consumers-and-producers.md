@@ -36,16 +36,21 @@ Legacy modules will remain intact and functional during this transition to ensur
 ## Phase 2: ActivitySignal Core Library
 **Goal:** Establish the strict schema and utilities required by the `spec-activity-signal.md` document.
 
-- [ ] **Pydantic Schema Definition:** Create `src/common/activity_signal/models.py`.
-  - Define the base `ActivitySignal` Pydantic model with strict validation for the core identifiers (`signal_id`, `source`, `entity_type`, `external_id`) AND the required metadata fields per Section 6 of the spec (`source_config`, `connector_url`, `event_time`, `version`). *Note: `ingestion_time` is excluded from the Producer model as it is set by the Consumer.*
-  - Use **Pydantic Discriminated Unions** to enforce the mandatory attributes for each `entity_type` (e.g., Issue, Commit, Person) as defined in Section 4 of the spec. Create specific sub-models for attributes (e.g., `CommitAttributes`, `IssueAttributes`) configured to allow extra custom fields (`model_config = ConfigDict(extra='allow')`).
-  - Enforce relationship types (`BELONGS_TO`, `ASSIGNED_TO`, etc.) as defined in Section 5.
-  - **Flexible Relationship Targets:** Ensure the relationship `target` schema allows flexible lookup dictionaries (e.g., just an `email` field to identify a Person). It should NOT strictly enforce the `(source, entity_type, external_id)` tuple.
-- [ ] **RabbitMQ Utility Module:** Create `src/common/messaging/rabbitmq.py`.
-  - Implement an asynchronous publisher (`RabbitMQPublisher`) to send individual Pydantic models as JSON to the exchange. **Note:** Batching is intentionally NOT supported to keep payloads small and optimize RabbitMQ performance.
-  - Implement an asynchronous consumer (`RabbitMQConsumer`) to listen to the queue and yield valid Pydantic models.
-    - **Ingestion Time:** The Consumer is responsible for injecting the `ingestion_time` timestamp upon successfully receiving the message.
-    - **Error Handling (Nack & DLQ):** If a message fails Pydantic validation, or if the consumer encounters any other failure, the utility must `nack` the message so that RabbitMQ routes it to the Dead Letter Queue (DLQ).
+- [x] **Pydantic Schema Definition:** Create `src/common/activity_signal/models.py`.
+  - Complete. All entity models, discriminated unions, and relationship schemas implemented per spec.
+- [x] **RabbitMQ Utility Module:** Create `src/common/messaging/rabbitmq.py`.
+  - Complete. Async publisher and consumer utilities implemented and validated.
+
+**Status:** Phase 2 is complete. All core models and messaging utilities are ready for use by producers and consumers.
+
+---
+
+## Next: Phase 3 — Decoupling Existing Modules (Fetch & Map Extraction)
+
+**Transition note:**
+Phase 3 will extract pure fetch and map logic from the legacy GitHub and Jira handlers, so that network I/O and data transformation are reusable and testable. The legacy direct-to-Neo4j code will remain for now, but will call the new `fetch_*` and `map_*` functions internally. This enables the new event-driven producers to reuse the same logic without touching the database directly.
+
+---
 
 ---
 

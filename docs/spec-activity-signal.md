@@ -127,12 +127,7 @@ These three fields together uniquely identify a node in the graph.
 
 ---
 
-## 8. Batch Signals and Bulk Operations
 
-- The ActivitySignal schema supports batching: multiple ActivitySignals may be sent together in a single message or payload.
-- Batch messages may include batch-level metadata (e.g., source_config, connector_url, version) that applies to all contained signals, similar to a base class. Each ActivitySignal in the batch must still be a valid, self-contained event.
-- The specification does not prescribe how consumers should handle errors or partial failures in batch processing; this is left to implementation.
-- The event log and downstream processing should ultimately treat each ActivitySignal as an independent event, regardless of batching at ingestion.
 
 ---
 
@@ -187,7 +182,7 @@ These three fields together uniquely identify a node in the graph.
 - **Relationship:** An edge between two nodes, with a type and direction.
 - **Canonical Node Identity:** The tuple (source, entity_type, external_id) uniquely identifying a node.
 - **Stub Node:** A placeholder node created when a referenced node does not yet exist.
-- **Batch:** A group of ActivitySignals sent together with shared metadata.
+
 - **Consumer:** A system or process that ingests, validates, and processes ActivitySignals.
 - **Producer:** A system or process that emits ActivitySignals from a source system.
 

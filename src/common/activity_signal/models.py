@@ -1,0 +1,386 @@
+"""ActivitySignal Pydantic schema models.
+
+Implements the ActivitySignal specification (docs/spec-activity-signal.md).
+
+Key design decisions:
+- A single ``ActivitySignal`` class covers both producer and consumer usage.
+  ``ingestion_time`` is ``None`` when emitted by a producer and is set by the
+  consumer upon receipt.
+- Per-entity ``*Attributes`` sub-models validate mandatory attributes for each
+  ``entity_type`` and allow arbitrary extra fields (``extra='allow'``).
+- Discriminated union on ``entity_type`` enforces the correct attributes
+  sub-model at parse time.
+- ``RelationshipTarget`` is a flexible dict-like model to support lookup by any
+  combination of identifiers (e.g. only ``email`` for a Person).
+"""
+
+from __future__ import annotations
+
+import uuid
+from datetime import datetime
+from typing import Annotated, Any, Literal, Optional, Union, cast
+
+from pydantic import BaseModel, ConfigDict, Field
+
+
+# ---------------------------------------------------------------------------
+# Relationship target
+# ---------------------------------------------------------------------------
+
+
+class RelationshipTarget(BaseModel):
+    """Flexible lookup dict identifying the target node of a relationship.
+
+    The full canonical identity tuple ``(source, entity_type, external_id)``
+    is the primary lookup, but partial lookups (e.g. ``{"email": "x@y.com"}``)
+    are also valid.  All extra fields are accepted so consumers can choose the
+    most convenient identifier available.
+    """
+
+    model_config = ConfigDict(extra="allow")
+
+    source: Optional[str] = None
+    entity_type: Optional[str] = None
+    external_id: Optional[str] = None
+
+
+# ---------------------------------------------------------------------------
+# Supported relationship types
+# ---------------------------------------------------------------------------
+
+SUPPORTED_RELATIONSHIP_TYPES: frozenset[str] = frozenset(
+    {
+        "BELONGS_TO",
+        "ASSIGNED_TO",
+        "AUTHORED_BY",
+        "MEMBER_OF",
+        "OWNS",
+        "PARENT_OF",
+        "PART_OF",
+        "COLLABORATES_ON",
+        "REVIEWS",
+        "MERGED_INTO",
+        "RELATED_TO",
+    }
+)
+
+
+class Relationship(BaseModel):
+    """A single relationship entry inside an ActivitySignal.
+
+    ``direction`` encodes three distinct storage semantics for Neo4j:
+
+    * ``"OUT"``  — directed edge ``(source)-[:REL]->(target)``
+    * ``"IN"``   — directed edge ``(source)<-[:REL]-(target)``
+    * ``None``   — undirected edge ``(source)-[:REL]-(target)``, stored once
+                   and queryable from either end without specifying direction.
+                   Use this for Category-1 relationships defined in
+                   ``docs/RELATIONSHIPS_DESIGN.md`` (e.g. ``ASSIGNED_TO``,
+                   ``AUTHORED_BY``, ``MEMBER_OF``).
+    """
+
+    type: str = Field(..., description="One of SUPPORTED_RELATIONSHIP_TYPES.")
+    direction: Optional[Literal["OUT", "IN"]] = Field(
+        default=None,
+        description=(
+            "Direction of the relationship edge. "
+            "None = undirected (stored once, queried without direction). "
+            "OUT = (source)-[:REL]->(target). "
+            "IN = (source)<-[:REL]-(target)."
+        ),
+    )
+    target: RelationshipTarget = Field(
+        ..., description="Flexible dict sufficient to identify the target node."
+    )
+
+
+# ---------------------------------------------------------------------------
+# Per-entity attribute sub-models
+# ---------------------------------------------------------------------------
+# Each sub-model:
+#   - declares a Literal ``entity_type`` field used as discriminator
+#   - lists mandatory attributes as required fields
+#   - sets ``extra='allow'`` so additional custom fields pass through
+
+
+class ProjectAttributes(BaseModel):
+    """Mandatory attributes for a Jira Project node."""
+
+    model_config = ConfigDict(extra="allow")
+
+    entity_type: Literal["Project"] = "Project"
+    id: str
+    key: str
+    name: str
+
+
+class InitiativeAttributes(BaseModel):
+    """Mandatory attributes for a Jira Initiative node."""
+
+    model_config = ConfigDict(extra="allow")
+
+    entity_type: Literal["Initiative"] = "Initiative"
+    id: str
+    key: str
+    summary: str
+    priority: str
+    status: str
+    created_at: str
+
+
+class EpicAttributes(BaseModel):
+    """Mandatory attributes for a Jira Epic node."""
+
+    model_config = ConfigDict(extra="allow")
+
+    entity_type: Literal["Epic"] = "Epic"
+    id: str
+    key: str
+    summary: str
+    priority: str
+    status: str
+    created_at: str
+
+
+class SprintAttributes(BaseModel):
+    """Mandatory attributes for a Jira Sprint node."""
+
+    model_config = ConfigDict(extra="allow")
+
+    entity_type: Literal["Sprint"] = "Sprint"
+    id: str
+    name: str
+    state: str
+    status: str
+
+
+class IssueAttributes(BaseModel):
+    """Mandatory attributes for a Jira Issue node."""
+
+    model_config = ConfigDict(extra="allow")
+
+    entity_type: Literal["Issue"] = "Issue"
+    id: str
+    key: str
+    summary: str
+    priority: str
+    status: str
+    issue_type: str
+    created: str
+
+
+class RepositoryAttributes(BaseModel):
+    """Mandatory attributes for a GitHub Repository node."""
+
+    model_config = ConfigDict(extra="allow")
+
+    entity_type: Literal["Repository"] = "Repository"
+    id: str
+    full_name: str
+    name: str
+    created_at: str
+    updated_at: str
+    url: str
+
+
+class BranchAttributes(BaseModel):
+    """Mandatory attributes for a GitHub Branch node."""
+
+    model_config = ConfigDict(extra="allow")
+
+    entity_type: Literal["Branch"] = "Branch"
+    name: str
+    commit_sha: str
+
+
+class CommitAttributes(BaseModel):
+    """Mandatory attributes for a GitHub Commit node."""
+
+    model_config = ConfigDict(extra="allow")
+
+    entity_type: Literal["Commit"] = "Commit"
+    sha: str
+    message: str
+    author: str
+    committed_date: str
+
+
+class PullRequestAttributes(BaseModel):
+    """Mandatory attributes for a GitHub PullRequest node."""
+
+    model_config = ConfigDict(extra="allow")
+
+    entity_type: Literal["PullRequest"] = "PullRequest"
+    id: str
+    number: int
+    title: str
+    state: str
+    created_at: str
+    user: str
+
+
+class PersonAttributes(BaseModel):
+    """Mandatory attributes for a Person node."""
+
+    model_config = ConfigDict(extra="allow")
+
+    entity_type: Literal["Person"] = "Person"
+    id: str
+    name: str
+
+
+class TeamAttributes(BaseModel):
+    """Mandatory attributes for a GitHub Team node."""
+
+    model_config = ConfigDict(extra="allow")
+
+    entity_type: Literal["Team"] = "Team"
+    id: str
+    name: str
+    slug: str
+
+
+# ---------------------------------------------------------------------------
+# Discriminated union of all attributes models
+# ---------------------------------------------------------------------------
+
+# The bare Union — used as the type annotation on ActivitySignal.attributes so
+# that type-checkers can see all member attributes (e.g. .entity_type).
+_AttributesUnion = Union[
+    ProjectAttributes,
+    InitiativeAttributes,
+    EpicAttributes,
+    SprintAttributes,
+    IssueAttributes,
+    RepositoryAttributes,
+    BranchAttributes,
+    CommitAttributes,
+    PullRequestAttributes,
+    PersonAttributes,
+    TeamAttributes,
+]
+
+# Annotated alias used in the field declaration to attach the discriminator.
+AttributesUnion = Annotated[_AttributesUnion, Field(discriminator="entity_type")]
+
+# Set of known entity type strings (derived from the union) for fast validation.
+SUPPORTED_ENTITY_TYPES: frozenset[str] = frozenset(
+    {
+        "Project",
+        "Initiative",
+        "Epic",
+        "Sprint",
+        "Issue",
+        "Repository",
+        "Branch",
+        "Commit",
+        "PullRequest",
+        "Person",
+        "Team",
+    }
+)
+
+
+# ---------------------------------------------------------------------------
+# ActivitySignal — top-level event model
+# ---------------------------------------------------------------------------
+
+
+class ActivitySignal(BaseModel):
+    """A single ActivitySignal event.
+
+    Covers both producer-emitted signals (``ingestion_time=None``) and
+    consumer-enriched signals (``ingestion_time`` set after receipt).
+
+    The ``attributes`` field is a discriminated union keyed on ``entity_type``
+    so the correct mandatory attribute set is enforced at parse time.
+
+    Usage (producer)::
+
+        signal = ActivitySignal(
+            source="github",
+            external_id="repo/123",
+            source_config="https://github.com",
+            connector_url="https://wba-ai/connectors/github/1",
+            event_time=datetime.utcnow(),
+            version="1.0",
+            attributes=RepositoryAttributes(
+                entity_type="Repository",
+                id="123",
+                full_name="org/repo",
+                name="repo",
+                created_at="...",
+                updated_at="...",
+                url="https://github.com/org/repo",
+            ),
+        )
+
+    Usage (consumer — inject ingestion_time)::
+
+        signal = signal.model_copy(update={"ingestion_time": datetime.utcnow()})
+    """
+
+    signal_id: str = Field(
+        default_factory=lambda: str(uuid.uuid4()),
+        description="Unique immutable identifier for this signal (UUID).",
+    )
+    source: str = Field(..., description="Origin system (e.g. 'github', 'jira').")
+    external_id: str = Field(
+        ..., description="Unique identifier for the entity within the source system."
+    )
+    source_config: str = Field(
+        ...,
+        description="Base URL / identifier of the source system instance.",
+    )
+    connector_url: str = Field(
+        ..., description="URL of the connector that produced this signal."
+    )
+    event_time: datetime = Field(
+        ...,
+        description="Timestamp of the event in the source system (updated_at / created_at).",
+    )
+    ingestion_time: Optional[datetime] = Field(
+        default=None,
+        description=(
+            "Timestamp set by the consumer when the message is received. "
+            "Must be None when emitted by a producer."
+        ),
+    )
+    version: str = Field(default="1.0", description="Schema version string.")
+    attributes: Annotated[
+        _AttributesUnion,
+        Field(
+            discriminator="entity_type",
+            description="Entity-specific attributes.  Discriminated by entity_type.",
+        ),
+    ]
+    relationships: list[Relationship] = Field(
+        default_factory=list,
+        description="Observed relationships for this node at event_time.",
+    )
+
+    @property
+    def entity_type(self) -> str:
+        """Convenience accessor that mirrors the entity_type from attributes."""
+        return cast(_AttributesUnion, self.attributes).entity_type  # type: ignore[union-attr]
+
+    @property
+    def routing_key(self) -> str:
+        """RabbitMQ routing key: ``<source>.<entity_type>``."""
+        return f"{self.source}.{self.entity_type}"
+
+    def with_ingestion_time(self, ts: Optional[datetime] = None) -> "ActivitySignal":
+        """Return a copy of this signal with ``ingestion_time`` set.
+
+        Args:
+            ts: Timestamp to use.  Defaults to ``datetime.utcnow()``.
+        """
+        from datetime import timezone  # local import to avoid circular imports
+
+        return self.model_copy(
+            update={"ingestion_time": ts or datetime.now(tz=timezone.utc)}
+        )
+
+    def extra_attributes(self) -> dict[str, Any]:
+        """Return the full attributes dict including any extra fields."""
+        return cast(_AttributesUnion, self.attributes).model_dump()  # type: ignore[union-attr]
