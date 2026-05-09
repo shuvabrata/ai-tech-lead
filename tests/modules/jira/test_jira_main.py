@@ -13,7 +13,7 @@ from connectors.modules.jira.main import load_config_from_server, main as jira_m
 
 # --- Tests for load_config_from_server ---
 
-@patch('connectors.modules.jira.main.requests.get')
+@patch('connectors.modules.jira.jira_config.requests.get')
 def test_load_config_from_server_success(mock_get, monkeypatch):
     """
     Test successful configuration loading from the server for Jira.
@@ -57,7 +57,7 @@ def test_load_config_from_server_success(mock_get, monkeypatch):
         timeout=10
     )
 
-@patch('connectors.modules.jira.main.requests.get')
+@patch('connectors.modules.jira.jira_config.requests.get')
 def test_load_config_from_server_http_error(mock_get, monkeypatch):
     """
     Test handling of an HTTP error from the server for Jira.
