@@ -5,12 +5,9 @@ Jira Integration - Fetch Projects, Initiatives, Epics, Sprints, and Issues
 This program connects to Jira, fetches projects, initiatives, epics, sprints, and all issue types,
 and loads them into Neo4j with proper relationships.
 """
-from typing import Any, Dict, Set, List, cast
+from typing import Any, Dict, Set, List
 
-import json
-import requests
 import os
-from pathlib import Path
 from atlassian import Jira
 from neo4j import GraphDatabase
 
@@ -22,6 +19,11 @@ from connectors.modules.jira.new_sprint_handler import new_sprint_handler
 from connectors.modules.jira.new_issue_handler import new_issue_handler
 from connectors.commons.person_cache import PersonCache
 from connectors.commons.logger import logger
+from connectors.modules.jira.jira_config import (
+    create_jira_connection,
+    load_config_from_file,
+    load_config_from_server,
+)
 from connectors.producers.fetch_jira import (
     fetch_projects,
     fetch_initiatives,
@@ -30,59 +32,6 @@ from connectors.producers.fetch_jira import (
     fetch_issues,
 )
 from connectors.producers.map_jira import extract_sprint_ids_from_issues
-
-def load_config_from_server() -> Dict[str, Any]:
-    """Load Jira configuration from API server."""
-    api_server = os.getenv("API_SERVER", "http://host.docker.internal:8000/")
-    config_url = f"{api_server.rstrip('/')}/api/v1/connectors/jira/configs"
-    params = {"include_secrets": "true"}
-
-    logger.info(f"Fetching configuration from {config_url} with params: {params}")
-    try:
-        response = requests.get(config_url, params=params, timeout=10)
-        response.raise_for_status()  # Raises HTTPError for bad responses (4xx or 5xx)
-
-        # The API returns a list, but the app expects {"account": [...]}
-        raw_configs = response.json()
-        return {"account": raw_configs}
-
-    except requests.exceptions.RequestException as e:
-        logger.error(f"Failed to fetch configuration from server: {e}")
-        raise
-
-
-def load_config_from_file() -> Dict[str, Any]:
-    """Load configuration from .config.json file."""
-    # Look for config file in the current directory or go up to find it
-    config_path = Path(__file__).parent / '.config.json'
-    if not config_path.exists():
-        # Try parent directories
-        config_path = Path(__file__).parent.parent.parent / '.config.json'
-
-    if not config_path.exists():
-        raise FileNotFoundError(f"Could not find .config.json file in {Path(__file__).parent} or its parent directories.")
-
-    with open(config_path, 'r', encoding='utf-8') as f:
-        return cast(Dict[str, Any], json.load(f))
-
-def create_jira_connection(config: Dict[str, Any]) -> Jira:
-    """Create and return a Jira connection object."""
-    account = config['account'][0]  # Use first account
-    
-    jira = Jira(
-        url=account['url'],
-        username=account['email'],
-        password=account['api_token'],
-        cloud=True  # Set to True for Atlassian Cloud instances
-    )
-    
-    # Validate connection
-    user = jira.myself()  # type: ignore  # This will raise an exception if authentication fails
-    if not user:
-        raise Exception("Failed to authenticate with Jira. Please check your API credentials.")
-    logger.info(f"Successfully authenticated as: {user.get('displayName', user.get('emailAddress', 'Unknown'))}")
-
-    return jira
 
 
 

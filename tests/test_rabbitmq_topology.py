@@ -23,6 +23,9 @@ Run:
 """
 
 import asyncio
+import base64
+import json
+import urllib.request
 import uuid
 
 import pytest
@@ -43,6 +46,47 @@ from app.scripts.init_rabbitmq import (
     init_rabbitmq,
 )
 from app.settings import settings
+
+# ---------------------------------------------------------------------------
+# Management API helpers
+# ---------------------------------------------------------------------------
+
+_MGMT_BASE = "http://localhost:15672/api"
+
+
+def _mgmt_auth() -> str:
+    """Return the Basic-auth header value derived from RABBITMQ_URL."""
+    url = settings.RABBITMQ_URL  # amqp://user:pass@host:port/
+    try:
+        credentials = url.split("://")[1].split("@")[0]  # user:pass
+    except IndexError:
+        credentials = "guest:guest"
+    return base64.b64encode(credentials.encode()).decode()
+
+
+def _mgmt_get(path: str) -> dict | list:
+    """Perform a GET against the RabbitMQ Management HTTP API."""
+    req = urllib.request.Request(
+        f"{_MGMT_BASE}{path}",
+        headers={"Authorization": f"Basic {_mgmt_auth()}"},
+    )
+    with urllib.request.urlopen(req, timeout=5) as resp:
+        return json.loads(resp.read())
+
+
+def _mgmt_reachable() -> bool:
+    try:
+        _mgmt_get("/overview")
+        return True
+    except Exception:  # pylint: disable=broad-except
+        return False
+
+
+_mgmt_available = _mgmt_reachable()
+_skip_if_mgmt_unavailable = pytest.mark.skipif(
+    not _mgmt_available,
+    reason="RabbitMQ Management API not reachable at http://localhost:15672",
+)
 
 pytestmark = [pytest.mark.integration, pytest.mark.rabbitmq]
 
@@ -150,8 +194,6 @@ class TestMessageVisibility:
     Consumer C can retrieve it.
     """
 
-    # Use a dedicated queue so the test does not interfere with other activity.
-    _QUEUE = "github_commit_queue"
     _ROUTING_KEY = "github.Commit"
 
     @pytest_asyncio.fixture(autouse=True)
@@ -162,16 +204,25 @@ class TestMessageVisibility:
     async def test_unacked_message_invisible_to_second_consumer(self):
         """Unacked message is not returned to a competing ``basic.get`` call."""
         test_body = f"visibility-test-{uuid.uuid4()}".encode()
+        test_queue = f"test_visibility_queue_{uuid.uuid4().hex}"
 
-        # ── Publish ──────────────────────────────────────────────────────────
-        pub_conn = await aio_pika.connect_robust(settings.RABBITMQ_URL)
-        async with pub_conn:
-            channel = await pub_conn.channel()
-            exchange = await channel.declare_exchange(
+        # ── Create an isolated queue bound to the tested routing key ───────
+        setup_conn = await aio_pika.connect_robust(settings.RABBITMQ_URL)
+        async with setup_conn:
+            setup_channel = await setup_conn.channel()
+            exchange = await setup_channel.declare_exchange(
                 EXCHANGE_NAME,
                 aio_pika.ExchangeType.TOPIC,
                 durable=True,
             )
+            queue = await setup_channel.declare_queue(
+                test_queue,
+                durable=True,
+                auto_delete=True,
+            )
+            await queue.bind(exchange, routing_key=self._ROUTING_KEY)
+
+            # ── Publish to isolated queue ───────────────────────────────────
             await exchange.publish(
                 aio_pika.Message(
                     body=test_body,
@@ -183,7 +234,7 @@ class TestMessageVisibility:
         # ── Consumer A: receive but do NOT acknowledge ────────────────────────
         conn_a = await aio_pika.connect_robust(settings.RABBITMQ_URL)
         channel_a = await conn_a.channel()
-        queue_a = await channel_a.declare_queue(self._QUEUE, durable=True, passive=True)
+        queue_a = await channel_a.declare_queue(test_queue, durable=True, passive=True)
         msg_a = await queue_a.get(timeout=5)
         assert msg_a is not None, "Consumer A should receive the published message"
         assert msg_a.body == test_body
@@ -194,7 +245,7 @@ class TestMessageVisibility:
         async with conn_b:
             channel_b = await conn_b.channel()
             queue_b = await channel_b.declare_queue(
-                self._QUEUE, durable=True, passive=True
+                test_queue, durable=True, passive=True
             )
             msg_b = await queue_b.get(fail=False)
             assert msg_b is None, (
@@ -211,12 +262,14 @@ class TestMessageVisibility:
         async with conn_c:
             channel_c = await conn_c.channel()
             queue_c = await channel_c.declare_queue(
-                self._QUEUE, durable=True, passive=True
+                test_queue, durable=True, passive=True
             )
             msg_c = await queue_c.get(timeout=5)
             assert msg_c is not None, "Requeued message must be available after Consumer A disconnects"
             assert msg_c.body == test_body
             await msg_c.ack()  # Clean up
+            await queue_c.unbind(EXCHANGE_NAME, routing_key=self._ROUTING_KEY)
+            await queue_c.delete(if_unused=False, if_empty=False)
 
 
 @_skip_if_unavailable
@@ -233,7 +286,6 @@ class TestDLQRouting:
         explicit ``nack(requeue=False)`` routes the message to the DLQ.
     """
 
-    _QUEUE = "jira_issue_queue"
     _ROUTING_KEY = "jira.Issue"
 
     @pytest_asyncio.fixture(autouse=True)
@@ -244,16 +296,29 @@ class TestDLQRouting:
     async def test_nacked_message_routes_to_dlq(self):
         """Nack with requeue=False sends the message to the DLQ."""
         test_body = f"dlq-test-{uuid.uuid4()}".encode()
+        test_queue = f"test_dlq_queue_{uuid.uuid4().hex}"
 
-        # ── Publish to entity queue ──────────────────────────────────────────
-        pub_conn = await aio_pika.connect_robust(settings.RABBITMQ_URL)
-        async with pub_conn:
-            channel = await pub_conn.channel()
-            exchange = await channel.declare_exchange(
+        # ── Create an isolated queue with DLQ args and bind to routing key ─
+        setup_conn = await aio_pika.connect_robust(settings.RABBITMQ_URL)
+        async with setup_conn:
+            setup_channel = await setup_conn.channel()
+            exchange = await setup_channel.declare_exchange(
                 EXCHANGE_NAME,
                 aio_pika.ExchangeType.TOPIC,
                 durable=True,
             )
+            queue = await setup_channel.declare_queue(
+                test_queue,
+                durable=True,
+                auto_delete=True,
+                arguments={
+                    "x-dead-letter-exchange": DLX_NAME,
+                    "x-dead-letter-routing-key": DLQ_NAME,
+                },
+            )
+            await queue.bind(exchange, routing_key=self._ROUTING_KEY)
+
+            # ── Publish to isolated queue ───────────────────────────────────
             await exchange.publish(
                 aio_pika.Message(
                     body=test_body,
@@ -266,11 +331,13 @@ class TestDLQRouting:
         rej_conn = await aio_pika.connect_robust(settings.RABBITMQ_URL)
         async with rej_conn:
             channel = await rej_conn.channel()
-            queue = await channel.declare_queue(self._QUEUE, durable=True, passive=True)
+            queue = await channel.declare_queue(test_queue, durable=True, passive=True)
             msg = await queue.get(timeout=5)
             assert msg is not None, "Entity queue should have the published message"
             assert msg.body == test_body
             await msg.reject(requeue=False)  # → routes to DLX → DLQ
+            await queue.unbind(EXCHANGE_NAME, routing_key=self._ROUTING_KEY)
+            await queue.delete(if_unused=False, if_empty=False)
 
         # Allow a brief moment for dead-letter routing to complete
         await asyncio.sleep(0.2)
@@ -285,6 +352,90 @@ class TestDLQRouting:
                 "Rejected message must appear in the DLQ"
             )
             await dlq_msg.ack()  # Clean up
+
+
+# ---------------------------------------------------------------------------
+# Topology + bindings verification (via Management HTTP API)
+# ---------------------------------------------------------------------------
+
+
+@_skip_if_mgmt_unavailable
+class TestTopologyBindings:
+    """Verify exchange/queue topology and binding properties via Management API.
+
+    Uses the RabbitMQ Management HTTP API (port 15672) so that binding details
+    and queue arguments are inspectable without consuming messages.
+    """
+
+    @pytest_asyncio.fixture(autouse=True)
+    async def ensure_topology(self):
+        """Idempotently declare topology before each test."""
+        await init_rabbitmq(settings.RABBITMQ_URL)
+
+    def test_main_exchange_is_topic_and_durable(self):
+        """``activity_signals`` exchange is a durable topic exchange."""
+        data = _mgmt_get(f"/exchanges/%2F/{EXCHANGE_NAME}")
+        assert data["type"] == "topic", f"Expected topic, got {data['type']}"
+        assert data["durable"] is True
+        assert data["auto_delete"] is False
+
+    def test_dlx_is_direct_and_durable(self):
+        """``activity_signals_dlx`` exchange is a durable direct exchange."""
+        data = _mgmt_get(f"/exchanges/%2F/{DLX_NAME}")
+        assert data["type"] == "direct", f"Expected direct, got {data['type']}"
+        assert data["durable"] is True
+        assert data["auto_delete"] is False
+
+    def test_dlq_is_durable(self):
+        """``activity_signals_dlq`` queue is durable."""
+        data = _mgmt_get(f"/queues/%2F/{DLQ_NAME}")
+        assert data["durable"] is True
+
+    def test_dlq_is_bound_to_dlx(self):
+        """``activity_signals_dlq`` has a binding from the DLX."""
+        bindings = _mgmt_get(f"/queues/%2F/{DLQ_NAME}/bindings")
+        dlx_bindings = [b for b in bindings if b.get("source") == DLX_NAME]
+        assert dlx_bindings, f"No binding found from {DLX_NAME} to {DLQ_NAME}"
+
+    @pytest.mark.parametrize("queue_name,routing_key", ENTITY_QUEUES)
+    def test_entity_queue_is_durable(self, queue_name: str, routing_key: str):
+        """Each entity queue is durable."""
+        data = _mgmt_get(f"/queues/%2F/{queue_name}")
+        assert data["durable"] is True, f"{queue_name} is not durable"
+
+    @pytest.mark.parametrize("queue_name,routing_key", ENTITY_QUEUES)
+    def test_entity_queue_has_dead_letter_exchange(self, queue_name: str, routing_key: str):
+        """Each entity queue has ``x-dead-letter-exchange`` pointing to the DLX."""
+        data = _mgmt_get(f"/queues/%2F/{queue_name}")
+        args = data.get("arguments", {})
+        assert args.get("x-dead-letter-exchange") == DLX_NAME, (
+            f"{queue_name} missing x-dead-letter-exchange={DLX_NAME}, got: {args}"
+        )
+
+    @pytest.mark.parametrize("queue_name,routing_key", ENTITY_QUEUES)
+    def test_entity_queue_has_dead_letter_routing_key(self, queue_name: str, routing_key: str):
+        """Each entity queue routes dead-lettered messages to the DLQ name."""
+        data = _mgmt_get(f"/queues/%2F/{queue_name}")
+        args = data.get("arguments", {})
+        assert args.get("x-dead-letter-routing-key") == DLQ_NAME, (
+            f"{queue_name} missing x-dead-letter-routing-key={DLQ_NAME}, got: {args}"
+        )
+
+    @pytest.mark.parametrize("queue_name,routing_key", ENTITY_QUEUES)
+    def test_entity_queue_is_bound_to_main_exchange_with_correct_routing_key(
+        self, queue_name: str, routing_key: str
+    ):
+        """Each entity queue has a binding from ``activity_signals`` with its expected routing key."""
+        bindings = _mgmt_get(f"/queues/%2F/{queue_name}/bindings")
+        matching = [
+            b for b in bindings
+            if b.get("source") == EXCHANGE_NAME and b.get("routing_key") == routing_key
+        ]
+        assert matching, (
+            f"{queue_name} has no binding from exchange '{EXCHANGE_NAME}' "
+            f"with routing_key='{routing_key}'. "
+            f"Found bindings: {[(b.get('source'), b.get('routing_key')) for b in bindings]}"
+        )
 
 
 # ---------------------------------------------------------------------------

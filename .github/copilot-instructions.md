@@ -1,20 +1,9 @@
 # GitHub Copilot Instructions - Work Behavior Analytics AI
 
-Always activate the virual environment before running the application or tests:
+Always activate the virtual environment before running the application or tests:
 ```bash
 source .venv/bin/activate
 ```
-
-## Project Overview
-
-**Work Behavior Analytics AI** is an AI-powered tool designed to help senior tech leaders make data-driven decisions for project management. The system analyzes project data from various sources (GitHub, Jira, Confluence, etc.) and provides actionable insights through a natural language chat interface.
-
-### Core Purpose
-- Assist tech leaders in prioritizing tasks and making objective decisions
-- Analyze project inputs (scope, resources, time) and track outputs (progress, blockers)
-- Answer tactical questions about team performance, code quality, and project health
-- Provide weekly analysis with forecasting and recommendations
-- Remove human bias from tactical decision-making through data-driven insights
 
 ## Technology Stack
 
@@ -23,82 +12,160 @@ source .venv/bin/activate
 - **Web Server**: Uvicorn with hot-reload for development
 - **Database**: PostgreSQL (via Docker Compose)
 - **ORM**: SQLAlchemy (async) with Alembic for migrations
-- **AI/LLM**: OpenAI API with LangChain framework
-- **Graph Database**: Neo4j (external module, developed in separate repo)
+- **AI/LLM**: Provider-agnostic LLM abstraction (OpenAI or custom) via `ai_agent/providers/`
+- **Graph Database**: Neo4j (bundled in docker-compose)
+- **Message Queue**: RabbitMQ (for connector producers/sync pipeline)
+- **Time-series DB**: InfluxDB
+- **Search**: Elasticsearch
 
 ### Frontend
 - **Framework**: Dash (Python-based web framework)
 - **UI Components**: dash-bootstrap-components
 - **Layout**: Left-side menu navigation with pages:
   - Chat: GenAI-like conversational interface
-  - Projects: Project management and switching
   - People: Team member information and relationships
   - Progress: Project progress tracking and visualization
-  - Settings: Configuration management
+  - Graph: Neo4j graph visualization and query execution
+  - Analytics: Collaboration analytics
+  - Connectors: Connector configuration and management
+  - Settings: Application configuration
 
 ### Infrastructure
-- **Containerization**: Docker with docker-compose for PostgreSQL
-- **Environment Management**: python-dotenv for configuration
+- **Containerization**: Docker with docker-compose
+- **Environment Management**: pydantic-settings with `.env` file
 - **Async I/O**: asyncpg for PostgreSQL async operations
 - **Deployment Model**: Single-user local deployment (laptop/desktop)
 
 ### Code Quality Tools
-- **Type Checking**: mypy for static type analysis
-- **Linting**: pylint for code quality checks
-- **AI Review**: GitHub Copilot for code review assistance
+- **Type Checking**: mypy
+- **Linting**: pylint
+
+## Import Convention
+
+Code lives in `src/` but is imported as top-level packages. `PYTHONPATH=src` is set in `pytest.ini` and all Docker containers.
+
+```python
+# Correct — always use these import paths
+from app.common.logger import logger
+from app.settings import settings
+from app.ai_agent.providers import get_provider
+```
+
+Never use relative imports like `from ..common.logger` across package boundaries.
 
 ## Project Structure
 
 ```
-app/
-├── main.py              # FastAPI app entry point, includes routers and mounts Dash
-├── settings.py          # Pydantic settings with env file loading
-├── ai_agent/            # AI agent core functionality
-│   ├── ai_agent.py      # Chat session management and LLM interaction
-│   ├── chains/          # LangChain chains for data augmentation
-│   │   ├── chains.py    # Base chain functionality
-│   │   └── neo4j_chain.py  # Neo4j-specific chain
-│   └── utils/           # Token counting and utilities
-├── api/                 # REST API endpoints
-│   ├── endpoints.py     # Base API routes
-│   ├── chats/v1/        # Chat API v1
-│   │   ├── router.py    # FastAPI router
-│   │   ├── service.py   # Business logic
-│   │   └── model.py     # Pydantic models
-│   └── projects/v1/     # Projects API v1
-│       ├── router.py    # FastAPI router
-│       ├── service.py   # Business logic
-│       ├── query.py     # Database queries
-│       └── model.py     # Pydantic models
-├── db/                  # Database layer
-│   ├── base.py          # SQLAlchemy Base
-│   ├── session.py       # Database session management
-│   └── models/          # SQLAlchemy ORM models
-│       └── project.py   # Project model
-├── dash_app/            # Dash UI application
-│   ├── layout.py        # Main layout and app creation
-│   └── pages/           # Individual page components
-└── common/              # Shared utilities
-    └── logger.py        # Logging configuration
+src/
+├── app/                             # Main application (FastAPI + Dash)
+│   ├── main.py                      # FastAPI entry point; registers all routers, mounts Dash
+│   ├── settings.py                  # Pydantic settings (env file loading)
+│   ├── ai_agent/                    # AI agent core
+│   │   ├── ai_agent.py              # Chat session management, LLM interaction
+│   │   ├── chains/                  # Message augmentation chains
+│   │   │   ├── chains.py            # Orchestrator: fans out to active chains
+│   │   │   ├── neo4j_chain.py       # Neo4j context augmentation
+│   │   │   └── mcp_chain.py         # MCP tool-call augmentation
+│   │   ├── mcp_integration/         # MCP client layer
+│   │   │   ├── client_manager.py    # MCP server connection management
+│   │   │   ├── tool_executor.py     # Tool invocation against MCP servers
+│   │   │   └── atlassian_config_loader.py
+│   │   ├── providers/               # LLM provider abstraction
+│   │   │   ├── base.py              # LLMProvider abstract base class
+│   │   │   ├── factory.py           # get_provider() factory (cached singleton)
+│   │   │   ├── openai/              # OpenAI implementation
+│   │   │   └── custom/              # Custom/in-house LLM implementation
+│   │   └── utils/                   # Token counting utilities
+│   ├── api/                         # REST API endpoints
+│   │   ├── endpoints.py             # /api/health and base routes
+│   │   ├── chats/v1/                # Chat API
+│   │   ├── projects/v1/             # Projects API
+│   │   ├── graph/v1/                # Graph query execution API
+│   │   ├── connectors/v1/           # Connector CRUD API
+│   │   └── queries/v1/              # Query catalog API
+│   ├── db/                          # Database layer
+│   │   ├── base.py                  # SQLAlchemy Base
+│   │   ├── session.py               # AsyncSession factory
+│   │   └── models/                  # ORM models
+│   │       ├── project.py
+│   │       ├── connector.py
+│   │       ├── connector_configs.py
+│   │       └── producer_sync_state.py
+│   ├── analytics/                   # Collaboration analytics
+│   │   ├── collaboration/
+│   │   └── registry.py
+│   ├── dash_app/                    # Dash UI
+│   │   ├── layout.py                # create_dash_app() factory; sidebar nav
+│   │   ├── styles.py                # Centralized design tokens
+│   │   ├── components/              # Shared UI components
+│   │   └── pages/                   # Page modules
+│   │       ├── chat.py
+│   │       ├── people.py
+│   │       ├── progress.py
+│   │       ├── analytics.py
+│   │       ├── graph/               # Graph page (callbacks, components, layout)
+│   │       ├── connectors/          # Connectors page (callbacks, components, layout)
+│   │       └── settings.py
+│   ├── common/                      # App-level shared utilities
+│   │   ├── logger.py
+│   │   ├── encryption.py
+│   │   ├── timezone.py
+│   │   └── node_size.py
+│   └── query_catalog/               # Query catalog loader
+├── connectors/                      # Data connector services (separate Dockerfiles)
+│   ├── producers/                   # Fetch from APIs → publish to RabbitMQ
+│   │   ├── github_producer.py
+│   │   ├── jira_producer.py
+│   │   ├── fetch_github.py / fetch_jira.py
+│   │   └── map_github.py / map_jira.py
+│   └── modules/                     # Neo4j sync modules
+│       ├── github/
+│       └── jira/
+├── common/                          # Cross-service shared code
+│   ├── activity_signal/
+│   └── messaging/
+└── activity-signal/                 # Activity signal service
 ```
 
 ## Development Guidelines
 
 ### API Design
 - **Versioning**: Use `/api/v1/` prefix for all API endpoints
-- **Async/Await**: All database operations should use async/await patterns
-- **Layer Separation**: 
-  - Router: HTTP layer (validation, request/response)
-  - Service: Business logic layer
-  - Query: Database access layer
+- **Async/Await**: All database operations must use async/await
+- **Layer Separation**:
+  - Router: HTTP concerns only (validation, request/response)
+  - Service: Business logic
+  - Query: Database access
 - **Models**: Use Pydantic models for request/response validation
 
-### AI Agent Design
-- **Session Management**: In-memory chat sessions with GUID session IDs
-- **Message Augmentation**: User messages are augmented with relevant data from chains (e.g., Neo4j)
-- **Token Management**: Monitor token usage and prune old messages when approaching limits (default: 16k tokens)
-- **System Prompts**: Configurable system prompts per chat session
-- **Model Configuration**: LLM model and parameters configurable via environment variables
+### LLM Provider Pattern
+Always use the factory — never instantiate a provider directly:
+
+```python
+from app.ai_agent.providers import get_provider
+
+provider = get_provider()  # reads LLM_PROVIDER env var; returns cached singleton
+```
+
+To add a new provider: implement the `LLMProvider` base class in `providers/`, register it in `factory.py`.
+
+### AI Agent / Chain of Augmentation
+User messages are enriched before reaching the LLM:
+1. `ai_agent.py` calls `augment_message_stream()` from `chains/chains.py`
+2. `chains.py` fans out to active chains (Neo4j, MCP) based on feature flags in `settings`
+3. Each chain returns a context envelope `{"source": "...", "context": "..."}`
+4. Envelopes are composed into a single bounded prompt block
+5. Augmented message is streamed to the LLM provider
+
+### MCP Integration Pattern
+The application itself (not Copilot) connects to MCP servers at runtime to enrich AI responses. These are internal application components — Copilot should write code for them, not call them.
+
+The `mcp_integration/` layer manages the application's outbound MCP server connections:
+- `client_manager.py` — creates and caches MCP server connections
+- `tool_executor.py` — invokes tools on connected MCP servers
+- `mcp_chain.py` — chain that calls `tool_executor` and formats results as a context envelope
+
+Feature flags: `GITHUB_MCP_ENABLED`, `ATLASSIAN_MCP_ENABLED`
 
 ### Database Patterns
 - **Migrations**: Use Alembic for all schema changes
@@ -106,147 +173,181 @@ app/
 - **Models**: Define using SQLAlchemy 2.0+ style with `Mapped` and `mapped_column`
 - **Transactions**: Service layer manages transaction boundaries
 
-### Environment Configuration
-Required environment variables:
-- `DATABASE_URL`: PostgreSQL connection string
-- `LLM_PROVIDER`: LLM provider to use (openai, custom)
-- `LLM_MODEL`: Model name to use (e.g., gpt-3.5-turbo, gpt-4, or custom model name)
-- `OPENAI_API_KEY`: OpenAI API key (required for OpenAI provider)
-- `CUSTOM_API_TOKEN`: Custom API token (required for Custom provider)
-- `MAX_TOKENS`: Maximum tokens for chat history (default: 16000)
-
 ### Code Style
-- **Type Hints**: Use type hints for all function parameters and returns
-- **Docstrings**: Document modules, classes, and functions with clear docstrings
-- **Logging**: Use the centralized logger from `app.common.logger`
-- **Error Handling**: Raise appropriate exceptions with clear error messages
+- **Type Hints**: All function parameters and returns
+- **Docstrings**: Modules, classes, and public functions
+- **Logging**: Use `from app.common.logger import logger` — never `print()`
+- **Error Handling**: Raise appropriate exceptions with clear messages
 
 ### UI Alert Design Standards
-- **Visibility by Placement**: Render operation alerts in a dedicated feedback region near the top of the active page section. For long, scrollable sections, prefer a sticky feedback container so alerts remain visible while users interact with forms.
-- **Dismissable by Default**: Alerts should be user dismissable by default (`dismissable=True`) unless the message must remain persistent for safety or blocking workflow reasons.
-- **Typography Consistency**: Apply centralized design tokens for alert typography and avoid ad-hoc inline font sizes. Prefer shared styles from `app/dash_app/styles.py` for consistent sizing and readability.
-- **Spacing Consistency**: Use standardized spacing classes/tokens (avoid mixing arbitrary `mb-*` and `mt-*` patterns across similar alert types).
-- **Semantic Color Mapping**: Use consistent semantic colors across pages: success for completed actions, danger for failures, warning for recoverable issues, and info for guidance/neutral outcomes.
-- **Reusable Helpers**: Prefer shared alert builder/helper functions for repeated patterns (icon + message + optional hint/link + dismiss behavior) instead of hand-crafting each alert in callbacks.
-- **Auto-Dismiss Policy**: If duration-based auto-dismiss is used, apply it consistently for transient notifications only; keep error alerts dismissable but persistent unless there is a clear UX reason to auto-close.
+- **Placement**: Render alerts in a dedicated feedback region near the top of the active section; use sticky containers for long scrollable sections.
+- **Dismissable by Default**: `dismissable=True` unless the alert must persist for safety reasons.
+- **Typography**: Use centralized tokens from `src/app/dash_app/styles.py` — no ad-hoc inline sizes.
+- **Spacing**: Use standardized spacing classes; avoid mixing arbitrary `mb-*` and `mt-*` patterns.
+- **Semantic Colors**: success = completed, danger = failure, warning = recoverable, info = guidance/neutral.
+- **Reusable Helpers**: Use shared alert builder functions for icon + message + dismiss patterns.
+- **Auto-Dismiss**: Only for transient success notifications; keep error alerts persistent.
 
 ### Testing
-- Tests located in `tests/` directory
-- Test server should be running: `uvicorn app.main:app --reload`
-- Run tests: `pytest ./tests/test_projects.py`
-- **Testing Strategy**:
-  - **Automated tests**: For regression prevention and critical paths
-  - **Manual testing**: For new concept validation and exploratory testing
-  - Focus on practical test coverage rather than 100% coverage
+Tests are in `tests/`. Markers are defined in `pytest.ini`: `unit`, `integration`, `server`, `neo4j`, `rabbitmq`.
+
+```bash
+# Unit tests only (no external services)
+pytest -m unit tests -q
+
+# Integration tests (requires running app server in another terminal)
+PYTHONPATH=src uvicorn app.main:app --reload
+pytest -m "integration and server" tests -q
+
+# Neo4j tests (requires live Neo4j)
+pytest -m neo4j tests -q
+```
 
 ## Running the Application
 
-### Development Setup
+### Development Setup (local app, Docker services)
 ```bash
-# Start PostgreSQL only (for local development)
-docker compose up -d postgres
+# Start backing services
+docker compose up -d postgres neo4j rabbitmq
 
 # Activate virtual environment
 source .venv/bin/activate
 
 # Run migrations
-cd app && alembic upgrade head && cd ..
+cd src/app && alembic upgrade head && cd ../..
 
 # Run application
-uvicorn app.main:app --reload
+PYTHONPATH=src uvicorn app.main:app --reload
 
 # Access points:
-# - FastAPI: http://localhost:8000/api/health
-# - Dash UI: http://localhost:8000/app
+# - API health: http://localhost:8000/api/health
+# - Dash UI:    http://localhost:8000/app
 ```
 
-### Docker Deployment
+### Full Docker Deployment
 ```bash
-# Start both PostgreSQL and app
 docker compose up -d
 ```
 
-### Docker Deployment
-```bash
-docker build -t wba-ai .
-docker run -p 8000:8000 wba-ai
-```
+### Docker Compose Services
 
-## Project Phases (8-Phase Roadmap)
+| Service | Purpose | Port(s) |
+|---|---|---|
+| `app` | FastAPI + Dash | 8000 |
+| `postgres` | Primary database | 5432 |
+| `neo4j` | Graph database | 7474, 7687 |
+| `rabbitmq` | Message queue for producers | 5672, 15672 (mgmt UI) |
+| `influxdb` | Time-series metrics | 8086 |
+| `elasticsearch` | Search / log analytics | 9200 |
+| `github-mcp` | GitHub MCP server | 8082 |
+| `github-producer` | Fetch GitHub → RabbitMQ (one-shot) | — |
+| `jira-producer` | Fetch Jira → RabbitMQ (one-shot) | — |
+| `github-sync` | Sync GitHub → Neo4j (one-shot) | — |
+| `jira-sync` | Sync Jira → Neo4j (one-shot) | — |
 
-### Current Status: Phases 1-3 In Progress
+One-shot services are run manually: `docker compose run --rm <service>`
 
-1. **Phase 1**: Technical Prototype with Simulated Data 🔄 (In Progress)
-2. **Phase 2**: Real Data Integration (GitHub & Jira) 🔄 (In Progress)
-3. **Phase 3**: Employee Relationship Graph 🔄 (In Progress)
-4. **Phase 4**: MCP Servers & Advanced Chains ⏳ (Not Started)
-5. **Phase 5**: Custom UI Reports & Charts ⏳ (Planned)
-6. **Phase 6**: Graph Visualization UI ⏳ (Planned)
-7. **Phase 7**: Conversation Persistence ⏳ (Planned)
-8. **Phase 8**: Configuration & Connector Management UI ⏳ (Planned)
+## Environment Configuration
 
-**Note**: MCP (Model Context Protocol) servers are planned for Phase 4 but not yet implemented.
+### Core
+| Variable | Description | Default |
+|---|---|---|
+| `DATABASE_URL` | PostgreSQL async connection string | required |
+| `LLM_PROVIDER` | `openai` or `custom` | `openai` |
+| `LLM_MODEL` | Model name | `gpt-5` |
+| `OPENAI_API_KEY` | Required for OpenAI provider | — |
+| `CUSTOM_API_TOKEN` | Required for custom provider | — |
+| `CUSTOM_API_URL` | Custom provider endpoint | — |
+| `MAX_TOKENS` | Chat history token limit | `16000` |
 
-## Key Design Patterns
+### Neo4j
+| Variable | Description | Default |
+|---|---|---|
+| `NEO4J_ENABLED` | Enable Neo4j chain | `false` |
+| `NEO4J_URI` | Bolt URI | `bolt://localhost:7687` |
+| `NEO4J_USERNAME` | Neo4j username | `neo4j` |
+| `NEO4J_PASSWORD` | Neo4j password | — |
+| `FF_NEO4J_USE_PROVIDER_PIPELINE` | Use provider-native Neo4j pipeline | `false` |
+| `NEO4J_QUERY_TIMEOUT` | Query timeout (seconds) | `10` |
 
-### Chain of Augmentation
-User messages are augmented with relevant context before being sent to the LLM:
-1. User submits a message
-2. Message passes through chain(s) (e.g., Neo4j chain)
-3. Chain adds relevant data/context to the message
-4. Augmented message sent to LLM
-5. Response returned to user
+### MCP
+| Variable | Description | Default |
+|---|---|---|
+| `GITHUB_MCP_ENABLED` | Enable GitHub MCP chain | `false` |
+| `ATLASSIAN_MCP_ENABLED` | Enable Atlassian MCP chain | `false` |
+| `MAX_MCP_ITERATIONS` | Max tool-call iterations per request | `3` |
+| `GITHUB_MCP_TOKEN` | GitHub PAT for MCP server | — |
+| `GITHUB_MCP_SERVER_URL` | GitHub MCP server URL | `http://github-mcp:8082/mcp` |
+| `ATLASSIAN_MCP_SERVER_URL` | Atlassian MCP server URL | — |
+
+### Infrastructure & UI
+| Variable | Description | Default |
+|---|---|---|
+| `RABBITMQ_URL` | RabbitMQ AMQP URL | `amqp://guest:guest@localhost:5672/` |
+| `CONNECTOR_ENCRYPTION_KEY` | Fernet key for connector secrets | required |
+| `HTTP_REQUEST_TIMEOUT` | Outbound HTTP timeout (seconds) | `60` |
+| `TIMEZONE` | UI timezone (IANA name, e.g. `America/Los_Angeles`) | `UTC` |
+| `UI_DATETIME_FORMAT` | strftime format for UI dates | `%b %d, %Y %I:%M %p` |
+| `GRAPH_UI_MAX_NODES_TO_EXPAND` | Max nodes expandable in graph UI | `20` |
+| `GRAPH_UI_MAX_NODE_LABEL_CHARS` | Max chars for node labels in graph UI | `10` |
+
+## Common Tasks
+
+### Adding a New API Endpoint
+1. Define Pydantic models in `src/app/api/<domain>/v1/model.py`
+2. Create database queries in `query.py` (if needed)
+3. Implement business logic in `service.py`
+4. Define routes in `router.py`
+5. Include router in `src/app/main.py`
+
+### Adding a Database Model
+1. Create model in `src/app/db/models/`
+2. Import in `src/app/db/models/__init__.py`
+3. Generate migration: `cd src/app && alembic revision --autogenerate -m "description"`
+4. Apply: `alembic upgrade head`
+
+### Adding a New Augmentation Chain
+1. Create file in `src/app/ai_agent/chains/`
+2. Implement an async generator that yields context envelopes `{"source": "...", "context": "..."}`
+3. Register it in `chains.py` `augment_message_stream()`, guarded by the relevant feature flag from `settings`
+
+### Adding a New UI Page
+1. Create page module in `src/app/dash_app/pages/`
+2. Add nav link in `src/app/dash_app/layout.py` sidebar
+3. Register the page route in the layout URL callback
+
+## Architecture Notes
 
 ### Service Layer Pattern
 - Routers handle HTTP concerns only
 - Services contain business logic
 - Query layer manages database access
-- Clear separation of concerns
 
 ### Factory Pattern for Dash App
-The Dash application is created via `create_dash_app()` factory function and mounted on FastAPI using WSGI middleware.
-
-## Common Tasks
-
-### Adding a New API Endpoint
-1. Define Pydantic models in `model.py`
-2. Create database queries in `query.py` (if needed)
-3. Implement business logic in `service.py`
-4. Define routes in `router.py`
-5. Include router in `main.py`
-
-### Adding a Database Model
-1. Create model class in `app/db/models/`
-2. Import in `app/db/models/__init__.py`
-3. Generate migration: `alembic revision --autogenerate -m "description"`
-4. Review and apply migration: `alembic upgrade head`
-
-### Adding a New Chain
-1. Create chain file in `app/ai_agent/chains/`
-2. Implement chain logic (e.g., query Neo4j, format data)
-3. Register chain in `chains.py` augment_message function
-4. Add prompt template in markdown file if needed
-
-## Architecture Notes
+The Dash application is created via `create_dash_app()` in `dash_app/layout.py` and mounted on FastAPI using WSGI middleware.
 
 ### Neo4j Integration
-- **External Module**: Neo4j database and integration logic are developed in a separate GitHub repository
-- **Setup**: Neo4j will be set up and configured separately from this project
-- **Integration**: This project treats Neo4j as an external dependency/service
-- **Chain Pattern**: Neo4j chains in `app/ai_agent/chains/neo4j_chain.py` interact with the external Neo4j instance
+Neo4j runs as a Docker Compose service. `neo4j_chain.py` augments user messages with graph query results. The sync services (`github-sync`, `jira-sync`) load data into Neo4j from RabbitMQ.
+
+### Connectors Architecture
+`src/connectors/producers/` contains one-shot scripts that fetch data from GitHub/Jira APIs and publish `ActivitySignal` events to RabbitMQ. Run via `docker compose run --rm github-producer` (or `jira-producer`). Sync modules in `src/connectors/modules/` consume from RabbitMQ and write to Neo4j.
 
 ### Authentication & Multi-Tenancy
-- **Out of Scope**: Authentication and multi-tenancy are not planned for the foreseeable future
-- **Use Case**: Designed for single-user local deployment on laptop/desktop
-- **Security Model**: Assumes trusted local environment
+Out of scope. Designed for single-user local deployment; assumes a trusted local environment.
 
 ### Development Workflow
-- **Solo Developer**: Single developer working with AI-assisted development
-- **Code Quality Gates**:
-  - Type checking with `mypy`
-  - Linting with `pylint`
-  - AI-assisted code review via GitHub Copilot
-- **Testing Approach**:
-  - Write automated tests for regression prevention
-  - Use manual testing for validating new concepts
-  - Prioritize practical coverage over metrics
+- Solo developer with AI-assisted development
+- Code quality gates: `mypy` (type checking), `pylint` (linting)
+- Testing: automated for regression prevention; manual for new concept validation; prioritize practical coverage over metrics
+
+## Reference Documents
+
+Consult these when working in the relevant areas. They define patterns and constraints that must be followed.
+
+| Document | When to consult |
+|---|---|
+| [docs/design/design-system.md](docs/design/design-system.md) | Any UI work — canonical design tokens (colors, typography, spacing, components). Do not invent styles; use what is defined here and in `src/app/dash_app/styles.py`. |
+| [docs/design/frontend-design-skill.md](docs/design/frontend-design-skill.md) | Any UI work — specifies the "Executive Dashboard" aesthetic: Cormorant Garamond + Inter fonts, navy/charcoal palette, 2px border-radius. Use this to ensure visual consistency. |
+| [docs/design/spec-activity-signal.md](docs/design/spec-activity-signal.md) | Any connector/producer/sync work — defines the canonical `ActivitySignal` JSON schema. All producers must emit this format; all sync modules must consume it. |
+| [docs/design/RELATIONSHIPS_DESIGN.md](docs/design/RELATIONSHIPS_DESIGN.md) | Any Neo4j schema or Cypher work — explains the single-edge undirected relationship design. Do not add bidirectional edges; queries use undirected traversal instead. |
+| [docs/design/github-api-optimization.md](docs/design/github-api-optimization.md) | GitHub producer or sync work — documents the incremental sync pattern (`_last_synced_at`, `fully_synced` flag) that avoids redundant API calls. New GitHub sync code must honour these flags. |

@@ -1,0 +1,5 @@
+PyGithub==2.9.1
+aio-pika
+asyncpg
+pydantic>=2.0
+requests

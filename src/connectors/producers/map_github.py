@@ -33,7 +33,7 @@ def map_repo(repo: Any, topics: List[str]) -> Dict[str, Any]:
 
     Returns:
         Dict with keys: ``id``, ``name``, ``full_name``, ``url``, ``language``,
-        ``is_private``, ``topics``, ``created_at``.
+        ``is_private``, ``topics``, ``created_at``, ``updated_at``.
 
     Raises:
         ValueError: When ``repo.created_at`` is ``None``.
@@ -42,6 +42,11 @@ def map_repo(repo: Any, topics: List[str]) -> Dict[str, Any]:
         raise ValueError(f"Repository '{repo.name}' has no created_at timestamp.")
 
     repo_id = f"repo_{repo.name.replace('-', '_')}"
+    updated_at = (
+        repo.updated_at.strftime("%Y-%m-%d")
+        if repo.updated_at
+        else repo.created_at.strftime("%Y-%m-%d")
+    )
     return {
         "id": repo_id,
         "name": repo.name,
@@ -51,6 +56,7 @@ def map_repo(repo: Any, topics: List[str]) -> Dict[str, Any]:
         "is_private": repo.private,
         "topics": topics,
         "created_at": repo.created_at.strftime("%Y-%m-%d"),
+        "updated_at": updated_at,
     }
 
 
