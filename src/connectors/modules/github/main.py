@@ -1,5 +1,14 @@
 #!/usr/bin/env python3
 """
+.. deprecated::
+    This module is the **legacy** direct-to-Neo4j GitHub ingestion entrypoint.
+    It will be removed once the event-driven pipeline
+    (``connectors/producers/github_producer.py`` → RabbitMQ →
+    ``connectors/consumers/``) is proven stable in production.
+
+    Do **not** add new features here.  All new work should target the
+    producer/consumer pipeline instead.
+
 GitHub Repository Information Fetcher
 
 Loads repository URLs from .config.json or a config server and fetches repository properties
@@ -27,6 +36,17 @@ from connectors.modules.github.github_config import (
 
 def main() -> None:
     """Main execution function"""
+    import warnings
+    warnings.warn(
+        "connectors.modules.github.main is deprecated and will be removed. "
+        "Use connectors.producers.github_producer (event-driven pipeline) instead.",
+        DeprecationWarning,
+        stacklevel=1,
+    )
+    logger.warning(
+        "[DEPRECATED] connectors/modules/github/main.py is the legacy direct-to-Neo4j "
+        "entrypoint. Migrate to connectors/producers/github_producer.py."
+    )
     logger.info("GitHub Repository Information Fetcher")
     logger.info("=" * 50)
 

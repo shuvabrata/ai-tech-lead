@@ -1,5 +1,14 @@
 #!/usr/bin/env python3
 """
+.. deprecated::
+    This module is the **legacy** direct-to-Neo4j Jira ingestion entrypoint.
+    It will be removed once the event-driven pipeline
+    (``connectors/producers/jira_producer.py`` → RabbitMQ →
+    ``connectors/consumers/``) is proven stable in production.
+
+    Do **not** add new features here.  All new work should target the
+    producer/consumer pipeline instead.
+
 Jira Integration - Fetch Projects, Initiatives, Epics, Sprints, and Issues
 
 This program connects to Jira, fetches projects, initiatives, epics, sprints, and all issue types,
@@ -52,6 +61,17 @@ from connectors.producers.map_jira import extract_sprint_ids_from_issues
 
 def main() -> int:
     """Main function to run the Jira integration."""
+    import warnings
+    warnings.warn(
+        "connectors.modules.jira.main is deprecated and will be removed. "
+        "Use connectors.producers.jira_producer (event-driven pipeline) instead.",
+        DeprecationWarning,
+        stacklevel=1,
+    )
+    logger.warning(
+        "[DEPRECATED] connectors/modules/jira/main.py is the legacy direct-to-Neo4j "
+        "entrypoint. Migrate to connectors/producers/jira_producer.py."
+    )
     try:
         logger.info("=" * 80)
         logger.info("Jira Integration - Full Data Loader")
