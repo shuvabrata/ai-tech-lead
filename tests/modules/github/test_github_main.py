@@ -15,7 +15,7 @@ from connectors.modules.github.main import load_config_from_server, main as gith
 
 # --- Tests for load_config_from_server (converted to pytest style) ---
 
-@patch('connectors.modules.github.main.requests.get')
+@patch('connectors.modules.github.github_config.requests.get')
 def test_load_config_from_server_success(mock_get, monkeypatch):
     """
     Test successful configuration loading from the server.
@@ -61,7 +61,7 @@ def test_load_config_from_server_success(mock_get, monkeypatch):
         timeout=10
     )
 
-@patch('connectors.modules.github.main.requests.get')
+@patch('connectors.modules.github.github_config.requests.get')
 def test_load_config_from_server_http_error(mock_get, monkeypatch):
     """
     Test handling of an HTTP error from the server.
