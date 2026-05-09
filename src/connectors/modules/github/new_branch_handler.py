@@ -1,5 +1,6 @@
 from connectors.neo4j_db.models import Branch, Relationship, merge_branch, merge_relationship
 from connectors.commons.logger import logger
+from connectors.producers.map_github import map_branch
 from typing import Any, Optional
 from neo4j import Session
 
@@ -42,42 +43,29 @@ def new_branch_handler(
         repo_owner: GitHub repository owner (optional, for URL generation)
     """
     try:
-        # Get branch properties
         branch_name = branch.name
         logger.info(f"      Processing branch: {branch_name}")
-        
-        is_default = (branch_name == repo.default_branch)
-        is_protected = branch.protected
-        logger.debug(f"        Branch properties: default={is_default}, protected={is_protected}")
 
-        # Get last commit info (already fetched in branch object - no API call needed)
-        last_commit = branch.commit
-        last_commit_sha = last_commit.sha
-        last_commit_timestamp = last_commit.commit.author.date.isoformat() 
-        logger.debug(f"        Last commit: {last_commit_sha[:8]}, timestamp: {last_commit_timestamp}")
-        
-        # Generate GitHub URL if owner is provided
-        github_url = None
-        if repo_owner:
-            github_url = f"https://github.com/{repo_owner}/{repo.name}/tree/{branch_name}"
-            logger.debug(f"        Generated URL: {github_url}")
+        branch_data = map_branch(repo.name, repo.default_branch, branch, repo_owner)
+        branch_id = branch_data["id"]
+        logger.debug(f"        Branch properties: default={branch_data['is_default']}, protected={branch_data['is_protected']}")
+        logger.debug(f"        Last commit: {branch_data['last_commit_sha'][:8]}, timestamp: {branch_data['last_commit_timestamp']}")
+        if branch_data["url"]:
+            logger.debug(f"        Generated URL: {branch_data['url']}")
 
-        # Create Branch node
-        branch_id = f"branch_{repo.name}_{branch_name.replace('/', '_').replace('-', '_')}"
         logger.debug(f"        Creating Branch node with ID: {branch_id}")
         branch_node = Branch(
             id=branch_id,
-            name=branch_name,
-            is_default=is_default,
-            is_protected=is_protected,
-            is_deleted=False,  # Only tracking existing branches for now
-            is_external=False,  # Branch from this repo
-            last_commit_sha=last_commit_sha,
-            last_commit_timestamp=last_commit_timestamp,
-            url=github_url
+            name=branch_data["name"],
+            is_default=branch_data["is_default"],
+            is_protected=branch_data["is_protected"],
+            is_deleted=branch_data["is_deleted"],
+            is_external=branch_data["is_external"],
+            last_commit_sha=branch_data["last_commit_sha"],
+            last_commit_timestamp=branch_data["last_commit_timestamp"],
+            url=branch_data["url"]
         )
 
-        # Create BRANCH_OF relationship (undirected)
         logger.debug(f"        Creating BRANCH_OF relationship between {branch_id} and {repo_id}")
         relationship = Relationship(
             type="BRANCH_OF",
@@ -87,16 +75,15 @@ def new_branch_handler(
             to_type="Repository"
         )
 
-        # Merge into Neo4j
         logger.debug(f"        Merging Branch node and relationship")
         merge_branch(session, branch_node)
         branch_node.print_cli()
 
         merge_relationship(session, relationship)
         relationship.print_cli()
-        
+
         logger.info(f"      ✓ Successfully processed branch: {branch_name}")
-        logger.debug(f"        Branch summary: id='{branch_id}', default={is_default}, protected={is_protected}")
+        logger.debug(f"        Branch summary: id='{branch_id}', default={branch_data['is_default']}, protected={branch_data['is_protected']}")
 
     except Exception as e:
         logger.info(f"      ✗ Error: Failed to create Branch for {branch.name}: {str(e)}")
