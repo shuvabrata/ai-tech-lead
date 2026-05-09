@@ -29,11 +29,7 @@ Legacy modules will remain intact and functional during this transition to ensur
 - [x] **Testing & Validation (Phase 1 Infra):**
   - Write an integration test to verify RabbitMQ connectivity and successful initialization of exchanges and queues.
   - **Visibility Test:** Publish a test message, consume it without acknowledging, and verify it remains invisible to other consumers but gets requeued if the connection drops.
-  - **DLQ Test:** Publish a test message, deliberately `nack(requeue=False)` it, and verify it successfully routes to the DLQ.
-
----
-
-## Phase 2: ActivitySignal Core Library
+  - **DLQ Test:** Publish a test message, deliberately `nack(requeue=False)` it, and verify it successfully routes to the## Phase 2: ActivitySignal Core Library
 **Goal:** Establish the strict schema and utilities required by the `spec-activity-signal.md` document.
 
 - [x] **Pydantic Schema Definition:** Create `src/common/activity_signal/models.py`.
@@ -43,9 +39,7 @@ Legacy modules will remain intact and functional during this transition to ensur
 
 **Status:** Phase 2 is complete. All core models and messaging utilities are ready for use by producers and consumers.
 
----
 
-## Next: Phase 3 — Decoupling Existing Modules (Fetch & Map Extraction)
 
 **Transition note:**
 Phase 3 will extract pure fetch and map logic from the legacy GitHub and Jira handlers, so that network I/O and data transformation are reusable and testable. The legacy direct-to-Neo4j code will remain for now, but will call the new `fetch_*` and `map_*` functions internally. This enables the new event-driven producers to reuse the same logic without touching the database directly.
@@ -56,6 +50,22 @@ Phase 3 will extract pure fetch and map logic from the legacy GitHub and Jira ha
 
 ## Phase 3: Decoupling Existing Modules (Fetch & Map Extraction)
 **Goal:** Separate network I/O (fetching) and data parsing (mapping) from the database writing logic in the existing `src/connectors/modules/`. 
+
+### Design Recommendations for Fetch/Map Extraction
+
+**1. Grouping fetch/map utilities:**
+  - Group by source (e.g., `fetch_github.py`, `map_github.py`, `fetch_jira.py`, `map_jira.py`).
+  - *Rationale:* Keeps integration logic together, simplifies maintenance, and matches how APIs evolve. If a source grows large, split by entity later.
+
+**2. Handling special entities/edge cases:**
+  - Design the mapping layer to allow per-entity or per-field overrides (e.g., helper functions or a registry pattern).
+  - *Rationale:* Both Jira and GitHub have custom fields and sub-resources. A flexible mapping layer supports these without cluttering main logic and is future-proof.
+
+**3. Return type for mapping functions:**
+  - Return validated `ActivitySignal` Pydantic models from mapping functions.
+  - *Rationale:* Ensures schema correctness, catches errors early, and makes downstream code simpler and safer.
+
+These recommendations ensure maintainability, extensibility, and schema safety as the ingestion pipeline evolves.
 
 *Note on `*handler.py` files:* The existing handlers (e.g., `new_issue_handler.py`) tightly couple data parsing with Neo4j Cypher execution. The new Phase 5 Neo4j Consumers will **not** reuse these handlers, as Phase 5 relies on generic `ActivitySignal` upserts. Therefore, this phase focuses on extracting the *parsing/mapping* logic out of the handlers so the new Producers can reuse it, while leaving the DB write logic isolated as legacy code.
 
