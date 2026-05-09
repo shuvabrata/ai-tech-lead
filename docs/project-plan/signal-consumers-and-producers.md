@@ -92,12 +92,14 @@ These recommendations ensure maintainability, extensibility, and schema safety a
 ## Phase 4: Building the Producers
 **Goal:** Create the new event-driven entrypoints that utilize the decoupled fetchers and mappers to generate standardized `ActivitySignal` payloads.
 
+**Status:** Phase 4 is complete. Producers are implemented, dockerized, validated with Phase 4 tests, and verified publishing to RabbitMQ with expected routing keys.
+
 *Location: `src/connectors/producers/`*
 
-- [ ] **Producer State Management (The Sync Cursor):**
+- [x] **Producer State Management (The Sync Cursor):**
   - Implement a lightweight persistence mechanism (e.g., a table in the existing Postgres DB or a persistent SQLite volume) for the producers to store their `last_synced_at` timestamps per repository/project.
   - **Crucial:** The producers must *never* query Neo4j to find their sync state, maintaining strict decoupling from the consumers.
-- [ ] **GitHub Producer (`github_producer.py`):**
+- [x] **GitHub Producer (`github_producer.py`):**
   - Import the decoupled GitHub `fetch_*` and `map_*` utilities.
   - For each entity (Repository, Branch, Commit, PullRequest, Person), convert the mapped data into the strict `ActivitySignal` Pydantic model.
   - **Validation Handling:** If a mapped entity is missing mandatory attributes (per Spec Section 4), log a warning and skip publishing to prevent poisoning the queue.
@@ -106,7 +108,7 @@ These recommendations ensure maintainability, extensibility, and schema safety a
   - **Event Time Mapping:** Explicitly map the entity's source `updated_at` (or `created_at` if new) to the `event_time` to ensure correct temporal ordering downstream.
   - **Payload Truncation:** Truncate excessively large text fields (e.g., PR bodies, long commit messages) to a safe limit (e.g., 2000 chars) before adding them to `attributes`, keeping the signal lightweight.
   - Publish signals individually (no batching) to RabbitMQ using the `RabbitMQPublisher`, dynamically constructing the routing key as `<source>.<entity_type>` (e.g., `github.PullRequest`).
-- [ ] **Jira Producer (`jira_producer.py`):**
+- [x] **Jira Producer (`jira_producer.py`):**
   - Import the decoupled Jira `fetch_*` and `map_*` utilities.
   - Convert mapped Jira entities (Project, Initiative, Epic, Issue, Sprint, Person) into the strict `ActivitySignal` Pydantic model.
   - **Validation Handling:** Drop and log entities missing mandatory attributes to enforce schema strictness.
@@ -115,11 +117,11 @@ These recommendations ensure maintainability, extensibility, and schema safety a
   - **Event Time Mapping:** Explicitly map the Jira issue's `updated` (or `created`) field to `event_time`.
   - **Payload Truncation:** Truncate excessively large fields (e.g., Jira issue descriptions) to protect broker and database memory.
   - Publish signals individually (no batching) to RabbitMQ using the `RabbitMQPublisher`, setting the routing key as `jira.<entity_type>`.
-- [ ] **Runtime & Dockerization:**
+- [x] **Runtime & Dockerization:**
   - Architect `github_producer.py` and `jira_producer.py` to be executable as standalone Python processes.
   - Create Dockerfile(s) for the producers (e.g., `Dockerfile.producer`) to package them with minimal dependencies required for fetching and publishing.
   - Update `docker-compose.yml` to include the producers as independent services (e.g., `github-producer`, `jira-producer`), passing the necessary environment variables (RabbitMQ connection, API credentials).
-- [ ] **Testing & Validation (Phase 4):**
+- [x] **Testing & Validation (Phase 4):**
   - **Unit Testing:** Review existing producer scripts/tests and add new automated unit tests. Mock the `fetch_*` utilities and verify that `map_*` outputs are correctly transformed into valid `ActivitySignal` Pydantic models. Ensure schema violations correctly log and skip without crashing the process.
   - **Routing Verification:** Mock the `RabbitMQPublisher` to assert that messages are published individually and that routing keys (e.g., `github.PullRequest`) are constructed perfectly.
   - **Container Dry-Run:** Build the producer Docker container and execute a local dry-run to ensure the standalone loop initializes, connects to the API, and prepares to publish without failing.
@@ -130,6 +132,13 @@ These recommendations ensure maintainability, extensibility, and schema safety a
 **Goal:** Build robust, scalable consumers that pull ActivitySignals from their respective queues and populate downstream databases idempotently. While Neo4j is the initial backend, the architecture must remain sink-agnostic to easily support future databases (e.g., Elasticsearch, InfluxDB).
 
 *Location: `src/consumers/main.py` and `src/consumers/sinks/neo4j_sink.py`*
+
+### Phase 5 Readiness (Decisions Needed Before Implementation)
+- [ ] Confirm idempotency store for processed `signal_id` values: Neo4j-only, Postgres-only, or hybrid.
+- [ ] Confirm out-of-order update policy: strict `event_time` last-write-wins for node attributes.
+- [ ] Confirm invalid signal handling path: DLQ-only or DLQ plus quarantine table.
+- [ ] Confirm consumer deployment shape for first release: one consumer process per source (GitHub/Jira) or one process per entity queue.
+- [ ] Confirm initial queue subscription list for v1 rollout and whether any queues should remain disabled initially.
 
 - [ ] **Event Loop & Ingestion:**
   - Connect to the specific entity queues (e.g., `github_pullrequest_queue`) using the `RabbitMQConsumer` utility.
