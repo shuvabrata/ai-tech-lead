@@ -243,6 +243,52 @@ services:
     networks:
       - wba-ai-network
 
+  github-producer:
+    build:
+      context: .
+      dockerfile: Dockerfile.github-producer
+    container_name: wba-ai-github-producer
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/postgres
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASSWORD:-guest}@rabbitmq:5672/
+      PYTHONPATH: /app
+      LOG_DIR: /var/log/github-producer
+    volumes:
+      - ./logs:/var/log/github-producer
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    restart: "no"  # One-shot execution, run manually via docker compose run
+    networks:
+      - wba-ai-network
+
+  jira-producer:
+    build:
+      context: .
+      dockerfile: Dockerfile.jira-producer
+    container_name: wba-ai-jira-producer
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/postgres
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASSWORD:-guest}@rabbitmq:5672/
+      PYTHONPATH: /app
+      LOG_DIR: /var/log/jira-producer
+    volumes:
+      - ./logs:/var/log/jira-producer
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    restart: "no"  # One-shot execution, run manually via docker compose run
+    networks:
+      - wba-ai-network
+
 networks:
   wba-ai-network:
     driver: bridge
