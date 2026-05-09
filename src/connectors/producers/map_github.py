@@ -41,7 +41,7 @@ def map_repo(repo: Any, topics: List[str]) -> Dict[str, Any]:
     if not repo.created_at:
         raise ValueError(f"Repository '{repo.name}' has no created_at timestamp.")
 
-    repo_id = f"repo_{repo.name.replace('-', '_')}"
+    repo_id = f"github_repo_{repo.name.replace('-', '_')}"
     updated_at = (
         repo.updated_at.strftime("%Y-%m-%d")
         if repo.updated_at
@@ -85,7 +85,7 @@ def map_branch(
         ``last_commit_timestamp``, ``url``.
     """
     branch_name = branch.name
-    branch_id = f"branch_{repo_name}_{branch_name.replace('/', '_').replace('-', '_')}"
+    branch_id = f"github_branch_{repo_name}_{branch_name.replace('/', '_').replace('-', '_')}"
     last_commit = branch.commit
     last_commit_sha = last_commit.sha
     last_commit_timestamp = last_commit.commit.author.date.isoformat()
@@ -133,7 +133,7 @@ def map_external_branch(
 
     if branch_details is None or head_ref.repo is None:
         # Fork has been deleted
-        branch_id = f"branch_external_{repo_name}_{safe_name}_deleted"
+        branch_id = f"github_branch_external_{repo_name}_{safe_name}_deleted"
         return {
             "id": branch_id,
             "name": branch_name,
@@ -148,7 +148,7 @@ def map_external_branch(
 
     fork_repo = head_ref.repo
     fork_owner = fork_repo.owner.login
-    branch_id = f"branch_external_{fork_owner}_{fork_repo.name}_{safe_name}"
+    branch_id = f"github_branch_external_{fork_owner}_{fork_repo.name}_{safe_name}"
     url = f"https://github.com/{fork_owner}/{fork_repo.name}/tree/{branch_name}"
 
     return {
@@ -230,7 +230,7 @@ def map_commit(
         ``additions``, ``deletions``, ``files_changed``, ``url``.
     """
     sha = commit.sha
-    commit_id = f"commit_{repo_name}_{sha[:8]}"
+    commit_id = f"github_commit_{repo_name}_{sha[:8]}"
     message = commit.commit.message or "No message"
     timestamp = (
         commit.commit.author.date.isoformat()
@@ -332,7 +332,7 @@ def map_pull_request(
         ``base_branch_name``, ``labels``, ``mergeable_state``, ``url``,
         ``base_branch_id``, ``head_branch_id`` (internal only).
     """
-    pr_id = f"pr_{repo_name}_{pr.number}"
+    pr_id = f"github_pr_{repo_name}_{pr.number}"
 
     if pr.merged:
         state = "merged"
@@ -350,13 +350,13 @@ def map_pull_request(
         url = f"https://github.com/{repo_owner}/{repo_name}/pull/{pr.number}"
 
     # Pre-compute internal branch IDs for convenience
-    base_branch_id = f"branch_{repo_name}_{pr.base.ref.replace('/', '_').replace('-', '_')}"
+    base_branch_id = f"github_branch_{repo_name}_{pr.base.ref.replace('/', '_').replace('-', '_')}"
     head_branch_id: Optional[str] = None
     is_external_head = pr.head.repo is None or (
         hasattr(pr.head, "repo") and pr.head.repo is not None and pr.head.repo.id != getattr(pr, "_base_repo_id", None)
     )
     if not is_external_head and pr.head.repo is not None:
-        head_branch_id = f"branch_{repo_name}_{pr.head.ref.replace('/', '_').replace('-', '_')}"
+        head_branch_id = f"github_branch_{repo_name}_{pr.head.ref.replace('/', '_').replace('-', '_')}"
 
     return {
         "id": pr_id,

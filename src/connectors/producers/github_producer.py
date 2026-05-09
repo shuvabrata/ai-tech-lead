@@ -164,7 +164,7 @@ def build_branch_signal(
 def build_person_signal(person_data: Dict[str, Any]) -> Optional[ActivitySignal]:
     """Build an ActivitySignal for a Person (GitHub author/contributor)."""
     login = person_data.get("login") or person_data.get("name", "unknown")
-    person_id = f"person_github_{login}"
+    person_id = f"github_person_{login}"
     try:
         attrs = PersonAttributes(
             id=person_id,
@@ -200,7 +200,7 @@ def build_commit_signal(
             else datetime.now(timezone.utc)
         )
         login = author_data.get("login") or author_data.get("name", "unknown")
-        author_person_id = f"person_github_{login}"
+        author_person_id = f"github_person_{login}"
 
         attrs = CommitAttributes(
             sha=commit_data["sha"],
@@ -268,7 +268,7 @@ def build_pull_request_signal(
             else datetime.now(timezone.utc)
         )
         author_login = author_data.get("login") or author_data.get("name", "unknown")
-        author_person_id = f"person_github_{author_login}"
+        author_person_id = f"github_person_{author_login}"
 
         attrs = PullRequestAttributes(
             id=str(pr_data["id"]),
@@ -313,7 +313,7 @@ def build_pull_request_signal(
 
         # REVIEWS → each reviewer
         for reviewer_login in reviewer_logins:
-            reviewer_person_id = f"person_github_{reviewer_login}"
+            reviewer_person_id = f"github_person_{reviewer_login}"
             rels.append(
                 Relationship(
                     type="REVIEWS",

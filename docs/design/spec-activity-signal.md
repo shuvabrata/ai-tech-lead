@@ -59,6 +59,25 @@ The tuple (`source`, `entity_type`, `external_id`) MUST be treated as the unique
 - `external_id`
 These three fields together uniquely identify a node in the graph.
 
+**`external_id` format convention:**
+
+Producers MUST construct `external_id` as `<source>_<entity_type_lower>_<raw_id>`, for example:
+
+| Entity | `external_id` example |
+|---|---|
+| GitHub Repository | `github_repo_my_repo` |
+| GitHub Branch | `github_branch_my_repo_main` |
+| GitHub Commit | `github_commit_my_repo_abc12345` |
+| GitHub PR | `github_pr_my_repo_42` |
+| GitHub/Jira Person | `github_person_alice` / `jira_person_557058:abc` |
+| Jira Project | `jira_project_10000` |
+| Jira Initiative | `jira_initiative_10086` |
+| Jira Epic | `jira_epic_10001` |
+| Jira Sprint | `jira_sprint_34` |
+| Jira Issue | `jira_issue_10040` |
+
+This namespacing prevents ID collisions between sources and entity types, since all nodes share the same `id` property in Neo4j regardless of label.
+
 ---
 
 ## 4. Supported Node Types and Mandatory Attributes
