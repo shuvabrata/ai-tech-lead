@@ -131,31 +131,38 @@ These recommendations ensure maintainability, extensibility, and schema safety a
 ## Phase 5: Building the ActivitySignal Consumers
 **Goal:** Build robust, scalable consumers that pull ActivitySignals from their respective queues and populate downstream databases idempotently. While Neo4j is the initial backend, the architecture must remain sink-agnostic to easily support future databases (e.g., Elasticsearch, InfluxDB).
 
-*Location: `src/consumers/main.py` and `src/consumers/sinks/neo4j_sink.py`*
+*Location: `src/connectors/consumers/main.py` and `src/connectors/consumers/sinks/neo4j_sink.py`*
 
-### Phase 5 Readiness (Decisions Needed Before Implementation)
-- [ ] Confirm idempotency store for processed `signal_id` values: Neo4j-only, Postgres-only, or hybrid.
-- [ ] Confirm out-of-order update policy: strict `event_time` last-write-wins for node attributes.
-- [ ] Confirm invalid signal handling path: DLQ-only or DLQ plus quarantine table.
-- [ ] Confirm consumer deployment shape for first release: one consumer process per source (GitHub/Jira) or one process per entity queue.
-- [ ] Confirm initial queue subscription list for v1 rollout and whether any queues should remain disabled initially.
+### Phase 5 Architecture Decisions (Confirmed)
 
-- [ ] **Event Loop & Ingestion:**
-  - Connect to the specific entity queues (e.g., `github_pullrequest_queue`) using the `RabbitMQConsumer` utility.
-  - Validate incoming JSON against the `ActivitySignal` Pydantic model. Route invalid signals to a Dead Letter Queue (DLQ) or quarantine table.
-  - **Metadata Injection:** The consumer is responsible for injecting the `ingestion_time` timestamp.
-- [ ] **Neo4j Sink Implementation (`neo4j_sink.py`):**
-  - **Canonical Node Upsert:** Implement logic to `MERGE` nodes based *strictly* on the canonical identity composite key: `(source, entity_type, external_id)`. Use `SET` to update properties dynamically from the `attributes` dictionary.
-  - **Relationship Handling:** For each item in the `relationships` array, implement a `MERGE` for the relationship. **Rule Enforcement:** If `direction` is omitted from the signal, default it to `OUT`.
-  - **Stub Nodes:** If a relationship references a target `(source, entity_type, external_id)` that doesn't exist yet, create it as a "stub" (a node containing *only* the canonical identity), ensuring out-of-order events do not fail the insertion.
-  - **Idempotency:** Log processed `signal_id`s in Neo4j or a secondary store (e.g., Postgres) to ensure exactly-once semantics. Process signals using `event_time` to prevent older signals from overwriting newer attributes.
-- [ ] **Runtime, Dockerization & Deployment Topology:**
-  - Architect the consumer to be an executable, standalone Python process that accepts a list of queues to listen to via environment variables (e.g., `LISTEN_QUEUES=github_pullrequest_queue,github_commit_queue`).
-  - Create a `Dockerfile.consumer` to package the consumer independently.
-  - **Deployment Strategy:** Update `docker-compose.yml` to define targeted consumer services. To ensure at least one consumer per routing key/queue, group them logically (e.g., a `github-consumer` service listening to all GitHub queues, a `jira-consumer` service listening to Jira queues).
-  - **Horizontal Scaling:** Ensure the architecture supports running multiple container instances of the same consumer service (RabbitMQ will automatically round-robin load-balance the messages across instances).
-- [ ] **Testing & Validation (Phase 5):**
-  - **Unit Testing:** Review existing database insertion tests. Add new automated unit tests mocking the RabbitMQ queue and Neo4j driver to ensure valid `ActivitySignal` models generate the correct Cypher queries (including stub nodes and default `OUT` directions).
+| Decision | Resolution |
+|---|---|
+| **Idempotency store** | Store `_last_signal_id` and `_last_event_time` directly on Neo4j nodes. Skip property updates if incoming `event_time <= n._last_event_time`. No secondary store needed. |
+| **Out-of-order update policy** | Last-write-wins on `event_time`. Older signals never overwrite newer node properties. |
+| **Invalid signal handling** | DLQ-only for v1. `RabbitMQConsumer` already nacks invalid payloads to `activity_signals_dlq`. |
+| **Consumer deployment shape** | One consumer process per source: `github-consumer` listens to all 6 `github_*_queue` queues; `jira-consumer` listens to all 6 `jira_*_queue` queues. Multiple container instances are supported — RabbitMQ round-robins across them. |
+| **Initial queue list** | All 12 queues active from day one (producers already publish to all of them). |
+| **Relationship direction** | `direction=None` → undirected edge, stored once, queried with `-[:REL]-`. `direction="OUT"` → `(node)-[:REL]->(target)`. `direction="IN"` → `(node)<-[:REL]-(target)`. **Never default `None` to `OUT`.** |
+| **Node identity / MERGE key** | MERGE on `external_id` used as `id`. Legacy system is being deprecated; no backward-compat bridging needed. Neo4j constraints remain `id`-based. |
+| **Relationship types to support** | Only what producers currently emit: `PART_OF`, `AUTHORED_BY`, `MERGED_INTO`, `REVIEWS`. Extend as new relationship types are added to producers. |
+| **Dockerfiles** | `Dockerfile.github-consumer` and `Dockerfile.jira-consumer` (separate images per source). |
+
+- [x] **Event Loop & Ingestion:**
+  - Connect to all source-specific entity queues using the `RabbitMQConsumer` utility (one consumer process per queue, all started concurrently via `asyncio.gather`).
+  - `RabbitMQConsumer` already validates incoming JSON against `ActivitySignal` and nacks failures to the DLQ — no additional validation layer needed.
+  - **Metadata Injection:** The consumer injects `ingestion_time` via `signal.with_ingestion_time()` immediately after receipt.
+- [x] **Neo4j Sink Implementation (`neo4j_sink.py`):**
+  - **Canonical Node Upsert:** `MERGE` nodes on `{id: external_id}` (legacy `id` field). Set all `attributes` dict fields as node properties dynamically. Always set `_last_signal_id` and `_last_event_time` on every upsert.
+  - **Idempotency Guard:** Before applying property updates, check `n._last_event_time`. If the incoming `event_time` is not newer, skip the SET clause (but still process relationships — they are additive).
+  - **Relationship Handling:** For each `Relationship` in the signal: if `direction=None` store a single directed edge `(node)-[:REL]->(target)` by convention and query it undirected; `direction="OUT"` → `(node)-[:REL]->(target)`; `direction="IN"` → `(target)-[:REL]->(node)`. All relationship MERGEs use `MERGE` (idempotent).
+  - **Stub Nodes:** Target nodes referenced in relationships that don't exist yet are created as stubs containing only `{id: external_id, source: source, _stub: true}`. The stub flag is removed when the full signal for that node arrives.
+- [x] **Runtime, Dockerization & Deployment Topology:**
+  - Consumer entry point (`main.py`) reads `LISTEN_QUEUES` env var (comma-separated queue names) and launches one async consumer task per queue.
+  - Create `Dockerfile.github-consumer` and `Dockerfile.jira-consumer`.
+  - **Deployment Strategy:** Add `github-consumer` and `jira-consumer` services to `docker-compose.yml`. Each service sets `LISTEN_QUEUES` to its 6 source-specific queues.
+  - **Horizontal Scaling:** No code changes needed — RabbitMQ automatically round-robins messages across multiple container instances of the same service.
+- [x] **Testing & Validation (Phase 5):**
+  - **Unit Testing:** Mock the Neo4j driver and `RabbitMQConsumer`. Assert correct Cypher MERGE queries for each entity type, stub node creation, idempotency guard (older event_time → skip SET), and all three direction cases.
   - **Integration Testing:** Run a local containerized consumer, publish test signals to RabbitMQ, and verify the data accurately reflects in Neo4j.
 
 ---

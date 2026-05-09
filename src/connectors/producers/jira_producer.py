@@ -133,7 +133,7 @@ def build_person_signal(
 ) -> Optional[ActivitySignal]:
     """Build an ActivitySignal for a Person (Jira user)."""
     account_id = user_data.get("account_id", "")
-    person_id = f"person_jira_{account_id}"
+    person_id = f"jira_person_{account_id}"
     try:
         attrs = PersonAttributes(
             id=person_id,
