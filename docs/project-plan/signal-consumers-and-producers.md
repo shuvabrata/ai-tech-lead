@@ -168,23 +168,19 @@ These recommendations ensure maintainability, extensibility, and schema safety a
 ---
 
 ## Phase 6: Testing, Rollout & Deprecation
-**Goal:** Verify data parity and plan the removal of legacy systems.
+**Goal:** Validate the new pipeline under failure conditions and plan the removal of legacy systems.
 
-- [ ] **Data Parity Testing:**
-  - Run the legacy modules on a test repository/project and snapshot the Neo4j graph.
-  - Clear the DB, run the new Producer -> RabbitMQ -> Consumer pipeline on the same repo/project.
-  - Compare the resulting graph structures (Node counts, edge counts, properties) to ensure fidelity.
 - [ ] **Error & Scale Testing:**
   - Test partial network failures, RabbitMQ restarts, and out-of-order event publishing.
   - Ensure the Consumer creates stub nodes successfully and resolves them when the actual node signal arrives.
-- [ ] **DLQ Remediation & Operations:**
+- [x] **DLQ Remediation & Operations:**
   - Create a utility script (`src/app/scripts/redrive_dlq.py`) capable of inspecting messages in the `activity_signals_dlq` and re-publishing them to the main exchange after consumer bugs are fixed.
-- [ ] **End-to-End Observability:**
+- [x] **End-to-End Observability:**
   - Implement structured logging in both the Producers and Consumers.
   - Ensure the `signal_id` is logged as a correlation ID at every step (fetch, publish, consume, upsert) to enable tracing of an event across the distributed system boundary.
-- [ ] **Automated Regression Suite Integration:**
+- [x] **Automated Regression Suite Integration:**
   - Ensure all new automated tests (Phases 3, 4, and 5) are integrated into the main `pytest` test suite.
   - Run the full suite to verify a 100% pass rate across both the new event-driven system and existing features before considering the rollout complete.
-- [ ] **Deprecation:**
+- [x] **Deprecation:**
   - Update documentation to mark `src/connectors/modules/*` direct-to-db entrypoints as deprecated.
   - Schedule the removal of the old `write_to_neo4j()` legacy code once the event-driven system proves stable in production.

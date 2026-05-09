@@ -414,8 +414,9 @@ async def publish_signals(
     async def _pub(sig: Optional[ActivitySignal]) -> None:
         if sig:
             await publisher.publish(sig)
-            logger.debug(
-                "Published ActivitySignal entity_type=%s external_id=%s routing_key=%s",
+            logger.info(
+                "Published signal_id=%s entity_type=%s external_id=%s routing_key=%s",
+                sig.signal_id,
                 sig.entity_type,
                 sig.external_id,
                 sig.routing_key,

@@ -116,8 +116,8 @@ def upsert_signal(session: Session, signal: ActivitySignal) -> None:
             relationship=rel,
         )
 
-    logger.debug(
-        "Upserted signal signal_id=%s entity_type=%s id=%s",
+    logger.info(
+        "Upserted signal_id=%s entity_type=%s id=%s",
         signal_id,
         signal.entity_type,
         node_id,
