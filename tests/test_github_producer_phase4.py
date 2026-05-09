@@ -197,12 +197,12 @@ class TestBuildPersonSignal:
         sig = build_person_signal(_author_data())
         assert sig is not None
         assert sig.routing_key == "github.Person"
-        assert sig.external_id == "person_github_devuser"
+        assert sig.external_id == "github_person_devuser"
 
     def test_id_derived_from_login(self) -> None:
         sig = build_person_signal({"login": "alice", "name": "Alice", "email": ""})
         assert sig is not None
-        assert sig.external_id == "person_github_alice"
+        assert sig.external_id == "github_person_alice"
 
     def test_login_fallback_to_name(self) -> None:
         sig = build_person_signal({"name": "Bob", "email": ""})
@@ -261,7 +261,7 @@ class TestBuildCommitSignal:
         assert sig is not None
         authored_by = next(r for r in sig.relationships if r.type == "AUTHORED_BY")
         assert authored_by.target.entity_type == "Person"
-        assert authored_by.target.external_id == "person_github_devuser"
+        assert authored_by.target.external_id == "github_person_devuser"
 
 
 # ---------------------------------------------------------------------------
@@ -298,7 +298,7 @@ class TestBuildPullRequestSignal:
         reviews = [r for r in sig.relationships if r.type == "REVIEWS"]
         assert len(reviews) == 2
         reviewer_ids = {r.target.external_id for r in reviews}
-        assert reviewer_ids == {"person_github_reviewer1", "person_github_reviewer2"}
+        assert reviewer_ids == {"github_person_reviewer1", "github_person_reviewer2"}
 
     def test_no_base_branch_omits_merged_into(self) -> None:
         d = _pr_data()

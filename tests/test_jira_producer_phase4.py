@@ -177,12 +177,12 @@ class TestBuildPersonSignal:
         sig = build_person_signal(_user_data(), _BASE_URL)
         assert sig is not None
         assert sig.routing_key == "jira.Person"
-        assert sig.external_id == "person_jira_acc123"
+        assert sig.external_id == "jira_person_acc123"
 
     def test_id_derived_from_account_id(self) -> None:
         sig = build_person_signal({"account_id": "xyz", "display_name": "Bob", "email": ""}, _BASE_URL)
         assert sig is not None
-        assert sig.external_id == "person_jira_xyz"
+        assert sig.external_id == "jira_person_xyz"
 
     def test_extra_fields_email_and_account_id(self) -> None:
         sig = build_person_signal(_user_data(), _BASE_URL)

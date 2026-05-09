@@ -150,7 +150,7 @@ class TestMapRepo:
         repo = _make_repo()
         result = map_repo(repo, ["python", "analytics"])
 
-        assert result["id"] == "repo_my_repo"
+        assert result["id"] == "github_repo_my_repo"
         assert result["name"] == "my-repo"
         assert result["full_name"] == "owner/my-repo"
         assert result["url"] == "https://github.com/owner/my-repo"
@@ -173,7 +173,7 @@ class TestMapRepo:
     def test_hyphens_in_name_replaced_in_id(self) -> None:
         repo = _make_repo(name="my-cool-repo")
         result = map_repo(repo, [])
-        assert result["id"] == "repo_my_cool_repo"
+        assert result["id"] == "github_repo_my_cool_repo"
 
 
 # ---------------------------------------------------------------------------
@@ -186,7 +186,7 @@ class TestMapBranch:
         branch = _make_branch(name="main", sha="abc1234")
         result = map_branch("my-repo", "main", branch, "owner")
 
-        assert result["id"] == "branch_my-repo_main"
+        assert result["id"] == "github_branch_my-repo_main"
         assert result["name"] == "main"
         assert result["is_default"] is True
         assert result["is_protected"] is False
@@ -209,7 +209,7 @@ class TestMapBranch:
         branch = _make_branch(name="feature/some-feature")
         result = map_branch("repo", "main", branch, None)
         assert "/" not in result["id"]
-        assert result["id"] == "branch_repo_feature_some_feature"
+        assert result["id"] == "github_branch_repo_feature_some_feature"
 
 
 # ---------------------------------------------------------------------------
@@ -277,7 +277,7 @@ class TestMapCommit:
         commit = _make_commit(sha="deadbeef1234567890abcdef")
         result = map_commit("my-repo", commit, "owner")
 
-        assert result["id"] == "commit_my-repo_deadbeef"
+        assert result["id"] == "github_commit_my-repo_deadbeef"
         assert result["sha"] == "deadbeef1234567890abcdef"
         assert result["message"] == "feat: add feature"
         assert result["additions"] == 10
@@ -364,10 +364,10 @@ class TestMapPullRequest:
         pr = _make_pr(number=42, merged=True, state="closed")
         result = map_pull_request("my-repo", pr, "owner")
 
-        assert result["id"] == "pr_my-repo_42"
+        assert result["id"] == "github_pr_my-repo_42"
         assert result["state"] == "merged"
         assert result["url"] == "https://github.com/owner/my-repo/pull/42"
-        assert result["base_branch_id"] == "branch_my-repo_main"
+        assert result["base_branch_id"] == "github_branch_my-repo_main"
         assert result["labels"] == ["bug"]
 
     def test_open_pr(self) -> None:
@@ -453,7 +453,7 @@ class TestMapExternalBranch:
         }
         result = map_external_branch("target-repo", head_ref, details)
 
-        assert result["id"] == "branch_external_fork-owner_forked-repo_fix_issue"
+        assert result["id"] == "github_branch_external_fork-owner_forked-repo_fix_issue"
         assert result["is_external"] is True
         assert result["is_deleted"] is False
         assert result["last_commit_sha"] == "fork_sha_123"

@@ -336,8 +336,6 @@ class TestDLQRouting:
             assert msg is not None, "Entity queue should have the published message"
             assert msg.body == test_body
             await msg.reject(requeue=False)  # → routes to DLX → DLQ
-            await queue.unbind(EXCHANGE_NAME, routing_key=self._ROUTING_KEY)
-            await queue.delete(if_unused=False, if_empty=False)
 
         # Allow a brief moment for dead-letter routing to complete
         await asyncio.sleep(0.2)
@@ -352,6 +350,11 @@ class TestDLQRouting:
                 "Rejected message must appear in the DLQ"
             )
             await dlq_msg.ack()  # Clean up
+            
+            # ── Clean up test queue ──────────────────────────────────────────
+            queue = await channel.declare_queue(test_queue, durable=True, passive=True)
+            await queue.unbind(EXCHANGE_NAME, routing_key=self._ROUTING_KEY)
+            await queue.delete(if_unused=False, if_empty=False)
 
 
 # ---------------------------------------------------------------------------
@@ -454,14 +457,21 @@ async def _drain_until(
     discarded by the test.
     """
     deadline = asyncio.get_event_loop().time() + timeout
-    while asyncio.get_event_loop().time() < deadline:
-        msg = await queue.get(fail=False)
-        if msg is None:
-            await asyncio.sleep(0.1)
-            continue
-        if msg.body == target_body:
-            return msg
-        # Not our message — put it back
-        await msg.reject(requeue=True)
-        await asyncio.sleep(0.05)
-    return None
+    held = []
+    found = None
+    try:
+        while asyncio.get_event_loop().time() < deadline:
+            msg = await queue.get(fail=False)
+            if msg is None:
+                await asyncio.sleep(0.1)
+                continue
+            if msg.body == target_body:
+                found = msg
+                break
+            # Not our message — hold it so we don't fetch it again
+            held.append(msg)
+            await asyncio.sleep(0.05)
+    finally:
+        for m in held:
+            await m.reject(requeue=True)
+    return found
