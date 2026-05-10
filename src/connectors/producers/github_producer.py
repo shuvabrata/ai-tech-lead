@@ -385,15 +385,23 @@ async def process_repo_signals(
     logger.info("Fetching branches for '%s'...", full_name)
     branches_raw = fetch_branches(repo)
     branch_map: Dict[str, Dict[str, Any]] = {}  # branch_name -> branch_data
-    for branch in branches_raw:
-        try:
-            b_data = map_branch(repo.name, default_branch, branch, repo_owner)
-            branch_map[b_data["name"]] = b_data
-            logger.debug("Branch '%s' mapped (is_default=%s)", b_data["name"], b_data.get("is_default"))
-            b_sig = build_branch_signal(b_data, repo_data)
-            await _pub(b_sig)
-        except Exception as exc:
-            logger.warning("Branch '%s' skipped: %s", getattr(branch, "name", "?"), exc)
+
+    branch_semaphore = asyncio.Semaphore(5)
+
+    async def process_single_branch(branch: Any) -> None:
+        async with branch_semaphore:
+            try:
+                b_data = await asyncio.to_thread(map_branch, repo.name, default_branch, branch, repo_owner)
+                branch_map[b_data["name"]] = b_data
+                logger.debug("Branch '%s' mapped (is_default=%s)", b_data["name"], b_data.get("is_default"))
+                b_sig = build_branch_signal(b_data, repo_data)
+                await _pub(b_sig)
+            except Exception as exc:
+                logger.warning("Branch '%s' skipped: %s", getattr(branch, "name", "?"), exc)
+
+    if branches_raw:
+        await asyncio.gather(*(process_single_branch(b) for b in branches_raw))
+
     logger.info("Branches done (%d) for '%s'", published.get("Branch", 0), full_name)
 
     # Default branch dict (used for commit→branch relationships)
@@ -406,30 +414,42 @@ async def process_repo_signals(
     logger.info(f"Number of commits fetched for {full_name} = {len(commits_raw)}")
     seen_persons: set[str] = set()
     commit_count = 0
-    for commit in commits_raw:
-        try:
-            commit_author_obj = commit.author or commit.commit.author
-            author_data = map_commit_author(commit_author_obj)
-            commit_data = map_commit(repo.name, commit, repo_owner)
-            commit_count += 1
 
-            # Person signal (deduplicate within run)
-            login = author_data.get("login") or author_data.get("name", "unknown")
-            if login not in seen_persons:
-                seen_persons.add(login)
-                p_sig = build_person_signal(author_data)
-                await _pub(p_sig)
+    semaphore = asyncio.Semaphore(5)  # Capped concurrency to prevent API rate limits
 
-            sha_short = commit_data.get("sha", "?")[:8]
-            logger.debug("Commit %s by '%s' processed", sha_short, login)
+    async def process_single_commit(commit: Any) -> None:
+        nonlocal commit_count
+        async with semaphore:
+            try:
+                # Isolate blocking PyGithub lazy-loads in a background thread
+                def extract_data() -> tuple[Dict[str, Any], Dict[str, Any]]:
+                    commit_author_obj = commit.author or commit.commit.author
+                    a_data = map_commit_author(commit_author_obj)
+                    c_data = map_commit(repo.name, commit, repo_owner)
+                    return a_data, c_data
 
-            c_sig = build_commit_signal(commit_data, author_data, default_branch_data)
-            await _pub(c_sig)
+                author_data, commit_data = await asyncio.to_thread(extract_data)
 
-            if commit_count % 10 == 0:
-                logger.info("  ... %d commits processed so far for '%s'", commit_count, full_name)
-        except Exception as exc:
-            logger.warning("Commit skipped: %s", exc)
+                # Back on the async event loop (thread-safe updates)
+                login = author_data.get("login") or author_data.get("name", "unknown")
+                if login not in seen_persons:
+                    seen_persons.add(login)
+                    await _pub(build_person_signal(author_data))
+
+                sha_short = commit_data.get("sha", "?")[:8]
+                logger.debug("Commit %s by '%s' processed", sha_short, login)
+
+                await _pub(build_commit_signal(commit_data, author_data, default_branch_data))
+
+                commit_count += 1
+                if commit_count % 10 == 0:
+                    logger.info("  ... %d commits processed so far for '%s'", commit_count, full_name)
+            except Exception as exc:
+                logger.warning("Commit skipped: %s", exc)
+
+    if commits_raw:
+        await asyncio.gather(*(process_single_commit(c) for c in commits_raw))
+
     logger.info("Commits done (%d) for '%s'", published.get("Commit", 0), full_name)
 
     # Pull Requests
@@ -440,9 +460,13 @@ async def process_repo_signals(
         try:
             # Filter by date
             pr_updated = getattr(pr, "updated_at", None)
+            logger.debug(f"PR # {pr.number} updated at {pr_updated} (since={pr_since})")
             if pr_updated and pr_updated.replace(tzinfo=timezone.utc) < pr_since:
                 logger.debug("PR #%s skipped (updated before since=%s)", pr.number, pr_since.date())
-                continue
+                # Since PRs are processed newest-first, we can stop the entire loop 
+                # once we hit a PR older than our cutoff, saving massive API pagination!
+                logger.info("Stopping PR fetch loop for '%s' since remaining PRs will be older than %s", full_name, pr_since.date())
+                break
 
             pr_user_obj = pr.user
             author_data = map_pr_user(pr_user_obj)
