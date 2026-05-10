@@ -392,10 +392,21 @@ class TestProcessRepoSignals:
         pr.id = 999
         pr.title = "Test PR"
         pr.state = "closed"
+        pr.merged = True
         pr.created_at = datetime(2024, 5, 1, tzinfo=timezone.utc)
         pr.updated_at = datetime(2024, 6, 1, tzinfo=timezone.utc)
         pr.merged_at = datetime(2024, 6, 1, tzinfo=timezone.utc)
+        pr.closed_at = datetime(2024, 6, 1, tzinfo=timezone.utc)
         pr.html_url = "https://github.com/org/myrepo/pull/1"
+        pr.commits = 3
+        pr.additions = 10
+        pr.deletions = 5
+        pr.changed_files = 2
+        pr.comments = 0
+        pr.review_comments = 1
+        pr.labels = []
+        pr.mergeable_state = "clean"
+        pr.requested_reviewers = []
 
         # Author
         author = MagicMock()
@@ -407,12 +418,15 @@ class TestProcessRepoSignals:
         # Base branch
         base = MagicMock()
         base.ref = "main"
+        base.repo = MagicMock()
+        base.repo.id = 42
         pr.base = base
 
         # Head branch (same repo)
         head = MagicMock()
         head.ref = "feature"
         head.repo = MagicMock()
+        head.repo.id = 42
         head.repo.owner.login = "org"
         head.repo.name = "myrepo"
         pr.head = head
