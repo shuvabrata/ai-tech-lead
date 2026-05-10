@@ -19,7 +19,7 @@ from typing import Any, List, Optional
 from github import GithubException
 
 from connectors.commons.logger import logger
-from connectors.modules.github.retry_with_backoff import retry_with_backoff
+from connectors.producers.github.retry_with_backoff import retry_with_backoff
 
 
 # ---------------------------------------------------------------------------
