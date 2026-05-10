@@ -436,6 +436,8 @@ class TestProcessRepoSignals:
             patch("connectors.producers.github_producer.fetch_commits", return_value=[mock_commit]),
             patch("connectors.producers.github_producer.fetch_pull_requests_direct", return_value=[mock_pr]),
             patch("connectors.producers.github_producer.fetch_pr_reviews", return_value=[]),
+            patch("connectors.producers.github_producer.fetch_pr_commits", return_value=[]),
+            patch("connectors.producers.github_producer.fetch_repo_teams", return_value=[]),
             patch(
                 "connectors.producers.github_producer.resolve_prs_since_date",
                 return_value=datetime(2020, 1, 1, tzinfo=timezone.utc),
@@ -483,12 +485,218 @@ class TestProcessRepoSignals:
             patch("connectors.producers.github_producer.fetch_commits", return_value=[mock_commit]),
             patch("connectors.producers.github_producer.fetch_pull_requests_direct", return_value=[mock_pr]),
             patch("connectors.producers.github_producer.fetch_pr_reviews", return_value=[]),
+            patch("connectors.producers.github_producer.fetch_pr_commits", return_value=[]),
             patch(
                 "connectors.producers.github_producer.resolve_prs_since_date",
                 return_value=datetime(2020, 1, 1, tzinfo=timezone.utc),
             ),
+            patch("connectors.producers.github_producer.fetch_repo_teams", return_value=[]),
         ):
             await process_repo_signals(publisher, mock_repo, "org", None, published)
 
         # devuser should appear exactly once
         assert published.get("Person", 0) == 1
+
+    @pytest.mark.asyncio
+    async def test_team_signal_emitted_with_collaborator_and_member_of(self) -> None:
+        """process_repo_signals with a team → Team signal emitted; member gets MEMBER_OF rel."""
+        mock_repo = self._make_mock_repo()
+
+        # Mock team with one member
+        mock_member = MagicMock()
+        mock_member.login = "teammember"
+        mock_member.name = "Team Member"
+
+        mock_team = MagicMock()
+        mock_team.name = "Engineering"
+        mock_team.slug = "engineering"
+        mock_team.permission = "push"
+        mock_team.get_members = MagicMock(return_value=[mock_member])
+
+        publisher = AsyncMock()
+        publisher.publish = AsyncMock()
+        published: Dict[str, int] = {}
+
+        with (
+            patch("connectors.producers.github_producer.fetch_repo_topics", return_value=[]),
+            patch("connectors.producers.github_producer.fetch_branches", return_value=[]),
+            patch("connectors.producers.github_producer.fetch_commits", return_value=[]),
+            patch("connectors.producers.github_producer.fetch_pull_requests_direct", return_value=[]),
+            patch("connectors.producers.github_producer.fetch_repo_teams", return_value=[mock_team]),
+        ):
+            await process_repo_signals(publisher, mock_repo, "org", None, published)
+
+        # Team signal published
+        assert published.get("Team", 0) >= 1
+
+        # Collect published signals
+        all_sigs = [call.args[0] for call in publisher.publish.call_args_list]
+        team_sigs = [s for s in all_sigs if s.entity_type == "Team"]
+        assert len(team_sigs) == 1
+        team_sig = team_sigs[0]
+
+        # Team signal has COLLABORATOR relationship to repo
+        collab_rels = [r for r in team_sig.relationships if r.type == "COLLABORATOR"]
+        assert len(collab_rels) == 1
+        assert collab_rels[0].target.entity_type == "Repository"
+
+        # Member Person signal has MEMBER_OF relationship to team
+        person_sigs = [s for s in all_sigs if s.entity_type == "Person" and s.external_id == "github_person_teammember"]
+        assert len(person_sigs) == 1
+        member_of_rels = [r for r in person_sigs[0].relationships if r.type == "MEMBER_OF"]
+        assert len(member_of_rels) == 1
+        assert member_of_rels[0].target.entity_type == "Team"
+
+    @pytest.mark.asyncio
+    async def test_person_collaborator_signal_has_permission_in_properties(self) -> None:
+        """Person collaborator signal → COLLABORATOR rel has properties dict with permission key."""
+        mock_repo = self._make_mock_repo()
+
+        mock_member = MagicMock()
+        mock_member.login = "collab_user"
+        mock_member.name = "Collab User"
+
+        mock_team = MagicMock()
+        mock_team.name = "Ops"
+        mock_team.slug = "ops"
+        mock_team.permission = "admin"
+        mock_team.get_members = MagicMock(return_value=[mock_member])
+
+        publisher = AsyncMock()
+        publisher.publish = AsyncMock()
+        published: Dict[str, int] = {}
+
+        with (
+            patch("connectors.producers.github_producer.fetch_repo_topics", return_value=[]),
+            patch("connectors.producers.github_producer.fetch_branches", return_value=[]),
+            patch("connectors.producers.github_producer.fetch_commits", return_value=[]),
+            patch("connectors.producers.github_producer.fetch_pull_requests_direct", return_value=[]),
+            patch("connectors.producers.github_producer.fetch_repo_teams", return_value=[mock_team]),
+        ):
+            await process_repo_signals(publisher, mock_repo, "org", None, published)
+
+        all_sigs = [call.args[0] for call in publisher.publish.call_args_list]
+        person_sigs = [s for s in all_sigs if s.entity_type == "Person" and s.external_id == "github_person_collab_user"]
+        assert len(person_sigs) == 1
+
+        collab_rels = [r for r in person_sigs[0].relationships if r.type == "COLLABORATOR"]
+        assert len(collab_rels) == 1
+        assert collab_rels[0].properties is not None
+        assert "permission" in collab_rels[0].properties
+        assert collab_rels[0].properties["permission"] == "admin"
+
+
+# ---------------------------------------------------------------------------
+# Phase D: PR relationship tests
+# ---------------------------------------------------------------------------
+
+
+class TestBuildPullRequestSignalPhaseD:
+    """Phase D: FROM, REQUESTED_REVIEWER, MERGED_BY, INCLUDES relationships."""
+
+    def test_from_relationship(self) -> None:
+        """PR with head_branch_id → FROM relationship present."""
+        sig = build_pull_request_signal(_pr_data(head_branch_id="branch_myrepo_feature"), _author_data(), [], _repo_data())
+        assert sig is not None
+        from_rels = [r for r in sig.relationships if r.type == "FROM"]
+        assert len(from_rels) == 1
+        assert from_rels[0].target.entity_type == "Branch"
+        assert from_rels[0].target.external_id == "branch_myrepo_feature"
+
+    def test_from_relationship_absent_when_no_head_branch(self) -> None:
+        d = _pr_data()
+        d["head_branch_id"] = None
+        sig = build_pull_request_signal(d, _author_data(), [], _repo_data())
+        assert sig is not None
+        assert all(r.type != "FROM" for r in sig.relationships)
+
+    def test_requested_reviewer_relationship(self) -> None:
+        """PR with requested_reviewer_logins → REQUESTED_REVIEWER relationships."""
+        sig = build_pull_request_signal(
+            _pr_data(), _author_data(), [], _repo_data(),
+            requested_reviewer_logins=["alice", "bob"],
+        )
+        assert sig is not None
+        rr_rels = [r for r in sig.relationships if r.type == "REQUESTED_REVIEWER"]
+        assert len(rr_rels) == 2
+        rr_ids = {r.target.external_id for r in rr_rels}
+        assert rr_ids == {"github_person_alice", "github_person_bob"}
+
+    def test_requested_reviewer_absent_when_empty(self) -> None:
+        sig = build_pull_request_signal(_pr_data(), _author_data(), [], _repo_data(), requested_reviewer_logins=[])
+        assert sig is not None
+        assert all(r.type != "REQUESTED_REVIEWER" for r in sig.relationships)
+
+    def test_merged_by_relationship_when_merged(self) -> None:
+        """PR state=merged + merger_login → MERGED_BY relationship present."""
+        sig = build_pull_request_signal(
+            _pr_data(state="merged"), _author_data(), [], _repo_data(), merger_login="bob"
+        )
+        assert sig is not None
+        merged_rels = [r for r in sig.relationships if r.type == "MERGED_BY"]
+        assert len(merged_rels) == 1
+        assert merged_rels[0].target.entity_type == "Person"
+        assert merged_rels[0].target.external_id == "github_person_bob"
+
+    def test_merged_by_absent_when_open(self) -> None:
+        """PR state=open → MERGED_BY not emitted even if merger_login provided."""
+        sig = build_pull_request_signal(
+            _pr_data(state="open"), _author_data(), [], _repo_data(), merger_login="bob"
+        )
+        assert sig is not None
+        assert all(r.type != "MERGED_BY" for r in sig.relationships)
+
+    def test_includes_relationships(self) -> None:
+        """PR with commit_shas → one INCLUDES relationship per SHA."""
+        shas = ["aaa111", "bbb222", "ccc333"]
+        sig = build_pull_request_signal(
+            _pr_data(), _author_data(), [], _repo_data(), commit_shas=shas
+        )
+        assert sig is not None
+        inc_rels = [r for r in sig.relationships if r.type == "INCLUDES"]
+        assert len(inc_rels) == 3
+        inc_ids = {r.target.external_id for r in inc_rels}
+        assert inc_ids == {"commit_aaa111", "commit_bbb222", "commit_ccc333"}
+
+    def test_includes_absent_when_no_shas(self) -> None:
+        sig = build_pull_request_signal(_pr_data(), _author_data(), [], _repo_data(), commit_shas=[])
+        assert sig is not None
+        assert all(r.type != "INCLUDES" for r in sig.relationships)
+
+
+# ---------------------------------------------------------------------------
+# Phase D: Commit REFERENCES tests
+# ---------------------------------------------------------------------------
+
+
+class TestBuildCommitSignalPhaseD:
+    """Phase D: REFERENCES relationship from Jira keys in commit message."""
+
+    def test_references_relationship_from_message(self) -> None:
+        """Commit message with Jira key → REFERENCES relationship emitted."""
+        sig = build_commit_signal(
+            _commit_data(message="Fix PROJ-42: resolve the issue"), _author_data(), None
+        )
+        assert sig is not None
+        ref_rels = [r for r in sig.relationships if r.type == "REFERENCES"]
+        assert len(ref_rels) == 1
+        assert ref_rels[0].target.entity_type == "Issue"
+        assert ref_rels[0].target.external_id == "PROJ-42"
+        assert ref_rels[0].target.source == "jira"
+
+    def test_multiple_jira_keys_in_message(self) -> None:
+        sig = build_commit_signal(
+            _commit_data(message="Fixes PROJ-1 and resolves PROJ-2"), _author_data(), None
+        )
+        assert sig is not None
+        ref_rels = [r for r in sig.relationships if r.type == "REFERENCES"]
+        assert len(ref_rels) == 2
+        ref_ids = {r.target.external_id for r in ref_rels}
+        assert ref_ids == {"PROJ-1", "PROJ-2"}
+
+    def test_no_jira_key_no_references(self) -> None:
+        sig = build_commit_signal(
+            _commit_data(message="Minor cleanup and refactor"), _author_data(), None
+        )
+        assert sig is not None
+        assert all(r.type != "REFERENCES" for r in sig.relationships)

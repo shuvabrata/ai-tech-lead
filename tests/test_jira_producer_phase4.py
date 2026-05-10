@@ -518,6 +518,171 @@ class TestPublishSignals:
 
         assert published.get("Person", 0) == 1
 
+
+# ---------------------------------------------------------------------------
+# Phase D: REPORTED_BY on Initiative
+# ---------------------------------------------------------------------------
+
+
+class TestBuildInitiativeSignalPhaseD:
+    def test_reported_by_relationship(self) -> None:
+        """Initiative with reporter_person_id → REPORTED_BY relationship present."""
+        sig = build_initiative_signal(
+            _initiative_data(), _BASE_URL, reporter_person_id="jira_person_acc123"
+        )
+        assert sig is not None
+        reported = [r for r in sig.relationships if r.type == "REPORTED_BY"]
+        assert len(reported) == 1
+        assert reported[0].target.entity_type == "Person"
+        assert reported[0].target.external_id == "jira_person_acc123"
+
+    def test_no_reported_by_when_reporter_absent(self) -> None:
+        sig = build_initiative_signal(_initiative_data(), _BASE_URL)
+        assert sig is not None
+        assert all(r.type != "REPORTED_BY" for r in sig.relationships)
+
+    def test_reported_by_alongside_part_of(self) -> None:
+        """Both PART_OF and REPORTED_BY are present when both IDs provided."""
+        sig = build_initiative_signal(
+            _initiative_data(), _BASE_URL,
+            project_id="project_jira_10001",
+            reporter_person_id="jira_person_acc123",
+        )
+        assert sig is not None
+        types = {r.type for r in sig.relationships}
+        assert "PART_OF" in types
+        assert "REPORTED_BY" in types
+
+
+# ---------------------------------------------------------------------------
+# Phase D: REPORTED_BY and TEAM on Epic
+# ---------------------------------------------------------------------------
+
+
+class TestBuildEpicSignalPhaseD:
+    def test_reported_by_relationship(self) -> None:
+        """Epic with reporter_person_id → REPORTED_BY relationship present."""
+        sig = build_epic_signal(
+            _epic_data(), _BASE_URL, reporter_person_id="jira_person_acc123"
+        )
+        assert sig is not None
+        reported = [r for r in sig.relationships if r.type == "REPORTED_BY"]
+        assert len(reported) == 1
+        assert reported[0].target.entity_type == "Person"
+
+    def test_team_relationship(self) -> None:
+        """Epic with team_id → TEAM relationship present."""
+        sig = build_epic_signal(
+            _epic_data(), _BASE_URL, team_id="jira_team_alpha"
+        )
+        assert sig is not None
+        team_rels = [r for r in sig.relationships if r.type == "TEAM"]
+        assert len(team_rels) == 1
+        assert team_rels[0].target.entity_type == "Team"
+        assert team_rels[0].target.external_id == "jira_team_alpha"
+
+    def test_no_team_when_team_id_absent(self) -> None:
+        sig = build_epic_signal(_epic_data(), _BASE_URL)
+        assert sig is not None
+        assert all(r.type != "TEAM" for r in sig.relationships)
+
+
+# ---------------------------------------------------------------------------
+# Phase D: REPORTED_BY, TEAM, BLOCKS, DEPENDS_ON, RELATES_TO on Issue
+# ---------------------------------------------------------------------------
+
+
+class TestBuildIssueSignalPhaseD:
+    def test_reported_by_relationship(self) -> None:
+        """Issue with reporter_person_id → REPORTED_BY relationship present."""
+        sig = build_issue_signal(
+            _issue_data(), _BASE_URL, reporter_person_id="jira_person_acc123"
+        )
+        assert sig is not None
+        reported = [r for r in sig.relationships if r.type == "REPORTED_BY"]
+        assert len(reported) == 1
+        assert reported[0].target.entity_type == "Person"
+        assert reported[0].target.external_id == "jira_person_acc123"
+
+    def test_team_relationship(self) -> None:
+        """Issue with team_id → TEAM relationship present."""
+        sig = build_issue_signal(
+            _issue_data(), _BASE_URL, team_id="jira_team_alpha"
+        )
+        assert sig is not None
+        team_rels = [r for r in sig.relationships if r.type == "TEAM"]
+        assert len(team_rels) == 1
+        assert team_rels[0].target.entity_type == "Team"
+        assert team_rels[0].target.external_id == "jira_team_alpha"
+
+    def test_blocks_relationship_from_issue_links(self) -> None:
+        """issue_links_raw with outward 'blocks' → BLOCKS relationship emitted."""
+        link = {
+            "type": {"name": "Blocks", "inward": "is blocked by", "outward": "blocks"},
+            "outwardIssue": {"id": "60001", "key": "PROJ-20"},
+        }
+        sig = build_issue_signal(_issue_data(issue_links_raw=[link]), _BASE_URL)
+        assert sig is not None
+        blocks = [r for r in sig.relationships if r.type == "BLOCKS"]
+        assert len(blocks) == 1
+        assert blocks[0].target.entity_type == "Issue"
+        assert blocks[0].target.external_id == "jira_issue_60001"
+
+    def test_depends_on_relationship_from_is_blocked_by(self) -> None:
+        """issue_links_raw with inward 'is blocked by' → DEPENDS_ON relationship emitted."""
+        link = {
+            "type": {"name": "Blocks", "inward": "is blocked by", "outward": "blocks"},
+            "inwardIssue": {"id": "60002", "key": "PROJ-21"},
+        }
+        sig = build_issue_signal(_issue_data(issue_links_raw=[link]), _BASE_URL)
+        assert sig is not None
+        depends = [r for r in sig.relationships if r.type == "DEPENDS_ON"]
+        assert len(depends) == 1
+        assert depends[0].target.entity_type == "Issue"
+        assert depends[0].target.external_id == "jira_issue_60002"
+
+    def test_relates_to_relationship(self) -> None:
+        """issue_links_raw with 'relates to' → RELATES_TO relationship emitted."""
+        link = {
+            "type": {"name": "Relates", "inward": "relates to", "outward": "relates to"},
+            "outwardIssue": {"id": "60003", "key": "PROJ-22"},
+        }
+        sig = build_issue_signal(_issue_data(issue_links_raw=[link]), _BASE_URL)
+        assert sig is not None
+        relates = [r for r in sig.relationships if r.type == "RELATES_TO"]
+        assert len(relates) == 1
+        assert relates[0].target.entity_type == "Issue"
+        assert relates[0].target.external_id == "jira_issue_60003"
+
+    def test_multiple_issue_links(self) -> None:
+        """Multiple different link types in one issue → all relationships emitted."""
+        links = [
+            {
+                "type": {"name": "Blocks", "inward": "is blocked by", "outward": "blocks"},
+                "outwardIssue": {"id": "70001", "key": "PROJ-30"},
+            },
+            {
+                "type": {"name": "Blocks", "inward": "is blocked by", "outward": "blocks"},
+                "inwardIssue": {"id": "70002", "key": "PROJ-31"},
+            },
+            {
+                "type": {"name": "Relates", "inward": "relates to", "outward": "relates to"},
+                "inwardIssue": {"id": "70003", "key": "PROJ-32"},
+            },
+        ]
+        sig = build_issue_signal(_issue_data(issue_links_raw=links), _BASE_URL)
+        assert sig is not None
+        rel_types = [r.type for r in sig.relationships]
+        assert "BLOCKS" in rel_types
+        assert "DEPENDS_ON" in rel_types
+        assert "RELATES_TO" in rel_types
+
+    def test_empty_issue_links_emits_no_link_rels(self) -> None:
+        sig = build_issue_signal(_issue_data(issue_links_raw=[]), _BASE_URL)
+        assert sig is not None
+        link_types = {"BLOCKS", "DEPENDS_ON", "RELATES_TO"}
+        assert not any(r.type in link_types for r in sig.relationships)
+
     @pytest.mark.asyncio
     async def test_empty_config_publishes_nothing(self) -> None:
         publisher = AsyncMock()

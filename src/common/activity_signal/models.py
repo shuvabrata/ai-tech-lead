@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import Annotated, Any, Literal, Optional, Union, cast
+from typing import Annotated, Any, Dict, Literal, Optional, Union, cast
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -110,6 +110,10 @@ class Relationship(BaseModel):
     )
     target: RelationshipTarget = Field(
         ..., description="Flexible dict sufficient to identify the target node."
+    )
+    properties: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description="Optional key-value properties stored on the relationship edge in Neo4j.",
     )
 
 

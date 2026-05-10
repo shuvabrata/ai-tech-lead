@@ -36,6 +36,7 @@ from common.activity_signal.models import (
     Relationship,
     RelationshipTarget,
     RepositoryAttributes,
+    TeamAttributes,
 )
 from common.messaging.rabbitmq import RabbitMQPublisher
 from connectors.producers.github.github_config import (
@@ -48,13 +49,17 @@ from connectors.producers.github.get_all_repos_for_owner import get_all_repos_fo
 from connectors.producers.fetch_github import (
     fetch_branches,
     fetch_commits,
+    fetch_pr_commits,
     fetch_pr_reviews,
     fetch_pull_requests_direct,
+    fetch_repo_teams,
     fetch_repo_topics,
     resolve_commits_since_date,
     resolve_prs_since_date,
 )
 from connectors.producers.map_github import (
+    extract_issue_keys,
+    extract_issue_keys_from_branch,
     map_branch,
     map_commit,
     map_commit_author,
@@ -165,7 +170,10 @@ def build_branch_signal(
         return None
 
 
-def build_person_signal(person_data: Dict[str, Any]) -> Optional[ActivitySignal]:
+def build_person_signal(
+    person_data: Dict[str, Any],
+    extra_relationships: Optional[List[Relationship]] = None,
+) -> Optional[ActivitySignal]:
     """Build an ActivitySignal for a Person (GitHub author/contributor)."""
     login = person_data.get("login") or person_data.get("name", "unknown")
     person_id = f"github_person_{login}"
@@ -185,9 +193,50 @@ def build_person_signal(person_data: Dict[str, Any]) -> Optional[ActivitySignal]
             event_time=datetime.now(timezone.utc),
             version=_VERSION,
             attributes=attrs,
+            relationships=list(extra_relationships) if extra_relationships else [],
         )
     except Exception as exc:
         logger.warning("Skipping Person signal for '%s' (validation error): %s", login, exc)
+        return None
+
+
+def build_team_signal(
+    team_data: Dict[str, Any],
+    repo_data: Dict[str, Any],
+    permission: Optional[str] = None,
+) -> Optional[ActivitySignal]:
+    """Build an ActivitySignal for a GitHub Team."""
+    try:
+        attrs = TeamAttributes(
+            id=team_data["id"],
+            name=team_data["name"],
+            slug=team_data["slug"],
+        )
+        props: Optional[Dict[str, Any]] = {"permission": permission} if permission else None
+        rels: List[Relationship] = [
+            Relationship(
+                type="COLLABORATOR",
+                direction=None,
+                target=RelationshipTarget(
+                    source=_SOURCE,
+                    entity_type="Repository",
+                    external_id=repo_data["id"],
+                ),
+                properties=props,
+            )
+        ]
+        return ActivitySignal(
+            source=_SOURCE,
+            external_id=team_data["id"],
+            source_config="https://github.com",
+            connector_url=_connector_url(),
+            event_time=datetime.now(timezone.utc),
+            version=_VERSION,
+            attributes=attrs,
+            relationships=rels,
+        )
+    except Exception as exc:
+        logger.warning("Skipping Team signal for '%s' (validation error): %s", team_data.get("name"), exc)
         return None
 
 
@@ -243,6 +292,24 @@ def build_commit_signal(
                 )
             )  # Commit→Branch: PART_OF is correct (matches neo4j_db handler)
 
+        # REFERENCES → Jira issues mentioned in the commit message or branch name
+        issue_keys = extract_issue_keys(commit_data.get("message", ""))
+        if branch_data:
+            branch_keys = extract_issue_keys_from_branch(branch_data.get("name", ""))
+            issue_keys = list({*issue_keys, *branch_keys})
+        for issue_key in issue_keys:
+            rels.append(
+                Relationship(
+                    type="REFERENCES",
+                    direction=None,
+                    target=RelationshipTarget(
+                        source="jira",
+                        entity_type="Issue",
+                        external_id=issue_key,
+                    ),
+                )
+            )
+
         return ActivitySignal(
             source=_SOURCE,
             external_id=commit_data["id"],
@@ -263,6 +330,9 @@ def build_pull_request_signal(
     author_data: Dict[str, Any],
     reviewer_logins: List[str],
     repo_data: Dict[str, Any],
+    requested_reviewer_logins: Optional[List[str]] = None,
+    merger_login: Optional[str] = None,
+    commit_shas: Optional[List[str]] = None,
 ) -> Optional[ActivitySignal]:
     """Build an ActivitySignal for a GitHub PullRequest."""
     try:
@@ -315,6 +385,21 @@ def build_pull_request_signal(
                 )
             )
 
+        # FROM → head branch (the feature/source branch of this PR)
+        head_branch_id = pr_data.get("head_branch_id")
+        if head_branch_id:
+            rels.append(
+                Relationship(
+                    type="FROM",
+                    direction=None,
+                    target=RelationshipTarget(
+                        source=_SOURCE,
+                        entity_type="Branch",
+                        external_id=head_branch_id,
+                    ),
+                )
+            )
+
         # REVIEWED_BY → each reviewer
         for reviewer_login in reviewer_logins:
             reviewer_person_id = f"github_person_{reviewer_login}"
@@ -326,6 +411,51 @@ def build_pull_request_signal(
                         source=_SOURCE,
                         entity_type="Person",
                         external_id=reviewer_person_id,
+                    ),
+                )
+            )
+
+        # REQUESTED_REVIEWER → each requested reviewer person
+        for rr_login in (requested_reviewer_logins or []):
+            rr_person_id = f"github_person_{rr_login}"
+            rels.append(
+                Relationship(
+                    type="REQUESTED_REVIEWER",
+                    direction=None,
+                    target=RelationshipTarget(
+                        source=_SOURCE,
+                        entity_type="Person",
+                        external_id=rr_person_id,
+                    ),
+                )
+            )
+
+        # MERGED_BY → merger person (only when the PR was merged)
+        if pr_data.get("state") == "merged" and merger_login:
+            merger_person_id = f"github_person_{merger_login}"
+            rels.append(
+                Relationship(
+                    type="MERGED_BY",
+                    direction=None,
+                    target=RelationshipTarget(
+                        source=_SOURCE,
+                        entity_type="Person",
+                        external_id=merger_person_id,
+                    ),
+                )
+            )
+
+        # INCLUDES → each commit SHA associated with this PR
+        for sha in (commit_shas or []):
+            commit_id = f"commit_{sha}"
+            rels.append(
+                Relationship(
+                    type="INCLUDES",
+                    direction=None,
+                    target=RelationshipTarget(
+                        source=_SOURCE,
+                        entity_type="Commit",
+                        external_id=commit_id,
                     ),
                 )
             )
@@ -484,6 +614,27 @@ async def process_repo_signals(
             review_map = map_pr_reviews(reviews_raw)
             reviewer_logins = list(review_map.keys())
 
+            # Extract merger login (only set when state == "merged")
+            merger_login: Optional[str] = None
+            if pr_data.get("state") == "merged":
+                merged_by_obj = getattr(pr, "merged_by", None)
+                if merged_by_obj:
+                    merger_login = getattr(merged_by_obj, "login", None)
+
+            # Requested reviewers (GitHub API: pr.requested_reviewers)
+            requested_reviewer_logins: List[str] = [
+                u.login for u in (getattr(pr, "requested_reviewers", None) or [])
+                if getattr(u, "login", None)
+            ]
+
+            # Commit SHAs for INCLUDES relationships
+            try:
+                pr_commits_raw = fetch_pr_commits(pr)
+                commit_shas = [c.sha for c in pr_commits_raw if getattr(c, "sha", None)]
+            except Exception as exc:
+                logger.warning("Could not fetch commits for PR #%s: %s", pr.number, exc)
+                commit_shas = []
+
             # Emit Person signals for author + reviewers
             for person_login, _ in [(author_data.get("login") or author_data.get("name", "unknown"), None)]:
                 if person_login not in seen_persons:
@@ -497,11 +648,71 @@ async def process_repo_signals(
                     r_sig = build_person_signal({"login": r_login, "name": r_login, "email": ""})
                     await _pub(r_sig)
 
-            pr_sig = build_pull_request_signal(pr_data, author_data, reviewer_logins, repo_data)
+            pr_sig = build_pull_request_signal(
+                pr_data, author_data, reviewer_logins, repo_data,
+                requested_reviewer_logins=requested_reviewer_logins,
+                merger_login=merger_login,
+                commit_shas=commit_shas,
+            )
             await _pub(pr_sig)
         except Exception as exc:
             logger.warning("PR skipped: %s", exc)
     logger.info("PRs done (%d) for '%s'", published.get("PullRequest", 0), full_name)
+
+    # Teams — emit Team signals with COLLABORATOR rel; emit MEMBER_OF on Person signals
+    logger.info("Fetching teams for '%s'...", full_name)
+    try:
+        teams_raw = fetch_repo_teams(repo)
+        for team in teams_raw:
+            team_slug = getattr(team, "slug", None) or getattr(team, "name", "unknown")
+            team_name = getattr(team, "name", team_slug)
+            team_id = f"github_team_{team_slug}"
+            permission = getattr(team, "permission", None)
+            team_data_dict: Dict[str, Any] = {
+                "id": team_id,
+                "name": team_name,
+                "slug": team_slug,
+            }
+            await _pub(build_team_signal(team_data_dict, repo_data, permission))
+
+            # Emit Person signals for team members with MEMBER_OF and COLLABORATOR rels
+            try:
+                members = list(team.get_members())
+                for member in members:
+                    member_login = getattr(member, "login", None)
+                    if not member_login:
+                        continue
+                    member_rels: List[Relationship] = [
+                        Relationship(
+                            type="MEMBER_OF",
+                            direction=None,
+                            target=RelationshipTarget(
+                                source=_SOURCE,
+                                entity_type="Team",
+                                external_id=team_id,
+                            ),
+                        ),
+                        Relationship(
+                            type="COLLABORATOR",
+                            direction=None,
+                            target=RelationshipTarget(
+                                source=_SOURCE,
+                                entity_type="Repository",
+                                external_id=repo_data["id"],
+                            ),
+                            properties={"permission": permission} if permission else None,
+                        ),
+                    ]
+                    member_sig = build_person_signal(
+                        {"login": member_login, "name": getattr(member, "name", None) or member_login, "email": ""},
+                        extra_relationships=member_rels,
+                    )
+                    await _pub(member_sig)
+            except Exception as exc:
+                logger.warning("Could not fetch members for team '%s': %s", team_slug, exc)
+    except Exception as exc:
+        logger.warning("Could not fetch teams for '%s': %s", full_name, exc)
+    logger.info("Teams done (%d) for '%s'", published.get("Team", 0), full_name)
 
 
 # ---------------------------------------------------------------------------

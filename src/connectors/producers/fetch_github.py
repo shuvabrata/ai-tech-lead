@@ -181,6 +181,24 @@ def fetch_pr_commits(pr: Any) -> List[Any]:
     return retry_with_backoff(lambda: list(pr.get_commits()))
 
 
+def fetch_repo_teams(repo: Any) -> List[Any]:
+    """Fetch all teams with access to *repo*.
+
+    Args:
+        repo: PyGithub Repository object.
+
+    Returns:
+        List of PyGithub Team objects.  Returns an empty list when the
+        repository belongs to a personal account (no org teams) or when
+        the caller lacks the required permissions.
+    """
+    try:
+        return retry_with_backoff(lambda: list(repo.get_teams()))
+    except Exception as exc:
+        logger.debug("fetch_repo_teams: could not fetch teams for '%s': %s", getattr(repo, "full_name", "?"), exc)
+        return []
+
+
 def fetch_external_branch_details(head_ref: Any) -> Optional[dict]:
     """Fetch last-commit details for an external (fork) branch.
 
