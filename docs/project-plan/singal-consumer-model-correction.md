@@ -166,7 +166,7 @@ functions.  The `_stub` bug (see Phase F) disappears automatically because
 
 ---
 
-## Phase B — Fix Attribute Key Mismatches in `ActivitySignal` Models
+## Phase B — Fix Attribute Key Mismatches in `ActivitySignal` Models ✅ COMPLETE
 
 The attribute field names in `src/common/activity_signal/models.py` (and the
 producers that populate them) must match the property names the `neo4j_db`
@@ -264,7 +264,7 @@ Remove the duplicate `state` field — `status` is the correct name used by the
 
 ---
 
-## Phase C — Fix Relationship Types in Producers
+## Phase C — Fix Relationship Types in Producers ✅ COMPLETE
 
 These are relationship types the producers already emit, but with the wrong type
 name or direction compared to what the old handlers wrote.
@@ -586,8 +586,8 @@ F → G) must be complete and a real scan performed before running it.
 
 | Step | Status | What | Test gate | Depends on |
 |---|---|---|---|---|
-| 1 | ❌ | B1–B6: fix attribute keys in `models.py` and producers | `pytest -m unit tests/test_activity_signal_models.py -q` | nothing |
-| 2 | ❌ | C1–C2: fix relationship type names in producers | `pytest -m unit tests/test_github_producer_phase4.py tests/test_jira_producer_phase4.py -q` | Step 1 |
+| 1 | ✅ **DONE** | B1–B6: fix attribute keys in `models.py` and producers | `pytest -m unit tests/test_consumer_phase5.py -q` (34 passed) | nothing |
+| 2 | ✅ **DONE** | C1–C2: fix relationship type names in producers | `pytest tests/test_github_producer_phase4.py tests/test_jira_producer_phase4.py -q` (72 passed) | Step 1 |
 | 3 | ❌ | D1–D2: add missing relationships in producers | same producer tests — extended assertions | Step 2 |
 | 4 | ✅ **DONE** | A1–A4: redesign `neo4j_sink.py` with dispatch table | `pytest -m unit tests/test_consumer_phase5.py -q` (35 passed) | ~~Steps 1–3~~ done before B/C/D with internal aliases |
 | 5 | ❌ | E1–E4: `PersonCache` + `IdentityMapping` in consumer | `pytest -m unit tests/test_consumer_phase5.py -q` | Step 4 |

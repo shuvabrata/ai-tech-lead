@@ -342,11 +342,11 @@ def build_issue_signal(
                 )
             )
 
-        # PART_OF → Sprint(s)
+        # IN_SPRINT → Sprint(s)
         for sid in (sprint_ids or []):
             rels.append(
                 Relationship(
-                    type="PART_OF",
+                    type="IN_SPRINT",
                     direction=None,
                     target=RelationshipTarget(
                         source=_SOURCE,
