@@ -403,6 +403,7 @@ async def process_repo_signals(
     since = resolve_commits_since_date(last_synced_at)
     logger.info("Fetching commits for '%s' since %s...", full_name, since.date())
     commits_raw = fetch_commits(repo, since)
+    logger.info(f"Number of commits fetched for {full_name} = {len(commits_raw)}")
     seen_persons: set[str] = set()
     commit_count = 0
     for commit in commits_raw:

@@ -178,6 +178,8 @@ Feature flags: `GITHUB_MCP_ENABLED`, `ATLASSIAN_MCP_ENABLED`
 - **Docstrings**: Modules, classes, and public functions
 - **Logging**: Use `from app.common.logger import logger` — never `print()`
 - **Error Handling**: Raise appropriate exceptions with clear messages
+- **Python Code Style**: All Python code you generate must be PEP 8 compliant. 
+- **Python 3.6+ Conventions**: Always use modern Python 3.6+ conventions. Specifically, use f-strings (f'...') for variable interpolation instead of % formatting or .format().
 
 ### UI Alert Design Standards
 - **Placement**: Render alerts in a dedicated feedback region near the top of the active section; use sticky containers for long scrollable sections.
