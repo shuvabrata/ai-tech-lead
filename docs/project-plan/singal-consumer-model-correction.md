@@ -595,7 +595,7 @@ F → G) must be complete and a real scan performed before running it.
 | 5 | ✅ **DONE** | E1–E4: `PersonCache` + `IdentityMapping` in consumer | `pytest -m unit tests/test_consumer_phase5.py -q` (38 passed) | Step 4 |
 | 6 | ✅ **MOOT** | F: fix `_stub` (no stub logic retained — resolved by Step 4) | — | Step 4 |
 | 7 | ✅ **DONE** | G: update and extend tests (all 5 items complete) | `pytest -m unit tests -q` | Steps 4–6 |
-| 8 | ❌ | **Final**: run real scan, then property validation | `pytest -m neo4j tests/property_validation/ -q` | Steps 1–7 + live data |
+| 8 | ✅ **DONE** | **Final**: run real scan, then property validation | `pytest -m neo4j tests/property_validation/ -q` | Steps 1–7 + live data |
 
 **Order deviation note:** Step 4 (Phase A) was implemented before Steps 1–3
 (Phases B/C/D).  The dispatch-table approach does not require the signal schema
