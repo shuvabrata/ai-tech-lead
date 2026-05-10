@@ -159,6 +159,7 @@ def build_initiative_signal(
     initiative_data: Dict[str, Any],
     jira_base_url: str,
     project_id: Optional[str] = None,
+    reporter_person_id: Optional[str] = None,
 ) -> Optional[ActivitySignal]:
     """Build an ActivitySignal for a Jira Initiative."""
     try:
@@ -190,6 +191,18 @@ def build_initiative_signal(
                     ),
                 )
             )
+        if reporter_person_id:
+            rels.append(
+                Relationship(
+                    type="REPORTED_BY",
+                    direction=None,
+                    target=RelationshipTarget(
+                        source=_SOURCE,
+                        entity_type="Person",
+                        external_id=reporter_person_id,
+                    ),
+                )
+            )
         return ActivitySignal(
             source=_SOURCE,
             external_id=initiative_data["id"],
@@ -213,6 +226,8 @@ def build_epic_signal(
     jira_base_url: str,
     initiative_id: Optional[str] = None,
     project_id: Optional[str] = None,
+    reporter_person_id: Optional[str] = None,
+    team_id: Optional[str] = None,
 ) -> Optional[ActivitySignal]:
     """Build an ActivitySignal for a Jira Epic."""
     try:
@@ -253,6 +268,30 @@ def build_epic_signal(
                         source=_SOURCE,
                         entity_type="Project",
                         external_id=project_id,
+                    ),
+                )
+            )
+        if reporter_person_id:
+            rels.append(
+                Relationship(
+                    type="REPORTED_BY",
+                    direction=None,
+                    target=RelationshipTarget(
+                        source=_SOURCE,
+                        entity_type="Person",
+                        external_id=reporter_person_id,
+                    ),
+                )
+            )
+        if team_id:
+            rels.append(
+                Relationship(
+                    type="TEAM",
+                    direction=None,
+                    target=RelationshipTarget(
+                        source=_SOURCE,
+                        entity_type="Team",
+                        external_id=team_id,
                     ),
                 )
             )
@@ -309,6 +348,8 @@ def build_issue_signal(
     epic_id: Optional[str] = None,
     sprint_ids: Optional[List[str]] = None,
     assignee_person_id: Optional[str] = None,
+    reporter_person_id: Optional[str] = None,
+    team_id: Optional[str] = None,
 ) -> Optional[ActivitySignal]:
     """Build an ActivitySignal for a Jira Issue."""
     try:
@@ -369,6 +410,84 @@ def build_issue_signal(
                     ),
                 )
             )
+
+        # REPORTED_BY → Person
+        if reporter_person_id:
+            rels.append(
+                Relationship(
+                    type="REPORTED_BY",
+                    direction=None,
+                    target=RelationshipTarget(
+                        source=_SOURCE,
+                        entity_type="Person",
+                        external_id=reporter_person_id,
+                    ),
+                )
+            )
+
+        # TEAM → Team
+        if team_id:
+            rels.append(
+                Relationship(
+                    type="TEAM",
+                    direction=None,
+                    target=RelationshipTarget(
+                        source=_SOURCE,
+                        entity_type="Team",
+                        external_id=team_id,
+                    ),
+                )
+            )
+
+        # BLOCKS / DEPENDS_ON / RELATES_TO from Jira issue links
+        for link in (issue_data.get("issue_links_raw") or []):
+            link_type = link.get("type", {})
+            outward_desc = link_type.get("outward", "").lower()
+            inward_desc = link_type.get("inward", "").lower()
+            if "outwardIssue" in link and outward_desc == "blocks":
+                # This issue blocks the outward target
+                target_id = f"jira_issue_{link['outwardIssue']['id']}"
+                rels.append(
+                    Relationship(
+                        type="BLOCKS",
+                        direction=None,
+                        target=RelationshipTarget(
+                            source=_SOURCE,
+                            entity_type="Issue",
+                            external_id=target_id,
+                        ),
+                    )
+                )
+            elif "inwardIssue" in link and "blocked by" in inward_desc:
+                # This issue is blocked by the inward target → DEPENDS_ON
+                target_id = f"jira_issue_{link['inwardIssue']['id']}"
+                rels.append(
+                    Relationship(
+                        type="DEPENDS_ON",
+                        direction=None,
+                        target=RelationshipTarget(
+                            source=_SOURCE,
+                            entity_type="Issue",
+                            external_id=target_id,
+                        ),
+                    )
+                )
+            elif "relates" in outward_desc or "relates" in inward_desc:
+                # Symmetric "relates to" — use whichever side provides the target
+                linked_issue = link.get("outwardIssue") or link.get("inwardIssue")
+                if linked_issue:
+                    target_id = f"jira_issue_{linked_issue['id']}"
+                    rels.append(
+                        Relationship(
+                            type="RELATES_TO",
+                            direction=None,
+                            target=RelationshipTarget(
+                                source=_SOURCE,
+                                entity_type="Issue",
+                                external_id=target_id,
+                            ),
+                        )
+                    )
 
         return ActivitySignal(
             source=_SOURCE,
