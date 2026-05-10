@@ -126,6 +126,7 @@ class InitiativeAttributes(BaseModel):
     priority: str
     status: str
     created_at: str
+    project_id: Optional[str] = None
 
 
 class EpicAttributes(BaseModel):
@@ -150,7 +151,6 @@ class SprintAttributes(BaseModel):
     entity_type: Literal["Sprint"] = "Sprint"
     id: str
     name: str
-    state: str
     status: str
 
 
@@ -165,8 +165,10 @@ class IssueAttributes(BaseModel):
     summary: str
     priority: str
     status: str
-    issue_type: str
-    created: str
+    type: str
+    created_at: str
+    updated_at: Optional[str] = None
+    story_points: Optional[float] = None
 
 
 class RepositoryAttributes(BaseModel):
@@ -190,7 +192,11 @@ class BranchAttributes(BaseModel):
 
     entity_type: Literal["Branch"] = "Branch"
     name: str
-    commit_sha: str
+    last_commit_sha: str
+    last_commit_timestamp: Optional[str] = None
+    is_protected: Optional[bool] = None
+    is_deleted: Optional[bool] = None
+    is_external: Optional[bool] = None
 
 
 class CommitAttributes(BaseModel):
@@ -202,7 +208,7 @@ class CommitAttributes(BaseModel):
     sha: str
     message: str
     author: str
-    committed_date: str
+    created_at: str
 
 
 class PullRequestAttributes(BaseModel):
@@ -217,6 +223,19 @@ class PullRequestAttributes(BaseModel):
     state: str
     created_at: str
     user: str
+    updated_at: Optional[str] = None
+    merged_at: Optional[str] = None
+    closed_at: Optional[str] = None
+    commits_count: Optional[int] = None
+    additions: Optional[int] = None
+    deletions: Optional[int] = None
+    changed_files: Optional[int] = None
+    comments: Optional[int] = None
+    review_comments: Optional[int] = None
+    head_branch_name: Optional[str] = None
+    base_branch_name: Optional[str] = None
+    labels: Optional[list] = None
+    mergeable_state: Optional[str] = None
 
 
 class PersonAttributes(BaseModel):

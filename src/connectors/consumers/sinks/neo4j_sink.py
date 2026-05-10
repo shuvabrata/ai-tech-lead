@@ -1,65 +1,338 @@
 """Neo4j sink for ActivitySignal consumers.
 
-Responsibilities
-----------------
-- MERGE nodes using ``external_id`` as ``id``, matching the key used by all
-  producers.  The legacy ``merge_*`` functions in ``neo4j_db/models.py`` also
-  key on ``id``, so the two systems are compatible during the deprecation
-  window.
-- Apply idempotency: skip property updates when the incoming ``event_time`` is
-  not newer than the ``_last_event_time`` already stored on the node.
-  Relationship MERGEs are always applied (additive and idempotent).
-- Create stub nodes for relationship targets that don't exist yet.  A stub
-  contains only ``{id, source, _stub: true}`` and is filled in when the
-  full signal for that node arrives (the MERGE + SET will remove ``_stub``).
-- Handle the three direction semantics:
-    * ``direction=None`` → undirected convention: store as ``(node)-[:REL]->(target)``
-      but Cypher queries use undirected pattern ``-[:REL]-``.
-    * ``direction="OUT"`` → ``(node)-[:REL]->(target)``
-    * ``direction="IN"``  → ``(target)-[:REL]->(node)``
+Maps incoming ``ActivitySignal`` events to the canonical ``neo4j_db``
+dataclasses and delegates to the corresponding ``merge_*`` functions.  This
+preserves the node-creation logic established by the original sync modules
+(``modules/github/``, ``modules/jira/``) — no raw Cypher is generated here.
 
-Relationship types currently emitted by producers
---------------------------------------------------
-GitHub:  PART_OF, AUTHORED_BY, MERGED_INTO, REVIEWS
-Jira:    PART_OF, ASSIGNED_TO
+Direction semantics for relationships (preserved from producer contracts):
+- ``None`` or ``"OUT"`` → forward edge  ``(from)-[:REL]->(to)``
+- ``"IN"``              → reverse edge: swap from/to so
+  ``merge_relationship`` always writes a forward-directed edge.
 """
 
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from datetime import datetime, timezone
+from typing import Callable, List, Optional
 
 from neo4j import Session
 
-from common.activity_signal.models import ActivitySignal, Relationship
+from common.activity_signal.models import ActivitySignal
+from common.activity_signal.models import Relationship as SignalRelationship
+from connectors.neo4j_db.models import (
+    Branch,
+    Commit,
+    Epic,
+    Initiative,
+    Issue,
+    Person,
+    Project,
+    PullRequest,
+    Repository,
+    Sprint,
+    Team,
+    Relationship as DbRelationship,
+    merge_branch,
+    merge_commit,
+    merge_epic,
+    merge_initiative,
+    merge_issue,
+    merge_person,
+    merge_project,
+    merge_pull_request,
+    merge_repository,
+    merge_sprint,
+    merge_team,
+)
 
 logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
-# Node label mapping
+# Label helper
 # ---------------------------------------------------------------------------
-
-# entity_type → Neo4j label.  All producers use the same names so this is a
-# 1:1 mapping, but keeping it explicit makes future changes safe.
-_ENTITY_LABEL: dict[str, str] = {
-    "Repository": "Repository",
-    "Branch": "Branch",
-    "Commit": "Commit",
-    "PullRequest": "PullRequest",
-    "Person": "Person",
-    "Team": "Team",
-    "Project": "Project",
-    "Initiative": "Initiative",
-    "Epic": "Epic",
-    "Sprint": "Sprint",
-    "Issue": "Issue",
-}
 
 
 def _label(entity_type: str) -> str:
-    """Return the Neo4j label for *entity_type*, defaulting to the type itself."""
-    return _ENTITY_LABEL.get(entity_type, entity_type)
+    """Return the Neo4j node label for *entity_type*.
+
+    All entity_type strings used in this codebase map 1:1 to their Neo4j
+    label, so the value is returned unchanged.  The function exists as a
+    stable hook for future overrides and for test assertions.
+    """
+    return entity_type
+
+
+# ---------------------------------------------------------------------------
+# Relationship conversion
+# ---------------------------------------------------------------------------
+
+
+def _to_db_relationships(
+    signal_rels: List[SignalRelationship],
+    from_id: str,
+    from_type: str,
+) -> List[DbRelationship]:
+    """Convert ``ActivitySignal`` relationships to ``neo4j_db.Relationship`` objects.
+
+    Direction handling:
+    - ``None`` / ``"OUT"`` → ``(from)-[:REL]->(to)``
+    - ``"IN"``             → swap from/to so the stored edge is
+      ``(target)-[:REL]->(from)``, i.e. ``(to)-[:REL]->(from)`` after swap.
+
+    Relationships without ``target.external_id`` are skipped with a warning.
+    """
+    result: List[DbRelationship] = []
+    for rel in signal_rels:
+        target = rel.target
+        if not target.external_id:
+            logger.warning(
+                "Skipping relationship %s from %s/%s: target has no external_id",
+                rel.type,
+                from_type,
+                from_id,
+            )
+            continue
+
+        to_id = target.external_id
+        to_type = _label(target.entity_type) if target.entity_type else "Node"
+
+        if rel.direction == "IN":
+            # Signal says (source)<-[:REL]-(target); store as (target)-[:REL]->(source)
+            db_rel = DbRelationship(
+                type=rel.type,
+                from_id=to_id,
+                to_id=from_id,
+                from_type=to_type,
+                to_type=from_type,
+            )
+        else:
+            # None or "OUT" → (from)-[:REL]->(to)
+            db_rel = DbRelationship(
+                type=rel.type,
+                from_id=from_id,
+                to_id=to_id,
+                from_type=from_type,
+                to_type=to_type,
+            )
+        result.append(db_rel)
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Entity-type handlers
+# ---------------------------------------------------------------------------
+
+
+def _handle_repository(session: Session, signal: ActivitySignal) -> None:
+    attrs = signal.extra_attributes()
+    repo = Repository(
+        id=signal.external_id,
+        name=attrs.get("name", ""),
+        full_name=attrs.get("full_name", ""),
+        url=attrs.get("url", ""),
+        language=attrs.get("language", ""),
+        is_private=attrs.get("is_private", False),
+        topics=attrs.get("topics") or [],
+        created_at=attrs.get("created_at", ""),
+    )
+    db_rels = _to_db_relationships(signal.relationships, signal.external_id, "Repository")
+    merge_repository(session, repo, relationships=db_rels)
+
+
+def _handle_branch(session: Session, signal: ActivitySignal) -> None:
+    attrs = signal.extra_attributes()
+    branch = Branch(
+        id=signal.external_id,
+        name=attrs.get("name", ""),
+        is_default=attrs.get("is_default", False),
+        is_protected=attrs.get("is_protected", False),
+        is_deleted=attrs.get("is_deleted", False),
+        is_external=attrs.get("is_external", False),
+        last_commit_sha=attrs.get("last_commit_sha", ""),
+        last_commit_timestamp=attrs.get("last_commit_timestamp", ""),
+        url=attrs.get("url"),
+    )
+    db_rels = _to_db_relationships(signal.relationships, signal.external_id, "Branch")
+    merge_branch(session, branch, relationships=db_rels)
+
+
+def _handle_commit(session: Session, signal: ActivitySignal) -> None:
+    attrs = signal.extra_attributes()
+    commit = Commit(
+        id=signal.external_id,
+        sha=attrs.get("sha", ""),
+        message=attrs.get("message", ""),
+        created_at=attrs.get("created_at", ""),
+        additions=attrs.get("additions", 0),
+        deletions=attrs.get("deletions", 0),
+        files_changed=attrs.get("files_changed", 0),
+        url=attrs.get("url"),
+    )
+    db_rels = _to_db_relationships(signal.relationships, signal.external_id, "Commit")
+    merge_commit(session, commit, relationships=db_rels)
+
+
+def _handle_pull_request(session: Session, signal: ActivitySignal) -> None:
+    attrs = signal.extra_attributes()
+    pr = PullRequest(
+        id=signal.external_id,
+        number=attrs.get("number", 0),
+        title=attrs.get("title", ""),
+        state=attrs.get("state", ""),
+        created_at=attrs.get("created_at", ""),
+        updated_at=attrs.get("updated_at", ""),
+        merged_at=attrs.get("merged_at"),
+        closed_at=attrs.get("closed_at"),
+        commits_count=attrs.get("commits_count", 0),
+        additions=attrs.get("additions", 0),
+        deletions=attrs.get("deletions", 0),
+        changed_files=attrs.get("changed_files", 0),
+        comments=attrs.get("comments", 0),
+        review_comments=attrs.get("review_comments", 0),
+        head_branch_name=attrs.get("head_branch_name", ""),
+        base_branch_name=attrs.get("base_branch_name", ""),
+        labels=attrs.get("labels") or [],
+        mergeable_state=attrs.get("mergeable_state", ""),
+        url=attrs.get("url"),
+    )
+    db_rels = _to_db_relationships(signal.relationships, signal.external_id, "PullRequest")
+    merge_pull_request(session, pr, relationships=db_rels)
+
+
+def _handle_person(session: Session, signal: ActivitySignal) -> None:
+    attrs = signal.extra_attributes()
+    person = Person(
+        id=signal.external_id,
+        name=attrs.get("name"),
+        email=attrs.get("email"),
+        url=attrs.get("url"),
+    )
+    db_rels = _to_db_relationships(signal.relationships, signal.external_id, "Person")
+    merge_person(session, person, relationships=db_rels)
+    # TODO Phase E: PersonCache + IdentityMapping resolution
+
+
+def _handle_team(session: Session, signal: ActivitySignal) -> None:
+    attrs = signal.extra_attributes()
+    team = Team(
+        id=signal.external_id,
+        name=attrs.get("name"),
+        source=signal.source,
+        created_at=attrs.get("created_at"),
+        url=attrs.get("url"),
+    )
+    db_rels = _to_db_relationships(signal.relationships, signal.external_id, "Team")
+    merge_team(session, team, relationships=db_rels)
+
+
+def _handle_project(session: Session, signal: ActivitySignal) -> None:
+    attrs = signal.extra_attributes()
+    project = Project(
+        id=signal.external_id,
+        key=attrs.get("key", ""),
+        name=attrs.get("name", ""),
+        status=attrs.get("status"),
+        project_type=attrs.get("project_type"),
+        url=attrs.get("url"),
+    )
+    db_rels = _to_db_relationships(signal.relationships, signal.external_id, "Project")
+    merge_project(session, project, relationships=db_rels)
+
+
+def _handle_initiative(session: Session, signal: ActivitySignal) -> None:
+    attrs = signal.extra_attributes()
+    initiative = Initiative(
+        id=signal.external_id,
+        key=attrs.get("key", ""),
+        summary=attrs.get("summary", ""),
+        priority=attrs.get("priority", ""),
+        status=attrs.get("status", ""),
+        created_at=attrs.get("created_at", ""),
+        updated_at=attrs.get("updated_at", ""),
+        duedate=attrs.get("duedate"),
+        labels=attrs.get("labels") or [],
+        components=attrs.get("components") or [],
+        url=attrs.get("url"),
+        _last_synced_at=datetime.now(timezone.utc).isoformat(),
+    )
+    db_rels = _to_db_relationships(signal.relationships, signal.external_id, "Initiative")
+    merge_initiative(session, initiative, relationships=db_rels)
+
+
+def _handle_epic(session: Session, signal: ActivitySignal) -> None:
+    attrs = signal.extra_attributes()
+    epic = Epic(
+        id=signal.external_id,
+        key=attrs.get("key", ""),
+        summary=attrs.get("summary", ""),
+        priority=attrs.get("priority", ""),
+        status=attrs.get("status", ""),
+        start_date=attrs.get("start_date", ""),
+        due_date=attrs.get("due_date", ""),
+        created_at=attrs.get("created_at", ""),
+        updated_at=attrs.get("updated_at"),
+        url=attrs.get("url"),
+        _last_synced_at=datetime.now(timezone.utc).isoformat(),
+    )
+    db_rels = _to_db_relationships(signal.relationships, signal.external_id, "Epic")
+    merge_epic(session, epic, relationships=db_rels)
+
+
+def _handle_sprint(session: Session, signal: ActivitySignal) -> None:
+    attrs = signal.extra_attributes()
+    sprint = Sprint(
+        id=signal.external_id,
+        name=attrs.get("name", ""),
+        goal=attrs.get("goal", ""),
+        start_date=attrs.get("start_date", ""),
+        end_date=attrs.get("end_date", ""),
+        # SprintAttributes: status is the canonical field
+        status=attrs.get("status", ""),
+        url=attrs.get("url"),
+    )
+    db_rels = _to_db_relationships(signal.relationships, signal.external_id, "Sprint")
+    merge_sprint(session, sprint, relationships=db_rels)
+
+
+def _handle_issue(session: Session, signal: ActivitySignal) -> None:
+    attrs = signal.extra_attributes()
+    issue = Issue(
+        id=signal.external_id,
+        key=attrs.get("key", ""),
+        type=attrs.get("type", ""),
+        summary=attrs.get("summary", ""),
+        priority=attrs.get("priority", ""),
+        status=attrs.get("status", ""),
+        story_points=attrs.get("story_points", 0),
+        created_at=attrs.get("created_at", ""),
+        updated_at=attrs.get("updated_at"),
+        url=attrs.get("url"),
+        _last_synced_at=datetime.now(timezone.utc).isoformat(),
+    )
+    db_rels = _to_db_relationships(signal.relationships, signal.external_id, "Issue")
+    merge_issue(session, issue, relationships=db_rels)
+
+
+# ---------------------------------------------------------------------------
+# Dispatch table
+# ---------------------------------------------------------------------------
+
+_HANDLERS: dict[str, Callable[[Session, ActivitySignal], None]] = {
+    "Repository": _handle_repository,
+    "Branch": _handle_branch,
+    "Commit": _handle_commit,
+    "PullRequest": _handle_pull_request,
+    "Person": _handle_person,
+    "Team": _handle_team,
+    "Project": _handle_project,
+    "Initiative": _handle_initiative,
+    "Epic": _handle_epic,
+    "Sprint": _handle_sprint,
+    "Issue": _handle_issue,
+}
 
 
 # ---------------------------------------------------------------------------
@@ -68,187 +341,35 @@ def _label(entity_type: str) -> str:
 
 
 def upsert_signal(session: Session, signal: ActivitySignal) -> None:
-    """Upsert an ActivitySignal into Neo4j.
+    """Upsert an ActivitySignal into Neo4j using the canonical merge_* functions.
 
-    Steps:
-    1. MERGE the primary node by ``id = signal.external_id``.
-    2. If the signal's ``event_time`` is newer than the stored
-       ``_last_event_time``, update all node properties from
-       ``signal.extra_attributes()`` plus the idempotency meta-fields.
-    3. For each relationship in ``signal.relationships``, MERGE the target
-       node as a stub if it doesn't exist, then MERGE the relationship edge.
+    Dispatches to the correct entity-type handler which builds the appropriate
+    ``neo4j_db`` dataclass and calls the corresponding ``merge_*`` function,
+    preserving the node/relationship creation logic from the original sync
+    modules (``modules/github/``, ``modules/jira/``).
 
     Args:
         session: An active synchronous Neo4j ``Session``.
         signal:  A fully validated ``ActivitySignal`` with ``ingestion_time``
                  already set by the caller.
     """
-    node_label = _label(signal.entity_type)
-    node_id = signal.external_id
-    event_time = signal.event_time.isoformat()
-    ingestion_time = (
-        signal.ingestion_time.isoformat() if signal.ingestion_time else None
-    )
-    signal_id = signal.signal_id
-    source = signal.source
-
-    # Collect all attributes (mandatory + extra) as a flat dict.
-    attrs = signal.extra_attributes()
-    # Remove the discriminator key — it's stored as the Neo4j label, not a property.
-    attrs.pop("entity_type", None)
-
-    _upsert_node(
-        session=session,
-        node_label=node_label,
-        node_id=node_id,
-        source=source,
-        attrs=attrs,
-        event_time=event_time,
-        ingestion_time=ingestion_time,
-        signal_id=signal_id,
-    )
-
-    for rel in signal.relationships:
-        _upsert_relationship(
-            session=session,
-            from_label=node_label,
-            from_id=node_id,
-            relationship=rel,
-        )
-
-    logger.info(
-        "Upserted signal_id=%s entity_type=%s id=%s",
-        signal_id,
-        signal.entity_type,
-        node_id,
-    )
-
-
-# ---------------------------------------------------------------------------
-# Internal helpers
-# ---------------------------------------------------------------------------
-
-
-def _upsert_node(
-    *,
-    session: Session,
-    node_label: str,
-    node_id: str,
-    source: str,
-    attrs: dict[str, Any],
-    event_time: str,
-    ingestion_time: Optional[str],
-    signal_id: str,
-) -> None:
-    """MERGE a node and conditionally update its properties.
-
-    Property updates are skipped when the stored ``_last_event_time`` is equal
-    to or newer than the incoming ``event_time`` (last-write-wins semantics).
-    The idempotency meta-fields (``_last_signal_id``, ``_last_event_time``) are
-    always written so the guard remains accurate.
-    """
-    # Build a flat param dict for the attributes; prefix with "attr_" to avoid
-    # clashing with reserved Cypher parameter names.
-    attr_params: dict[str, Any] = {f"attr_{k}": v for k, v in attrs.items()}
-
-    # Property SET clause: every key in attrs becomes a node property.
-    set_attr_clause = ", ".join(
-        f"n.`{k}` = $attr_{k}" for k in attrs
-    )
-
-    # Meta-field SET clause is always applied.
-    meta_clause = (
-        "n._last_signal_id = $signal_id, "
-        "n._last_event_time = $event_time, "
-        "n.source = $source"
-    )
-    if ingestion_time is not None:
-        meta_clause += ", n._last_ingestion_time = $ingestion_time"
-
-    if set_attr_clause:
-        conditional_set = (
-            f"WITH n\n"
-            f"WHERE n._last_event_time IS NULL OR n._last_event_time < $event_time\n"
-            f"SET {set_attr_clause}"
-        )
-    else:
-        conditional_set = ""
-
-    query = f"""
-MERGE (n:{node_label} {{id: $node_id}})
-ON CREATE SET n._stub = false, n.source = $source
-SET {meta_clause}
-{conditional_set}
-"""
-
-    params: dict[str, Any] = {
-        "node_id": node_id,
-        "source": source,
-        "event_time": event_time,
-        "ingestion_time": ingestion_time,
-        "signal_id": signal_id,
-        **attr_params,
-    }
-
-    session.run(query, **params)
-
-
-def _upsert_relationship(
-    *,
-    session: Session,
-    from_label: str,
-    from_id: str,
-    relationship: Relationship,
-) -> None:
-    """Ensure the target stub exists and MERGE the relationship edge.
-
-    Direction semantics:
-    - ``None`` or ``"OUT"`` → ``(from)-[:REL]->(to)``
-    - ``"IN"``              → ``(to)-[:REL]->(from)``
-
-    The target node is created as a stub if it does not yet exist so that
-    out-of-order signals never fail.
-    """
-    target = relationship.target
-
-    # Target must have at least an external_id to be upsertable.
-    if not target.external_id:
+    entity_type = signal.entity_type
+    handler = _HANDLERS.get(entity_type)
+    if handler is None:
         logger.warning(
-            "Skipping relationship %s from %s/%s: target has no external_id",
-            relationship.type,
-            from_label,
-            from_id,
+            "No handler for entity_type=%s signal_id=%s — skipping",
+            entity_type,
+            signal.signal_id,
         )
         return
 
-    target_id = target.external_id
-    target_source = target.source or ""
-    target_entity_type = target.entity_type or ""
-    target_label = _label(target_entity_type) if target_entity_type else "Node"
-    rel_type = relationship.type
-    direction = relationship.direction  # None | "OUT" | "IN"
+    handler(session, signal)
+    logger.info(
+        "Upserted signal_id=%s entity_type=%s id=%s",
+        signal.signal_id,
+        entity_type,
+        signal.external_id,
+    )
 
-    # Ensure the target stub node exists.
-    stub_query = f"""
-MERGE (t:{target_label} {{id: $target_id}})
-ON CREATE SET t._stub = true, t.source = $target_source
-"""
-    session.run(stub_query, target_id=target_id, target_source=target_source)
 
-    # MERGE the relationship edge.
-    if direction == "IN":
-        # (target)-[:REL]->(from)
-        rel_query = f"""
-MATCH (from:{from_label} {{id: $from_id}})
-MATCH (to:{target_label} {{id: $target_id}})
-MERGE (to)-[:{rel_type}]->(from)
-"""
-    else:
-        # None or "OUT" → (from)-[:REL]->(to)
-        rel_query = f"""
-MATCH (from:{from_label} {{id: $from_id}})
-MATCH (to:{target_label} {{id: $target_id}})
-MERGE (from)-[:{rel_type}]->(to)
-"""
 
-    session.run(rel_query, from_id=from_id, target_id=target_id)

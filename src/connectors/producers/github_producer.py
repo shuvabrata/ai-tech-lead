@@ -129,7 +129,11 @@ def build_branch_signal(
         )
         attrs = BranchAttributes(
             name=branch_data["name"],
-            commit_sha=branch_data["last_commit_sha"],
+            last_commit_sha=branch_data["last_commit_sha"],
+            last_commit_timestamp=branch_data.get("last_commit_timestamp"),
+            is_protected=branch_data.get("is_protected", False),
+            is_deleted=branch_data.get("is_deleted", False),
+            is_external=branch_data.get("is_external", False),
             # Extra
             id=branch_data["id"],
             is_default=branch_data.get("is_default", False),
@@ -206,7 +210,7 @@ def build_commit_signal(
             sha=commit_data["sha"],
             message=_truncate(commit_data.get("message", "")),
             author=author_data.get("name") or login,
-            committed_date=commit_data.get("created_at", ""),
+            created_at=commit_data.get("created_at", ""),
             # Extra
             id=commit_data["id"],
             additions=commit_data.get("additions", 0),
