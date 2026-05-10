@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import os
 from datetime import datetime, timedelta, timezone
-from typing import Any, List, Optional
+from typing import Any, Iterable, List, Optional
 
 from github import GithubException
 
@@ -138,17 +138,22 @@ def fetch_pull_requests_search(
     return converted
 
 
-def fetch_pull_requests_direct(repo_obj: Any) -> List[Any]:
+def fetch_pull_requests_direct(repo_obj: Any) -> Iterable[Any]:
     """Fetch closed PRs directly from the repository endpoint.
 
     Args:
         repo_obj: PyGithub Repository object.
 
     Returns:
-        List of PyGithub PullRequest objects.
+        Iterable of PyGithub PullRequest objects.
     """
+    # The call repo_obj.get_pulls (from PyGithub) does NOT support a date filter directly.
+    # The get_pulls method only supports filtering by state, sort, direction, base branch, and head branch. 
+    # It does NOT accept updated_at or created_at filters.
+    # See: https://pygithub.readthedocs.io/en/latest/github_objects/Repository.html#github.Repository.Repository.get_pulls
+
     return retry_with_backoff(
-        lambda: list(repo_obj.get_pulls(state="closed", sort="updated", direction="desc"))
+        lambda: repo_obj.get_pulls(state="closed", sort="updated", direction="desc")
     )
 
 
