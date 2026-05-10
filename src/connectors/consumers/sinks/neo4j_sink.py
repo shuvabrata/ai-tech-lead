@@ -21,6 +21,7 @@ from neo4j import Session
 
 from common.activity_signal.models import ActivitySignal
 from common.activity_signal.models import Relationship as SignalRelationship
+from connectors.commons.person_cache import PersonCache
 from connectors.neo4j_db.models import (
     Branch,
     Commit,
@@ -202,8 +203,65 @@ def _handle_pull_request(session: Session, signal: ActivitySignal) -> None:
     merge_pull_request(session, pr, relationships=db_rels)
 
 
-def _handle_person(session: Session, signal: ActivitySignal) -> None:
+def _handle_person(
+    session: Session,
+    signal: ActivitySignal,
+    person_cache: Optional[PersonCache] = None,
+) -> None:
     attrs = signal.extra_attributes()
+
+    if person_cache is not None:
+        if signal.source == "github":
+            login = attrs.get("login", "")
+            name = attrs.get("name") or login
+            email = attrs.get("email")
+            url = attrs.get("url")
+
+            person_id, _ = person_cache.get_or_create_person(
+                session,
+                email=email if email else None,
+                name=name,
+                provider="github",
+                external_id=login,
+                url=url,
+            )
+            if person_id:
+                identity_id = f"identity_github_{login}"
+                person_cache.queue_identity_mapping(
+                    person_id=person_id,
+                    identity_id=identity_id,
+                    provider="GitHub",
+                    username=login,
+                    email=email or "",
+                    last_updated_at=datetime.now(timezone.utc).isoformat(),
+                )
+            return
+
+        elif signal.source == "jira":
+            account_id = attrs.get("account_id", "")
+            name = attrs.get("name", "")
+            email = attrs.get("email")
+
+            person_id, _ = person_cache.get_or_create_person(
+                session,
+                email=email if email else None,
+                name=name,
+                provider="jira",
+                external_id=account_id,
+            )
+            if person_id:
+                identity_id = f"identity_jira_{account_id}"
+                person_cache.queue_identity_mapping(
+                    person_id=person_id,
+                    identity_id=identity_id,
+                    provider="Jira",
+                    username=name,
+                    email=email or "",
+                    last_updated_at=datetime.now(timezone.utc).isoformat(),
+                )
+            return
+
+    # Fallback: no PersonCache — original behaviour
     person = Person(
         id=signal.external_id,
         name=attrs.get("name"),
@@ -212,7 +270,6 @@ def _handle_person(session: Session, signal: ActivitySignal) -> None:
     )
     db_rels = _to_db_relationships(signal.relationships, signal.external_id, "Person")
     merge_person(session, person, relationships=db_rels)
-    # TODO Phase E: PersonCache + IdentityMapping resolution
 
 
 def _handle_team(session: Session, signal: ActivitySignal) -> None:
@@ -325,7 +382,7 @@ _HANDLERS: dict[str, Callable[[Session, ActivitySignal], None]] = {
     "Branch": _handle_branch,
     "Commit": _handle_commit,
     "PullRequest": _handle_pull_request,
-    "Person": _handle_person,
+    # Person is handled directly in upsert_signal to support PersonCache injection
     "Team": _handle_team,
     "Project": _handle_project,
     "Initiative": _handle_initiative,
@@ -340,7 +397,11 @@ _HANDLERS: dict[str, Callable[[Session, ActivitySignal], None]] = {
 # ---------------------------------------------------------------------------
 
 
-def upsert_signal(session: Session, signal: ActivitySignal) -> None:
+def upsert_signal(
+    session: Session,
+    signal: ActivitySignal,
+    person_cache: Optional[PersonCache] = None,
+) -> None:
     """Upsert an ActivitySignal into Neo4j using the canonical merge_* functions.
 
     Dispatches to the correct entity-type handler which builds the appropriate
@@ -348,22 +409,36 @@ def upsert_signal(session: Session, signal: ActivitySignal) -> None:
     preserving the node/relationship creation logic from the original sync
     modules (``modules/github/``, ``modules/jira/``).
 
+    When *person_cache* is provided, Person signals use ``PersonCache`` for
+    identity resolution and IdentityMapping creation, and
+    ``flush_identity_mappings`` is called after every signal.
+
     Args:
-        session: An active synchronous Neo4j ``Session``.
-        signal:  A fully validated ``ActivitySignal`` with ``ingestion_time``
-                 already set by the caller.
+        session:      An active synchronous Neo4j ``Session``.
+        signal:       A fully validated ``ActivitySignal`` with ``ingestion_time``
+                      already set by the caller.
+        person_cache: Optional ``PersonCache`` instance scoped to the current
+                      consumer task.  When supplied, Person signals use the
+                      cache for identity resolution.
     """
     entity_type = signal.entity_type
-    handler = _HANDLERS.get(entity_type)
-    if handler is None:
-        logger.warning(
-            "No handler for entity_type=%s signal_id=%s — skipping",
-            entity_type,
-            signal.signal_id,
-        )
-        return
 
-    handler(session, signal)
+    if entity_type == "Person":
+        _handle_person(session, signal, person_cache=person_cache)
+    else:
+        handler = _HANDLERS.get(entity_type)
+        if handler is None:
+            logger.warning(
+                "No handler for entity_type=%s signal_id=%s — skipping",
+                entity_type,
+                signal.signal_id,
+            )
+            return
+        handler(session, signal)
+
+    if person_cache is not None:
+        person_cache.flush_identity_mappings(session)
+
     logger.info(
         "Upserted signal_id=%s entity_type=%s id=%s",
         signal.signal_id,

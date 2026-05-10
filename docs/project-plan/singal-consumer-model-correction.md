@@ -393,7 +393,7 @@ present in the issue fields.
 
 ---
 
-## Phase E — PersonCache and IdentityMapping in the Consumer
+## Phase E — PersonCache and IdentityMapping in the Consumer  ✅ COMPLETE
 
 > **Tests after Phase E** (`tests/test_consumer_phase5.py`)
 >
@@ -490,9 +490,10 @@ File: `tests/test_consumer_phase5.py`
    direction variant; an end-to-end test verifies relationships are passed
    to `merge_*`.
 
-4. ❌ **`PersonCache` integration** — deferred to Phase E.  The `_handle_person`
-   handler currently calls `merge_person()` directly with a `# TODO Phase E`
-   comment.
+4. ✅ **`PersonCache` integration** — Phase E complete.  `_handle_person` now
+   calls `PersonCache.get_or_create_person` and `queue_identity_mapping` for
+   GitHub and Jira sources.  `PersonCache` is created once per `consume_queue()`
+   call in `main.py` and passed through `upsert_signal`.
 
 5. ✅ **Reverse edge coverage** — Phase D complete; `DIRECTIONAL_RELATIONSHIPS`
    auto-reverse behaviour can now be tested.  Requires not mocking `merge_relationship`
@@ -502,9 +503,9 @@ File: `tests/test_consumer_phase5.py`
 >
 > Run: `pytest -m unit tests -q`
 >
-> Items 1–3 and 5 complete.  Item 4 deferred to Phase E.
-> Producer tests: `98 passed` in `test_github_producer_phase4.py` + `test_jira_producer_phase4.py` (36 new Phase D tests).
-> Full unit suite: `282 passed`.  Zero failures.
+> Items 1–5 all complete.
+> Consumer tests: `38 passed` in `test_consumer_phase5.py` (4 new Phase E tests).
+> Full unit suite: `286 passed`.  Zero failures.
 
 ---
 
@@ -591,9 +592,9 @@ F → G) must be complete and a real scan performed before running it.
 | 2 | ✅ **DONE** | C1–C2: fix relationship type names in producers | `pytest tests/test_github_producer_phase4.py tests/test_jira_producer_phase4.py -q` (72 passed) | Step 1 |
 | 3 | ✅ **DONE** | D1–D2: add missing relationships in producers | same producer tests — extended assertions | Step 2 |
 | 4 | ✅ **DONE** | A1–A4: redesign `neo4j_sink.py` with dispatch table | `pytest -m unit tests/test_consumer_phase5.py -q` (35 passed) | ~~Steps 1–3~~ done before B/C/D with internal aliases |
-| 5 | ❌ | E1–E4: `PersonCache` + `IdentityMapping` in consumer | `pytest -m unit tests/test_consumer_phase5.py -q` | Step 4 |
+| 5 | ✅ **DONE** | E1–E4: `PersonCache` + `IdentityMapping` in consumer | `pytest -m unit tests/test_consumer_phase5.py -q` (38 passed) | Step 4 |
 | 6 | ✅ **MOOT** | F: fix `_stub` (no stub logic retained — resolved by Step 4) | — | Step 4 |
-| 7 | ⚠️ Partial | G: update and extend tests (items 1–3,5 done; item 4 pending E) | `pytest -m unit tests -q` | Steps 4–6 |
+| 7 | ✅ **DONE** | G: update and extend tests (all 5 items complete) | `pytest -m unit tests -q` | Steps 4–6 |
 | 8 | ❌ | **Final**: run real scan, then property validation | `pytest -m neo4j tests/property_validation/ -q` | Steps 1–7 + live data |
 
 **Order deviation note:** Step 4 (Phase A) was implemented before Steps 1–3

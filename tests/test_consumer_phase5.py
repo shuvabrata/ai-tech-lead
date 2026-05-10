@@ -37,6 +37,7 @@ from common.activity_signal.models import (
     SprintAttributes,
     TeamAttributes,
 )
+from connectors.commons.person_cache import PersonCache
 from connectors.consumers.sinks.neo4j_sink import _label, _to_db_relationships, upsert_signal
 from connectors.neo4j_db.models import Relationship as DbRelationship
 
@@ -749,4 +750,111 @@ async def test_consume_queue_nacks_on_upsert_failure() -> None:
 
     mock_message.nack.assert_awaited_once_with(requeue=False)
     mock_message.ack.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# Phase E — PersonCache + IdentityMapping in the consumer
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+def test_upsert_github_person_calls_person_cache_get_or_create() -> None:
+    """GitHub Person signal: PersonCache.get_or_create_person called with login as external_id,
+    and flush_identity_mappings is called after upsert_signal returns."""
+    attrs = PersonAttributes(
+        id="github_person_alice",
+        name="Alice",
+        login="alice",
+        email="alice@example.com",
+    )
+    signal = _make_signal(attrs, source="github", external_id="github_person_alice")
+    session = _mock_session()
+
+    person_cache = MagicMock(spec=PersonCache)
+    person_cache.get_or_create_person.return_value = ("person_alice@example.com", False)
+
+    upsert_signal(session, signal, person_cache=person_cache)
+
+    person_cache.get_or_create_person.assert_called_once()
+    call_kwargs = person_cache.get_or_create_person.call_args
+    assert call_kwargs.kwargs.get("external_id") == "alice"
+    assert call_kwargs.kwargs.get("provider") == "github"
+    person_cache.flush_identity_mappings.assert_called_once_with(session)
+
+
+@pytest.mark.unit
+def test_upsert_jira_person_calls_person_cache_with_account_id() -> None:
+    """Jira Person signal: PersonCache.get_or_create_person called with account_id as external_id."""
+    attrs = PersonAttributes(
+        id="jira_person_abc123",
+        name="Bob",
+        account_id="abc123",
+        email="bob@example.com",
+    )
+    signal = _make_signal(attrs, source="jira", external_id="jira_person_abc123")
+    session = _mock_session()
+
+    person_cache = MagicMock(spec=PersonCache)
+    person_cache.get_or_create_person.return_value = ("person_bob@example.com", False)
+
+    upsert_signal(session, signal, person_cache=person_cache)
+
+    person_cache.get_or_create_person.assert_called_once()
+    call_kwargs = person_cache.get_or_create_person.call_args
+    assert call_kwargs.kwargs.get("external_id") == "abc123"
+    assert call_kwargs.kwargs.get("provider") == "jira"
+    person_cache.flush_identity_mappings.assert_called_once_with(session)
+
+
+@pytest.mark.unit
+def test_person_cache_hit_prevents_duplicate_merge_person() -> None:
+    """Two Person signals with the same login: merge_person fires only once (cache hit on second call)."""
+    attrs = PersonAttributes(
+        id="github_person_alice",
+        name="Alice",
+        login="alice",
+        email="alice@example.com",
+    )
+    signal = _make_signal(attrs, source="github", external_id="github_person_alice")
+
+    session = _mock_session()
+    # No existing person in DB — simulate empty result
+    session.run.return_value.single.return_value = None
+
+    person_cache = PersonCache()
+
+    with patch("connectors.commons.person_cache.merge_person") as mock_merge_person:
+        with patch("connectors.commons.person_cache.merge_identity_mapping"):
+            upsert_signal(session, signal, person_cache=person_cache)
+            upsert_signal(session, signal, person_cache=person_cache)
+
+    # merge_person should only be called once (cache hit on second call)
+    assert mock_merge_person.call_count == 1
+
+
+@pytest.mark.unit
+def test_person_cache_queues_and_flushes_identity_mapping() -> None:
+    """GitHub Person signal: IdentityMapping is queued and flushed with the expected external_id."""
+    attrs = PersonAttributes(
+        id="github_person_alice",
+        name="Alice",
+        login="alice",
+        email="alice@example.com",
+    )
+    signal = _make_signal(attrs, source="github", external_id="github_person_alice")
+
+    session = _mock_session()
+    session.run.return_value.single.return_value = None
+
+    person_cache = PersonCache()
+
+    with patch("connectors.commons.person_cache.merge_person"):
+        with patch("connectors.commons.person_cache.merge_identity_mapping") as mock_merge_identity:
+            upsert_signal(session, signal, person_cache=person_cache)
+
+    mock_merge_identity.assert_called_once()
+    identity_arg = mock_merge_identity.call_args.args[1]
+    assert identity_arg.id == "identity_github_alice"
+    assert identity_arg.provider == "GitHub"
+    assert identity_arg.username == "alice"
 

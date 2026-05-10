@@ -37,6 +37,7 @@ import sys
 from neo4j import GraphDatabase
 
 from common.messaging.rabbitmq import RabbitMQConsumer
+from connectors.commons.person_cache import PersonCache
 from connectors.consumers.sinks.neo4j_sink import upsert_signal
 from connectors.commons.logger import logger
 
@@ -70,11 +71,12 @@ async def consume_queue(
 
     try:
         consumer = RabbitMQConsumer(rabbitmq_url, queue=queue_name)
+        person_cache = PersonCache()
         async for signal, message in consumer.consume():
             signal = signal.with_ingestion_time()
             try:
                 with driver.session() as session:
-                    upsert_signal(session, signal)
+                    upsert_signal(session, signal, person_cache=person_cache)
                 await message.ack()
                 logger.info(
                     "Processed signal_id=%s entity_type=%s id=%s queue=%s",
