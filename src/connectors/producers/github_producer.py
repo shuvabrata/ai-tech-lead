@@ -38,13 +38,13 @@ from common.activity_signal.models import (
     RepositoryAttributes,
 )
 from common.messaging.rabbitmq import RabbitMQPublisher
-from connectors.modules.github.github_config import (
+from connectors.producers.github.github_config import (
     is_wildcard_url,
     load_config_from_file,
     load_config_from_server,
     parse_repo_url,
 )
-from connectors.modules.github.get_all_repos_for_owner import get_all_repos_for_owner  # type: ignore[import]
+from connectors.producers.github.get_all_repos_for_owner import get_all_repos_for_owner  # type: ignore[import]
 from connectors.producers.fetch_github import (
     fetch_branches,
     fetch_commits,

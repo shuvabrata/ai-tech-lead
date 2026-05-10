@@ -196,52 +196,6 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-      
-  jira-sync:
-    build:
-      context: .
-      dockerfile: Dockerfile.jira-sync
-    container_name: web-ai-jira-sync
-    command: python connectors/modules/jira/main.py
-    env_file:
-      - .env
-    environment:
-      NEO4J_URI: bolt://neo4j:7687
-      PYTHONPATH: /app
-      LOG_DIR: /var/log/jira-sync
-    volumes:
-      - ./logs:/var/log/jira-sync
-    depends_on:
-      neo4j:
-        condition: service_healthy
-      app:
-        condition: service_healthy
-    restart: "no"  # One-shot execution, run manually via docker compose run
-    networks:
-      - wba-ai-network
-
-  github-sync:
-    build:
-      context: .
-      dockerfile: Dockerfile.github-sync
-    container_name: web-ai-github-sync
-    command: python connectors/modules/github/main.py
-    env_file:
-      - .env
-    environment:
-      NEO4J_URI: bolt://neo4j:7687
-      PYTHONPATH: /app
-      LOG_DIR: /var/log/github-sync
-    volumes:
-      - ./logs:/var/log/github-sync
-    depends_on:
-      neo4j:
-        condition: service_healthy
-      app:
-        condition: service_healthy
-    restart: "no"  # One-shot execution, run manually via docker compose run
-    networks:
-      - wba-ai-network
 
   github-producer:
     build:

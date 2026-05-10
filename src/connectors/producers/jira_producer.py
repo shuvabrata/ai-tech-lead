@@ -40,7 +40,7 @@ from common.activity_signal.models import (
     SprintAttributes,
 )
 from common.messaging.rabbitmq import RabbitMQPublisher
-from connectors.modules.jira.jira_config import (
+from connectors.producers.jira.jira_config import (
     create_jira_connection,
     load_config_from_file,
     load_config_from_server,
@@ -51,7 +51,6 @@ from connectors.producers.fetch_jira import (
     fetch_issues,
     fetch_projects,
     fetch_sprints_by_ids,
-    resolve_lookback_cutoff,
 )
 from connectors.producers.map_jira import (
     extract_sprint_ids_from_issues,
