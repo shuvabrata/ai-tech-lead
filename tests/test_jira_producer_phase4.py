@@ -316,10 +316,10 @@ class TestBuildIssueSignal:
         parts = [r for r in sig.relationships if r.type == "PART_OF" and r.target.entity_type == "Epic"]
         assert len(parts) == 1
 
-    def test_part_of_sprint_relationship(self) -> None:
+    def test_in_sprint_relationship(self) -> None:
         sig = build_issue_signal(_issue_data(), _BASE_URL, sprint_ids=["sprint_jira_40001"])
         assert sig is not None
-        sprints = [r for r in sig.relationships if r.type == "PART_OF" and r.target.entity_type == "Sprint"]
+        sprints = [r for r in sig.relationships if r.type == "IN_SPRINT" and r.target.entity_type == "Sprint"]
         assert len(sprints) == 1
         assert sprints[0].target.external_id == "sprint_jira_40001"
 
@@ -328,7 +328,7 @@ class TestBuildIssueSignal:
             _issue_data(), _BASE_URL, sprint_ids=["sprint_jira_1", "sprint_jira_2"]
         )
         assert sig is not None
-        sprints = [r for r in sig.relationships if r.type == "PART_OF" and r.target.entity_type == "Sprint"]
+        sprints = [r for r in sig.relationships if r.type == "IN_SPRINT" and r.target.entity_type == "Sprint"]
         assert len(sprints) == 2
 
     def test_assigned_to_relationship(self) -> None:

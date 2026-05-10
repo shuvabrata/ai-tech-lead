@@ -158,7 +158,7 @@ class TestBuildBranchSignal:
         assert sig is not None
         assert len(sig.relationships) == 1
         rel = sig.relationships[0]
-        assert rel.type == "PART_OF"
+        assert rel.type == "BRANCH_OF"
         assert rel.direction is None
         assert rel.target.entity_type == "Repository"
         assert rel.target.external_id == "repo_myrepo"
@@ -279,33 +279,33 @@ class TestBuildPullRequestSignal:
         sig = build_pull_request_signal(_pr_data(), _author_data(), [], _repo_data())
         assert sig is not None
         types = [r.type for r in sig.relationships]
-        assert "AUTHORED_BY" in types
+        assert "CREATED_BY" in types
 
-    def test_merged_into_relationship(self) -> None:
+    def test_targets_relationship(self) -> None:
         sig = build_pull_request_signal(_pr_data(), _author_data(), [], _repo_data())
         assert sig is not None
-        merged = [r for r in sig.relationships if r.type == "MERGED_INTO"]
-        assert len(merged) == 1
-        assert merged[0].direction == "OUT"
-        assert merged[0].target.entity_type == "Branch"
-        assert merged[0].target.external_id == "branch_myrepo_main"
+        targets = [r for r in sig.relationships if r.type == "TARGETS"]
+        assert len(targets) == 1
+        assert targets[0].direction == "OUT"
+        assert targets[0].target.entity_type == "Branch"
+        assert targets[0].target.external_id == "branch_myrepo_main"
 
-    def test_reviews_relationships(self) -> None:
+    def test_reviewed_by_relationships(self) -> None:
         sig = build_pull_request_signal(
             _pr_data(), _author_data(), ["reviewer1", "reviewer2"], _repo_data()
         )
         assert sig is not None
-        reviews = [r for r in sig.relationships if r.type == "REVIEWS"]
+        reviews = [r for r in sig.relationships if r.type == "REVIEWED_BY"]
         assert len(reviews) == 2
         reviewer_ids = {r.target.external_id for r in reviews}
         assert reviewer_ids == {"github_person_reviewer1", "github_person_reviewer2"}
 
-    def test_no_base_branch_omits_merged_into(self) -> None:
+    def test_no_base_branch_omits_targets(self) -> None:
         d = _pr_data()
         d["base_branch_id"] = None
         sig = build_pull_request_signal(d, _author_data(), [], _repo_data())
         assert sig is not None
-        assert all(r.type != "MERGED_INTO" for r in sig.relationships)
+        assert all(r.type != "TARGETS" for r in sig.relationships)
 
     def test_long_title_truncated(self) -> None:
         long_title = "T" * (_TEXT_MAX + 100)

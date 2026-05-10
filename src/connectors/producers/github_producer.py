@@ -149,7 +149,7 @@ def build_branch_signal(
             attributes=attrs,
             relationships=[
                 Relationship(
-                    type="PART_OF",
+                    type="BRANCH_OF",
                     direction=None,
                     target=RelationshipTarget(
                         source=_SOURCE,
@@ -241,7 +241,7 @@ def build_commit_signal(
                         external_id=branch_data["id"],
                     ),
                 )
-            )
+            )  # Commit→Branch: PART_OF is correct (matches neo4j_db handler)
 
         return ActivitySignal(
             source=_SOURCE,
@@ -290,7 +290,7 @@ def build_pull_request_signal(
 
         rels: List[Relationship] = [
             Relationship(
-                type="AUTHORED_BY",
+                type="CREATED_BY",
                 direction=None,
                 target=RelationshipTarget(
                     source=_SOURCE,
@@ -300,12 +300,12 @@ def build_pull_request_signal(
             )
         ]
 
-        # MERGED_INTO → base branch
+        # TARGETS → base branch
         base_branch_id = pr_data.get("base_branch_id")
         if base_branch_id:
             rels.append(
                 Relationship(
-                    type="MERGED_INTO",
+                    type="TARGETS",
                     direction="OUT",
                     target=RelationshipTarget(
                         source=_SOURCE,
@@ -315,12 +315,12 @@ def build_pull_request_signal(
                 )
             )
 
-        # REVIEWS → each reviewer
+        # REVIEWED_BY → each reviewer
         for reviewer_login in reviewer_logins:
             reviewer_person_id = f"github_person_{reviewer_login}"
             rels.append(
                 Relationship(
-                    type="REVIEWS",
+                    type="REVIEWED_BY",
                     direction=None,
                     target=RelationshipTarget(
                         source=_SOURCE,
