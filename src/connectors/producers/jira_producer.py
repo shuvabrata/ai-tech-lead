@@ -169,6 +169,7 @@ def build_initiative_signal(
             priority=initiative_data.get("priority", "None"),
             status=initiative_data.get("status", "Unknown"),
             created_at=initiative_data.get("created_at", ""),
+            project_id=project_id,
             # Extra
             updated_at=initiative_data.get("updated_at", ""),
             duedate=initiative_data.get("duedate"),
@@ -282,7 +283,6 @@ def build_sprint_signal(
         attrs = SprintAttributes(
             id=sprint_data["id"],
             name=sprint_data["name"],
-            state=sprint_data.get("status", "Unknown"),
             status=sprint_data.get("status", "Unknown"),
             # Extra
             goal=sprint_data.get("goal", ""),
@@ -318,8 +318,8 @@ def build_issue_signal(
             summary=_truncate(issue_data.get("summary", "")),
             priority=issue_data.get("priority", "None"),
             status=issue_data.get("status", "Unknown"),
-            issue_type=issue_data.get("type", "Unknown"),
-            created=issue_data.get("created_at", "")[:10] if issue_data.get("created_at") else "",
+            type=issue_data.get("type", "Unknown"),
+            created_at=issue_data.get("created_at", ""),
             # Extra
             updated_at=issue_data.get("updated_at", ""),
             story_points=issue_data.get("story_points", 0),
