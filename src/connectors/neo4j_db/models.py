@@ -588,7 +588,6 @@ class Commit:
     deletions: int
     files_changed: int
     url: Optional[str] = None  # GitHub URL to view commit in browser
-    fully_synced: Optional[bool] = None  # True if all MODIFIES relationships created (for incremental sync)
     
     def to_neo4j_properties(self) -> Dict[str, Any]:
         """Convert to Neo4j properties."""
@@ -1469,10 +1468,6 @@ def merge_commit(session: Session, commit: Commit, relationships: Optional[List[
     
     if _has_value(props, 'url'):
         set_clauses.append("c.url = $url")
-    
-    # Set fully_synced flag if provided (for incremental sync optimization)
-    if props.get('fully_synced') is not None:
-        set_clauses.append("c.fully_synced = $fully_synced")
     
     # MERGE the Commit node
     if set_clauses:

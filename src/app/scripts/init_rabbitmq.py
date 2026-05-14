@@ -11,11 +11,11 @@ Exchange topology
 
 Queue naming convention
 -----------------------
-``<source>_<entity_type_lower>_queue``, e.g. ``github_pullrequest_queue``.
+``<source>_queue``, e.g. ``github_queue``.
 
 Routing key convention
 ----------------------
-``<source>.<EntityType>``, e.g. ``github.PullRequest``.
+``<source>.#``, e.g. ``github.#``.
 
 This script is designed to be run at container startup (before Uvicorn) via
 ``src/app/entrypoint.sh``.  It is idempotent: re-running it is safe because
@@ -35,23 +35,11 @@ EXCHANGE_NAME: str = "activity_signals"
 DLX_NAME: str = "activity_signals_dlx"
 DLQ_NAME: str = "activity_signals_dlq"
 
-# (queue_name, routing_key) — one queue per entity type per source.
-# Routing keys follow the format: <source>.<EntityType>
-ENTITY_QUEUES: list[tuple[str, str]] = [
-    # ── GitHub ──────────────────────────────────────────────────────────────
-    ("github_repository_queue", "github.Repository"),
-    ("github_branch_queue", "github.Branch"),
-    ("github_commit_queue", "github.Commit"),
-    ("github_pullrequest_queue", "github.PullRequest"),
-    ("github_person_queue", "github.Person"),
-    ("github_team_queue", "github.Team"),
-    # ── Jira ────────────────────────────────────────────────────────────────
-    ("jira_project_queue", "jira.Project"),
-    ("jira_initiative_queue", "jira.Initiative"),
-    ("jira_epic_queue", "jira.Epic"),
-    ("jira_issue_queue", "jira.Issue"),
-    ("jira_sprint_queue", "jira.Sprint"),
-    ("jira_person_queue", "jira.Person"),
+# (queue_name, routing_key) — one queue per source.
+# Routing keys follow the format: <source>.#
+SOURCE_QUEUES: list[tuple[str, str]] = [
+    ("github_queue", "github.#"),
+    ("jira_queue", "jira.#"),
 ]
 
 
@@ -62,7 +50,7 @@ async def init_rabbitmq(url: str) -> None:
     - ``activity_signals``  — durable topic exchange
     - ``activity_signals_dlx`` — durable direct dead-letter exchange
     - ``activity_signals_dlq`` — durable DLQ bound to the DLX
-    - One durable classic queue per entity type, bound to ``activity_signals``
+    - One durable classic queue per source, bound to ``activity_signals``
       with ``x-dead-letter-exchange`` pointing to the DLX
 
     Args:
@@ -95,12 +83,12 @@ async def init_rabbitmq(url: str) -> None:
         )
         logger.info("Exchange ready: %s (topic, durable)", EXCHANGE_NAME)
 
-        # 4. Entity queues ────────────────────────────────────────────────────
+        # 4. Source queues ────────────────────────────────────────────────────
         # Classic durable queues with dead-letter routing on rejection.
         # Note: x-delivery-limit is a Quorum Queue feature and is intentionally
         # omitted here. Poison-message handling relies on consumer-side nack
         # with requeue=False, which routes the message to the DLQ immediately.
-        for queue_name, routing_key in ENTITY_QUEUES:
+        for queue_name, routing_key in SOURCE_QUEUES:
             queue = await channel.declare_queue(
                 queue_name,
                 durable=True,

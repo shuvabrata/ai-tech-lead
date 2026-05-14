@@ -143,13 +143,13 @@ def test_to_db_relationships_direction_in_swaps_from_to() -> None:
     rel = Relationship(
         type="REVIEWS",
         direction="IN",
-        target=RelationshipTarget(entity_type="Person", external_id="person_alice"),
+        target=RelationshipTarget(entity_type="Person", external_id="person_github_bob"),
     )
     result = _to_db_relationships([rel], "pr_1", "PullRequest")
     assert len(result) == 1
     db_rel = result[0]
     # "IN" means target-[:REL]->source, so from_id is the target
-    assert db_rel.from_id == "person_alice"
+    assert db_rel.from_id == "person_github_bob"
     assert db_rel.to_id == "pr_1"
     assert db_rel.from_type == "Person"
     assert db_rel.to_type == "PullRequest"
@@ -324,12 +324,12 @@ def test_upsert_pull_request_calls_merge_pull_request() -> None:
 @pytest.mark.unit
 def test_upsert_person_calls_merge_person() -> None:
     attrs = PersonAttributes(
-        id="github_person_alice",
+        id="person_github_alice",
         name="Alice",
         login="alice",
         email="alice@example.com",
     )
-    signal = _make_signal(attrs, external_id="github_person_alice")
+    signal = _make_signal(attrs, external_id="person_github_alice")
     session = _mock_session()
 
     with patch("connectors.consumers.sinks.neo4j_sink.merge_person") as mock_merge:
@@ -337,7 +337,7 @@ def test_upsert_person_calls_merge_person() -> None:
 
     mock_merge.assert_called_once()
     person_arg = mock_merge.call_args.args[1]
-    assert person_arg.id == "github_person_alice"
+    assert person_arg.id == "person_github_alice"
     assert person_arg.name == "Alice"
     assert person_arg.email == "alice@example.com"
 
@@ -573,7 +573,7 @@ def test_upsert_signal_relationships_converted_and_passed() -> None:
         Relationship(
             type="AUTHORED_BY",
             direction=None,
-            target=RelationshipTarget(entity_type="Person", external_id="github_person_alice"),
+            target=RelationshipTarget(entity_type="Person", external_id="person_github_alice"),
         ),
         Relationship(
             type="PART_OF",
@@ -629,7 +629,7 @@ def test_upsert_signal_direction_in_swaps_from_to_in_db_relationship() -> None:
         Relationship(
             type="REVIEWS",
             direction="IN",
-            target=RelationshipTarget(entity_type="Person", external_id="github_person_bob"),
+            target=RelationshipTarget(entity_type="Person", external_id="person_github_bob"),
         ),
     ]
     attrs = PullRequestAttributes(
@@ -650,7 +650,7 @@ def test_upsert_signal_direction_in_swaps_from_to_in_db_relationship() -> None:
     assert len(passed_rels) == 1
     db_rel = passed_rels[0]
     # "IN" → target becomes from, signal node becomes to
-    assert db_rel.from_id == "github_person_bob"
+    assert db_rel.from_id == "person_github_bob"
     assert db_rel.to_id == "pr_1"
     assert db_rel.from_type == "Person"
     assert db_rel.to_type == "PullRequest"
@@ -762,12 +762,12 @@ def test_upsert_github_person_calls_person_cache_get_or_create() -> None:
     """GitHub Person signal: PersonCache.get_or_create_person called with login as external_id,
     and flush_identity_mappings is called after upsert_signal returns."""
     attrs = PersonAttributes(
-        id="github_person_alice",
+        id="person_github_alice",
         name="Alice",
         login="alice",
         email="alice@example.com",
     )
-    signal = _make_signal(attrs, source="github", external_id="github_person_alice")
+    signal = _make_signal(attrs, source="github", external_id="person_github_alice")
     session = _mock_session()
 
     person_cache = MagicMock(spec=PersonCache)
@@ -810,12 +810,12 @@ def test_upsert_jira_person_calls_person_cache_with_account_id() -> None:
 def test_person_cache_hit_prevents_duplicate_merge_person() -> None:
     """Two Person signals with the same login: merge_person fires only once (cache hit on second call)."""
     attrs = PersonAttributes(
-        id="github_person_alice",
+        id="person_github_alice",
         name="Alice",
         login="alice",
         email="alice@example.com",
     )
-    signal = _make_signal(attrs, source="github", external_id="github_person_alice")
+    signal = _make_signal(attrs, source="github", external_id="person_github_alice")
 
     session = _mock_session()
     # No existing person in DB — simulate empty result
@@ -836,12 +836,12 @@ def test_person_cache_hit_prevents_duplicate_merge_person() -> None:
 def test_person_cache_queues_and_flushes_identity_mapping() -> None:
     """GitHub Person signal: IdentityMapping is queued and flushed with the expected external_id."""
     attrs = PersonAttributes(
-        id="github_person_alice",
+        id="person_github_alice",
         name="Alice",
         login="alice",
         email="alice@example.com",
     )
-    signal = _make_signal(attrs, source="github", external_id="github_person_alice")
+    signal = _make_signal(attrs, source="github", external_id="person_github_alice")
 
     session = _mock_session()
     session.run.return_value.single.return_value = None
@@ -857,4 +857,3 @@ def test_person_cache_queues_and_flushes_identity_mapping() -> None:
     assert identity_arg.id == "identity_github_alice"
     assert identity_arg.provider == "GitHub"
     assert identity_arg.username == "alice"
-

@@ -626,7 +626,7 @@ class TestBuildIssueSignalPhaseD:
         blocks = [r for r in sig.relationships if r.type == "BLOCKS"]
         assert len(blocks) == 1
         assert blocks[0].target.entity_type == "Issue"
-        assert blocks[0].target.external_id == "jira_issue_60001"
+        assert blocks[0].target.external_id == "jira_issue_PROJ-20"
 
     def test_depends_on_relationship_from_is_blocked_by(self) -> None:
         """issue_links_raw with inward 'is blocked by' → DEPENDS_ON relationship emitted."""
@@ -639,7 +639,7 @@ class TestBuildIssueSignalPhaseD:
         depends = [r for r in sig.relationships if r.type == "DEPENDS_ON"]
         assert len(depends) == 1
         assert depends[0].target.entity_type == "Issue"
-        assert depends[0].target.external_id == "jira_issue_60002"
+        assert depends[0].target.external_id == "jira_issue_PROJ-21"
 
     def test_relates_to_relationship(self) -> None:
         """issue_links_raw with 'relates to' → RELATES_TO relationship emitted."""
@@ -652,7 +652,7 @@ class TestBuildIssueSignalPhaseD:
         relates = [r for r in sig.relationships if r.type == "RELATES_TO"]
         assert len(relates) == 1
         assert relates[0].target.entity_type == "Issue"
-        assert relates[0].target.external_id == "jira_issue_60003"
+        assert relates[0].target.external_id == "jira_issue_PROJ-22"
 
     def test_multiple_issue_links(self) -> None:
         """Multiple different link types in one issue → all relationships emitted."""
