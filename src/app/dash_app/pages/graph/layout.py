@@ -21,7 +21,6 @@ from app.dash_app.styles import (
     COLOR_GRAY_LIGHTER,
     COLOR_TEXT_SECONDARY,
     SPACING_XXSMALL,
-    GRAPH_SECTION_CONTAINER_STYLE,
     GRAPH_SECTION_TITLE_STYLE,
     GRAPH_QUERY_TEXTAREA_STYLE,
     GRAPH_HELPER_TEXT_STYLE,
@@ -176,11 +175,12 @@ def create_filter_panel():
                 "fontSize": "13px",
                 "fontWeight": "600",
                 "color": COLOR_GRAY_DARK,
-                "border": f"1px solid {COLOR_GRAY_LIGHTER}",
-                "borderRadius": "2px",
-                "backgroundColor": "var(--color-background-white)",
-                "padding": "8px 12px",
-                "marginBottom": "8px"
+                "border": "none",
+                "borderBottom": f"1px solid {COLOR_GRAY_LIGHTER}",
+                "borderRadius": "0",
+                "backgroundColor": "transparent",
+                "padding": "8px 0px",
+                "marginBottom": "16px"
             }
         ),
         
@@ -361,8 +361,8 @@ def create_filter_panel():
                         style={"display": "none"},
                         children="Weight-based controls are available for weighted graphs only."
                     )
-                ], className="graph-filter-card-body", style={"padding": "12px"})
-            ], className="graph-filter-card", style={"border": f"1px solid {COLOR_GRAY_LIGHTER}", "borderRadius": "2px"})
+                ], className="graph-filter-card-body", style={"padding": "0 0 24px 0"})
+            ], className="graph-filter-card", style={"border": "none", "backgroundColor": "transparent"})
             ]
         )
     ], className="mb-3")
@@ -429,14 +429,20 @@ def create_results_section():
                         create_graph_container(),
                         create_table_container(),
                         create_empty_state()
-                    ], id="graph-viz-col", width=8),
+                    ], id="graph-viz-col", width=8, style={"paddingRight": "24px"}),
                     
                     # Right sidebar: Filters + Details panel
                     dbc.Col([
                         create_filter_panel(),
                         html.Div(
                             id="graph-details-panel",
-                            style=GRAPH_DETAILS_PANEL_STYLE,
+                            style={
+                                **GRAPH_DETAILS_PANEL_STYLE,
+                                "border": "none",
+                                "boxShadow": "none",
+                                "padding": "0",
+                                "backgroundColor": "transparent"
+                            },
                             children=[
                                 html.Div([
                                     html.I(className="fas fa-info-circle fa-lg mb-2", style=GRAPH_DETAILS_PANEL_ICON_STYLE),
@@ -448,11 +454,11 @@ def create_results_section():
                                 ], className="text-center", style={"marginTop": "100px"})
                             ]
                         )
-                    ], id="graph-details-col", width=4)
-                ])
+                    ], id="graph-details-col", width=4, style={"borderLeft": f"1px solid {COLOR_GRAY_LIGHTER}", "paddingLeft": "24px"})
+                ], className="g-0")
             ]
         )
-    ], style=GRAPH_SECTION_CONTAINER_STYLE)
+    ], className="mb-2")
 
 
 def create_query_input_section():
@@ -521,7 +527,7 @@ def create_query_input_section():
                 ], style={"border": f"1px solid {COLOR_GRAY_LIGHTER}", "borderRadius": "2px", "backgroundColor": "var(--color-background-white)"})
             ]
         )
-    ], id="graph-query-section", className="mb-4")
+    ], id="graph-query-section", className="mb-2")
 
 
 def create_catalog_section():
@@ -659,7 +665,7 @@ def create_catalog_section():
                 ], style={"border": f"1px solid {COLOR_GRAY_LIGHTER}", "borderRadius": "2px", "backgroundColor": "var(--color-background-white)"})
             ]
         )
-    ], id="graph-catalog-section", className="mb-4")
+    ], id="graph-catalog-section", className="mb-2")
 
 
 def create_stores():
