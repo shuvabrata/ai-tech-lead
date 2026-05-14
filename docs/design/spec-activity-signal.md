@@ -59,6 +59,25 @@ The tuple (`source`, `entity_type`, `external_id`) MUST be treated as the unique
 - `external_id`
 These three fields together uniquely identify a node in the graph.
 
+**`external_id` format convention:**
+
+Producers MUST construct `external_id` as `<source>_<entity_type_lower>_<raw_id>`, for example:
+
+| Entity | `external_id` example |
+|---|---|
+| GitHub Repository | `github_repo_my_repo` |
+| GitHub Branch | `github_branch_my_repo_main` |
+| GitHub Commit | `github_commit_my_repo_abc12345` |
+| GitHub PR | `github_pr_my_repo_42` |
+| GitHub/Jira Person | `github_person_alice` / `jira_person_557058:abc` |
+| Jira Project | `jira_project_10000` |
+| Jira Initiative | `jira_initiative_10086` |
+| Jira Epic | `jira_epic_10001` |
+| Jira Sprint | `jira_sprint_34` |
+| Jira Issue | `jira_issue_10040` |
+
+This namespacing prevents ID collisions between sources and entity types, since all nodes share the same `id` property in Neo4j regardless of label.
+
 ---
 
 ## 4. Supported Node Types and Mandatory Attributes
@@ -119,7 +138,7 @@ These three fields together uniquely identify a node in the graph.
 - The `relationships` array in ActivitySignal represents the observed state of relationships for the node at the time of the event.
 - Each relationship object must include:
   - `type`: The relationship type (see Supported Relationship Types)
-  - `direction`: The direction of the relationship (e.g., OUT, IN)
+  - `direction`: (Optional) The direction of the relationship (e.g., OUT, IN). If omitted, consumers MUST default to OUT.
   - `target`: A dict of properties sufficient to uniquely identify the target node (e.g., source, entity_type, external_id, or other identifying attributes)
 - Relationship creation or deletion is NOT explicitly signaled by the producer. Instead, the ActivitySignal producer emits the current observed state at a given time.
 - The consumer is responsible for inferring relationship creation or deletion by comparing the sequence of ActivitySignals over time (i.e., by diffing the time series of events).
@@ -127,12 +146,7 @@ These three fields together uniquely identify a node in the graph.
 
 ---
 
-## 8. Batch Signals and Bulk Operations
 
-- The ActivitySignal schema supports batching: multiple ActivitySignals may be sent together in a single message or payload.
-- Batch messages may include batch-level metadata (e.g., source_config, connector_url, version) that applies to all contained signals, similar to a base class. Each ActivitySignal in the batch must still be a valid, self-contained event.
-- The specification does not prescribe how consumers should handle errors or partial failures in batch processing; this is left to implementation.
-- The event log and downstream processing should ultimately treat each ActivitySignal as an independent event, regardless of batching at ingestion.
 
 ---
 
@@ -187,7 +201,7 @@ These three fields together uniquely identify a node in the graph.
 - **Relationship:** An edge between two nodes, with a type and direction.
 - **Canonical Node Identity:** The tuple (source, entity_type, external_id) uniquely identifying a node.
 - **Stub Node:** A placeholder node created when a referenced node does not yet exist.
-- **Batch:** A group of ActivitySignals sent together with shared metadata.
+
 - **Consumer:** A system or process that ingests, validates, and processes ActivitySignals.
 - **Producer:** A system or process that emits ActivitySignals from a source system.
 

@@ -5,6 +5,7 @@ from connectors.neo4j_db.models import Initiative, Relationship, merge_initiativ
 from connectors.modules.jira.new_jira_user_handler import new_jira_user_handler
 from connectors.commons.person_cache import PersonCache
 from connectors.commons.logger import logger
+from connectors.producers.map_jira import map_initiative
 
 def new_initiative_handler(
     session: Any,
@@ -32,77 +33,47 @@ def new_initiative_handler(
         initiative_id: The created Initiative node ID
     """
     try:
-        # Extract issue information
         issue_id = issue_data.get('id')
         issue_key = issue_data.get('key')
         fields = issue_data.get('fields', {})
-        
+
         if not issue_id or not issue_key:
             logger.warning(f"    Initiative missing id or key, skipping")
             return None
-        
+
         logger.info(f"  Processing initiative: {issue_key}")
-        
-        # Create unique initiative ID
-        initiative_id = f"initiative_jira_{issue_id}"
-        
-        # Extract required fields
-        summary = fields.get('summary', '')
-        priority_obj = fields.get('priority', {})
-        priority = priority_obj.get('name', 'None') if priority_obj else 'None'
-        status_obj = fields.get('status', {})
-        status = status_obj.get('name', 'Unknown') if status_obj else 'Unknown'
-        created_at = fields.get('created', '')[:10] if fields.get('created') else ''  # Extract date part YYYY-MM-DD
-        updated_at = fields.get('updated', '')[:10] if fields.get('updated') else ''  # Extract date part YYYY-MM-DD
-        
-        # Extract optional fields
-        duedate = fields.get('duedate')  # Already in YYYY-MM-DD format if present
-        
-        # Extract labels
-        labels = fields.get('labels', [])
-        
-        # Extract components
-        components_obj = fields.get('components', [])
-        components = [comp.get('name', '') for comp in components_obj if comp.get('name')]
-        
+
+        initiative_map = map_initiative(issue_data, jira_base_url)
+        initiative_id = initiative_map["id"]
+
         # Get project ID for relationship
-        project_obj = fields.get('project', {})
-        project_key = project_obj.get('key')
-        project_id = project_id_map.get(project_key) if project_key else None
-        
-        # Construct URL to view the initiative in Jira browser
-        url = None
-        if jira_base_url:
-            url = f"{jira_base_url}/browse/{issue_key}"
-        
-        logger.debug(f"    Creating Initiative node: {issue_key} - {summary}")
-        
+        project_id = project_id_map.get(initiative_map["project_key"]) if initiative_map["project_key"] else None
+
         # Create Initiative node
         _last_synced_at = datetime.now(timezone.utc).isoformat()
         initiative = Initiative(
             id=initiative_id,
-            key=issue_key,
-            summary=summary,
-            priority=priority,
-            status=status,
-            created_at=created_at,
-            updated_at=updated_at,
-            duedate=duedate,
+            key=initiative_map["key"],
+            summary=initiative_map["summary"],
+            priority=initiative_map["priority"],
+            status=initiative_map["status"],
+            created_at=initiative_map["created_at"],
+            updated_at=initiative_map["updated_at"],
+            duedate=initiative_map["duedate"],
             project_id=project_id,
-            labels=labels if labels else None,
-            components=components if components else None,
-            url=url,
+            labels=initiative_map["labels"],
+            components=initiative_map["components"],
+            url=initiative_map["url"],
             _last_synced_at=_last_synced_at
         )
-        
+
         relationships = []
-        
+
         # Handle assignee
         assignee = fields.get('assignee')
         if assignee:
             logger.debug(f"    Processing assignee: {assignee.get('displayName')}")
             assignee_person_id = new_jira_user_handler(session, assignee, person_cache)
-            
             if assignee_person_id:
                 relationships.append(Relationship(
                     type="ASSIGNED_TO",
@@ -111,13 +82,12 @@ def new_initiative_handler(
                     from_type="Initiative",
                     to_type="Person"
                 ))
-        
+
         # Handle reporter
         reporter = fields.get('reporter')
         if reporter:
             logger.debug(f"    Processing reporter: {reporter.get('displayName')}")
             reporter_person_id = new_jira_user_handler(session, reporter, person_cache)
-            
             if reporter_person_id:
                 relationships.append(Relationship(
                     type="REPORTED_BY",
@@ -126,8 +96,8 @@ def new_initiative_handler(
                     from_type="Initiative",
                     to_type="Person"
                 ))
-        
-        # Handle PART_OF relationship to Project
+
+        # PART_OF / CONTAINS relationships to Project
         if project_id:
             relationships.append(Relationship(
                 type="PART_OF",
@@ -136,7 +106,6 @@ def new_initiative_handler(
                 from_type="Initiative",
                 to_type="Project"
             ))
-            # Bidirectional relationship
             relationships.append(Relationship(
                 type="CONTAINS",
                 from_id=project_id,
@@ -144,14 +113,12 @@ def new_initiative_handler(
                 from_type="Project",
                 to_type="Initiative"
             ))
-        
-        # Merge initiative into Neo4j
+
         logger.debug(f"    Merging Initiative node: {initiative_id}")
         merge_initiative(session, initiative, relationships=relationships)
-        
+
         logger.info(f"    ✓ Created/updated initiative: {issue_key}")
-        
-        # Add to initiative_id_map if provided
+
         if initiative_id_map is not None:
             initiative_id_map[issue_id] = initiative_id
         

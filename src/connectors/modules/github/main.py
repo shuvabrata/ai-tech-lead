@@ -1,17 +1,23 @@
 #!/usr/bin/env python3
 """
+.. deprecated::
+    This module is the **legacy** direct-to-Neo4j GitHub ingestion entrypoint.
+    It will be removed once the event-driven pipeline
+    (``connectors/producers/github_producer.py`` → RabbitMQ →
+    ``connectors/consumers/``) is proven stable in production.
+
+    Do **not** add new features here.  All new work should target the
+    producer/consumer pipeline instead.
+
 GitHub Repository Information Fetcher
 
 Loads repository URLs from .config.json or a config server and fetches repository properties
 using the GitHub API.
 """
 
-import json
 import os
 from pathlib import Path
-from typing import Dict, List, Tuple, Any, cast
-
-import requests
+from typing import Dict, List, Any
 from neo4j import GraphDatabase
 from connectors.neo4j_db.models import (
     create_constraints
@@ -20,79 +26,27 @@ from connectors.modules.github.get_all_repos_for_owner import get_all_repos_for_
 from connectors.modules.github.process_repo import process_repo
 from connectors.modules.github.utils import get_github_client
 from connectors.commons.config_validator import validate_config
-
 from connectors.commons.logger import logger
-
-
-def load_config_from_server() -> Dict[str, Any]:
-    """Load repository configuration from API server."""
-    api_server = os.getenv("API_SERVER", "http://host.docker.internal:8000/")
-    config_url = f"{api_server.rstrip('/')}/api/v1/connectors/github/configs"
-    params = {"include_secrets": "true"}
-
-    logger.info(f"Fetching configuration from {config_url} with params: {params}")
-    try:
-        response = requests.get(config_url, params=params, timeout=10)
-        response.raise_for_status()  # Raises HTTPError for bad responses (4xx or 5xx)
-
-        raw_configs = response.json()
-
-        # The API returns a list, but the app expects {"repos": [...]}
-        # Also, the token key is "access_token" in API, but "token" is expected.
-        transformed_configs = []
-        for raw_config in raw_configs:
-            config_item = {
-                "url": raw_config.get("url"),
-                "access_token": raw_config.get("access_token"),
-                "branch_name_patterns": raw_config.get("branch_name_patterns", []),
-                "extraction_sources": raw_config.get("extraction_sources", []),
-                "search_filters": raw_config.get("search_filters", {})
-            }
-            transformed_configs.append(config_item)
-
-        return {"repos": transformed_configs}
-
-    except requests.exceptions.RequestException as e:
-        logger.error(f"Failed to fetch configuration from server: {e}")
-        raise
-
-
-def load_config_from_file() -> Dict[str, Any]:
-    """Load repository configuration from .config.json"""
-    config_path = Path(__file__).parent / ".config.json"
-    with open(config_path, 'r', encoding='utf-8') as f:
-        return cast(Dict[str, Any], json.load(f))
-
-def parse_repo_url(url: str) -> Tuple[str, str]:
-    """
-    Extract owner and repo name from GitHub URL.
-
-    Example: https://github.com/owner/repo -> (owner, repo)
-    Example: https://github.com/owner/* -> (owner, *)
-    
-    Args:
-        url (str): The GitHub repository URL.
-
-    Returns:
-        Tuple[str, str]: A tuple containing the owner and repository name.
-    """
-    parts = url.rstrip('/').split('/')
-    return parts[-2], parts[-1]
-
-def is_wildcard_url(url: str) -> bool:
-    """
-    Check if the URL is a wildcard pattern (e.g., https://github.com/owner/*)
-
-    Args:
-        url (str): The GitHub repository URL.
-
-    Returns:
-        bool: True if the URL is a wildcard pattern, False otherwise.
-    """
-    return url.rstrip('/').endswith('/*') or url.rstrip('/').endswith('%2F*')
+from connectors.modules.github.github_config import (
+    is_wildcard_url,
+    load_config_from_file,
+    load_config_from_server,
+    parse_repo_url,
+)
 
 def main() -> None:
     """Main execution function"""
+    import warnings
+    warnings.warn(
+        "connectors.modules.github.main is deprecated and will be removed. "
+        "Use connectors.producers.github_producer (event-driven pipeline) instead.",
+        DeprecationWarning,
+        stacklevel=1,
+    )
+    logger.warning(
+        "[DEPRECATED] connectors/modules/github/main.py is the legacy direct-to-Neo4j "
+        "entrypoint. Migrate to connectors/producers/github_producer.py."
+    )
     logger.info("GitHub Repository Information Fetcher")
     logger.info("=" * 50)
 

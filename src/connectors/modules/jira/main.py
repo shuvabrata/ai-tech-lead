@@ -1,17 +1,22 @@
 #!/usr/bin/env python3
 """
+.. deprecated::
+    This module is the **legacy** direct-to-Neo4j Jira ingestion entrypoint.
+    It will be removed once the event-driven pipeline
+    (``connectors/producers/jira_producer.py`` → RabbitMQ →
+    ``connectors/consumers/``) is proven stable in production.
+
+    Do **not** add new features here.  All new work should target the
+    producer/consumer pipeline instead.
+
 Jira Integration - Fetch Projects, Initiatives, Epics, Sprints, and Issues
 
 This program connects to Jira, fetches projects, initiatives, epics, sprints, and all issue types,
 and loads them into Neo4j with proper relationships.
 """
-from typing import Any, Dict, Set, List, cast
+from typing import Any, Dict, Set, List
 
-import json
-import requests
 import os
-from pathlib import Path
-from datetime import datetime, timedelta
 from atlassian import Jira
 from neo4j import GraphDatabase
 
@@ -23,336 +28,50 @@ from connectors.modules.jira.new_sprint_handler import new_sprint_handler
 from connectors.modules.jira.new_issue_handler import new_issue_handler
 from connectors.commons.person_cache import PersonCache
 from connectors.commons.logger import logger
-
-def load_config_from_server() -> Dict[str, Any]:
-    """Load Jira configuration from API server."""
-    api_server = os.getenv("API_SERVER", "http://host.docker.internal:8000/")
-    config_url = f"{api_server.rstrip('/')}/api/v1/connectors/jira/configs"
-    params = {"include_secrets": "true"}
-
-    logger.info(f"Fetching configuration from {config_url} with params: {params}")
-    try:
-        response = requests.get(config_url, params=params, timeout=10)
-        response.raise_for_status()  # Raises HTTPError for bad responses (4xx or 5xx)
-
-        # The API returns a list, but the app expects {"account": [...]}
-        raw_configs = response.json()
-        return {"account": raw_configs}
-
-    except requests.exceptions.RequestException as e:
-        logger.error(f"Failed to fetch configuration from server: {e}")
-        raise
+from connectors.modules.jira.jira_config import (
+    create_jira_connection,
+    load_config_from_file,
+    load_config_from_server,
+)
+from connectors.producers.fetch_jira import (
+    fetch_projects,
+    fetch_initiatives,
+    fetch_epics,
+    fetch_sprints_by_ids,
+    fetch_issues,
+)
+from connectors.producers.map_jira import extract_sprint_ids_from_issues
 
 
-def load_config_from_file() -> Dict[str, Any]:
-    """Load configuration from .config.json file."""
-    # Look for config file in the current directory or go up to find it
-    config_path = Path(__file__).parent / '.config.json'
-    if not config_path.exists():
-        # Try parent directories
-        config_path = Path(__file__).parent.parent.parent / '.config.json'
-
-    if not config_path.exists():
-        raise FileNotFoundError(f"Could not find .config.json file in {Path(__file__).parent} or its parent directories.")
-
-    with open(config_path, 'r', encoding='utf-8') as f:
-        return cast(Dict[str, Any], json.load(f))
-
-def create_jira_connection(config: Dict[str, Any]) -> Jira:
-    """Create and return a Jira connection object."""
-    account = config['account'][0]  # Use first account
-    
-    jira = Jira(
-        url=account['url'],
-        username=account['email'],
-        password=account['api_token'],
-        cloud=True  # Set to True for Atlassian Cloud instances
-    )
-    
-    # Validate connection
-    user = jira.myself()  # type: ignore  # This will raise an exception if authentication fails
-    if not user:
-        raise Exception("Failed to authenticate with Jira. Please check your API credentials.")
-    logger.info(f"Successfully authenticated as: {user.get('displayName', user.get('emailAddress', 'Unknown'))}")
-
-    return jira
 
 
-def fetch_projects(jira: Jira, max_results_per_page: int = 100) -> List[Dict[str, Any]]:
-    """Fetch all projects from Jira using pagination."""
-    try:
-        logger.info("Fetching Jira projects...")
-        
-        all_projects = []
-        start_at = 0
-        
-        while True:
-            # Use the project search API
-            # https://developer.atlassian.com/cloud/jira/platform/rest/v3/api-group-projects/#api-rest-api-3-project-search-get
-            params = {
-                'startAt': start_at,
-                'maxResults': max_results_per_page
-            }
-            
-            projects = jira.get('rest/api/3/project/search', params=params)
-            
-            if not projects or 'values' not in projects:
-                break
-            
-            batch = projects['values']
-            if not batch:
-                break
-            
-            all_projects.extend(batch)
-            logger.info(f"  Fetched {len(batch)} projects (total: {len(all_projects)})")
-            
-            # Check if there are more results
-            total = projects.get('total', 0)
-            if len(all_projects) >= total:
-                break
-            
-            start_at += len(batch)
-        
-        logger.info(f"Found {len(all_projects)} total projects")
-        return all_projects
-    
-    except Exception as e:
-        logger.error(f"Error fetching projects: {e}")
-        logger.exception(e)
-        return []
 
 
-def fetch_initiatives(jira: Jira, lookback_days: int = 90, max_results_per_page: int = 100) -> List[Dict[str, Any]]:
-    """Fetch initiatives from Jira created in the last N days using pagination."""
-    try:
-        # Calculate the date N days ago
-        cutoff_date = datetime.now() - timedelta(days=lookback_days)
-        cutoff_date_str = cutoff_date.strftime("%Y-%m-%d")
-        
-        jql = f'issuetype = Initiative AND created >= {cutoff_date_str} ORDER BY created DESC'
-        
-        logger.info(f"Fetching initiatives created since {cutoff_date_str}...")
-        logger.info(f"Executing JQL: {jql}")
-        
-        all_initiatives = []
-        next_page_token = None
-        
-        while True:
-            # Use the enhanced_jql method for Jira Cloud
-            response = jira.enhanced_jql(
-                jql=jql,
-                nextPageToken=next_page_token,
-                limit=max_results_per_page
-            )
-            
-            if not response or 'issues' not in response:
-                break
-            
-            batch = response['issues']
-            if not batch:
-                break
-            
-            all_initiatives.extend(batch)
-            logger.info(f"  Fetched {len(batch)} initiatives (total: {len(all_initiatives)})")
-            
-            # Check for next page token
-            next_page_token = response.get('nextPageToken')
-            if not next_page_token:
-                # No more pages
-                break
-        
-        logger.info(f"Found {len(all_initiatives)} total initiatives")
-        return all_initiatives
-    
-    except Exception as e:
-        logger.error(f"Error fetching initiatives: {e}")
-        logger.exception(e)
-        return []
 
 
-def fetch_epics(jira: Jira, lookback_days: int = 90, max_results_per_page: int = 100) -> List[Dict[str, Any]]:
-    """Fetch epics from Jira created in the last N days using pagination."""
-    try:
-        # Calculate the date N days ago
-        cutoff_date = datetime.now() - timedelta(days=lookback_days)
-        cutoff_date_str = cutoff_date.strftime("%Y-%m-%d")
-        
-        jql = f'issuetype = Epic AND created >= {cutoff_date_str} ORDER BY created DESC'
-        
-        logger.info(f"Fetching epics created since {cutoff_date_str}...")
-        logger.info(f"Executing JQL: {jql}")
-        
-        all_epics = []
-        next_page_token = None
-        
-        while True:
-            # Use the enhanced_jql method for Jira Cloud
-            response = jira.enhanced_jql(
-                jql=jql,
-                nextPageToken=next_page_token,
-                limit=max_results_per_page
-            )
-            
-            if not response or 'issues' not in response:
-                break
-            
-            batch = response['issues']
-            if not batch:
-                break
-            
-            all_epics.extend(batch)
-            logger.info(f"  Fetched {len(batch)} epics (total: {len(all_epics)})")
-            
-            # Check for next page token
-            next_page_token = response.get('nextPageToken')
-            if not next_page_token:
-                # No more pages
-                break
-        
-        logger.info(f"Found {len(all_epics)} total epics")
-        return all_epics
-    
-    except Exception as e:
-        logger.error(f"Error fetching epics: {e}")
-        logger.exception(e)
-        return []
 
 
-def extract_sprint_ids_from_issues(issues: List[Dict[str, Any]]) -> Set[str]:
-    """Extract unique sprint IDs from issues.
-    
-    Args:
-        issues: List of Jira issue objects
-        
-    Returns:
-        Set of unique sprint IDs referenced by the issues
-    """
-    sprint_ids = set()
-    
-    for issue_data in issues:
-        fields = issue_data.get('fields', {})
-        
-        # Extract sprint information from sprint field
-        sprint_field = fields.get('sprint') or fields.get('customfield_10020', [])
-        if sprint_field:
-            # Handle both single sprint object and array of sprints
-            sprints = sprint_field if isinstance(sprint_field, list) else [sprint_field]
-            
-            for sprint in sprints:
-                if isinstance(sprint, dict):
-                    sprint_id = sprint.get('id')
-                    if sprint_id:
-                        sprint_ids.add(str(sprint_id))
-    
-    return sprint_ids
 
 
-def fetch_sprints_by_ids(jira: Jira, sprint_ids: Set[str]) -> List[Dict[str, Any]]:
-    """Fetch specific sprints by their IDs.
-    
-    Args:
-        jira: Jira connection object
-        sprint_ids: Set of sprint IDs to fetch
-        
-    Returns:
-        List of sprint objects
-    """
-    if not sprint_ids:
-        logger.info("No sprint IDs to fetch")
-        return []
-    
-    try:
-        logger.info(f"Fetching {len(sprint_ids)} sprint(s) referenced by issues...")
-        
-        sprints = []
-        fetched_count = 0
-        failed_count = 0
-        
-        for sprint_id in sprint_ids:
-            try:
-                # Fetch individual sprint by ID
-                sprint_response = jira.get(f'rest/agile/1.0/sprint/{sprint_id}')
-                
-                if sprint_response:
-                    sprints.append(sprint_response)
-                    fetched_count += 1
-                    logger.debug(f"  ✓ Fetched sprint {sprint_id}: {sprint_response.get('name', 'Unknown')}")
-                else:
-                    logger.warning(f"  ✗ Sprint {sprint_id} not found")
-                    failed_count += 1
-                    
-            except Exception as e:
-                logger.warning(f"  ✗ Could not fetch sprint {sprint_id}: {e}")
-                failed_count += 1
-        
-        logger.info(f"  ✓ Successfully fetched {fetched_count} sprint(s)")
-        if failed_count > 0:
-            logger.warning(f"  ✗ Failed to fetch {failed_count} sprint(s)")
-        
-        return sprints
-        
-    except Exception as e:
-        logger.error(f"Error fetching sprints by IDs: {e}")
-        logger.exception(e)
-        return []
 
 
-def fetch_issues(jira: Jira, lookback_days: int = 90, max_results_per_page: int = 100) -> List[Dict[str, Any]]:
-    """Fetch all issues from Jira created in the last N days using pagination.
-    
-    Note: Excludes Initiative and Epic issue types as they are fetched separately.
-    """
-    try:
-        # Calculate the date N days ago
-        cutoff_date = datetime.now() - timedelta(days=lookback_days)
-        cutoff_date_str = cutoff_date.strftime("%Y-%m-%d")
-        
-        # Exclude Initiatives and Epics since they're fetched separately
-        jql = f'created >= {cutoff_date_str} AND issuetype NOT IN (Initiative, Epic) ORDER BY created DESC'
 
-        #Todo: Find a way to store last sync date for issues and query only updates issues during incremental scan
-        
-        logger.info(f"Fetching issues (excluding Initiatives and Epics) created since {cutoff_date_str}...")
-        logger.info(f"Executing JQL: {jql}")
-        
-        all_issues = []
-        next_page_token = None
-        
-        while True:
-            # Use the enhanced_jql method for Jira Cloud
-            response = jira.enhanced_jql(
-                jql=jql,
-                nextPageToken=next_page_token,
-                limit=max_results_per_page
-            )
-            
-            if not response or 'issues' not in response:
-                break
-            
-            batch = response['issues']
-            if not batch:
-                break
-            
-            all_issues.extend(batch)
-            logger.info(f"  Fetched {len(batch)} issues (total: {len(all_issues)})")
-            
-            # Check for next page token
-            next_page_token = response.get('nextPageToken')
-            if not next_page_token:
-                # No more pages
-                break
-        
-        logger.info(f"Found {len(all_issues)} total issues")
-        return all_issues
-    
-    except Exception as e:
-        logger.error(f"Error fetching issues: {e}")
-        logger.exception(e)
-        return []
+
 
 
 def main() -> int:
     """Main function to run the Jira integration."""
+    import warnings
+    warnings.warn(
+        "connectors.modules.jira.main is deprecated and will be removed. "
+        "Use connectors.producers.jira_producer (event-driven pipeline) instead.",
+        DeprecationWarning,
+        stacklevel=1,
+    )
+    logger.warning(
+        "[DEPRECATED] connectors/modules/jira/main.py is the legacy direct-to-Neo4j "
+        "entrypoint. Migrate to connectors/producers/jira_producer.py."
+    )
     try:
         logger.info("=" * 80)
         logger.info("Jira Integration - Full Data Loader")

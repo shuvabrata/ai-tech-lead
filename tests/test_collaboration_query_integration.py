@@ -54,6 +54,9 @@ def _render_query(query: str, parameters: dict[str, Any]) -> str:
 @pytest.mark.parametrize("layer", LAYER_ORDER)
 def test_each_layer_returns_data(layer: str):
     """Validate each collaboration layer has data in the current DB snapshot."""
+    if layer == "shared_file_commits":
+        pytest.skip("File extraction removed from event-driven producers")
+
     query_path = (
         Path(__file__).resolve().parent.parent
         / "src"
