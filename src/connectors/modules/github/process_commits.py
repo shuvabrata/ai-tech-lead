@@ -2,11 +2,7 @@ from connectors.commons.logger import logger
 from connectors.modules.github.get_fully_synced_commit_shas import get_fully_synced_commit_shas
 from connectors.modules.github.new_commit_handler import new_commit_handler
 from connectors.modules.github.repo_last_synced_at import get__last_synced_at
-from connectors.modules.github.retry_with_backoff import retry_with_backoff
-
-
-import os
-from datetime import datetime, timedelta
+from connectors.producers.fetch_github import fetch_commits, resolve_commits_since_date
 
 
 from typing import Any, List
@@ -23,16 +19,14 @@ def process_commits(
     if default_branch_id:
         try:
             _last_synced = get__last_synced_at(session, repo_id)
+            since_date = resolve_commits_since_date(_last_synced)
             if _last_synced:
-                since_date = _last_synced
                 logger.info(f"    Incremental sync: Fetching commits since _last_synced_at ({since_date.strftime('%Y-%m-%d %H:%M:%S')}...")
             else:
+                import os
                 commit_days_limit = int(os.getenv('COMMIT_DAYS_LIMIT', '60'))
-                since_date = datetime.now() - timedelta(days=commit_days_limit)
                 logger.info(f"    First sync: Fetching commits from default branch '{repo.default_branch}' (last {commit_days_limit} days)...")
-            commits = retry_with_backoff(
-                lambda: list(repo.get_commits(sha=repo.default_branch, since=since_date))
-            )
+            commits = fetch_commits(repo, since_date)
             existing_shas = get_fully_synced_commit_shas(session, repo_id)
             commits_to_process = [c for c in commits if c.sha not in existing_shas]
             if existing_shas:

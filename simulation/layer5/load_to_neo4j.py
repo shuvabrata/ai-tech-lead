@@ -12,7 +12,7 @@ import json
 import os
 
 from neo4j import GraphDatabase
-from connectors.db.models import Repository, Relationship, merge_repository, merge_relationship, create_constraints
+from connectors.neo4j_db.models import Repository, Relationship, merge_repository, merge_relationship, create_constraints
 
 
 def load_repositories_to_neo4j():

@@ -4,6 +4,8 @@ from github.Repository import Repository as GitHubRepository
 from connectors.neo4j_db.models import Repository, merge_repository
 
 from connectors.commons.logger import logger
+from connectors.producers.fetch_github import fetch_repo_topics
+from connectors.producers.map_github import map_repo
 
 def new_repo_handler(session: Session, repo: GitHubRepository) -> Tuple[Optional[str], str]:
     """Handle a repository by creating Repository node in Neo4j.
@@ -18,28 +20,25 @@ def new_repo_handler(session: Session, repo: GitHubRepository) -> Tuple[Optional
 
     logger.info(f"    Processing repository: {repo.name}")
 
-    # Extract repository information
-    repo_id = f"repo_{repo.name.replace('-', '_')}"
-    if not repo.created_at:
-        raise ValueError("Repository created_at is None")
-    repo_created_at = repo.created_at.strftime("%Y-%m-%d")
-    logger.debug(f"      Repository details: id='{repo_id}', created_at='{repo_created_at}'")
-    logger.debug(f"      Full name: '{repo.full_name}', URL: '{repo.html_url}'")
-    logger.debug(f"      Language: '{repo.language}', Private: {repo.private}")
-
-    # Create Repository node
-    topics = repo.get_topics()
+    topics = fetch_repo_topics(repo)
     logger.debug(f"      Extracted topics: {topics}")
+
+    repo_data = map_repo(repo, topics)
+    repo_id = repo_data["id"]
+    repo_created_at = repo_data["created_at"]
+    logger.debug(f"      Repository details: id='{repo_id}', created_at='{repo_created_at}'")
+    logger.debug(f"      Full name: '{repo_data['full_name']}', URL: '{repo_data['url']}'")
+    logger.debug(f"      Language: '{repo_data['language']}', Private: {repo_data['is_private']}")
     logger.debug(f"      Description: '{repo.description or 'No description'}'")
 
     repository = Repository(
         id=repo_id,
-        name=repo.name,
-        full_name=repo.full_name,
-        url=repo.html_url,
-        language=repo.language or "",
-        is_private=repo.private,
-        topics=topics,
+        name=repo_data["name"],
+        full_name=repo_data["full_name"],
+        url=repo_data["url"],
+        language=repo_data["language"],
+        is_private=repo_data["is_private"],
+        topics=repo_data["topics"],
         created_at=repo_created_at
     )
 
