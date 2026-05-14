@@ -446,7 +446,10 @@ def build_issue_signal(
             inward_desc = link_type.get("inward", "").lower()
             if "outwardIssue" in link and outward_desc == "blocks":
                 # This issue blocks the outward target
-                target_id = f"jira_issue_{link['outwardIssue']['id']}"
+                target_key = link["outwardIssue"].get("key")
+                if not target_key:
+                    continue
+                target_id = f"jira_issue_{target_key}"
                 rels.append(
                     Relationship(
                         type="BLOCKS",
@@ -460,7 +463,10 @@ def build_issue_signal(
                 )
             elif "inwardIssue" in link and "blocked by" in inward_desc:
                 # This issue is blocked by the inward target → DEPENDS_ON
-                target_id = f"jira_issue_{link['inwardIssue']['id']}"
+                target_key = link["inwardIssue"].get("key")
+                if not target_key:
+                    continue
+                target_id = f"jira_issue_{target_key}"
                 rels.append(
                     Relationship(
                         type="DEPENDS_ON",
@@ -476,7 +482,10 @@ def build_issue_signal(
                 # Symmetric "relates to" — use whichever side provides the target
                 linked_issue = link.get("outwardIssue") or link.get("inwardIssue")
                 if linked_issue:
-                    target_id = f"jira_issue_{linked_issue['id']}"
+                    target_key = linked_issue.get("key")
+                    if not target_key:
+                        continue
+                    target_id = f"jira_issue_{target_key}"
                     rels.append(
                         Relationship(
                             type="RELATES_TO",
@@ -525,6 +534,8 @@ async def publish_signals(
         Dict mapping entity type → count of successfully published signals.
     """
     published: Dict[str, int] = {}
+
+    seen_persons: set[str] = set()
 
     def _inc(entity_type: str) -> None:
         published[entity_type] = published.get(entity_type, 0) + 1
@@ -599,8 +610,20 @@ async def publish_signals(
         project_key = project_obj.get("key")
         project_id = project_key_to_id.get(project_key) if project_key else None
 
+        reporter_raw = e_raw.get("fields", {}).get("reporter")
+        reporter_person_id: Optional[str] = None
+        if reporter_raw and isinstance(reporter_raw, dict):
+            user_data = map_jira_user(reporter_raw)
+            account_id = user_data.get("account_id", "")
+            reporter_person_id = f"jira_person_{account_id}"
+            if account_id and account_id not in seen_persons:
+                seen_persons.add(account_id)
+                await _pub(build_person_signal(user_data, jira_base_url))
+
+        team_id = f"jira_team_{e_data['team_value']}" if e_data.get("team_value") else None
+
         logger.debug("Processing epic '%s': '%s'", e_data.get("key"), str(e_data.get("summary", ""))[:60])
-        await _pub(build_epic_signal(e_data, jira_base_url, initiative_id, project_id))
+        await _pub(build_epic_signal(e_data, jira_base_url, initiative_id, project_id, reporter_person_id, team_id))
 
     logger.info("Epics done (%d)", published.get("Epic", 0))
 
@@ -632,7 +655,6 @@ async def publish_signals(
     # ------------------------------------------------------------------
     # Issues
     # ------------------------------------------------------------------
-    seen_persons: set[str] = set()
     issue_count = 0
 
     for raw in issues_raw:
@@ -655,7 +677,18 @@ async def publish_signals(
             if assignee_raw and isinstance(assignee_raw, dict):
                 user_data = map_jira_user(assignee_raw)
                 account_id = user_data.get("account_id", "")
-                assignee_person_id = f"person_jira_{account_id}"
+                assignee_person_id = f"jira_person_{account_id}"
+                if account_id and account_id not in seen_persons:
+                    seen_persons.add(account_id)
+                    await _pub(build_person_signal(user_data, jira_base_url))
+
+            # Person: reporter
+            reporter_raw = fields.get("reporter")
+            reporter_person_id: Optional[str] = None
+            if reporter_raw and isinstance(reporter_raw, dict):
+                user_data = map_jira_user(reporter_raw)
+                account_id = user_data.get("account_id", "")
+                reporter_person_id = f"jira_person_{account_id}"
                 if account_id and account_id not in seen_persons:
                     seen_persons.add(account_id)
                     await _pub(build_person_signal(user_data, jira_base_url))
@@ -671,6 +704,8 @@ async def publish_signals(
                 if ref.get("id") in sprint_jira_id_to_id
             ]
 
+            team_id = f"jira_team_{i_data['team_value']}" if i_data.get("team_value") else None
+
             await _pub(
                 build_issue_signal(
                     i_data,
@@ -678,6 +713,8 @@ async def publish_signals(
                     epic_id=epic_id,
                     sprint_ids=sprint_ref_ids,
                     assignee_person_id=assignee_person_id,
+                    reporter_person_id=reporter_person_id,
+                    team_id=team_id,
                 )
             )
 

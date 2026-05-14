@@ -176,11 +176,11 @@ def build_person_signal(
 ) -> Optional[ActivitySignal]:
     """Build an ActivitySignal for a Person (GitHub author/contributor)."""
     login = person_data.get("login") or person_data.get("name", "unknown")
-    person_id = f"github_person_{login}"
+    person_id = f"person_github_{login}"
     try:
         attrs = PersonAttributes(
             id=person_id,
-            name=person_data.get("name") or login,
+        name=person_data.get("name") or login,
             # Extra
             login=login,
             email=person_data.get("email", ""),
@@ -253,7 +253,7 @@ def build_commit_signal(
             else datetime.now(timezone.utc)
         )
         login = author_data.get("login") or author_data.get("name", "unknown")
-        author_person_id = f"github_person_{login}"
+        author_person_id = f"person_github_{login}"
 
         attrs = CommitAttributes(
             sha=commit_data["sha"],
@@ -305,7 +305,7 @@ def build_commit_signal(
                     target=RelationshipTarget(
                         source="jira",
                         entity_type="Issue",
-                        external_id=issue_key,
+                        external_id=f"jira_issue_{issue_key}",
                     ),
                 )
             )
@@ -342,7 +342,7 @@ def build_pull_request_signal(
             else datetime.now(timezone.utc)
         )
         author_login = author_data.get("login") or author_data.get("name", "unknown")
-        author_person_id = f"github_person_{author_login}"
+        author_person_id = f"person_github_{author_login}"
 
         attrs = PullRequestAttributes(
             id=str(pr_data["id"]),
@@ -414,7 +414,7 @@ def build_pull_request_signal(
 
         # REVIEWED_BY → each reviewer
         for reviewer_login in reviewer_logins:
-            reviewer_person_id = f"github_person_{reviewer_login}"
+            reviewer_person_id = f"person_github_{reviewer_login}"
             rels.append(
                 Relationship(
                     type="REVIEWED_BY",
@@ -429,7 +429,7 @@ def build_pull_request_signal(
 
         # REQUESTED_REVIEWER → each requested reviewer person
         for rr_login in (requested_reviewer_logins or []):
-            rr_person_id = f"github_person_{rr_login}"
+            rr_person_id = f"person_github_{rr_login}"
             rels.append(
                 Relationship(
                     type="REQUESTED_REVIEWER",
@@ -444,7 +444,7 @@ def build_pull_request_signal(
 
         # MERGED_BY → merger person (only when the PR was merged)
         if pr_data.get("state") == "merged" and merger_login:
-            merger_person_id = f"github_person_{merger_login}"
+            merger_person_id = f"person_github_{merger_login}"
             rels.append(
                 Relationship(
                     type="MERGED_BY",
@@ -458,8 +458,9 @@ def build_pull_request_signal(
             )
 
         # INCLUDES → each commit SHA associated with this PR
+        repo_name = repo_data.get("name", "unknown")
         for sha in (commit_shas or []):
-            commit_id = f"commit_{sha}"
+            commit_id = f"github_commit_{repo_name}_{sha[:8]}"
             rels.append(
                 Relationship(
                     type="INCLUDES",
@@ -559,6 +560,7 @@ async def process_repo_signals(
     commits_raw = fetch_commits(repo, since)
     logger.info(f"Number of commits fetched for {full_name} = {len(commits_raw)}")
     seen_persons: set[str] = set()
+    seen_commits: set[str] = set()
     commit_count = 0
 
     semaphore = asyncio.Semaphore(5)  # Capped concurrency to prevent API rate limits
@@ -583,6 +585,7 @@ async def process_repo_signals(
                     await _pub(build_person_signal(author_data))
 
                 sha_short = commit_data.get("sha", "?")[:8]
+                seen_commits.add(commit_data.get("sha"))
                 logger.debug("Commit %s by '%s' processed", sha_short, login)
 
                 await _pub(build_commit_signal(commit_data, author_data, default_branch_data))
@@ -642,7 +645,30 @@ async def process_repo_signals(
             # Commit SHAs for INCLUDES relationships
             try:
                 pr_commits_raw = fetch_pr_commits(pr)
-                commit_shas = [c.sha for c in pr_commits_raw if getattr(c, "sha", None)]
+                commit_shas = []
+                for pr_c in pr_commits_raw:
+                    c_sha = getattr(pr_c, "sha", None)
+                    if not c_sha:
+                        continue
+                    commit_shas.append(c_sha)
+                    
+                    # If we haven't emitted this commit in the main loop, emit it now!
+                    if c_sha not in seen_commits:
+                        try:
+                            pr_commit_author_obj = pr_c.author or pr_c.commit.author
+                            pr_a_data = map_commit_author(pr_commit_author_obj)
+                            pr_c_data = map_commit(repo.name, pr_c, repo_owner)
+                            
+                            pr_login = pr_a_data.get("login") or pr_a_data.get("name", "unknown")
+                            if pr_login not in seen_persons:
+                                seen_persons.add(pr_login)
+                                await _pub(build_person_signal(pr_a_data))
+                            
+                            # Note: branch_data is set to None because we aren't certain which branch it belongs to here
+                            await _pub(build_commit_signal(pr_c_data, pr_a_data, None))
+                            seen_commits.add(c_sha)
+                        except Exception as inner_exc:
+                            logger.warning("Failed to emit PR commit '%s': %s", c_sha, inner_exc)
             except Exception as exc:
                 logger.warning("Could not fetch commits for PR #%s: %s", pr.number, exc)
                 commit_shas = []
