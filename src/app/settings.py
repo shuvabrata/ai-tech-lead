@@ -14,6 +14,9 @@ class Settings(BaseSettings):
     NEO4J_ENABLED: bool = False
     FF_NEO4J_USE_PROVIDER_PIPELINE: bool = False
 
+    # RabbitMQ configuration
+    RABBITMQ_URL: str = "amqp://guest:guest@localhost:5672/"
+
     # MCP configuration
     GITHUB_MCP_ENABLED: bool = False
     ATLASSIAN_MCP_ENABLED: bool = False

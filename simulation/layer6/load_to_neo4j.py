@@ -13,7 +13,7 @@ import json
 import os
 
 from neo4j import GraphDatabase
-from connectors.db.models import Branch, Relationship, merge_branch, merge_relationship, create_constraints
+from connectors.neo4j_db.models import Branch, Relationship, merge_branch, merge_relationship, create_constraints
 
 
 def load_branches_to_neo4j():

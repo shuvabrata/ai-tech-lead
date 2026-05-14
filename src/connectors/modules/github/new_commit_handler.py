@@ -1,12 +1,18 @@
-import re
 from datetime import datetime, timezone
 from typing import Optional, List
 
 from connectors.neo4j_db.models import Commit, Relationship, merge_commit, merge_relationship
 from connectors.modules.github.new_file_handler import new_file_handler
-from connectors.modules.github.retry_with_backoff import retry_with_backoff
 from connectors.commons.person_cache import PersonCache
 from connectors.commons.logger import logger
+from connectors.producers.fetch_github import fetch_commit_files
+from connectors.producers.map_github import (
+    map_commit,
+    map_commit_author,
+    map_commit_files,
+    extract_issue_keys,
+    extract_issue_keys_from_branch,
+)
 
 from typing import Any
 
@@ -58,68 +64,28 @@ def mark_commit_fully_synced(session: Any, commit_id: str) -> None:
 def get_or_create_commit_author(session: Any, commit_author: Any, person_cache: PersonCache) -> str:
     """
     Get or create Person for a commit author using PersonCache.
-    
+
+    Uses ``map_commit_author`` for field extraction and normalisation, then
+    delegates to PersonCache for the actual DB lookup / creation.
+
     Args:
         session: Neo4j session
         commit_author: GitHub commit author object
         person_cache: PersonCache for batch operations (required for performance)
-        
+
     Returns:
         str: Person ID for the author
     """
     try:
         logger.debug(f"      Processing commit author: {commit_author}")
-        
-        # Extract author information
-        # GitHub commit authors can be User objects or just name/email dicts
-        if hasattr(commit_author, 'login'):
-            # Full user object
-            github_login = commit_author.login
-            
-            # Safely access name property (may trigger lazy load that can fail for bots)
-            try:
-                github_name = commit_author.name if commit_author.name else github_login
-            except Exception:
-                # Lazy load failed (common for bot accounts like "Copilot")
-                github_name = github_login
-                logger.warning(f"        Could not load name for '{github_login}', using login as name")
-            
-            # Safely access email property (may trigger lazy load that can fail for bots)
-            try:
-                github_email = commit_author.email if commit_author.email else ""
-            except Exception:
-                # Lazy load failed (common for bot accounts)
-                github_email = ""
-                logger.warning(f"        Could not load email for '{github_login}', using empty email")
-            
-            # Normalize email to lowercase immediately at source
-            github_email = github_email.lower() if github_email else ""
-            logger.debug(f"        Full user object: login='{github_login}', name='{github_name}', email='{github_email}'")
-        elif hasattr(commit_author, 'name'):
-            # Name/email only (common for commits)
-            github_name = commit_author.name or "Unknown"
-            github_email = commit_author.email or ""
-            # Normalize email to lowercase immediately at source
-            github_email = github_email.lower() if github_email else ""
-            # Create a sanitized login from email or name
-            if github_email:
-                github_login = github_email.split('@')[0]
-            else:
-                github_login = github_name.lower().replace(' ', '_')
-            logger.debug(f"        Name/email only: derived_login='{github_login}', name='{github_name}', email='{github_email}'")
-        else:
-            # Fallback for unknown author format
-            github_login = "unknown"
-            github_name = "Unknown"
-            github_email = ""
-            logger.debug(f"        Unknown author format, using fallback values")
-        
-        logger.debug(f"        Using PersonCache for lookup: {github_login}, {github_email}")
-        
-        # Use PersonCache for lookup (required for performance)
-        # Convert empty string email to None for proper NULL handling
+
+        author_data = map_commit_author(commit_author)
+        github_login = author_data["login"]
+        github_name = author_data["name"]
+        github_email = author_data["email"]
+        logger.debug(f"        Mapped author: login='{github_login}', name='{github_name}', email='{github_email}'")
+
         email = github_email if github_email else None
-        
         person_id, is_new = person_cache.get_or_create_person(
             session,
             email=email,
@@ -127,8 +93,7 @@ def get_or_create_commit_author(session: Any, commit_author: Any, person_cache: 
             provider="github",
             external_id=github_login
         )
-        
-        # Queue IdentityMapping creation (batched on flush)
+
         identity_id = f"identity_github_{github_login}"
         person_cache.queue_identity_mapping(
             person_id=person_id,
@@ -138,88 +103,21 @@ def get_or_create_commit_author(session: Any, commit_author: Any, person_cache: 
             email=github_email,
             last_updated_at=datetime.now(timezone.utc).isoformat()
         )
-        
+
         if is_new:
             logger.info(f"      ✓ Created commit author: {github_name} ({github_login})")
         else:
             logger.debug(f"        Reused existing person: {person_id}")
-        
+
         logger.debug(f"        Returning person_id: {person_id}")
-        
         return person_id
-        
+
     except Exception as e:
         logger.debug(f"        Error creating commit author: {str(e)}", exc_info=True)
         logger.exception(e)
-        # Return a fallback person ID
         fallback_id = "person_github_unknown"
         logger.debug(f"        Using fallback person ID: {fallback_id}")
         return fallback_id
-
-
-def extract_issue_keys(message: str) -> List[str]:
-    """
-    Extract Jira issue keys from commit message.
-    
-    Supports patterns:
-    - [PROJ-123]
-    - PROJ-123:
-    - (PROJ-123)
-    - PROJ-123 at start or after space
-    
-    Args:
-        message: Commit message string
-        
-    Returns:
-        list: List of unique issue keys found
-    """
-    # Pattern: Project key (2+ uppercase letters) followed by hyphen and number
-    # Matches: PROJ-123, ABC-456, STORY-789, etc.
-    pattern = r'\b([A-Z]{2,}-\d+)\b'
-    matches = re.findall(pattern, message)
-    return list(set(matches))  # Return unique keys
-
-
-def extract_issue_keys_from_branch(branch_name: str, patterns: Optional[List[str]] = None) -> List[str]:
-    """
-    Extract Jira issue keys from Git branch name.
-    
-    Supports both Git Flow conventions and direct prefix patterns:
-    - feature/PROJ-123-description
-    - bugfix/PROJ-123-fix-issue
-    - PROJ-123-description (direct prefix)
-    
-    Args:
-        branch_name: Git branch name string
-        patterns: Optional list of regex patterns to use. Each pattern must have
-                 one capture group to extract the issue key. If None, uses defaults.
-        
-    Returns:
-        list: List of unique issue keys found
-    """
-    # Default patterns support both Git Flow and direct prefix
-    if patterns is None:
-        patterns = [
-            r'(?:feature|bugfix|hotfix|release)/([A-Z]{2,}-\d+)',  # Git Flow
-            r'^([A-Z]{2,}-\d+)',  # Direct prefix
-        ]
-    
-    all_matches = []
-    
-    for pattern in patterns:
-        try:
-            matches = re.findall(pattern, branch_name)
-            all_matches.extend(matches)
-        except re.error as e:
-            logger.warning(f"Invalid regex pattern '{pattern}': {e}")
-            continue
-    
-    unique_keys = list(set(all_matches))
-    
-    if unique_keys:
-        logger.debug(f"        Extracted issue keys from branch '{branch_name}': {unique_keys}")
-    
-    return unique_keys
 
 
 def get_or_create_issue_stub(session: Any, issue_key: str) -> str:
@@ -305,34 +203,24 @@ def new_commit_handler(
         else:
             logger.debug(f"      Creating new commit {commit_sha[:8]}")
 
-        # Extract commit information
-        commit_message = commit.commit.message or "No message"
-        commit_timestamp = commit.commit.author.date.isoformat() if commit.commit.author.date else datetime.now().isoformat()
-
-        # Get commit stats
-        stats = commit.stats if hasattr(commit, 'stats') else None
-        additions = stats.additions if stats else 0
-        deletions = stats.deletions if stats else 0
-        total_files = stats.total if stats else 0
+        # Map commit attributes
+        commit_data = map_commit(repo_name, commit, repo_owner)
+        commit_message = commit_data["message"]
+        github_url = commit_data["url"]
 
         # Get or create commit author
         commit_author = commit.author if commit.author else commit.commit.author
         author_person_id = get_or_create_commit_author(session, commit_author, person_cache)
 
-        # Generate GitHub URL if owner is provided
-        github_url = None
-        if repo_owner:
-            github_url = f"https://github.com/{repo_owner}/{repo_name}/commit/{commit_sha}"
-
         # Create Commit node
         commit_node = Commit(
             id=commit_id,
-            sha=commit_sha,
+            sha=commit_data["sha"],
             message=commit_message,
-            created_at=commit_timestamp,
-            additions=additions,
-            deletions=deletions,
-            files_changed=total_files,
+            created_at=commit_data["created_at"],
+            additions=commit_data["additions"],
+            deletions=commit_data["deletions"],
+            files_changed=commit_data["files_changed"],
             url=github_url
         )
         logger.info(f"      Creating commit: {github_url if github_url else commit_sha[:8]}")
@@ -398,15 +286,17 @@ def new_commit_handler(
 
         # Process modified files
         try:
-            files = retry_with_backoff(lambda: list(commit.files))
+            raw_files = fetch_commit_files(commit)
+            files = map_commit_files(raw_files)
+            commit_timestamp = commit_data["created_at"]
             for file in files:
                 # Create File node
                 file_id = new_file_handler(
                     session,
                     repo_name,
-                    file.filename,
+                    file["filename"],
                     commit_timestamp,
-                    file.additions + file.deletions if hasattr(file, 'additions') else 0,
+                    file["additions"] + file["deletions"],
                     repo_owner,
                     branch_name
                 )
@@ -420,8 +310,8 @@ def new_commit_handler(
                         from_type="Commit",
                         to_type="File",
                         properties={
-                            "additions": file.additions if hasattr(file, 'additions') else 0,
-                            "deletions": file.deletions if hasattr(file, 'deletions') else 0
+                            "additions": file["additions"],
+                            "deletions": file["deletions"]
                         }
                     )
                     merge_relationship(session, modifies_rel)

@@ -59,6 +59,8 @@ services:
       GITHUB_MCP_TOKEN: ${GITHUB_MCP_TOKEN:-}
       # In Docker, use service-to-service networking, not localhost.
       GITHUB_MCP_SERVER_URL: http://github-mcp:8082/mcp
+      # RabbitMQ configuration
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASSWORD:-guest}@rabbitmq:5672/
     ports:
       - "8000:8000"
     volumes:
@@ -80,6 +82,8 @@ services:
       neo4j:
         condition: service_healthy
       github-mcp:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
 
   github-mcp:
@@ -128,6 +132,26 @@ services:
       timeout: 5s
       retries: 5
       start_period: 20s
+      
+  rabbitmq:
+    image: rabbitmq:4-management
+    container_name: wba-ai-rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-guest}
+    ports:
+      - "5672:5672"   # AMQP protocol
+      - "15672:15672" # Management UI
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - wba-ai-network
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   influxdb:
     image: influxdb:2.7
@@ -172,23 +196,25 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-      
-  jira-sync:
+
+  github-producer:
     build:
       context: .
-      dockerfile: Dockerfile.jira-sync
-    container_name: web-ai-jira-sync
-    command: python connectors/modules/jira/main.py
+      dockerfile: Dockerfile.github-producer
+    container_name: wba-ai-github-producer
     env_file:
       - .env
     environment:
-      NEO4J_URI: bolt://neo4j:7687
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/postgres
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASSWORD:-guest}@rabbitmq:5672/
       PYTHONPATH: /app
-      LOG_DIR: /var/log/jira-sync
+      LOG_DIR: /var/log/github-producer
     volumes:
-      - ./logs:/var/log/jira-sync
+      - ./logs:/var/log/github-producer
     depends_on:
-      neo4j:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
       app:
         condition: service_healthy
@@ -196,26 +222,82 @@ services:
     networks:
       - wba-ai-network
 
-  github-sync:
+  jira-producer:
     build:
       context: .
-      dockerfile: Dockerfile.github-sync
-    container_name: web-ai-github-sync
-    command: python connectors/modules/github/main.py
+      dockerfile: Dockerfile.jira-producer
+    container_name: wba-ai-jira-producer
     env_file:
       - .env
     environment:
-      NEO4J_URI: bolt://neo4j:7687
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/postgres
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASSWORD:-guest}@rabbitmq:5672/
       PYTHONPATH: /app
-      LOG_DIR: /var/log/github-sync
+      LOG_DIR: /var/log/jira-producer
     volumes:
-      - ./logs:/var/log/github-sync
+      - ./logs:/var/log/jira-producer
     depends_on:
-      neo4j:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
       app:
         condition: service_healthy
     restart: "no"  # One-shot execution, run manually via docker compose run
+    networks:
+      - wba-ai-network
+
+  github-consumer:
+    build:
+      context: .
+      dockerfile: Dockerfile.github-consumer
+    deploy:
+      replicas: ${GITHUB_CONSUMER_REPLICAS:-1}
+    env_file:
+      - .env
+    environment:
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASSWORD:-guest}@rabbitmq:5672/
+      NEO4J_URI: bolt://neo4j:7687
+      NEO4J_USERNAME: ${NEO4J_USERNAME:-neo4j}
+      NEO4J_PASSWORD: ${NEO4J_PASSWORD:-password}
+      LISTEN_QUEUES: github_queue
+      PYTHONPATH: /app
+      LOG_DIR: /var/log/github-consumer
+    volumes:
+      - ./logs:/var/log/github-consumer
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      neo4j:
+        condition: service_healthy
+    restart: unless-stopped  # Long-running consumer; restart on failure
+    networks:
+      - wba-ai-network
+
+  jira-consumer:
+    build:
+      context: .
+      dockerfile: Dockerfile.jira-consumer
+    deploy:
+      replicas: ${JIRA_CONSUMER_REPLICAS:-1}
+    env_file:
+      - .env
+    environment:
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASSWORD:-guest}@rabbitmq:5672/
+      NEO4J_URI: bolt://neo4j:7687
+      NEO4J_USERNAME: ${NEO4J_USERNAME:-neo4j}
+      NEO4J_PASSWORD: ${NEO4J_PASSWORD:-password}
+      LISTEN_QUEUES: jira_queue
+      PYTHONPATH: /app
+      LOG_DIR: /var/log/jira-consumer
+    volumes:
+      - ./logs:/var/log/jira-consumer
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      neo4j:
+        condition: service_healthy
+    restart: unless-stopped  # Long-running consumer; restart on failure
     networks:
       - wba-ai-network
 
@@ -231,3 +313,4 @@ volumes:
   neo4j_logs:
   neo4j_import:
   neo4j_plugins:
+  rabbitmq_data:
