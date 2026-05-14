@@ -1,6 +1,7 @@
 from connectors.commons.logger import logger
 from connectors.modules.github.new_branch_handler import new_branch_handler
 from connectors.modules.github.get_existing_branch_metadata import get_existing_branch_metadata
+from connectors.producers.fetch_github import fetch_branches
 
 
 from typing import Any, Optional
@@ -13,7 +14,7 @@ def process_branches(
 ) -> Optional[str]:
     default_branch_id = None
     try:
-        branches = list(repo.get_branches())
+        branches = fetch_branches(repo)
         logger.info(f"    Found {len(branches)} branches...")
         existing_branches = get_existing_branch_metadata(session, repo_id)
         branches_to_process = []
