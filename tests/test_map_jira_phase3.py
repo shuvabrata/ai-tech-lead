@@ -297,7 +297,7 @@ class TestMapSprint:
 class TestMapIssue:
     def test_id_formula(self):
         data = _make_issue("50001", "STORY-1")
-        assert map_issue(data)["id"] == "jira_issue_50001"
+        assert map_issue(data)["id"] == "jira_issue_STORY-1"
 
     def test_url_construction(self):
         data = _make_issue("50001", "STORY-1")

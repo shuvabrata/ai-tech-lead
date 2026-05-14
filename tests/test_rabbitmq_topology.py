@@ -3,7 +3,7 @@
 Validates three behaviours required by the ActivitySignal ingestion plan:
 
 1. **Connectivity & topology** — ``init_rabbitmq`` successfully declares the
-   main exchange, dead-letter exchange, DLQ, and all per-entity-type queues.
+   main exchange, dead-letter exchange, DLQ, and all per-source queues.
 2. **Message visibility** — an unacknowledged message is invisible to a second
    consumer and is automatically requeued when the holding connection closes.
 3. **DLQ routing** — a message rejected with ``requeue=False`` is routed to
@@ -41,7 +41,7 @@ except ImportError:  # pragma: no cover
 from app.scripts.init_rabbitmq import (
     DLQ_NAME,
     DLX_NAME,
-    ENTITY_QUEUES,
+    SOURCE_QUEUES,
     EXCHANGE_NAME,
     init_rabbitmq,
 )
@@ -166,12 +166,12 @@ class TestRabbitMQConnectivity:
             assert dlq.name == DLQ_NAME
 
     @pytest.mark.asyncio
-    async def test_all_entity_queues_exist(self):
-        """All 12 per-entity-type queues are declared and durable."""
+    async def test_all_source_queues_exist(self):
+        """All per-source queues are declared and durable."""
         conn = await aio_pika.connect_robust(settings.RABBITMQ_URL)
         async with conn:
             channel = await conn.channel()
-            for queue_name, _ in ENTITY_QUEUES:
+            for queue_name, _ in SOURCE_QUEUES:
                 queue = await channel.declare_queue(
                     queue_name, durable=True, passive=True
                 )
@@ -333,7 +333,7 @@ class TestDLQRouting:
             channel = await rej_conn.channel()
             queue = await channel.declare_queue(test_queue, durable=True, passive=True)
             msg = await queue.get(timeout=5)
-            assert msg is not None, "Entity queue should have the published message"
+            assert msg is not None, "Source queue should have the published message"
             assert msg.body == test_body
             await msg.reject(requeue=False)  # → routes to DLX → DLQ
 
@@ -400,35 +400,35 @@ class TestTopologyBindings:
         dlx_bindings = [b for b in bindings if b.get("source") == DLX_NAME]
         assert dlx_bindings, f"No binding found from {DLX_NAME} to {DLQ_NAME}"
 
-    @pytest.mark.parametrize("queue_name,routing_key", ENTITY_QUEUES)
-    def test_entity_queue_is_durable(self, queue_name: str, routing_key: str):
-        """Each entity queue is durable."""
+    @pytest.mark.parametrize("queue_name,routing_key", SOURCE_QUEUES)
+    def test_source_queue_is_durable(self, queue_name: str, routing_key: str):
+        """Each source queue is durable."""
         data = _mgmt_get(f"/queues/%2F/{queue_name}")
         assert data["durable"] is True, f"{queue_name} is not durable"
 
-    @pytest.mark.parametrize("queue_name,routing_key", ENTITY_QUEUES)
-    def test_entity_queue_has_dead_letter_exchange(self, queue_name: str, routing_key: str):
-        """Each entity queue has ``x-dead-letter-exchange`` pointing to the DLX."""
+    @pytest.mark.parametrize("queue_name,routing_key", SOURCE_QUEUES)
+    def test_source_queue_has_dead_letter_exchange(self, queue_name: str, routing_key: str):
+        """Each source queue has ``x-dead-letter-exchange`` pointing to the DLX."""
         data = _mgmt_get(f"/queues/%2F/{queue_name}")
         args = data.get("arguments", {})
         assert args.get("x-dead-letter-exchange") == DLX_NAME, (
             f"{queue_name} missing x-dead-letter-exchange={DLX_NAME}, got: {args}"
         )
 
-    @pytest.mark.parametrize("queue_name,routing_key", ENTITY_QUEUES)
-    def test_entity_queue_has_dead_letter_routing_key(self, queue_name: str, routing_key: str):
-        """Each entity queue routes dead-lettered messages to the DLQ name."""
+    @pytest.mark.parametrize("queue_name,routing_key", SOURCE_QUEUES)
+    def test_source_queue_has_dead_letter_routing_key(self, queue_name: str, routing_key: str):
+        """Each source queue routes dead-lettered messages to the DLQ name."""
         data = _mgmt_get(f"/queues/%2F/{queue_name}")
         args = data.get("arguments", {})
         assert args.get("x-dead-letter-routing-key") == DLQ_NAME, (
             f"{queue_name} missing x-dead-letter-routing-key={DLQ_NAME}, got: {args}"
         )
 
-    @pytest.mark.parametrize("queue_name,routing_key", ENTITY_QUEUES)
-    def test_entity_queue_is_bound_to_main_exchange_with_correct_routing_key(
+    @pytest.mark.parametrize("queue_name,routing_key", SOURCE_QUEUES)
+    def test_source_queue_is_bound_to_main_exchange_with_correct_routing_key(
         self, queue_name: str, routing_key: str
     ):
-        """Each entity queue has a binding from ``activity_signals`` with its expected routing key."""
+        """Each source queue has a binding from ``activity_signals`` with its expected routing key."""
         bindings = _mgmt_get(f"/queues/%2F/{queue_name}/bindings")
         matching = [
             b for b in bindings

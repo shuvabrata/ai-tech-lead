@@ -33,6 +33,7 @@ import asyncio
 import logging
 import os
 import sys
+from typing import Any
 
 from neo4j import GraphDatabase
 
@@ -44,6 +45,12 @@ from connectors.commons.logger import logger
 
 def _env(key: str, default: str) -> str:
     return os.environ.get(key, default)
+
+
+def _sync_upsert(driver: Any, signal: Any, person_cache: PersonCache) -> None:
+    """Execute the synchronous Neo4j upsert blocking operations safely in a thread."""
+    with driver.session() as session:
+        upsert_signal(session, signal, person_cache=person_cache)
 
 
 async def consume_queue(
