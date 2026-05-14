@@ -1333,9 +1333,6 @@ def merge_repository(session: Session, repository: Repository, relationships: Op
     """
     Merge a Repository node into Neo4j.
     
-    Uses ON CREATE SET for immutable properties (name, full_name, created_at)
-    and SET for mutable properties (url, language, is_private, topics, _last_synced_at).
-    
     Args:
         session: Neo4j session
         repository: Repository dataclass instance
@@ -1343,17 +1340,14 @@ def merge_repository(session: Session, repository: Repository, relationships: Op
     """
     props = repository.to_neo4j_properties()
     
-    # Build ON CREATE SET clause for immutable properties (additive updates only)
-    create_clauses = []
-    if _has_value(props, 'name'):
-        create_clauses.append("r.name = $name")
-    if _has_value(props, 'full_name'):
-        create_clauses.append("r.full_name = $full_name")
-    if _has_value(props, 'created_at'):
-        create_clauses.append("r.created_at = date($created_at)")
-    
-    # Build SET clause for mutable properties only (additive updates only)
+    # Build SET clause dynamically based on available properties (additive updates only)
     set_clauses = []
+    if _has_value(props, 'name'):
+        set_clauses.append("r.name = $name")
+    if _has_value(props, 'full_name'):
+        set_clauses.append("r.full_name = $full_name")
+    if _has_value(props, 'created_at'):
+        set_clauses.append("r.created_at = date($created_at)")
     if _has_value(props, 'url'):
         set_clauses.append("r.url = $url")
     if _has_value(props, 'language'):
@@ -1367,13 +1361,18 @@ def merge_repository(session: Session, repository: Repository, relationships: Op
     if _has_value(props, '_last_synced_at'):
         set_clauses.append("r._last_synced_at = datetime($_last_synced_at)")
     
-    # MERGE the Repository node with separate immutable and mutable properties
-    query = "MERGE (r:Repository {id: $id})"
-    if create_clauses:
-        query += f"\nON CREATE SET {', '.join(create_clauses)}"
+    # MERGE the Repository node
     if set_clauses:
-        query += f"\nSET {', '.join(set_clauses)}"
-    query += "\nRETURN r"
+        query = f"""
+        MERGE (r:Repository {{id: $id}})
+        SET {', '.join(set_clauses)}
+        RETURN r
+        """
+    else:
+        query = """
+        MERGE (r:Repository {id: $id})
+        RETURN r
+        """
     
     session.run(query, **props)
     
@@ -1391,9 +1390,6 @@ def merge_branch(session: Session, branch: Branch, relationships: Optional[List[
     """
     Merge a Branch node into Neo4j.
     
-    Uses ON CREATE SET for immutable properties (name, is_default, is_protected, is_external)
-    and SET for mutable properties (last_commit_sha, last_commit_timestamp, is_deleted, url).
-    
     Args:
         session: Neo4j session
         branch: Branch dataclass instance
@@ -1401,19 +1397,16 @@ def merge_branch(session: Session, branch: Branch, relationships: Optional[List[
     """
     props = branch.to_neo4j_properties()
     
-    # Build ON CREATE SET clause for immutable properties (additive updates only)
-    create_clauses = []
-    if _has_value(props, 'name'):
-        create_clauses.append("b.name = $name")
-    if _has_value(props, 'is_default'):
-        create_clauses.append("b.is_default = $is_default")
-    if _has_value(props, 'is_protected'):
-        create_clauses.append("b.is_protected = $is_protected")
-    if _has_value(props, 'is_external'):
-        create_clauses.append("b.is_external = $is_external")
-    
-    # Build SET clause for mutable properties only (additive updates only)
+    # Build SET clause dynamically based on available properties (additive updates only)
     set_clauses = []
+    if _has_value(props, 'name'):
+        set_clauses.append("b.name = $name")
+    if _has_value(props, 'is_default'):
+        set_clauses.append("b.is_default = $is_default")
+    if _has_value(props, 'is_protected'):
+        set_clauses.append("b.is_protected = $is_protected")
+    if _has_value(props, 'is_external'):
+        set_clauses.append("b.is_external = $is_external")
     if _has_value(props, 'last_commit_sha'):
         set_clauses.append("b.last_commit_sha = $last_commit_sha")
     if _has_value(props, 'last_commit_timestamp'):
@@ -1423,13 +1416,18 @@ def merge_branch(session: Session, branch: Branch, relationships: Optional[List[
     if _has_value(props, 'url'):
         set_clauses.append("b.url = $url")
     
-    # MERGE the Branch node with separate immutable and mutable properties
-    query = "MERGE (b:Branch {id: $id})"
-    if create_clauses:
-        query += f"\nON CREATE SET {', '.join(create_clauses)}"
+    # MERGE the Branch node
     if set_clauses:
-        query += f"\nSET {', '.join(set_clauses)}"
-    query += "\nRETURN b"
+        query = f"""
+        MERGE (b:Branch {{id: $id}})
+        SET {', '.join(set_clauses)}
+        RETURN b
+        """
+    else:
+        query = """
+        MERGE (b:Branch {id: $id})
+        RETURN b
+        """
     
     session.run(query, **props)
     
@@ -1556,9 +1554,6 @@ def merge_pull_request(session: Session, pull_request: PullRequest, relationship
     """
     Merge a PullRequest node into Neo4j.
     
-    Uses ON CREATE SET for immutable properties (number, created_at)
-    and SET for mutable properties (title, state, updated_at, merged_at, closed_at, etc.).
-    
     Args:
         session: Neo4j session
         pull_request: PullRequest dataclass instance
@@ -1566,15 +1561,12 @@ def merge_pull_request(session: Session, pull_request: PullRequest, relationship
     """
     props = pull_request.to_neo4j_properties()
     
-    # Build ON CREATE SET clause for immutable properties (additive updates only)
-    create_clauses = []
-    if _has_value(props, 'number'):
-        create_clauses.append("pr.number = $number")
-    if _has_value(props, 'created_at'):
-        create_clauses.append("pr.created_at = datetime($created_at)")
-    
-    # Build SET clause for mutable properties only (additive updates only)
+    # Build SET clause dynamically based on available properties (additive updates only)
     set_clauses = []
+    if _has_value(props, 'number'):
+        set_clauses.append("pr.number = $number")
+    if _has_value(props, 'created_at'):
+        set_clauses.append("pr.created_at = datetime($created_at)")
     if _has_value(props, 'title'):
         set_clauses.append("pr.title = $title")
     if _has_value(props, 'state'):
@@ -1608,13 +1600,18 @@ def merge_pull_request(session: Session, pull_request: PullRequest, relationship
     if _has_value(props, 'url'):
         set_clauses.append("pr.url = $url")
     
-    # MERGE the PullRequest node with separate immutable and mutable properties
-    query = "MERGE (pr:PullRequest {id: $id})"
-    if create_clauses:
-        query += f"\nON CREATE SET {', '.join(create_clauses)}"
+    # MERGE the PullRequest node
     if set_clauses:
-        query += f"\nSET {', '.join(set_clauses)}"
-    query += "\nRETURN pr"
+        query = f"""
+        MERGE (pr:PullRequest {{id: $id}})
+        SET {', '.join(set_clauses)}
+        RETURN pr
+        """
+    else:
+        query = """
+        MERGE (pr:PullRequest {id: $id})
+        RETURN pr
+        """
     
     session.run(query, **props)
     

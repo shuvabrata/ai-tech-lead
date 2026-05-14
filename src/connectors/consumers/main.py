@@ -75,8 +75,7 @@ async def consume_queue(
         async for signal, message in consumer.consume():
             signal = signal.with_ingestion_time()
             try:
-                with driver.session() as session:
-                    upsert_signal(session, signal, person_cache=person_cache)
+                await asyncio.to_thread(_sync_upsert, driver, signal, person_cache)
                 await message.ack()
                 logger.info(
                     "Processed signal_id=%s entity_type=%s id=%s queue=%s",

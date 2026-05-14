@@ -403,7 +403,7 @@ def map_issue(
 
     return {
         # Node attributes
-        "id": f"jira_issue_{jira_issue_id}",
+        "id": f"jira_issue_{issue_key}",
         "key": issue_key,
         "type": issue_type_obj.get("name", "Unknown"),
         "summary": fields.get("summary", ""),
