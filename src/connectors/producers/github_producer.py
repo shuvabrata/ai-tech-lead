@@ -533,7 +533,7 @@ async def process_repo_signals(
     branches_raw = fetch_branches(repo)
     branch_map: Dict[str, Dict[str, Any]] = {}  # branch_name -> branch_data
 
-    branch_semaphore = asyncio.Semaphore(5)
+    branch_semaphore = asyncio.Semaphore(3)
 
     async def process_single_branch(branch: Any) -> None:
         async with branch_semaphore:
@@ -563,7 +563,7 @@ async def process_repo_signals(
     seen_commits: set[str] = set()
     commit_count = 0
 
-    semaphore = asyncio.Semaphore(5)  # Capped concurrency to prevent API rate limits
+    semaphore = asyncio.Semaphore(3)  # Capped concurrency to prevent API rate limits
 
     async def process_single_commit(commit: Any) -> None:
         nonlocal commit_count
