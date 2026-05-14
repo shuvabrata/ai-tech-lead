@@ -24,7 +24,6 @@ from app.dash_app.styles import (
     GRAPH_SECTION_CONTAINER_STYLE,
     GRAPH_SECTION_TITLE_STYLE,
     GRAPH_QUERY_TEXTAREA_STYLE,
-    GRAPH_EXECUTE_BUTTON_STYLE,
     GRAPH_HELPER_TEXT_STYLE,
     GRAPH_CYTOSCAPE_STYLE,
     GRAPH_EMPTY_STATE_ICON_STYLE,
@@ -465,7 +464,7 @@ def create_query_input_section():
     return html.Div([
         dbc.Button(
             [
-                html.I(id="query-collapse-icon", className="fas fa-chevron-down me-2"),
+                html.I(id="query-collapse-icon", className="fas fa-chevron-right me-2"),
                 "Query Console"
             ],
             id="toggle-query-collapse-btn",
@@ -482,7 +481,7 @@ def create_query_input_section():
         ),
         dbc.Collapse(
             id="query-panel-collapse",
-            is_open=True,
+            is_open=False,
             children=[
                 dbc.Card([
                     dbc.CardBody([
@@ -500,8 +499,10 @@ def create_query_input_section():
                                 dbc.Button(
                                     "Execute",
                                     id="graph-execute-btn",
-                                    style=GRAPH_EXECUTE_BUTTON_STYLE,
-                                    className="graph-execute-btn"
+                                    color="primary",
+                                    size="sm",
+                                    style={"borderRadius": "2px"},
+                                    className="graph-execute-btn w-100"
                                 ),
                             ], width=2, className="d-flex align-items-start")
                         ], className="mb-2 g-3"),
