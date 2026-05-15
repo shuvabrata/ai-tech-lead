@@ -22,6 +22,9 @@ from app.common.node_size import apply_node_size
 # Community IDs are clamped to this range so we never exceed the defined styles.
 MAX_COMMUNITY_STYLES = 20
 
+# Louvain can otherwise produce different valid partitions for the same graph.
+LOUVAIN_RANDOM_STATE = 42
+
 
 def build_graph(records: List[Dict[str, Any]]) -> nx.Graph:
     """Build a weighted, undirected NetworkX graph from collaboration query records.
@@ -61,7 +64,7 @@ def detect_communities(g: nx.Graph) -> Dict[str, int]:
     """
     if g.number_of_nodes() == 0:
         return {}
-    return community_louvain.best_partition(g, weight="weight")
+    return community_louvain.best_partition(g, weight="weight", random_state=LOUVAIN_RANDOM_STATE)
 
 
 def compute_hub_scores(g: nx.Graph) -> Dict[str, float]:
