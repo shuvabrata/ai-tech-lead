@@ -5,6 +5,7 @@ Callbacks for query validation and execution.
 
 import time
 import requests
+from urllib.parse import parse_qs
 from dash import ctx, html, Input, Output, State, callback
 from dash.exceptions import MissingCallbackContextException
 
@@ -27,6 +28,38 @@ from ..utils import (
 )
 
 TIMEOUT_SECONDS = settings.HTTP_REQUEST_TIMEOUT
+
+
+@callback(
+    Output("query-panel-collapse", "is_open"),
+    Output("query-collapse-icon", "className"),
+    Input("toggle-query-collapse-btn", "n_clicks"),
+    Input("url", "search"),
+    State("query-panel-collapse", "is_open"),
+    prevent_initial_call=False
+)
+def toggle_query_collapse(n_clicks, search, is_open):
+    """Toggle the Query Console collapse panel."""
+    try:
+        triggered_id = ctx.triggered_id
+    except MissingCallbackContextException:
+        triggered_id = None
+
+    # On initial load or URL change, check if there's a catalog deep link
+    if triggered_id == "url" or triggered_id is None:
+        params = parse_qs((search or "").lstrip("?"))
+        if params.get("catalog", [None])[0]:
+            # Auto-close query console if deep-linking to a catalog query
+            return False, "fas fa-chevron-right me-2"
+
+    # On button click, toggle the state
+    if triggered_id == "toggle-query-collapse-btn" and n_clicks:
+        new_is_open = not is_open
+        icon_class = "fas fa-chevron-down me-2" if new_is_open else "fas fa-chevron-right me-2"
+        return new_is_open, icon_class
+
+    # Fallback to current state
+    return is_open, "fas fa-chevron-down me-2" if is_open else "fas fa-chevron-right me-2"
 
 
 @callback(

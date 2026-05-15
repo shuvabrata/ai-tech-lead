@@ -21,12 +21,9 @@ from app.dash_app.styles import (
     COLOR_GRAY_LIGHTER,
     COLOR_TEXT_SECONDARY,
     SPACING_XXSMALL,
-    GRAPH_SECTION_CONTAINER_STYLE,
     GRAPH_SECTION_TITLE_STYLE,
     GRAPH_QUERY_TEXTAREA_STYLE,
-    GRAPH_EXECUTE_BUTTON_STYLE,
     GRAPH_HELPER_TEXT_STYLE,
-    GRAPH_QUERY_SECTION_CONTAINER_STYLE,
     GRAPH_CYTOSCAPE_STYLE,
     GRAPH_EMPTY_STATE_ICON_STYLE,
     GRAPH_EMPTY_STATE_TEXT_STYLE,
@@ -178,11 +175,12 @@ def create_filter_panel():
                 "fontSize": "13px",
                 "fontWeight": "600",
                 "color": COLOR_GRAY_DARK,
-                "border": f"1px solid {COLOR_GRAY_LIGHTER}",
-                "borderRadius": "4px",
-                "backgroundColor": "var(--color-background-white)",
-                "padding": "8px 12px",
-                "marginBottom": "8px"
+                "border": "none",
+                "borderBottom": f"1px solid {COLOR_GRAY_LIGHTER}",
+                "borderRadius": "0",
+                "backgroundColor": "transparent",
+                "padding": "8px 0px",
+                "marginBottom": "16px"
             }
         ),
         
@@ -363,8 +361,8 @@ def create_filter_panel():
                         style={"display": "none"},
                         children="Weight-based controls are available for weighted graphs only."
                     )
-                ], className="graph-filter-card-body", style={"padding": "12px"})
-            ], className="graph-filter-card", style={"border": f"1px solid {COLOR_GRAY_LIGHTER}", "borderRadius": "4px"})
+                ], className="graph-filter-card-body", style={"padding": "0 0 24px 0"})
+            ], className="graph-filter-card", style={"border": "none", "backgroundColor": "transparent"})
             ]
         )
     ], className="mb-3")
@@ -431,14 +429,20 @@ def create_results_section():
                         create_graph_container(),
                         create_table_container(),
                         create_empty_state()
-                    ], id="graph-viz-col", width=8),
+                    ], id="graph-viz-col", width=8, style={"paddingRight": "24px"}),
                     
                     # Right sidebar: Filters + Details panel
                     dbc.Col([
                         create_filter_panel(),
                         html.Div(
                             id="graph-details-panel",
-                            style=GRAPH_DETAILS_PANEL_STYLE,
+                            style={
+                                **GRAPH_DETAILS_PANEL_STYLE,
+                                "border": "none",
+                                "boxShadow": "none",
+                                "padding": "0",
+                                "backgroundColor": "transparent"
+                            },
                             children=[
                                 html.Div([
                                     html.I(className="fas fa-info-circle fa-lg mb-2", style=GRAPH_DETAILS_PANEL_ICON_STYLE),
@@ -450,11 +454,11 @@ def create_results_section():
                                 ], className="text-center", style={"marginTop": "100px"})
                             ]
                         )
-                    ], id="graph-details-col", width=4)
-                ])
+                    ], id="graph-details-col", width=4, style={"borderLeft": f"1px solid {COLOR_GRAY_LIGHTER}", "paddingLeft": "24px"})
+                ], className="g-0")
             ]
         )
-    ], style=GRAPH_SECTION_CONTAINER_STYLE)
+    ], className="mb-2")
 
 
 def create_query_input_section():
@@ -464,157 +468,204 @@ def create_query_input_section():
         html.Div containing query input controls
     """
     return html.Div([
-        html.Div(
-            "Query Console",
-            style=GRAPH_SECTION_TITLE_STYLE
+        dbc.Button(
+            [
+                html.I(id="query-collapse-icon", className="fas fa-chevron-right me-2"),
+                "Query Console"
+            ],
+            id="toggle-query-collapse-btn",
+            className="w-100 text-start mb-2",
+            style={
+                "fontSize": "14px",
+                "fontWeight": "600",
+                "color": COLOR_GRAY_DARK,
+                "border": f"1px solid {COLOR_GRAY_LIGHTER}",
+                "borderRadius": "2px",
+                "backgroundColor": "var(--color-background-white)",
+                "padding": "10px 12px"
+            }
         ),
-        
-        # Row with textarea and execute button side by side
-        dbc.Row([
-            dbc.Col([
-                dbc.Textarea(
-                    id="graph-query-input",
-                    value="MATCH (n)-[r]->(m)\nRETURN n, r, m\nLIMIT 10",
-                    style=GRAPH_QUERY_TEXTAREA_STYLE,
-                    className="graph-query-input"
-                )
-            ], width=10),
-            dbc.Col([
-                dbc.Button(
-                    "Execute",
-                    id="graph-execute-btn",
-                    style=GRAPH_EXECUTE_BUTTON_STYLE,
-                    className="graph-execute-btn"
-                ),
-            ], width=2, className="d-flex align-items-start")
-        ], className="mb-2 g-3"),
-        
-        # Validation message container
-        html.Div(id="query-validation-message", className="mb-2"),
-        
-        # Helper text
-        html.Div([
-            html.Small(
-                "Ctrl+Enter to execute • Read-only queries only",
-                style=GRAPH_HELPER_TEXT_STYLE
-            )
-        ])
-    ], id="graph-query-section", style=GRAPH_QUERY_SECTION_CONTAINER_STYLE)
+        dbc.Collapse(
+            id="query-panel-collapse",
+            is_open=False,
+            children=[
+                dbc.Card([
+                    dbc.CardBody([
+                        # Row with textarea and execute button side by side
+                        dbc.Row([
+                            dbc.Col([
+                                dbc.Textarea(
+                                    id="graph-query-input",
+                                    value="MATCH (n)-[r]->(m)\nRETURN n, r, m\nLIMIT 10",
+                                    style=GRAPH_QUERY_TEXTAREA_STYLE,
+                                    className="graph-query-input"
+                                )
+                            ], width=10),
+                            dbc.Col([
+                                dbc.Button(
+                                    "Execute",
+                                    id="graph-execute-btn",
+                                    color="primary",
+                                    size="sm",
+                                    style={"borderRadius": "2px"},
+                                    className="graph-execute-btn w-100"
+                                ),
+                            ], width=2, className="d-flex align-items-start")
+                        ], className="mb-2 g-3"),
+                        
+                        # Validation message container
+                        html.Div(id="query-validation-message", className="mb-2"),
+                        
+                        # Helper text
+                        html.Div([
+                            html.Small(
+                                "Ctrl+Enter to execute • Read-only queries only",
+                                style=GRAPH_HELPER_TEXT_STYLE
+                            )
+                        ])
+                    ], style={"padding": "16px"})
+                ], style={"border": f"1px solid {COLOR_GRAY_LIGHTER}", "borderRadius": "2px", "backgroundColor": "var(--color-background-white)"})
+            ]
+        )
+    ], id="graph-query-section", className="mb-2")
 
 
 def create_catalog_section():
     """Create the catalog workbench used to browse and run shipped queries."""
     return html.Div([
-        html.Div(
-            "Query Catalog",
-            style=GRAPH_SECTION_TITLE_STYLE
+        dbc.Button(
+            [
+                html.I(id="catalog-collapse-icon", className="fas fa-chevron-right me-2"),
+                "Query Catalog"
+            ],
+            id="toggle-catalog-collapse-btn",
+            className="w-100 text-start mb-2",
+            style={
+                "fontSize": "14px",
+                "fontWeight": "600",
+                "color": COLOR_GRAY_DARK,
+                "border": f"1px solid {COLOR_GRAY_LIGHTER}",
+                "borderRadius": "2px",
+                "backgroundColor": "var(--color-background-white)",
+                "padding": "10px 12px"
+            }
         ),
-        dbc.Row([
-            dbc.Col([
-                html.Label("Namespace", className="mb-1", style=GRAPH_HELPER_TEXT_STYLE),
-                dbc.Select(
-                    id="catalog-namespace-filter",
-                    options=[{"label": "All namespaces", "value": "__all__"}],
-                    value="__all__",
-                    size="sm",
-                ),
-            ], md=4),
-            dbc.Col([
-                html.Label("Search", className="mb-1", style=GRAPH_HELPER_TEXT_STYLE),
-                dbc.Input(
-                    id="catalog-search-input",
-                    placeholder="Find a query by name, tag, or description",
-                    type="text",
-                    size="sm",
-                ),
-            ], md=5),
-            dbc.Col([
-                html.Label("View", className="mb-1", style=GRAPH_HELPER_TEXT_STYLE),
-                dbc.Select(
-                    id="catalog-view-filter",
-                    options=[
-                        {"label": "All views", "value": "__all__"},
-                        {"label": "Graph", "value": "graph"},
-                        {"label": "Tabular", "value": "tabular"},
-                    ],
-                    value="__all__",
-                    size="sm",
-                ),
-            ], md=3),
-        ], className="g-3 mb-3"),
-        dbc.Row([
-            dbc.Col([
-                html.Div(
-                    id="query-catalog-load-status",
-                    className="mb-2",
-                ),
-                html.Div(
-                    id="catalog-query-list",
-                    children=html.Div(
-                        "Loading catalog queries...",
-                        style={"fontSize": "12px", "color": COLOR_TEXT_SECONDARY}
-                    ),
-                    style={
-                        "maxHeight": "360px",
-                        "overflowY": "auto",
-                        "border": f"1px solid {COLOR_BORDER}",
-                        "borderRadius": "4px",
-                        "padding": "8px",
-                        "backgroundColor": COLOR_BACKGROUND_WHITE,
-                        "color": COLOR_CHARCOAL_MEDIUM,
-                    }
-                ),
-            ], md=4),
-            dbc.Col([
-                html.Div(
-                    id="catalog-query-detail",
-                    children=html.Div(
-                        "Select a catalog query to inspect it here.",
-                        style={"fontSize": "12px", "color": COLOR_TEXT_SECONDARY}
-                    ),
-                    style={
-                        "minHeight": "180px",
-                        "border": f"1px solid {COLOR_BORDER}",
-                        "borderRadius": "4px",
-                        "padding": "12px",
-                        "backgroundColor": COLOR_BACKGROUND_WHITE,
-                        "color": COLOR_CHARCOAL_MEDIUM,
-                    },
-                ),
-                html.Div([
-                    html.Label("Selected view", className="mb-1 mt-3", style=GRAPH_HELPER_TEXT_STYLE),
-                    dbc.RadioItems(
-                        id="catalog-query-view-toggle",
-                        options=[],
-                        value=None,
-                        inline=True,
-                    ),
-                ]),
-                html.Div(
-                    id="catalog-parameter-inputs",
-                    className="mt-3",
-                ),
-                html.Div([
-                    dbc.Button(
-                        "Run",
-                        id="catalog-run-btn",
-                        color="primary",
-                        size="sm",
-                        className="me-2",
-                        disabled=True,
-                    ),
-                    dbc.Button(
-                        "Load into Console",
-                        id="catalog-load-console-btn",
-                        outline=True,
-                        color="secondary",
-                        size="sm",
-                        disabled=True,
-                    ),
-                ], className="mt-3"),
-            ], md=8),
-        ], className="g-3"),
-    ], id="graph-catalog-section", style=GRAPH_QUERY_SECTION_CONTAINER_STYLE)
+        dbc.Collapse(
+            id="catalog-panel-collapse",
+            is_open=False,
+            children=[
+                dbc.Card([
+                    dbc.CardBody([
+                        dbc.Row([
+                            dbc.Col([
+                                html.Label("Namespace", className="mb-1", style=GRAPH_HELPER_TEXT_STYLE),
+                                dbc.Select(
+                                    id="catalog-namespace-filter",
+                                    options=[{"label": "All namespaces", "value": "__all__"}],
+                                    value="__all__",
+                                    size="sm",
+                                ),
+                            ], md=4),
+                            dbc.Col([
+                                html.Label("Search", className="mb-1", style=GRAPH_HELPER_TEXT_STYLE),
+                                dbc.Input(
+                                    id="catalog-search-input",
+                                    placeholder="Find a query by name, tag, or description",
+                                    type="text",
+                                    size="sm",
+                                ),
+                            ], md=5),
+                            dbc.Col([
+                                html.Label("View", className="mb-1", style=GRAPH_HELPER_TEXT_STYLE),
+                                dbc.Select(
+                                    id="catalog-view-filter",
+                                    options=[
+                                        {"label": "All views", "value": "__all__"},
+                                        {"label": "Graph", "value": "graph"},
+                                        {"label": "Tabular", "value": "tabular"},
+                                    ],
+                                    value="__all__",
+                                    size="sm",
+                                ),
+                            ], md=3),
+                        ], className="g-3 mb-3"),
+                        dbc.Row([
+                            dbc.Col([
+                                html.Div(
+                                    id="query-catalog-load-status",
+                                    className="mb-2",
+                                ),
+                                html.Div(
+                                    id="catalog-query-list",
+                                    children=html.Div(
+                                        "Loading catalog queries...",
+                                        style={"fontSize": "12px", "color": COLOR_TEXT_SECONDARY}
+                                    ),
+                                    style={
+                                        "maxHeight": "360px",
+                                        "overflowY": "auto",
+                                        "border": f"1px solid {COLOR_BORDER}",
+                                        "borderRadius": "2px",
+                                        "padding": "8px",
+                                        "backgroundColor": COLOR_BACKGROUND_WHITE,
+                                        "color": COLOR_CHARCOAL_MEDIUM,
+                                    }
+                                ),
+                            ], md=4),
+                            dbc.Col([
+                                html.Div(
+                                    id="catalog-query-detail",
+                                    children=html.Div(
+                                        "Select a catalog query to inspect it here.",
+                                        style={"fontSize": "12px", "color": COLOR_TEXT_SECONDARY}
+                                    ),
+                                    style={
+                                        "minHeight": "180px",
+                                        "border": f"1px solid {COLOR_BORDER}",
+                                        "borderRadius": "2px",
+                                        "padding": "12px",
+                                        "backgroundColor": COLOR_BACKGROUND_WHITE,
+                                        "color": COLOR_CHARCOAL_MEDIUM,
+                                    },
+                                ),
+                                html.Div([
+                                    html.Label("Selected view", className="mb-1 mt-3", style=GRAPH_HELPER_TEXT_STYLE),
+                                    dbc.RadioItems(
+                                        id="catalog-query-view-toggle",
+                                        options=[],
+                                        value=None,
+                                        inline=True,
+                                    ),
+                                ]),
+                                html.Div(
+                                    id="catalog-parameter-inputs",
+                                    className="mt-3",
+                                ),
+                                html.Div([
+                                    dbc.Button(
+                                        "Run",
+                                        id="catalog-run-btn",
+                                        color="primary",
+                                        size="sm",
+                                        className="me-2",
+                                        disabled=True,
+                                    ),
+                                    dbc.Button(
+                                        "Load into Console",
+                                        id="catalog-load-console-btn",
+                                        outline=True,
+                                        color="secondary",
+                                        size="sm",
+                                        disabled=True,
+                                    ),
+                                ], className="mt-3"),
+                            ], md=8),
+                        ], className="g-3")
+                    ], style={"padding": "16px"})
+                ], style={"border": f"1px solid {COLOR_GRAY_LIGHTER}", "borderRadius": "2px", "backgroundColor": "var(--color-background-white)"})
+            ]
+        )
+    ], id="graph-catalog-section", className="mb-2")
 
 
 def create_stores():
@@ -695,6 +746,10 @@ def create_hidden_elements():
         
         # Hidden div for triggering fit-to-screen via clientside callback
         html.Div(id="graph-fit-trigger", style={"display": "none"}),
+
+        # Required Output target for the collaboration clientside callback that
+        # calls cy.resize() + cy.fit() after the container becomes visible.
+        html.Div(id="collaboration-render-diagnostics", style={"display": "none"}),
 
         # Full-label tooltip shown on node hover (positioned clientside)
         html.Div(
