@@ -747,6 +747,10 @@ def create_hidden_elements():
         # Hidden div for triggering fit-to-screen via clientside callback
         html.Div(id="graph-fit-trigger", style={"display": "none"}),
 
+        # Required Output target for the collaboration clientside callback that
+        # calls cy.resize() + cy.fit() after the container becomes visible.
+        html.Div(id="collaboration-render-diagnostics", style={"display": "none"}),
+
         # Full-label tooltip shown on node hover (positioned clientside)
         html.Div(
             id="graph-node-hover-tooltip",
