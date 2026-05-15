@@ -480,18 +480,21 @@ def apply_collab_filters(elements, selected_communities, weight_threshold, top_n
      Output("collab-community-filter",          "value"),
      Output("collab-community-available-store", "data")],
     Input("collab-elements-store", "data"),
-    State("collab-community-available-store", "data"),
 )
-def update_collab_community_filter(elements, previously_available):
-    """Populate the community checklist when new data loads."""
+def update_collab_community_filter(elements):
+    """Populate the community checklist when new data loads.
+
+    Note: no prev-state guard here.  On re-navigation the
+    collab-community-available-store can still hold community IDs from the
+    previous visit, which would cause prev_set == curr_set → PreventUpdate
+    → checklist stays empty.  Since collab-elements-store only changes on
+    page load (not on filter interactions), always repopulating is safe and
+    does not clobber mid-session selections.
+    """
     if not elements:
         return [], [], []
     community_ids = _get_communities(elements)
     options = [{"label": f"Community {cid}", "value": cid} for cid in community_ids]
-    prev_set = set(previously_available or [])
-    curr_set = set(community_ids)
-    if prev_set == curr_set:
-        raise PreventUpdate
     return options, community_ids, community_ids
 
 
