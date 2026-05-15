@@ -89,6 +89,22 @@ class RabbitMQPublisher:
         if self._connection and not self._connection.is_closed:
             await self._connection.close()
 
+    async def _ensure_channel(self) -> None:
+        """Recreate the channel if it has been closed (e.g. after a heartbeat timeout)."""
+        if self._connection is None or self._connection.is_closed:
+            logger.warning("RabbitMQ connection lost — reconnecting...")
+            self._connection = await aio_pika.connect_robust(self._url)
+            self._channel = None
+
+        if self._channel is None or self._channel.is_closed:
+            logger.warning("RabbitMQ channel closed — reopening...")
+            self._channel = await self._connection.channel()
+            await self._channel.declare_exchange(
+                self._exchange_name,
+                ExchangeType.TOPIC,
+                durable=True,
+            )
+
     async def publish(self, signal: ActivitySignal) -> None:
         """Publish a single ActivitySignal to the exchange.
 
@@ -109,6 +125,8 @@ class RabbitMQPublisher:
             raise RuntimeError(
                 "RabbitMQPublisher must be used as an async context manager."
             )
+
+        await self._ensure_channel()
 
         exchange = await self._channel.get_exchange(self._exchange_name)
         body = signal.model_dump_json(exclude_none=False).encode()
