@@ -204,6 +204,39 @@ def _build_parameter_help_text(parameter: dict):
 
 
 @callback(
+    Output("catalog-panel-collapse", "is_open"),
+    Output("catalog-collapse-icon", "className"),
+    Input("toggle-catalog-collapse-btn", "n_clicks"),
+    Input("url", "search"),
+    State("catalog-panel-collapse", "is_open"),
+    prevent_initial_call=False,
+)
+def toggle_catalog_collapse(
+    n_clicks: int | None, search: str | None, is_open: bool
+) -> tuple[bool, str]:
+    """Toggle the Query Catalog collapse panel and auto-open for deep links."""
+    try:
+        triggered_id = ctx.triggered_id
+    except MissingCallbackContextException:
+        triggered_id = None
+
+    # On initial load or URL change, check if there's a catalog deep link
+    if triggered_id == "url" or triggered_id is None:
+        catalog_id, _ = parse_catalog_deep_link(search)
+        if catalog_id:
+            return True, "fas fa-chevron-down me-2"
+
+    # On button click, toggle the state
+    if triggered_id == "toggle-catalog-collapse-btn" and n_clicks:
+        new_is_open = not is_open
+        icon_class = "fas fa-chevron-down me-2" if new_is_open else "fas fa-chevron-right me-2"
+        return new_is_open, icon_class
+
+    # Fallback to current state
+    return is_open, "fas fa-chevron-down me-2" if is_open else "fas fa-chevron-right me-2"
+
+
+@callback(
     Output("query-catalog-store", "data"),
     Output("query-catalog-load-status", "children"),
     Input("url", "pathname"),
