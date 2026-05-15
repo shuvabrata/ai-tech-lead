@@ -605,94 +605,117 @@ async def process_repo_signals(
     pr_since = resolve_prs_since_date(last_synced_at)
     logger.info("Fetching pull requests for '%s'...", full_name)
     prs_raw = await asyncio.to_thread(fetch_pull_requests_direct, repo)
+
+    async def process_single_pr(pr: Any, pr_since: datetime) -> bool:
+        """Process a single PR and publish its signals.
+
+        Returns True if the PR loop should stop (PR is older than pr_since).
+        """
+        # Filter by date
+        pr_updated = getattr(pr, "updated_at", None)
+        logger.debug(f"PR # {pr.number} updated at {pr_updated} (since={pr_since})")
+        if pr_updated and pr_updated.replace(tzinfo=timezone.utc) < pr_since:
+            logger.debug("PR #%s skipped (updated before since=%s)", pr.number, pr_since.date())
+            # Since PRs are processed newest-first, we can stop the entire loop
+            # once we hit a PR older than our cutoff, saving massive API pagination!
+            logger.info(
+                "Stopping PR fetch loop for '%s' since remaining PRs will be older than %s",
+                full_name,
+                pr_since.date(),
+            )
+            return True
+
+        pr_user_obj = pr.user
+        author_data = map_pr_user(pr_user_obj)
+        pr_data = map_pull_request(repo.name, pr, repo_owner)
+
+        author_login = author_data.get("login") or author_data.get("name", "unknown")
+        logger.debug(
+            "Processing PR #%s '%s' by '%s'",
+            pr.number,
+            str(getattr(pr, "title", ""))[:60],
+            author_login,
+        )
+
+        # Reviewer logins from review state dict
+        reviews_raw = await asyncio.to_thread(fetch_pr_reviews, pr)
+        review_map = map_pr_reviews(reviews_raw)
+        reviewer_logins = list(review_map.keys())
+
+        # Extract merger login (only set when state == "merged")
+        merger_login: Optional[str] = None
+        if pr_data.get("state") == "merged":
+            merged_by_obj = getattr(pr, "merged_by", None)
+            if merged_by_obj:
+                merger_login = getattr(merged_by_obj, "login", None)
+
+        # Requested reviewers (GitHub API: pr.requested_reviewers)
+        requested_reviewer_logins: List[str] = [
+            u.login for u in (getattr(pr, "requested_reviewers", None) or [])
+            if getattr(u, "login", None)
+        ]
+
+        # Commit SHAs for INCLUDES relationships
+        try:
+            pr_commits_raw = await asyncio.to_thread(fetch_pr_commits, pr)
+            commit_shas = []
+            for pr_c in pr_commits_raw:
+                c_sha = getattr(pr_c, "sha", None)
+                if not c_sha:
+                    continue
+                commit_shas.append(c_sha)
+
+                # If we haven't emitted this commit in the main loop, emit it now!
+                if c_sha not in seen_commits:
+                    try:
+                        pr_commit_author_obj = pr_c.author or pr_c.commit.author
+                        pr_a_data = map_commit_author(pr_commit_author_obj)
+                        pr_c_data = map_commit(repo.name, pr_c, repo_owner)
+
+                        pr_login = pr_a_data.get("login") or pr_a_data.get("name", "unknown")
+                        if pr_login not in seen_persons:
+                            seen_persons.add(pr_login)
+                            await _pub(build_person_signal(pr_a_data))
+
+                        # Note: branch_data is set to None because we aren't certain which branch it belongs to here
+                        await _pub(build_commit_signal(pr_c_data, pr_a_data, None))
+                        seen_commits.add(c_sha)
+                    except Exception as inner_exc:
+                        logger.warning("Failed to emit PR commit '%s': %s", c_sha, inner_exc)
+        except Exception as exc:
+            logger.warning("Could not fetch commits for PR #%s: %s", pr.number, exc)
+            commit_shas = []
+
+        # Emit Person signals for author + reviewers
+        for person_login, _ in [(author_data.get("login") or author_data.get("name", "unknown"), None)]:
+            if person_login not in seen_persons:
+                seen_persons.add(person_login)
+                p_sig = build_person_signal(author_data)
+                await _pub(p_sig)
+
+        for r_login in reviewer_logins:
+            if r_login not in seen_persons:
+                seen_persons.add(r_login)
+                r_sig = build_person_signal({"login": r_login, "name": r_login, "email": ""})
+                await _pub(r_sig)
+
+        pr_sig = build_pull_request_signal(
+            pr_data,
+            author_data,
+            reviewer_logins,
+            repo_data,
+            requested_reviewer_logins=requested_reviewer_logins,
+            merger_login=merger_login,
+            commit_shas=commit_shas,
+        )
+        await _pub(pr_sig)
+        return False
+
     for pr in prs_raw:
         try:
-            # Filter by date
-            pr_updated = getattr(pr, "updated_at", None)
-            logger.debug(f"PR # {pr.number} updated at {pr_updated} (since={pr_since})")
-            if pr_updated and pr_updated.replace(tzinfo=timezone.utc) < pr_since:
-                logger.debug("PR #%s skipped (updated before since=%s)", pr.number, pr_since.date())
-                # Since PRs are processed newest-first, we can stop the entire loop 
-                # once we hit a PR older than our cutoff, saving massive API pagination!
-                logger.info("Stopping PR fetch loop for '%s' since remaining PRs will be older than %s", full_name, pr_since.date())
+            should_stop = await process_single_pr(pr, pr_since)
+            if should_stop:
                 break
-
-            pr_user_obj = pr.user
-            author_data = map_pr_user(pr_user_obj)
-            pr_data = map_pull_request(repo.name, pr, repo_owner)
-
-            author_login = author_data.get("login") or author_data.get("name", "unknown")
-            logger.debug("Processing PR #%s '%s' by '%s'", pr.number, str(getattr(pr, "title", ""))[:60], author_login)
-
-            # Reviewer logins from review state dict
-            reviews_raw = await asyncio.to_thread(fetch_pr_reviews, pr)
-            review_map = map_pr_reviews(reviews_raw)
-            reviewer_logins = list(review_map.keys())
-
-            # Extract merger login (only set when state == "merged")
-            merger_login: Optional[str] = None
-            if pr_data.get("state") == "merged":
-                merged_by_obj = getattr(pr, "merged_by", None)
-                if merged_by_obj:
-                    merger_login = getattr(merged_by_obj, "login", None)
-
-            # Requested reviewers (GitHub API: pr.requested_reviewers)
-            requested_reviewer_logins: List[str] = [
-                u.login for u in (getattr(pr, "requested_reviewers", None) or [])
-                if getattr(u, "login", None)
-            ]
-
-            # Commit SHAs for INCLUDES relationships
-            try:
-                pr_commits_raw = await asyncio.to_thread(fetch_pr_commits, pr)
-                commit_shas = []
-                for pr_c in pr_commits_raw:
-                    c_sha = getattr(pr_c, "sha", None)
-                    if not c_sha:
-                        continue
-                    commit_shas.append(c_sha)
-                    
-                    # If we haven't emitted this commit in the main loop, emit it now!
-                    if c_sha not in seen_commits:
-                        try:
-                            pr_commit_author_obj = pr_c.author or pr_c.commit.author
-                            pr_a_data = map_commit_author(pr_commit_author_obj)
-                            pr_c_data = map_commit(repo.name, pr_c, repo_owner)
-                            
-                            pr_login = pr_a_data.get("login") or pr_a_data.get("name", "unknown")
-                            if pr_login not in seen_persons:
-                                seen_persons.add(pr_login)
-                                await _pub(build_person_signal(pr_a_data))
-                            
-                            # Note: branch_data is set to None because we aren't certain which branch it belongs to here
-                            await _pub(build_commit_signal(pr_c_data, pr_a_data, None))
-                            seen_commits.add(c_sha)
-                        except Exception as inner_exc:
-                            logger.warning("Failed to emit PR commit '%s': %s", c_sha, inner_exc)
-            except Exception as exc:
-                logger.warning("Could not fetch commits for PR #%s: %s", pr.number, exc)
-                commit_shas = []
-
-            # Emit Person signals for author + reviewers
-            for person_login, _ in [(author_data.get("login") or author_data.get("name", "unknown"), None)]:
-                if person_login not in seen_persons:
-                    seen_persons.add(person_login)
-                    p_sig = build_person_signal(author_data)
-                    await _pub(p_sig)
-
-            for r_login in reviewer_logins:
-                if r_login not in seen_persons:
-                    seen_persons.add(r_login)
-                    r_sig = build_person_signal({"login": r_login, "name": r_login, "email": ""})
-                    await _pub(r_sig)
-
-            pr_sig = build_pull_request_signal(
-                pr_data, author_data, reviewer_logins, repo_data,
-                requested_reviewer_logins=requested_reviewer_logins,
-                merger_login=merger_login,
-                commit_shas=commit_shas,
-            )
-            await _pub(pr_sig)
         except Exception as exc:
             logger.warning("PR skipped: %s", exc)
     logger.info("PRs done (%d) for '%s'", published.get("PullRequest", 0), full_name)
