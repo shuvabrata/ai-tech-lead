@@ -121,12 +121,17 @@ class RabbitMQPublisher:
         Raises:
             RuntimeError: If called outside the async context manager.
         """
-        if self._channel is None:
+        if self._connection is None:
             raise RuntimeError(
                 "RabbitMQPublisher must be used as an async context manager."
             )
 
         await self._ensure_channel()
+
+        if self._channel is None:
+            raise RuntimeError(
+                "RabbitMQPublisher failed to initialize a channel for publishing."
+            )
 
         exchange = await self._channel.get_exchange(self._exchange_name)
         body = signal.model_dump_json(exclude_none=False).encode()
