@@ -9,6 +9,7 @@ Run with: pytest tests/test_collaboration_algorithm.py -v
 import pytest
 
 from app.analytics.collaboration.algorithm import (
+    LOUVAIN_RANDOM_STATE,
     MAX_COMMUNITY_STYLES,
     build_graph,
     compute_hub_scores,
@@ -96,6 +97,17 @@ class TestDetectCommunities:
         import networkx as nx
         partition = detect_communities(nx.Graph())
         assert partition == {}
+
+    def test_louvain_random_state_constant_is_set(self):
+        """LOUVAIN_RANDOM_STATE must be a fixed integer so partitions are reproducible."""
+        assert isinstance(LOUVAIN_RANDOM_STATE, int)
+
+    def test_detect_communities_is_deterministic(self):
+        """Calling detect_communities twice on the same graph returns identical partitions."""
+        g = build_graph(SIMPLE_RECORDS)
+        partition_a = detect_communities(g)
+        partition_b = detect_communities(g)
+        assert partition_a == partition_b
 
     def test_two_clear_communities(self):
         """Dense clique pair should produce exactly 2 communities."""
