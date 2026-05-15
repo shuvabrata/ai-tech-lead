@@ -788,7 +788,9 @@ async def main_async() -> None:
             try:
                 if is_wildcard_url(url):
                     owner, _ = parse_repo_url(url)
-                    repo_list = get_all_repos_for_owner(g, owner)
+                    filters = repo_cfg.get("search_filters", {})
+                    logger.info(f"Wildcard pattern detected. Fetching all repositories for: {owner} with filters: {filters} ")
+                    repo_list = get_all_repos_for_owner(g, owner, filters)
                 else:
                     owner, repo_name = parse_repo_url(url)
                     repo_list = [g.get_repo(f"{owner}/{repo_name}")]
