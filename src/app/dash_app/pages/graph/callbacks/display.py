@@ -3,9 +3,12 @@
 Callbacks for graph display, layout management, and property details.
 """
 
-import dash_bootstrap_components as dbc
-from dash import html, Input, Output, State, callback, callback_context, clientside_callback
+from urllib.parse import parse_qs
 
+import dash_bootstrap_components as dbc
+from dash import html, no_update, Input, Output, State, callback, callback_context, clientside_callback
+
+from app.common.logger import logger
 from app.dash_app.styles import (
     DETAILS_HEADING_STYLE,
     DETAILS_LABEL_STYLE,
@@ -190,18 +193,31 @@ def display_properties(selected_nodes, selected_edges, elements, theme_name):
     Output("graph-cytoscape", "layout"),
     [Input("graph-layout-selector", "value"),
      Input("graph-reset-btn", "n_clicks")],
-    [State("graph-cytoscape", "layout")],
+    [State("graph-cytoscape", "layout"),
+     State("url", "search")],
     prevent_initial_call=True
 )
-def update_layout(layout_name, reset_clicks, current_layout):
+def update_layout(layout_name, reset_clicks, current_layout, search):
     """Update the Cytoscape graph layout algorithm or trigger layout reset"""
+    # Never interfere with collaboration-mode: the collaboration callback owns the
+    # layout while ?mode=collaboration_network is active.  Firing here would race
+    # against the preset positions and wipe out the viewport fit.
+    params = parse_qs((search or "").lstrip("?"))
+    active_mode = params.get("mode", [None])[0]
+    if active_mode in ("collaboration_network", "collaboration"):
+        logger.info(
+            "[GRAPH_LAYOUT] update_layout suppressed — collaboration mode active (mode=%s trigger=%s)",
+            active_mode,
+            [t["prop_id"] for t in (callback_context.triggered or [])],
+        )
+        return no_update
     
     # Determine which input triggered the callback
     if not callback_context.triggered:
         return current_layout
     
     trigger_id = callback_context.triggered[0]['prop_id'].split('.')[0]
-    
+
     # Layout selector changed
     if trigger_id == 'graph-layout-selector':
         if layout_name == 'preset':
