@@ -32,18 +32,18 @@ def create_dash_app():
     # Sidebar using Bootstrap Nav - Executive Dashboard style
     sidebar = dbc.Nav(
         [
-            dbc.NavLink("Chat", href="/app/chat", active="exact", id="nav-genai", className="executive-nav-link"),
-            dbc.NavLink("People", href="/app/people", active="exact", id="nav-people", className="executive-nav-link"),
-            dbc.NavLink("Progress", href="/app/progress", active="exact", id="nav-progress", className="executive-nav-link"),
-            dbc.NavLink("Graph", href="/app/graph", active="exact", id="nav-graph", className="executive-nav-link"),
-            dbc.NavLink("Analytics", href="/app/analytics", active="exact", id="nav-analytics", className="executive-nav-link"),
-            dbc.NavLink("Connectors", href="/app/connectors", active="exact", id="nav-connectors", className="executive-nav-link"),
-            dbc.NavLink("Settings", href="/app/settings", active="exact", id="nav-settings", className="executive-nav-link"),
+            dbc.NavLink([html.I(className="fas fa-comment-dots fa-fw me-2"), html.Span("Chat", className="sidebar-text")], href="/app/chat", active="exact", id="nav-genai", className="executive-nav-link d-flex align-items-center text-nowrap"),
+            dbc.NavLink([html.I(className="fas fa-users fa-fw me-2"), html.Span("People", className="sidebar-text")], href="/app/people", active="exact", id="nav-people", className="executive-nav-link d-flex align-items-center text-nowrap"),
+            dbc.NavLink([html.I(className="fas fa-chart-line fa-fw me-2"), html.Span("Progress", className="sidebar-text")], href="/app/progress", active="exact", id="nav-progress", className="executive-nav-link d-flex align-items-center text-nowrap"),
+            dbc.NavLink([html.I(className="fas fa-project-diagram fa-fw me-2"), html.Span("Graph", className="sidebar-text")], href="/app/graph", active="exact", id="nav-graph", className="executive-nav-link d-flex align-items-center text-nowrap"),
+            dbc.NavLink([html.I(className="fas fa-chart-pie fa-fw me-2"), html.Span("Analytics", className="sidebar-text")], href="/app/analytics", active="exact", id="nav-analytics", className="executive-nav-link d-flex align-items-center text-nowrap"),
+            dbc.NavLink([html.I(className="fas fa-plug fa-fw me-2"), html.Span("Connectors", className="sidebar-text")], href="/app/connectors", active="exact", id="nav-connectors", className="executive-nav-link d-flex align-items-center text-nowrap"),
+            dbc.NavLink([html.I(className="fas fa-cog fa-fw me-2"), html.Span("Settings", className="sidebar-text")], href="/app/settings", active="exact", id="nav-settings", className="executive-nav-link d-flex align-items-center text-nowrap"),
         ],
         vertical=True,
         pills=False,
         className="vh-100 sidebar executive-sidebar",
-        style=SIDEBAR_STYLE
+        style={**SIDEBAR_STYLE, "overflowX": "hidden"}
     )
 
     # Top menu using Bootstrap Navbar - Executive Dashboard style
@@ -155,7 +155,8 @@ def create_dash_app():
     @app.callback(
         [
             Output("sidebar-collapsed", "data"),
-            Output("sidebar-col", "style")
+            Output("sidebar-col", "style"),
+            Output("sidebar-col", "className")
         ],
         Input("sidebar-toggle", "n_clicks"),
         State("sidebar-collapsed", "data"),
@@ -165,28 +166,55 @@ def create_dash_app():
         # Toggle the state
         new_state = not is_collapsed
         
+        base_style = {**SIDEBAR_COL_STYLE, "transition": "min-width 0.2s ease, max-width 0.2s ease"}
+        
         # Adjust visibility based on sidebar state
         if new_state:  # Sidebar collapsed
-            sidebar_style = {"display": "none"}
+            sidebar_style = {
+                **base_style,
+                "minWidth": "60px",
+                "maxWidth": "60px",
+                "overflowX": "hidden"
+            }
+            sidebar_class = "sidebar-col collapsed"
         else:  # Sidebar open
-            sidebar_style = SIDEBAR_COL_STYLE
+            sidebar_style = {
+                **base_style,
+                "overflowX": "hidden"
+            }
+            sidebar_class = "sidebar-col"
         
-        return new_state, sidebar_style
+        return new_state, sidebar_style, sidebar_class
 
     # Initialize sidebar state from localStorage
     @app.callback(
-        Output("sidebar-col", "style", allow_duplicate=True),
+        [
+            Output("sidebar-col", "style", allow_duplicate=True),
+            Output("sidebar-col", "className", allow_duplicate=True)
+        ],
         Input("sidebar-collapsed", "data"),
         prevent_initial_call='initial_duplicate'
     )
     def init_sidebar_state(is_collapsed):
+        base_style = {**SIDEBAR_COL_STYLE, "transition": "min-width 0.2s ease, max-width 0.2s ease"}
+        
         # Apply stored state on page load
         if is_collapsed:  # Sidebar collapsed
-            sidebar_style = {"display": "none"}
+            sidebar_style = {
+                **base_style,
+                "minWidth": "60px",
+                "maxWidth": "60px",
+                "overflowX": "hidden"
+            }
+            sidebar_class = "sidebar-col collapsed"
         else:  # Sidebar open
-            sidebar_style = SIDEBAR_COL_STYLE
+            sidebar_style = {
+                **base_style,
+                "overflowX": "hidden"
+            }
+            sidebar_class = "sidebar-col"
         
-        return sidebar_style
+        return sidebar_style, sidebar_class
 
     @app.callback(
         Output("theme-store", "data"),

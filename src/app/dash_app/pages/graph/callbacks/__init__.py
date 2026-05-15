@@ -4,7 +4,7 @@ Imports all graph page callbacks to register them with Dash.
 """
 
 # Import all callbacks to register them
-from .query import validate_query, execute_query
+from .query import validate_query, execute_query, toggle_query_collapse
 from .catalog import (
     load_query_catalog,
     populate_namespace_filter,
@@ -44,6 +44,7 @@ __all__ = [
     # Query callbacks
     'validate_query',
     'execute_query',
+    'toggle_query_collapse',
     'load_query_catalog',
     'populate_namespace_filter',
     'sync_selected_catalog_query',

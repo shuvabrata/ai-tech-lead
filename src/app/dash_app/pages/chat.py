@@ -31,7 +31,6 @@ from app.dash_app.styles import (
     SPACING_SMALL,
     SPACING_MEDIUM,
     SPACING_LARGE,
-    CARD_CONTAINER_STYLE,
     BUTTON_PRIMARY_STYLE
 )
 
@@ -52,14 +51,11 @@ def get_layout():
                 id="chat-messages",
                 className="chat-messages-container",
                 style={
-                    "height": "580px",
+                    "height": "calc(100vh - 220px)",
                     "overflowY": "auto",
                     "marginBottom": SPACING_MEDIUM,
-                    "padding": SPACING_LARGE,
-                    "backgroundColor": COLOR_BACKGROUND_WHITE,
-                    "borderRadius": "2px",
-                    "border": f"1px solid {COLOR_GRAY_LIGHTER}",
-                    "boxShadow": "0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.02)"
+                    "padding": f"0 {SPACING_LARGE} {SPACING_LARGE} {SPACING_LARGE}",
+                    "backgroundColor": "transparent"
                 },
                 children=[
                     html.Div([
@@ -149,7 +145,7 @@ def get_layout():
                 color=COLOR_NAVY,
                 children=html.Div(id="loading-output")
             )
-        ], style=CARD_CONTAINER_STYLE)
+        ], className="h-100 d-flex flex-column")
     ])
 
 
