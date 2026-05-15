@@ -1,0 +1,11 @@
+.sidebar-col.collapsed .sidebar-text {
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.1s ease;
+}
+
+.sidebar-col .sidebar-text {
+    opacity: 1;
+    visibility: visible;
+    transition: opacity 0.2s ease 0.1s;
+}
