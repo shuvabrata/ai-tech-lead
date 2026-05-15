@@ -485,22 +485,6 @@ def apply_relationship_filters(
     if not unfiltered_elements:
         raise PreventUpdate
 
-    # Collaboration network elements must never be filtered by this pipeline.
-    # The collaboration callback owns their layout and positioning; running them
-    # through the node/rel-type filter (whose controls default to empty on fresh
-    # mount) would overwrite graph-cytoscape.elements with [] and blank the graph.
-    is_collaboration = any(
-        "collaboration-edge" in str(e.get("classes", ""))
-        or e.get("data", {}).get("community") is not None
-        for e in unfiltered_elements
-        if isinstance(e, dict)
-    )
-    if is_collaboration:
-        logger.info(
-            "[GRAPH-FILTER] skipping apply_relationship_filters — collaboration network elements detected"
-        )
-        raise PreventUpdate
-
     filtered_graph = _compute_filtered_graph(
         selected_node_types,
         selected_rel_types,
