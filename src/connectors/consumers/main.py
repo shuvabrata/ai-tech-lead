@@ -30,7 +30,6 @@ automatically round-robin messages across all running consumers.
 from __future__ import annotations
 
 import asyncio
-import logging
 import os
 import sys
 from typing import Any
@@ -130,5 +129,5 @@ async def main() -> None:
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
+    # Process-level restart control is handled by docker-compose restart policy.
     asyncio.run(main())

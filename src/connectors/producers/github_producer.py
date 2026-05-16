@@ -515,8 +515,8 @@ async def process_repo_signals(
             )
             published[sig.entity_type] = published.get(sig.entity_type, 0) + 1
 
-    # Topics
-    topics = fetch_repo_topics(repo)
+    # Topics — run in thread so time.sleep in retry_with_backoff never blocks the event loop
+    topics = await asyncio.to_thread(fetch_repo_topics, repo)
 
     # Repository signal
     try:
@@ -530,7 +530,7 @@ async def process_repo_signals(
     # Branches
     default_branch = repo.default_branch or "main"
     logger.info("Fetching branches for '%s'...", full_name)
-    branches_raw = fetch_branches(repo)
+    branches_raw = await asyncio.to_thread(fetch_branches, repo)
     branch_map: Dict[str, Dict[str, Any]] = {}  # branch_name -> branch_data
 
     branch_semaphore = asyncio.Semaphore(3)
@@ -557,7 +557,7 @@ async def process_repo_signals(
     # Commits
     since = resolve_commits_since_date(last_synced_at)
     logger.info("Fetching commits for '%s' since %s...", full_name, since.date())
-    commits_raw = fetch_commits(repo, since)
+    commits_raw = await asyncio.to_thread(fetch_commits, repo, since)
     logger.info(f"Number of commits fetched for {full_name} = {len(commits_raw)}")
     seen_persons: set[str] = set()
     seen_commits: set[str] = set()
@@ -604,7 +604,7 @@ async def process_repo_signals(
     # Pull Requests
     pr_since = resolve_prs_since_date(last_synced_at)
     logger.info("Fetching pull requests for '%s'...", full_name)
-    prs_raw = fetch_pull_requests_direct(repo)
+    prs_raw = await asyncio.to_thread(fetch_pull_requests_direct, repo)
 
     async def process_single_pr(pr: Any, pr_since: datetime) -> bool:
         """Process a single PR and publish its signals.
@@ -638,7 +638,7 @@ async def process_repo_signals(
         )
 
         # Reviewer logins from review state dict
-        reviews_raw = fetch_pr_reviews(pr)
+        reviews_raw = await asyncio.to_thread(fetch_pr_reviews, pr)
         review_map = map_pr_reviews(reviews_raw)
         reviewer_logins = list(review_map.keys())
 
@@ -657,7 +657,7 @@ async def process_repo_signals(
 
         # Commit SHAs for INCLUDES relationships
         try:
-            pr_commits_raw = fetch_pr_commits(pr)
+            pr_commits_raw = await asyncio.to_thread(fetch_pr_commits, pr)
             commit_shas = []
             for pr_c in pr_commits_raw:
                 c_sha = getattr(pr_c, "sha", None)
@@ -723,7 +723,7 @@ async def process_repo_signals(
     # Teams — emit Team signals with COLLABORATOR rel; emit MEMBER_OF on Person signals
     logger.info("Fetching teams for '%s'...", full_name)
     try:
-        teams_raw = fetch_repo_teams(repo)
+        teams_raw = await asyncio.to_thread(fetch_repo_teams, repo)
         for team in teams_raw:
             team_slug = getattr(team, "slug", None) or getattr(team, "name", "unknown")
             team_name = getattr(team, "name", team_slug)
@@ -738,7 +738,7 @@ async def process_repo_signals(
 
             # Emit Person signals for team members with MEMBER_OF and COLLABORATOR rels
             try:
-                members = list(team.get_members())
+                members = await asyncio.to_thread(lambda: list(team.get_members()))
                 for member in members:
                     member_login = getattr(member, "login", None)
                     if not member_login:
