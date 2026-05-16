@@ -62,7 +62,7 @@ from connectors.producers.map_jira import (
     map_sprint,
 )
 from connectors.producers.sync_cursor import get_sync_cursor, set_sync_cursor
-from app.common.logger import logger
+from common.logger import logger
 
 _SOURCE = "jira"
 _VERSION = "1.0"

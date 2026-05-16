@@ -13,7 +13,7 @@ import requests
 from pathlib import Path
 from typing import Any, Dict, List, Tuple, cast
 
-from app.common.logger import logger
+from common.logger import logger
 
 
 def load_config_from_server() -> Dict[str, Any]:

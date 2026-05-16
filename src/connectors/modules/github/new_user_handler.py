@@ -2,7 +2,7 @@ from typing import Any, Optional, Dict
 from connectors.neo4j_db.models import Relationship, merge_relationship
 from connectors.modules.github.map_permissions_to_general import map_permissions_to_general
 from connectors.modules.github.process_github_user import process_github_user
-from app.common.logger import logger
+from common.logger import logger
 
 def new_user_handler(
     session: Any,

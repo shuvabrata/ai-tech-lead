@@ -7,7 +7,7 @@ import json
 from typing import Any, AsyncIterator
 
 from app.ai_agent.mcp_integration.tool_executor import execute_tool_call, list_available_tools, _build_atlassian_manager
-from app.common.logger import logger
+from common.logger import logger
 from app.settings import settings
 
 

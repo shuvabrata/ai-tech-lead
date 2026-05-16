@@ -20,7 +20,7 @@ from dash.exceptions import PreventUpdate
 
 from app.analytics.collaboration.config import CollaborationNetworkConfig
 from app.api.graph.v1.service import get_collaboration_network
-from app.common.logger import logger
+from common.logger import logger
 from app.dash_app.components.common import create_alert
 from app.dash_app.pages.graph.styles import CYTOSCAPE_STYLESHEET
 from app.dash_app.styles import (

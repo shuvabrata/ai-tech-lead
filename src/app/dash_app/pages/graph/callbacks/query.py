@@ -10,7 +10,7 @@ from dash import ctx, html, Input, Output, State, callback
 from dash.exceptions import MissingCallbackContextException
 
 from app.settings import settings
-from app.common.logger import logger
+from common.logger import logger
 from app.dash_app.components.common import create_alert
 from app.dash_app.styles import (
     VALIDATION_ALERT_STYLE,
