@@ -77,7 +77,7 @@ class TestGraphRouterEndpoints:
 
             # If implicit relationships are returned, they should connect returned nodes
             if data["relationships"]:
-                node_ids = {node["id"] for node in data["nodes"]}
+                node_ids = {node["elementId"] for node in data["nodes"]}
                 for rel in data["relationships"]:
                     assert rel["startNode"] in node_ids
                     assert rel["endNode"] in node_ids
@@ -85,7 +85,8 @@ class TestGraphRouterEndpoints:
             # Verify node structure if results exist
             if data["nodes"]:
                 node = data["nodes"][0]
-                assert "id" in node
+                assert "businessId" in node
+                assert "elementId" in node
                 assert "labels" in node
                 assert "properties" in node
                 assert isinstance(node["labels"], list)
@@ -116,9 +117,9 @@ class TestGraphRouterEndpoints:
                 assert "properties" in rel
                 
                 # Verify start and end nodes exist in nodes list
-                node_ids = [node["id"] for node in data["nodes"]]
-                assert rel["startNode"] in node_ids
-                assert rel["endNode"] in node_ids
+                node_element_ids = [node["elementId"] for node in data["nodes"]]
+                assert rel["startNode"] in node_element_ids
+                assert rel["endNode"] in node_element_ids
     
     async def test_query_endpoint_tabular_data(self):
         """Test POST /api/v1/graph/execute with aggregation query."""

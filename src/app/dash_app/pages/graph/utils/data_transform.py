@@ -35,10 +35,7 @@ def neo4j_to_cytoscape(graph_response):
     
     # Transform nodes
     for node in graph_response.get("nodes", []):
-        # Use the first label as the main label, or 'Node' if no labels
         node_label = node.get("labels", ["Node"])[0] if node.get("labels") else "Node"
-        
-        # Try to get a display name from common properties
         display_name = (
             node.get("properties", {}).get("name") or 
             node.get("properties", {}).get("title") or 
@@ -46,42 +43,48 @@ def neo4j_to_cytoscape(graph_response):
             node_label
         )
         compact_label = _compact_node_label(display_name)
-        
-        # Create Cytoscape node element
-        # IMPORTANT: Set id AFTER spreading properties to prevent property 'id' from overwriting it
+
+        # Neo4j element id is used as Cytoscape node id so edges (which reference element_id) connect correctly.
+        # The business id is stored separately as 'businessId' for display.
+        neo4j_element_id = node['elementId']
+        business_id = node['businessId']
+
+        cyto_node_data = {
+            **node.get('properties', {}),
+            'id': neo4j_element_id,   # Must match edge source/target (Neo4j element_id)
+            'businessId': business_id,  # Business id for display in properties panel
+            'label': display_name,
+            'displayLabel': compact_label,
+            'nodeType': node_label,
+            'elementType': 'node'
+        }
+
         cyto_node = {
             'group': 'nodes',
-            'data': {
-                **node.get('properties', {}),  # Spread properties first
-                'id': node['id'],               # Then set critical fields (can't be overwritten)
-                'label': display_name,          # Full label for details panel and future hover UX.
-                'displayLabel': compact_label,  # Compact label for in-node rendering.
-                'nodeType': node_label,
-                # Explicit marker avoids misclassifying nodes that have source/target properties.
-                'elementType': 'node'
-            }
+            'data': cyto_node_data
         }
         apply_node_size(cyto_node)
         elements.append(cyto_node)
-    
+
     # Transform relationships
     for rel in graph_response.get("relationships", []):
-        # Create Cytoscape edge element
-        # IMPORTANT: Set id/source/target AFTER spreading properties to prevent overwriting
+        # Use Neo4j element ids for endpoints
+        source_id = rel.get('startNode')
+        target_id = rel.get('endNode')
         cyto_edge = {
             'group': 'edges',
             'data': {
-                **rel.get('properties', {}),  # Spread properties first
-                'id': rel['id'],               # Then set critical fields (can't be overwritten)
-                'source': rel['startNode'],
-                'target': rel['endNode'],
+                **rel.get('properties', {}),
+                'id': rel['id'],
+                'source': source_id,
+                'target': target_id,
                 'label': rel['type'],
                 'relType': rel['type'],
                 'elementType': 'edge'
             }
         }
         elements.append(cyto_edge)
-    
+
     return elements
 
 
