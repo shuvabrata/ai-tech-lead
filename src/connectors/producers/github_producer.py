@@ -180,7 +180,7 @@ def build_person_signal(
     try:
         attrs = PersonAttributes(
             id=person_id,
-        name=person_data.get("name") or login,
+            name=person_data.get("name") or login,
             # Extra
             login=login,
             email=person_data.get("email", ""),
