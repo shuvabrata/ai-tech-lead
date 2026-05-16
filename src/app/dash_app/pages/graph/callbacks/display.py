@@ -14,6 +14,12 @@ from app.dash_app.styles import (
     DETAILS_MUTED_TEXT_STYLE,
     DETAILS_SEPARATOR_STYLE,
     DETAILS_SUBHEADING_STYLE,
+    DETAILS_PANEL_HEADER_STYLE,
+    DETAILS_PANEL_SUBTYPE_STYLE,
+    DETAILS_TABLE_STYLE,
+    DETAILS_TABLE_KEY_STYLE,
+    DETAILS_TABLE_VALUE_STYLE,
+    DETAILS_TABLE_VALUE_MONO_STYLE,
     FONT_SIZE_XSMALL,
     COLOR_NAVY,
     COLOR_TEXT_MUTED,
@@ -21,6 +27,61 @@ from app.dash_app.styles import (
 )
 from ..styles import build_cytoscape_stylesheet
 from ..utils import toggle_details_panel, build_property_items, create_node_legend, is_node_element
+
+
+_INTERNAL_NEO4J_KEYS = {"ID", "elementID", "elementId"}
+
+
+def _is_visible_property_key(key):
+    """Return True when a property key is safe to expose in the UI."""
+    if key in _INTERNAL_NEO4J_KEYS:
+        return False
+    return not str(key).startswith("_")
+
+
+def _build_visible_properties(data, exclude_keys):
+    """Build a filtered property dictionary for the details panel."""
+    return {
+        key: value
+        for key, value in data.items()
+        if key not in exclude_keys and value is not None and _is_visible_property_key(key)
+    }
+
+
+def _resolve_edge_endpoint_id(edge_data, endpoint):
+    """Resolve an edge endpoint using explicit *_id fields before Cytoscape ids."""
+    for key in (f"{endpoint}_id", f"{endpoint}Id", endpoint):
+        value = edge_data.get(key)
+        if value in (None, ""):
+            continue
+        if isinstance(value, dict):
+            nested_id = value.get("id")
+            if nested_id not in (None, ""):
+                return nested_id
+            continue
+        return value
+    return "N/A"
+
+
+def _build_properties_table(items):
+    """Render a list of (key, value) pairs as an Executive Dashboard tabular layout."""
+    rows = []
+    for key, value in items:
+        str_value = str(value)
+        # Use monospace style for IDs and technical-looking values
+        is_mono = key in ("id",) or (len(str_value) > 16 and " " not in str_value)
+        value_cell = (
+            html.Code(str_value, style=DETAILS_TABLE_VALUE_MONO_STYLE)
+            if is_mono
+            else html.Span(str_value, style=DETAILS_TABLE_VALUE_STYLE)
+        )
+        rows.append(
+            html.Tr([
+                html.Td(key, style=DETAILS_TABLE_KEY_STYLE),
+                html.Td(value_cell, style={"padding": "6px 0 6px 8px", "borderBottom": "1px solid var(--color-border-light)", "verticalAlign": "top", "wordBreak": "break-word"}),
+            ])
+        )
+    return html.Table(html.Tbody(rows), style=DETAILS_TABLE_STYLE)
 
 
 @callback(
@@ -65,50 +126,40 @@ def display_properties(selected_nodes, selected_edges, elements, theme_name):
     # Node was selected (selectedNodeData returns a list)
     if selected_nodes and len(selected_nodes) > 0:
         node_data = selected_nodes[0]  # Get first selected node
-        # Build property table excluding internal Cytoscape fields
-        exclude_keys = {'id', 'label', 'displayLabel', 'nodeType'}
-        properties = {k: v for k, v in node_data.items() if k not in exclude_keys and v is not None}
-        
-        # Header
+        # Build property table with all visible keys, including id, label, nodeType, sorted alphabetically
+
+        # Exclude internal/display-only fields from the properties table
+        # 'id' is the Neo4j element_id used by Cytoscape internals — not shown
+        # 'businessId' is the human-readable id — shown explicitly as 'id' at top
+        exclude_keys = {'displayLabel', 'id', 'businessId'}
+        properties = _build_visible_properties(node_data, exclude_keys)
+        # Show the business id as 'id' at the top of the sorted list
+        business_id = node_data.get('businessId') or node_data.get('id')
+        sorted_items = sorted(properties.items())
+        if business_id is not None:
+            sorted_items = [('id', business_id)] + sorted_items
+
+        # Header: node type label with navy left-accent
         header = html.Div([
-            html.H6([
-                html.I(className="fas fa-circle me-2", style={"color": COLOR_NAVY, "fontSize": FONT_SIZE_XTINY}),
-                "Node Details"
-            ], className="mb-3", style=DETAILS_HEADING_STYLE),
-        ])
-        
-        # Basic info
-        basic_info = [
-            html.Div([
-                html.Strong("Type: ", style=DETAILS_LABEL_STYLE),
-                html.Span(node_data.get('nodeType', 'Unknown'), 
-                         style=DETAILS_VALUE_STYLE)
-            ], className="mb-2"),
-            html.Div([
-                html.Strong("Label: ", style=DETAILS_LABEL_STYLE),
-                html.Span(node_data.get('label', 'N/A'), 
-                         style=DETAILS_VALUE_STYLE)
-            ], className="mb-2"),
-            html.Div([
-                html.Strong("ID: ", style=DETAILS_LABEL_STYLE),
-                html.Code(str(node_data.get('id', 'N/A')), 
-                         style=DETAILS_CODE_STYLE)
-            ], className="mb-3"),
-            html.Hr(style=DETAILS_SEPARATOR_STYLE)
-        ]
-        
-        # Properties section
-        if properties:
-            properties_section = [
-                html.H6("Properties", style=DETAILS_SUBHEADING_STYLE),
-                html.Div(build_property_items(properties))
-            ]
+            html.Div(
+                node_data.get('label', 'N/A'),
+                style=DETAILS_PANEL_HEADER_STYLE
+            ),
+            html.Div(
+                node_data.get('nodeType', 'Unknown'),
+                style=DETAILS_PANEL_SUBTYPE_STYLE
+            ),
+        ], className="mb-3")
+
+        # Properties table (all keys sorted alphabetically, id pinned to top)
+        if sorted_items:
+            properties_section = [_build_properties_table(sorted_items)]
         else:
             properties_section = [
-                html.P("No additional properties", className="text-muted", style=DETAILS_MUTED_TEXT_STYLE)
+                html.P("No properties", className="text-muted", style=DETAILS_MUTED_TEXT_STYLE)
             ]
-        
-        # Phase 1.1b: Add Expand Node button
+
+        # Expand Node button
         expand_button = html.Div([
             html.Hr(style={"margin": "16px 0"}),
             dbc.Button(
@@ -126,61 +177,37 @@ def display_properties(selected_nodes, selected_edges, elements, theme_name):
                 style={"fontSize": FONT_SIZE_XTINY}
             )
         ], className="mt-3")
-        
-        return html.Div([header] + basic_info + properties_section + [expand_button])
+
+        return html.Div([header] + properties_section + [expand_button])
     
     # Edge was selected (selectedEdgeData returns a list)
     elif selected_edges and len(selected_edges) > 0:
         edge_data = selected_edges[0]  # Get first selected edge
         # Build property table excluding internal Cytoscape fields
         exclude_keys = {'id', 'source', 'target', 'label', 'relType'}
-        properties = {k: v for k, v in edge_data.items() if k not in exclude_keys and v is not None}
+        properties = _build_visible_properties(edge_data, exclude_keys)
+
+        source_id = _resolve_edge_endpoint_id(edge_data, "source")
+        target_id = _resolve_edge_endpoint_id(edge_data, "target")
         
         # Header
         header = html.Div([
-            html.H6([
-                html.I(className="fas fa-arrow-right me-2", style={"color": COLOR_TEXT_MUTED, "fontSize": FONT_SIZE_XSMALL}),
-                "Relationship Details"
-            ], className="mb-3", style=DETAILS_HEADING_STYLE),
-        ])
-        
-        # Basic info
-        basic_info = [
-            html.Div([
-                html.Strong("Type: ", style=DETAILS_LABEL_STYLE),
-                html.Span(edge_data.get('relType', edge_data.get('label', 'Unknown')), 
-                         style=DETAILS_VALUE_STYLE)
-            ], className="mb-2"),
-            html.Div([
-                html.Strong("From: ", style=DETAILS_LABEL_STYLE),
-                html.Code(str(edge_data.get('source', 'N/A')), 
-                         style=DETAILS_CODE_STYLE)
-            ], className="mb-2"),
-            html.Div([
-                html.Strong("To: ", style=DETAILS_LABEL_STYLE),
-                html.Code(str(edge_data.get('target', 'N/A')), 
-                         style=DETAILS_CODE_STYLE)
-            ], className="mb-2"),
-            html.Div([
-                html.Strong("ID: ", style=DETAILS_LABEL_STYLE),
-                html.Code(str(edge_data.get('id', 'N/A')), 
-                         style=DETAILS_CODE_STYLE)
-            ], className="mb-3"),
-            html.Hr(style=DETAILS_SEPARATOR_STYLE)
+            html.Div(
+                edge_data.get('relType', edge_data.get('label', 'Unknown')),
+                style=DETAILS_PANEL_HEADER_STYLE
+            ),
+            html.Div("Relationship", style=DETAILS_PANEL_SUBTYPE_STYLE),
+        ], className="mb-3")
+
+        # Fixed relationship metadata as a table
+        meta_items = [
+            ("from", source_id),
+            ("to", target_id),
         ]
-        
-        # Properties section
         if properties:
-            properties_section = [
-                html.H6("Properties", style=DETAILS_SUBHEADING_STYLE),
-                html.Div(build_property_items(properties))
-            ]
-        else:
-            properties_section = [
-                html.P("No additional properties", className="text-muted", style=DETAILS_MUTED_TEXT_STYLE)
-            ]
-        
-        return html.Div([header] + basic_info + properties_section)
+            meta_items += sorted(properties.items())
+
+        return html.Div([header, _build_properties_table(meta_items)])
     
     # Nothing selected - show legend
     return legend_state
