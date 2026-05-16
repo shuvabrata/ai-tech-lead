@@ -4,7 +4,7 @@ from typing import Optional, List
 from connectors.neo4j_db.models import Commit, Relationship, merge_commit, merge_relationship
 from connectors.modules.github.new_file_handler import new_file_handler
 from connectors.commons.person_cache import PersonCache
-from connectors.commons.logger import logger
+from common.logger import logger
 from connectors.producers.fetch_github import fetch_commit_files
 from connectors.producers.map_github import (
     map_commit,

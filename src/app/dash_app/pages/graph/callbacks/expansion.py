@@ -7,7 +7,7 @@ import requests
 from dash import Input, Output, State, callback
 
 from app.settings import settings
-from app.common.logger import logger
+from common.logger import logger
 from ..utils import (
     execute_expansion_and_merge,
     create_expansion_success_alert,

@@ -12,7 +12,7 @@ import sys
 import os
 import pytest
 
-from app.common.logger import logger, LogContext
+from common.logger import logger, LogContext
 
 
 @pytest.fixture(scope="session", autouse=True)

@@ -2,7 +2,7 @@ from typing import Any, Optional, Dict
 from datetime import datetime, timezone
 
 from connectors.commons.person_cache import PersonCache
-from connectors.commons.logger import logger
+from common.logger import logger
 from connectors.producers.map_jira import map_jira_user
 
 def new_jira_user_handler(

@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from connectors.commons.logger import logger
+from common.logger import logger
  
 from typing import Any, Optional, cast
 
