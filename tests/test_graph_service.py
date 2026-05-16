@@ -158,8 +158,8 @@ class TestGraphService:
         response = execute_and_format_query(query)
         
         if response.nodes:
-            # Verify nodes are unique by ID
-            node_ids = [node.id for node in response.nodes]
+            # Verify nodes are unique by elementId
+            node_ids = [node.elementId for node in response.nodes]
             assert len(node_ids) == len(set(node_ids)), "Nodes should be deduplicated"
     
     def test_relationship_deduplication(self):
