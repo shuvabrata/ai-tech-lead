@@ -1,4 +1,4 @@
-from connectors.commons.logger import logger
+from app.common.logger import logger
 from connectors.modules.github.new_user_handler import new_user_handler
 from connectors.modules.github.process_github_user import get_users_needing_refresh
 

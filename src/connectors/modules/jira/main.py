@@ -27,7 +27,7 @@ from connectors.modules.jira.new_epic_handler import new_epic_handler
 from connectors.modules.jira.new_sprint_handler import new_sprint_handler
 from connectors.modules.jira.new_issue_handler import new_issue_handler
 from connectors.commons.person_cache import PersonCache
-from connectors.commons.logger import logger
+from app.common.logger import logger
 from connectors.modules.jira.jira_config import (
     create_jira_connection,
     load_config_from_file,

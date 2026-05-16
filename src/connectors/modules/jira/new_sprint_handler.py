@@ -1,7 +1,7 @@
 from typing import Any, Optional, Dict
 
 from connectors.neo4j_db.models import Sprint, merge_sprint
-from connectors.commons.logger import logger
+from app.common.logger import logger
 from connectors.producers.map_jira import map_sprint
 
 

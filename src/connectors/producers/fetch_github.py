@@ -18,7 +18,7 @@ from typing import Any, Iterable, List, Optional
 
 from github import GithubException
 
-from connectors.commons.logger import logger
+from app.common.logger import logger
 from connectors.producers.github.retry_with_backoff import retry_with_backoff
 
 

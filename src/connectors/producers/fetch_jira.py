@@ -15,7 +15,7 @@ import os
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Set
 
-from connectors.commons.logger import logger
+from app.common.logger import logger
 
 
 # ---------------------------------------------------------------------------

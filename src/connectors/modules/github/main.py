@@ -26,7 +26,7 @@ from connectors.modules.github.get_all_repos_for_owner import get_all_repos_for_
 from connectors.modules.github.process_repo import process_repo
 from connectors.modules.github.utils import get_github_client
 from connectors.commons.config_validator import validate_config
-from connectors.commons.logger import logger
+from app.common.logger import logger
 from connectors.modules.github.github_config import (
     is_wildcard_url,
     load_config_from_file,
