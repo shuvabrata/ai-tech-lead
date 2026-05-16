@@ -700,7 +700,7 @@ DETAILS_SEPARATOR_STYLE = {
 # Properties Table — Executive Dashboard tabular layout
 DETAILS_PANEL_HEADER_STYLE = {
     "fontFamily": FONT_SANS,
-    "fontSize": FONT_SIZE_SMALL,
+    "fontSize": FONT_SIZE_MEDIUM,
     "fontWeight": FONT_WEIGHT_SEMIBOLD,
     "color": COLOR_CHARCOAL_MEDIUM,
     "borderLeft": f"3px solid {COLOR_NAVY}",
@@ -711,7 +711,7 @@ DETAILS_PANEL_HEADER_STYLE = {
 
 DETAILS_PANEL_SUBTYPE_STYLE = {
     "fontFamily": FONT_SANS,
-    "fontSize": FONT_SIZE_XTINY,
+    "fontSize": FONT_SIZE_TINY,
     "fontWeight": FONT_WEIGHT_MEDIUM,
     "color": COLOR_TEXT_MUTED,
     "textTransform": "uppercase",
@@ -728,7 +728,7 @@ DETAILS_TABLE_STYLE = {
 
 DETAILS_TABLE_KEY_STYLE = {
     "fontFamily": FONT_SANS,
-    "fontSize": FONT_SIZE_XTINY,
+    "fontSize": FONT_SIZE_TINY,
     "fontWeight": FONT_WEIGHT_MEDIUM,
     "color": COLOR_TEXT_MUTED,
     "textTransform": "uppercase",
@@ -742,7 +742,7 @@ DETAILS_TABLE_KEY_STYLE = {
 
 DETAILS_TABLE_VALUE_STYLE = {
     "fontFamily": FONT_SANS,
-    "fontSize": FONT_SIZE_SMALL,
+    "fontSize": FONT_SIZE_MEDIUM,
     "fontWeight": FONT_WEIGHT_NORMAL,
     "color": COLOR_TEXT_SECONDARY,
     "padding": "6px 0 6px 8px",
@@ -754,7 +754,7 @@ DETAILS_TABLE_VALUE_STYLE = {
 DETAILS_TABLE_VALUE_MONO_STYLE = {
     **DETAILS_TABLE_VALUE_STYLE,
     "fontFamily": "'SFMono-Regular', 'Consolas', 'Menlo', monospace",
-    "fontSize": FONT_SIZE_XSMALL,
+    "fontSize": FONT_SIZE_SMALL,
     "color": COLOR_NAVY,
     "backgroundColor": COLOR_BACKGROUND_PALE,
     "padding": "5px 6px",

@@ -131,7 +131,7 @@ def display_properties(selected_nodes, selected_edges, elements, theme_name):
         # Exclude internal/display-only fields from the properties table
         # 'id' is the Neo4j element_id used by Cytoscape internals — not shown
         # 'businessId' is the human-readable id — shown explicitly as 'id' at top
-        exclude_keys = {'displayLabel', 'id', 'businessId'}
+        exclude_keys = {'displayLabel', 'id', 'businessId', 'label', 'nodeType', 'elementType'}
         properties = _build_visible_properties(node_data, exclude_keys)
         # Show the business id as 'id' at the top of the sorted list
         business_id = node_data.get('businessId') or node_data.get('id')
