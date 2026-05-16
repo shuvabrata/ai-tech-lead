@@ -9,7 +9,7 @@ import re
 from typing import Dict, List, Optional, Any
 import json
 from pathlib import Path
-from app.common.logger import logger
+from common.logger import logger
 
 
 def validate_regex_pattern(pattern: str, pattern_name: str) -> Optional[str]:

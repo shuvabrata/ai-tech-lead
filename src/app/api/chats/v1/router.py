@@ -4,7 +4,7 @@ import asyncio
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 
-from app.common.logger import logger
+from common.logger import logger
 from .model import  (
     ChatCreate,
     ChatSession,

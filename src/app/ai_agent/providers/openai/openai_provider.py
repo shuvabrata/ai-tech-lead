@@ -13,7 +13,7 @@ from dotenv import load_dotenv
 
 from app.ai_agent.providers.base import LLMProvider
 from app.ai_agent.utils.token_utils import count_tokens
-from app.common.logger import logger
+from common.logger import logger
 
 
 class OpenAIProvider(LLMProvider):

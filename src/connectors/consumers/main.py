@@ -39,7 +39,7 @@ from neo4j import GraphDatabase
 from common.messaging.rabbitmq import RabbitMQConsumer
 from connectors.commons.person_cache import PersonCache
 from connectors.consumers.sinks.neo4j_sink import upsert_signal
-from app.common.logger import logger
+from common.logger import logger
 
 
 def _env(key: str, default: str) -> str:

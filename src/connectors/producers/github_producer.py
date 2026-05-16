@@ -69,7 +69,7 @@ from connectors.producers.map_github import (
     map_repo,
 )
 from connectors.producers.sync_cursor import get_sync_cursor, set_sync_cursor
-from app.common.logger import logger
+from common.logger import logger
 
 _SOURCE = "github"
 _VERSION = "1.0"

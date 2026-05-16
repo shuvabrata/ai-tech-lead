@@ -4,7 +4,7 @@ from connectors.neo4j_db.models import IdentityMapping, Relationship, merge_rela
 from connectors.modules.github.map_permissions_to_general import map_permissions_to_general
 import time
 
-from app.common.logger import logger
+from common.logger import logger
 from connectors.commons.person_cache import PersonCache
 from typing import Any, List, Dict, Optional
 from neo4j import Session

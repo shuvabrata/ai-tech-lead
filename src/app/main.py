@@ -11,7 +11,7 @@ from app.api.graph.v1.router import router as graph_v1_router
 from app.api.connectors.v1.router import router as connectors_v1_router
 from app.api.queries.v1.router import router as queries_v1_router
 from app.dash_app.layout import create_dash_app
-from app.common.logger import logger, LogContext
+from common.logger import logger, LogContext
 from app.settings import settings
 
 

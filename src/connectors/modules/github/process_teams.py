@@ -1,4 +1,4 @@
-from app.common.logger import logger
+from common.logger import logger
 from connectors.modules.github.new_team_handler import new_team_handler
 
 

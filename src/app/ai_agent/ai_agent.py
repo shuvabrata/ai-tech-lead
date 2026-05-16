@@ -21,7 +21,7 @@ from typing import AsyncIterator
 
 from dotenv import load_dotenv
 
-from app.common.logger import logger, LogContext
+from common.logger import logger, LogContext
 from app.ai_agent.providers import get_provider
 from app.ai_agent.chains import augment_message_stream
 
