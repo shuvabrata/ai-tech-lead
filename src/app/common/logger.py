@@ -206,10 +206,9 @@ stream_handler = logging.StreamHandler(sys.stdout)
 stream_handler.setFormatter(formatter)
 
 # Create a logger and add the handlers
-logger = logging.getLogger("secops")
+logger = logging.getLogger("wba-logger")
 logger.setLevel(log_level)
 logger.addHandler(stream_handler)
-logger.propagate = False
 
 def set_log_filename(filename: str) -> None:
     global log_filename
