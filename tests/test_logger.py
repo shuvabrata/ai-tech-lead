@@ -154,7 +154,7 @@ def test_error_method_with_exception(caplog):
             numbers = [1, 2, 3]
             item = numbers[10]
         except IndexError as e:
-            # Note: Using logger.error() with exception object triggers custom SecopsLogger.error()
+            # Note: Using logger.error() with exception object triggers custom MyAppLogger.error()
             logger.error(e)
     print()
     
