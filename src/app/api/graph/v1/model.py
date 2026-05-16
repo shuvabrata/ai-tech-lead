@@ -54,15 +54,17 @@ class GraphExecuteRequest(BaseModel):
 
 class GraphNode(BaseModel):
     """Model representing a Neo4j node."""
-    
-    id: str = Field(..., description="Unique identifier for the node")
+
+    businessId: str = Field(..., description="Business identifier from node properties (e.g. 'person-123'). Used for display.")
+    elementId: str = Field(..., description="Neo4j internal element id (e.g. '4:uuid:0'). Used for edge endpoint matching and deduplication.")
     labels: List[str] = Field(default_factory=list, description="Node labels/types")
     properties: Dict[str, Any] = Field(default_factory=dict, description="Node properties")
-    
+
     model_config = ConfigDict(
         json_schema_extra={
             "example": {
-                "id": "123",
+                "businessId": "person-123",
+                "elementId": "4:bf6c0c31-7d78-4217-8270-cd857482b2ef:0",
                 "labels": ["Person", "Employee"],
                 "properties": {"name": "John Doe", "email": "john@example.com"}
             }
