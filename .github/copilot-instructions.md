@@ -46,7 +46,7 @@ Code lives in `src/` but is imported as top-level packages. `PYTHONPATH=src` is 
 
 ```python
 # Correct — always use these import paths
-from app.common.logger import logger
+from common.logger import logger
 from app.settings import settings
 from app.ai_agent.providers import get_provider
 ```
@@ -176,7 +176,7 @@ Feature flags: `GITHUB_MCP_ENABLED`, `ATLASSIAN_MCP_ENABLED`
 ### Code Style
 - **Type Hints**: All function parameters and returns
 - **Docstrings**: Modules, classes, and public functions
-- **Logging**: Use `from app.common.logger import logger` — never `print()`
+- **Logging**: Use `from common.logger import logger` — never `print()`
 - **Error Handling**: Raise appropriate exceptions with clear messages
 - **Python Code Style**: All Python code you generate must be PEP 8 compliant. 
 - **Python 3.6+ Conventions**: Always use modern Python 3.6+ conventions. Specifically, use f-strings (f'...') for variable interpolation instead of % formatting or .format().

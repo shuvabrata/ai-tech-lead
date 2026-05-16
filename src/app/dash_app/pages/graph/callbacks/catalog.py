@@ -9,7 +9,7 @@ import requests
 from dash import ALL, Input, Output, State, callback, ctx, html, no_update
 from dash.exceptions import MissingCallbackContextException
 
-from app.common.logger import logger
+from common.logger import logger
 from app.dash_app.components.common import create_alert
 from app.dash_app.styles import (
     COLOR_BACKGROUND_WHITE,

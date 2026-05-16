@@ -6,7 +6,7 @@ Callbacks for local graph refinement UI controls.
 import dash_bootstrap_components as dbc
 from dash import Input, Output, State, callback, html
 from dash.exceptions import PreventUpdate
-from app.common.logger import logger
+from common.logger import logger
 from ..utils import is_edge_data, is_node_data
 
 

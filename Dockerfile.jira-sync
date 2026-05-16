@@ -18,6 +18,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
 COPY src/connectors/ /app/connectors
+COPY src/common/ /app/common
 
 # Create non-root user for security
 RUN useradd -m -u 1000 -s /bin/bash appuser && \

@@ -4,7 +4,7 @@ from fastapi import APIRouter, HTTPException, Query
 from pydantic import ValidationError
 
 from app.analytics.collaboration.config import CollaborationNetworkConfig
-from app.common.logger import logger
+from common.logger import logger
 from .model import (
     CollaborationNetworkResponse,
     GraphExecuteRequest,
