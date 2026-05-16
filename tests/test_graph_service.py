@@ -36,7 +36,8 @@ class TestGraphService:
         # If there are results, verify structure
         if response.nodes:
             node = response.nodes[0]
-            assert isinstance(node.id, str)
+            assert isinstance(node.businessId, str)
+            assert isinstance(node.elementId, str)
             assert isinstance(node.labels, list)
             assert isinstance(node.properties, dict)
         
@@ -58,12 +59,12 @@ class TestGraphService:
         assert isinstance(response.nodes, list)
         assert isinstance(response.relationships, list)
 
-        # If implicit relationships are returned, they should connect returned nodes
+        # Implicit relationships must only connect nodes returned in this query
         if response.relationships:
-            node_ids = {node.id for node in response.nodes}
+            node_element_ids = {node.elementId for node in response.nodes}
             for rel in response.relationships:
-                assert rel.startNode in node_ids
-                assert rel.endNode in node_ids
+                assert rel.startNode in node_element_ids
+                assert rel.endNode in node_element_ids
         
     def test_execute_tabular_query(self):
         """Test query that returns tabular data (not nodes/relationships)."""
@@ -157,8 +158,8 @@ class TestGraphService:
         response = execute_and_format_query(query)
         
         if response.nodes:
-            # Verify nodes are unique by ID
-            node_ids = [node.id for node in response.nodes]
+            # Verify nodes are unique by elementId
+            node_ids = [node.elementId for node in response.nodes]
             assert len(node_ids) == len(set(node_ids)), "Nodes should be deduplicated"
     
     def test_relationship_deduplication(self):

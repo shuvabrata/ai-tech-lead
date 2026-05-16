@@ -182,7 +182,7 @@ def _format_query_results(
         # This ensures that if nodes have relationships between them, those relationships
         # are also loaded, even if they weren't explicitly returned by the query
         if include_implicit_relationships and len(nodes_list) > 0:
-            node_ids = [node.id for node in nodes_list]
+            node_ids = [node.elementId for node in nodes_list]
             relationship_records = fetch_relationships_between_nodes(node_ids)
             
             # Add any new relationships we found
@@ -247,9 +247,13 @@ def _transform_node(neo4j_node: Node) -> GraphNode:
     """
     # Serialize properties to handle Neo4j-specific types (DateTime, Date, etc.)
     serialized_props = {k: _make_serializable(v) for k, v in dict(neo4j_node).items()}
-    
+
+    # Use the 'id' property from Neo4j data as the business id, fall back to element_id
+    business_id = serialized_props.get("id") or neo4j_node.element_id
+
     return GraphNode(
-        id=neo4j_node.element_id,
+        businessId=business_id,
+        elementId=neo4j_node.element_id,
         labels=list(neo4j_node.labels),
         properties=serialized_props
     )
@@ -300,7 +304,7 @@ def _extract_graph_elements_from_value(
 
     if isinstance(value, Node):
         node = _transform_node(value)
-        nodes_dict[node.id] = node
+        nodes_dict[node.elementId] = node
         return True
 
     if isinstance(value, Relationship):
@@ -311,14 +315,14 @@ def _extract_graph_elements_from_value(
 
         start_node = _transform_node(value.start_node)
         end_node = _transform_node(value.end_node)
-        nodes_dict[start_node.id] = start_node
-        nodes_dict[end_node.id] = end_node
+        nodes_dict[start_node.elementId] = start_node
+        nodes_dict[end_node.elementId] = end_node
         return True
 
     if isinstance(value, Path):
         for node in value.nodes:
             transformed_node = _transform_node(node)
-            nodes_dict[transformed_node.id] = transformed_node
+            nodes_dict[transformed_node.elementId] = transformed_node
 
         for relationship in value.relationships:
             transformed_rel = _transform_relationship(relationship)
@@ -462,7 +466,7 @@ def expand_node(
         if 'm' in record and record['m'] is not None:
             neo4j_node = record['m']
             node = _transform_node(neo4j_node)
-            nodes_dict[node.id] = node
+            nodes_dict[node.elementId] = node
         
         if 'r' in record and record['r'] is not None:
             neo4j_rel = record['r']
