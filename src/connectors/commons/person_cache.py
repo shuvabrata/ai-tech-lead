@@ -16,7 +16,7 @@ Usage:
 from typing import Optional, Tuple, Dict, Set
 
 from connectors.neo4j_db.models import Person, IdentityMapping, Relationship, merge_person, merge_identity_mapping
-from connectors.commons.logger import logger
+from common.logger import logger
 
 
 from typing import Any

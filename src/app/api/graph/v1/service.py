@@ -4,7 +4,7 @@ from pathlib import Path as FilePath
 from typing import Any, Dict, List, Set
 from neo4j.graph import Node, Path, Relationship
 
-from app.common.logger import logger
+from common.logger import logger
 from app.query_catalog import CatalogLoadError, CatalogQuery, get_catalog_query
 from app.settings import settings
 from app.analytics.collaboration.algorithm import (

@@ -15,7 +15,7 @@ from typing import Any, Dict, cast
 
 from atlassian import Jira  # type: ignore[import-untyped]
 
-from connectors.commons.logger import logger
+from common.logger import logger
 
 
 def load_config_from_server() -> Dict[str, Any]:

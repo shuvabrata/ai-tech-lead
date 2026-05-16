@@ -2,7 +2,7 @@
 
 import tiktoken
 
-from app.common.logger import logger
+from common.logger import logger
 
 
 def estimate_tokens_from_chars(messages):

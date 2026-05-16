@@ -12,7 +12,7 @@ from langchain_openai import ChatOpenAI
 from langchain_core.prompts import PromptTemplate
 
 from app.api.graph.v1.query import execute_cypher_query, validate_read_only_query
-from app.common.logger import logger
+from common.logger import logger
 from app.settings import settings
 
 # Initialize Neo4j graph connection (lazy initialization)

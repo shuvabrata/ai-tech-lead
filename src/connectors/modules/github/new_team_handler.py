@@ -4,7 +4,7 @@ import os
 from typing import Any, Dict, Optional
 from connectors.neo4j_db.models import Relationship, Team, merge_relationship, merge_team
 from connectors.modules.github.process_github_user import process_github_user, get_users_needing_refresh
-from connectors.commons.logger import logger
+from common.logger import logger
 
 def new_team_handler(
     session: Any,

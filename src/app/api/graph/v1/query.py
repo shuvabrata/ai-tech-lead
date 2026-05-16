@@ -6,7 +6,7 @@ from neo4j import GraphDatabase
 from neo4j.exceptions import Neo4jError, ServiceUnavailable
 
 from app.settings import settings
-from app.common.logger import logger
+from common.logger import logger
 
 
 # Read-only Cypher keywords (case-insensitive)
