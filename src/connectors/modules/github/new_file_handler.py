@@ -2,7 +2,7 @@ from typing import Any, Optional
 import hashlib
 from connectors.neo4j_db.models import File, merge_file
 from pathlib import Path
-from connectors.commons.logger import logger
+from common.logger import logger
 
 def generate_file_hash(file_path: str) -> str:
     """

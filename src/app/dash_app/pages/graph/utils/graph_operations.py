@@ -10,7 +10,7 @@ from datetime import datetime
 
 import requests
 
-from app.common.logger import logger
+from common.logger import logger
 from .data_transform import neo4j_to_cytoscape
 from .element_types import is_edge_element, is_node_element
 

@@ -9,7 +9,7 @@ allowing the caller to apply an env-based fallback.
 from __future__ import annotations
 
 import asyncio
-from app.common.logger import logger
+from common.logger import logger
 from queue import Queue
 from threading import Thread
 from typing import Any, Optional

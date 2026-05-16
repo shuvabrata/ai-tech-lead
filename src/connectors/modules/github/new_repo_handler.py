@@ -3,7 +3,7 @@ from neo4j import Session
 from github.Repository import Repository as GitHubRepository
 from connectors.neo4j_db.models import Repository, merge_repository
 
-from connectors.commons.logger import logger
+from common.logger import logger
 from connectors.producers.fetch_github import fetch_repo_topics
 from connectors.producers.map_github import map_repo
 

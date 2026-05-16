@@ -14,6 +14,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy app code (includes alembic/, alembic.ini, entrypoint.sh)
 COPY src/app/ ./app/
 
+# Copy shared common package (logger, etc.)
+COPY src/common/ ./common/
+
 # Copy shipped query catalog used by the graph query workbench
 COPY queries_catalog/ ./queries_catalog/
 
