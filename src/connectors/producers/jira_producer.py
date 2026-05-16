@@ -556,7 +556,7 @@ async def publish_signals(
     # Projects
     # ------------------------------------------------------------------
     logger.info("Fetching projects...")
-    projects_raw = fetch_projects(jira, max_results_per_page)
+    projects_raw = await asyncio.to_thread(fetch_projects, jira, max_results_per_page)
     logger.info("Fetched %d projects", len(projects_raw))
     # key → internal id map for downstream relationship wiring
     project_key_to_id: Dict[str, str] = {}
@@ -573,7 +573,7 @@ async def publish_signals(
     # Initiatives
     # ------------------------------------------------------------------
     logger.info("Fetching initiatives (lookback=%d days)...", lookback_days)
-    initiatives_raw = fetch_initiatives(jira, lookback_days, max_results_per_page)
+    initiatives_raw = await asyncio.to_thread(fetch_initiatives, jira, lookback_days, max_results_per_page)
     logger.info("Fetched %d initiatives", len(initiatives_raw))
     # issue_id (Jira) → internal id for Epic → Initiative wiring
     initiative_jira_id_to_id: Dict[str, str] = {}
@@ -592,7 +592,7 @@ async def publish_signals(
     # Epics
     # ------------------------------------------------------------------
     logger.info("Fetching epics (lookback=%d days)...", lookback_days)
-    epics_raw = fetch_epics(jira, lookback_days, max_results_per_page)
+    epics_raw = await asyncio.to_thread(fetch_epics, jira, lookback_days, max_results_per_page)
     logger.info("Fetched %d epics", len(epics_raw))
     # jira issue id → internal epic id for Issue → Epic wiring
     epic_jira_id_to_id: Dict[str, str] = {}
@@ -631,7 +631,7 @@ async def publish_signals(
     # Issues (fetch all first so we can collect sprint IDs)
     # ------------------------------------------------------------------
     logger.info("Fetching issues (lookback=%d days, page_size=%d)...", lookback_days, max_results_per_page)
-    issues_raw = fetch_issues(jira, lookback_days, max_results_per_page)
+    issues_raw = await asyncio.to_thread(fetch_issues, jira, lookback_days, max_results_per_page)
     sprint_ids_needed = extract_sprint_ids_from_issues(issues_raw)
     logger.info("Fetched %d issues; found %d unique sprint IDs", len(issues_raw), len(sprint_ids_needed))
 
@@ -639,7 +639,7 @@ async def publish_signals(
     # Sprints
     # ------------------------------------------------------------------
     logger.info("Fetching %d sprints by ID...", len(sprint_ids_needed))
-    sprints_raw = fetch_sprints_by_ids(jira, sprint_ids_needed)
+    sprints_raw = await asyncio.to_thread(fetch_sprints_by_ids, jira, sprint_ids_needed)
     logger.info("Fetched %d sprints", len(sprints_raw))
     # jira sprint id string → internal sprint id for Issue → Sprint wiring
     sprint_jira_id_to_id: Dict[str, str] = {}
