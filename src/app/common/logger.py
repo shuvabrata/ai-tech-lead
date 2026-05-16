@@ -189,7 +189,7 @@ class MyAppLogger(logging.Logger):
 
                 
 if os.getenv("ENABLE_SLACK_NOTIFICATION") == '1':
-    logging.setLoggerClass(SecopsLogger)
+    logging.setLoggerClass(MyAppLogger)
 
 def get_formatter() -> logging.Formatter:
     if LOG_FORMAT == "JSON":
@@ -209,6 +209,7 @@ stream_handler.setFormatter(formatter)
 logger = logging.getLogger("secops")
 logger.setLevel(log_level)
 logger.addHandler(stream_handler)
+logger.propagate = False
 
 def set_log_filename(filename: str) -> None:
     global log_filename
