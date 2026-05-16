@@ -1,4 +1,4 @@
-from connectors.commons.logger import logger
+from app.common.logger import logger
 from connectors.modules.github.get_fully_synced_commit_shas import get_fully_synced_commit_shas
 from connectors.modules.github.new_commit_handler import new_commit_handler
 from connectors.modules.github.repo_last_synced_at import get__last_synced_at

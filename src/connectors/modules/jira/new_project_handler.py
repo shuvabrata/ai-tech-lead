@@ -1,7 +1,7 @@
 from typing import Any, Optional, Dict
 
 from connectors.commons.person_cache import PersonCache
-from connectors.commons.logger import logger
+from app.common.logger import logger
 
 from connectors.neo4j_db.models import Project, Relationship, merge_project
 from connectors.modules.jira.new_jira_user_handler import new_jira_user_handler

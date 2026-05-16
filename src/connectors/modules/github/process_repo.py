@@ -11,7 +11,7 @@ from github.Repository import Repository
 
 from typing import Optional, Dict, Any, Tuple
 
-from connectors.commons.logger import logger, LogContext
+from app.common.logger import logger, LogContext
 from connectors.modules.github.repo_last_synced_at import update__last_synced_at
 from connectors.modules.github.process_github_user import process_github_user
 from connectors.modules.github.new_branch_handler import new_branch_handler

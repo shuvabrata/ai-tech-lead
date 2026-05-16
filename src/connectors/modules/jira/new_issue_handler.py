@@ -5,7 +5,7 @@ from connectors.neo4j_db.models import Issue, Relationship, merge_issue
 from connectors.modules.jira.new_jira_user_handler import new_jira_user_handler
 from connectors.modules.jira.team_stub_handler import get_or_create_team_stub
 from connectors.commons.person_cache import PersonCache
-from connectors.commons.logger import logger
+from app.common.logger import logger
 from connectors.producers.map_jira import map_issue
 
 

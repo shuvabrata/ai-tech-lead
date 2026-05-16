@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from typing import Any, Optional
 from connectors.neo4j_db.models import PullRequest, Branch, Relationship, merge_pull_request, merge_branch, merge_relationship
 from connectors.commons.person_cache import PersonCache
-from connectors.commons.logger import logger
+from app.common.logger import logger
 from connectors.producers.fetch_github import (
     fetch_external_branch_details,
     fetch_pr_reviews,
