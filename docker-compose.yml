@@ -205,6 +205,7 @@ services:
     env_file:
       - .env
     environment:
+      API_SERVER: http://app:8000/
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/postgres
       RABBITMQ_URL: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASSWORD:-guest}@rabbitmq:5672/
       PYTHONPATH: /app
@@ -230,6 +231,7 @@ services:
     env_file:
       - .env
     environment:
+      API_SERVER: http://app:8000/
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/postgres
       RABBITMQ_URL: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASSWORD:-guest}@rabbitmq:5672/
       PYTHONPATH: /app
