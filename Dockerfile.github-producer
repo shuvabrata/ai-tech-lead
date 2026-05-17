@@ -26,4 +26,4 @@ RUN useradd -m -u 1000 -s /bin/bash appuser && \
 USER appuser
 
 # Run the producer (one-shot: exits after all repos are processed)
-CMD ["python", "connectors/producers/github_producer.py"]
+CMD ["python", "connectors/producers/github/main.py"]
