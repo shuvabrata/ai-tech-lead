@@ -214,7 +214,8 @@ def _handle_person(
         if signal.source == "github":
             login = attrs.get("login", "")
             name = attrs.get("name") or login
-            email = attrs.get("email")
+            raw_email = attrs.get("email")
+            email = raw_email.lower() if raw_email else None
             url = attrs.get("url")
 
             person_id, _ = person_cache.get_or_create_person(
@@ -240,7 +241,8 @@ def _handle_person(
         elif signal.source == "jira":
             account_id = attrs.get("account_id", "")
             name = attrs.get("name", "")
-            email = attrs.get("email")
+            raw_email = attrs.get("email")
+            email = raw_email.lower() if raw_email else None
 
             person_id, _ = person_cache.get_or_create_person(
                 session,
@@ -262,10 +264,11 @@ def _handle_person(
             return
 
     # Fallback: no PersonCache — original behaviour
+    raw_email = attrs.get("email")
     person = Person(
         id=signal.external_id,
         name=attrs.get("name"),
-        email=attrs.get("email"),
+        email=raw_email.lower() if raw_email else None,
         url=attrs.get("url"),
     )
     db_rels = _to_db_relationships(signal.relationships, signal.external_id, "Person")
