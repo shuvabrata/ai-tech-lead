@@ -22,12 +22,12 @@ from connectors.producers.github.constants import (
     _truncate
 )
 
+from connectors.producers.github.build_commit_signal import build_commit_signal
+from connectors.producers.github.build_person_signal import build_person_signal
+from connectors.producers.github.build_pull_request_signal import build_pull_request_signal
+from connectors.producers.github.build_repository_signal import build_repository_signal
 from connectors.producers.github.github_mega_helper import (
     build_branch_signal,
-    build_commit_signal,
-    build_person_signal,
-    build_pull_request_signal,
-    build_repository_signal,
     process_repo_signals,
 )
 
