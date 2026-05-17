@@ -771,7 +771,7 @@ def test_upsert_github_person_calls_person_cache_get_or_create() -> None:
     session = _mock_session()
 
     person_cache = MagicMock(spec=PersonCache)
-    person_cache.get_or_create_person.return_value = ("person_alice@example.com", False)
+    person_cache.get_or_create_person.return_value = ("person_github_alice", False)
 
     upsert_signal(session, signal, person_cache=person_cache)
 
@@ -795,7 +795,7 @@ def test_upsert_jira_person_calls_person_cache_with_account_id() -> None:
     session = _mock_session()
 
     person_cache = MagicMock(spec=PersonCache)
-    person_cache.get_or_create_person.return_value = ("person_bob@example.com", False)
+    person_cache.get_or_create_person.return_value = ("person_jira_abc123", False)
 
     upsert_signal(session, signal, person_cache=person_cache)
 
