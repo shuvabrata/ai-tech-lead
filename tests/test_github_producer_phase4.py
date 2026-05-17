@@ -22,12 +22,12 @@ from connectors.producers.github.constants import (
     _truncate
 )
 
+from connectors.producers.github.build_branch_signal import build_branch_signal
 from connectors.producers.github.build_commit_signal import build_commit_signal
 from connectors.producers.github.build_person_signal import build_person_signal
 from connectors.producers.github.build_pull_request_signal import build_pull_request_signal
 from connectors.producers.github.build_repository_signal import build_repository_signal
 from connectors.producers.github.github_mega_helper import (
-    build_branch_signal,
     process_repo_signals,
 )
 
@@ -448,8 +448,8 @@ class TestProcessRepoSignals:
 
         with (
             patch("connectors.producers.github.github_mega_helper.fetch_repo_topics", return_value=["ai"]),
-            patch("connectors.producers.github.github_mega_helper.fetch_branches", return_value=[mock_branch]),
-            patch("connectors.producers.github.github_mega_helper.fetch_commits", return_value=[mock_commit]),
+            patch("connectors.producers.github.process_branches.fetch_branches", return_value=[mock_branch]),
+            patch("connectors.producers.github.process_commits.fetch_commits", return_value=[mock_commit]),
             patch("connectors.producers.github.process_prs.fetch_pull_requests_direct", return_value=[mock_pr]),
             patch("connectors.producers.github.process_single_pr.fetch_pr_reviews", return_value=[]),
             patch("connectors.producers.github.process_single_pr.fetch_pr_commits", return_value=[]),
@@ -497,8 +497,8 @@ class TestProcessRepoSignals:
 
         with (
             patch("connectors.producers.github.github_mega_helper.fetch_repo_topics", return_value=[]),
-            patch("connectors.producers.github.github_mega_helper.fetch_branches", return_value=[mock_branch]),
-            patch("connectors.producers.github.github_mega_helper.fetch_commits", return_value=[mock_commit]),
+            patch("connectors.producers.github.process_branches.fetch_branches", return_value=[mock_branch]),
+            patch("connectors.producers.github.process_commits.fetch_commits", return_value=[mock_commit]),
             patch("connectors.producers.github.process_prs.fetch_pull_requests_direct", return_value=[mock_pr]),
             patch("connectors.producers.github.process_single_pr.fetch_pr_reviews", return_value=[]),
             patch("connectors.producers.github.process_single_pr.fetch_pr_commits", return_value=[]),
@@ -530,8 +530,8 @@ class TestProcessRepoSignals:
 
         with (
             patch("connectors.producers.github.github_mega_helper.fetch_repo_topics", return_value=[]),
-            patch("connectors.producers.github.github_mega_helper.fetch_branches", return_value=[]),
-            patch("connectors.producers.github.github_mega_helper.fetch_commits", return_value=[]),
+            patch("connectors.producers.github.process_branches.fetch_branches", return_value=[]),
+            patch("connectors.producers.github.process_commits.fetch_commits", return_value=[]),
             patch(
                 "connectors.producers.github.process_prs.fetch_pull_requests_direct",
                 return_value=[recent_pr, old_pr],
@@ -563,8 +563,8 @@ class TestProcessRepoSignals:
         # fetch_pr_commits returns the same commit already processed in the main loop
         with (
             patch("connectors.producers.github.github_mega_helper.fetch_repo_topics", return_value=[]),
-            patch("connectors.producers.github.github_mega_helper.fetch_branches", return_value=[]),
-            patch("connectors.producers.github.github_mega_helper.fetch_commits", return_value=[mock_commit]),
+            patch("connectors.producers.github.process_branches.fetch_branches", return_value=[]),
+            patch("connectors.producers.github.process_commits.fetch_commits", return_value=[mock_commit]),
             patch(
                 "connectors.producers.github.process_prs.fetch_pull_requests_direct",
                 return_value=[mock_pr],
@@ -607,8 +607,8 @@ class TestProcessRepoSignals:
 
         with (
             patch("connectors.producers.github.github_mega_helper.fetch_repo_topics", return_value=[]),
-            patch("connectors.producers.github.github_mega_helper.fetch_branches", return_value=[]),
-            patch("connectors.producers.github.github_mega_helper.fetch_commits", return_value=[]),
+            patch("connectors.producers.github.process_branches.fetch_branches", return_value=[]),
+            patch("connectors.producers.github.process_commits.fetch_commits", return_value=[]),
             patch("connectors.producers.github.process_prs.fetch_pull_requests_direct", return_value=[]),
             patch("connectors.producers.github.process_teams.fetch_repo_teams", return_value=[mock_team]),
         ):
@@ -656,8 +656,8 @@ class TestProcessRepoSignals:
 
         with (
             patch("connectors.producers.github.github_mega_helper.fetch_repo_topics", return_value=[]),
-            patch("connectors.producers.github.github_mega_helper.fetch_branches", return_value=[]),
-            patch("connectors.producers.github.github_mega_helper.fetch_commits", return_value=[]),
+            patch("connectors.producers.github.process_branches.fetch_branches", return_value=[]),
+            patch("connectors.producers.github.process_commits.fetch_commits", return_value=[]),
             patch("connectors.producers.github.process_prs.fetch_pull_requests_direct", return_value=[]),
             patch("connectors.producers.github.process_teams.fetch_repo_teams", return_value=[mock_team]),
         ):

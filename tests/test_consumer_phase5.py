@@ -694,7 +694,7 @@ async def test_consume_queue_acks_on_success() -> None:
         MockDriver.driver.return_value.session.return_value.__exit__ = MagicMock(return_value=False)
 
         await consume_queue(
-            queue_name="github_repository_queue",
+            queue_name="github_queue",
             rabbitmq_url="amqp://guest:guest@localhost:5672/",
             neo4j_uri="bolt://localhost:7687",
             neo4j_user="neo4j",
@@ -741,7 +741,7 @@ async def test_consume_queue_nacks_on_upsert_failure() -> None:
         MockDriver.driver.return_value.session.return_value.__exit__ = MagicMock(return_value=False)
 
         await consume_queue(
-            queue_name="github_repository_queue",
+            queue_name="github_queue",
             rabbitmq_url="amqp://guest:guest@localhost:5672/",
             neo4j_uri="bolt://localhost:7687",
             neo4j_user="neo4j",
