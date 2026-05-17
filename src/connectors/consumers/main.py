@@ -30,8 +30,12 @@ automatically round-robin messages across all running consumers.
 from __future__ import annotations
 
 import asyncio
+import contextlib
+import json
 import os
 import sys
+from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
 from neo4j import GraphDatabase
@@ -40,6 +44,30 @@ from common.messaging.rabbitmq import RabbitMQConsumer
 from connectors.commons.person_cache import PersonCache
 from connectors.consumers.sinks.neo4j_sink import upsert_signal
 from common.logger import logger
+
+
+def _signal_dump_path(queue_name: str) -> Path:
+    """Return the JSONL path for this queue's session, creating the directory if needed.
+
+    Uses LOG_DIR env var (set by docker-compose to the mounted log volume, e.g.
+    /var/log/github-consumer) so that dumps are visible on the host under logs/signals/.
+    Falls back to 'logs' for local development.
+    """
+    log_dir = os.environ.get("LOG_DIR", "logs")
+    dump_dir = Path(log_dir) / "signals"
+    dump_dir.mkdir(parents=True, exist_ok=True)
+    ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    return dump_dir / f"{queue_name}_{ts}.jsonl"
+
+
+def _dump_signal(f: Any, signal: Any) -> None:
+    """Append one signal as a JSON line to an open file handle."""
+    try:
+        line = signal.model_dump_json()
+    except AttributeError:
+        line = json.dumps(signal.dict(), default=str)
+    f.write(line + "\n")
+    f.flush()
 
 
 def _env(key: str, default: str) -> str:
@@ -73,31 +101,45 @@ async def consume_queue(
         neo4j_password: Neo4j password.
     """
     driver = GraphDatabase.driver(neo4j_uri, auth=(neo4j_user, neo4j_password))
-    logger.info("Consumer started: queue=%s", queue_name)
+    signal_dumps_enabled = os.environ.get("LOG_SIGNAL_DUMPS", "").strip().lower() in ("1", "true", "yes")
+    dump_path = _signal_dump_path(queue_name) if signal_dumps_enabled else None
+    if dump_path:
+        logger.info(f"Signal dumps enabled and will dump at: {dump_path}")
+    logger.info(
+        "Consumer started: queue=%s  signal_dump=%s",
+        queue_name,
+        dump_path if signal_dumps_enabled else "disabled",
+    )
+
+    def _open_dump():
+        return dump_path.open("w", encoding="utf-8") if signal_dumps_enabled else contextlib.nullcontext()
 
     try:
         consumer = RabbitMQConsumer(rabbitmq_url, queue=queue_name)
         person_cache = PersonCache()
-        async for signal, message in consumer.consume():
-            signal = signal.with_ingestion_time()
-            try:
-                await asyncio.to_thread(_sync_upsert, driver, signal, person_cache)
-                await message.ack()
-                logger.info(
-                    "Processed signal_id=%s entity_type=%s id=%s queue=%s",
-                    signal.signal_id,
-                    signal.entity_type,
-                    signal.external_id,
-                    queue_name,
-                )
-            except Exception as exc:
-                logger.error(
-                    "Failed to upsert signal_id=%s: %s — nacking to DLQ",
-                    signal.signal_id,
-                    exc,
-                    exc_info=True,
-                )
-                await message.nack(requeue=False)
+        with _open_dump() as dump_file:
+            async for signal, message in consumer.consume():
+                signal = signal.with_ingestion_time()
+                if signal_dumps_enabled:
+                    _dump_signal(dump_file, signal)
+                try:
+                    await asyncio.to_thread(_sync_upsert, driver, signal, person_cache)
+                    await message.ack()
+                    logger.info(
+                        "Processed signal_id=%s entity_type=%s id=%s queue=%s",
+                        signal.signal_id,
+                        signal.entity_type,
+                        signal.external_id,
+                        queue_name,
+                    )
+                except Exception as exc:
+                    logger.error(
+                        "Failed to upsert signal_id=%s: %s — nacking to DLQ",
+                        signal.signal_id,
+                        exc,
+                        exc_info=True,
+                    )
+                    await message.nack(requeue=False)
     finally:
         driver.close()
         logger.info("Consumer stopped: queue=%s", queue_name)
