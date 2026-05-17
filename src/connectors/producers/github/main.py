@@ -35,9 +35,9 @@ from connectors.producers.github.github_config import (
 )
 
 from connectors.producers.github.get_all_repos_for_owner import get_all_repos_for_owner  # type: ignore[import]
+from connectors.producers.github.constants import _SOURCE
 from connectors.producers.github.github_mega_helper import (
     process_repo_signals,
-    _SOURCE
 )
 from connectors.producers.sync_cursor import get_sync_cursor, set_sync_cursor
 
