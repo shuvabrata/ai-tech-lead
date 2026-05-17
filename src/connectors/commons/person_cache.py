@@ -54,107 +54,100 @@ class PersonCache:
         session: Any,
         email: Optional[str],
         name: str,
-        provider: Optional[str] = None,
-        external_id: Optional[str] = None,
+        provider: str = None,
+        external_id: str = None,
         url: Optional[str] = None
     ) -> Tuple[str, bool]:
         """
-        Get existing Person by email or create a new one.
-        Uses in-memory cache to avoid repeated database queries.
-        
+        Get or create a Person node with cross-provider email deduplication.
+
+        Lookup order:
+        1. In-memory provider cache ``(provider, external_id)`` — fastest path.
+        2. In-memory email cache — catches cross-provider duplicates seen earlier
+           in the same batch.
+        3. Database lookup by email — finds nodes created by a previous sync run
+           from a different provider.
+        4. Database lookup by provider-scoped id — finds same-provider nodes
+           created without an email that now arrive with one.
+        5. Create a new ``person_{provider}_{external_id}`` node.
+
         Args:
             session: Neo4j session
-            email: Email address (canonical identifier)
+            email: Email address — stored as a property; used for deduplication
             name: Display name or full name
             provider: System name ('github', 'jira', etc.)
             external_id: External system ID
             url: URL to user profile
-            
+
         Returns:
             tuple: (person_id, is_new)
                 - person_id: The canonical Person node ID
                 - is_new: True if a new Person was created, False if existing
         """
-        # Normalize email
+        if not (provider and external_id):
+            raise ValueError("    Cannot create person_id: provider and external_id are required")
+
         email = email if email else None
-        
-        # Try cache lookup first
-        if email:
-            if email in self._email_cache:
-                self.cache_hits += 1
-                person_id = self._email_cache[email]
-                logger.debug(f"    ⚡ Cache hit for email: {email} -> {person_id}")
-                return person_id, False
-        elif provider and external_id:
-            if (provider, external_id) in self._provider_cache:
-                self.cache_hits += 1
-                person_id = self._provider_cache[(provider, external_id)]
-                logger.debug(f"    ⚡ Cache hit for {provider}:{external_id} -> {person_id}")
-                return person_id, False
-        
-        # Cache miss - need to check database
+
+        # ── 1. Provider cache (fastest) ───────────────────────────────────────
+        if (provider, external_id) in self._provider_cache:
+            self.cache_hits += 1
+            person_id = self._provider_cache[(provider, external_id)]
+            logger.debug(f"    ⚡ Cache hit (provider) {provider}:{external_id} -> {person_id}")
+            return person_id, False
+
+        # ── 2. Email cache (cross-provider, same batch) ───────────────────────
+        if email and email in self._email_cache:
+            self.cache_hits += 1
+            person_id = self._email_cache[email]
+            logger.debug(f"    ⚡ Cache hit (email) {email} -> {person_id}")
+            self._provider_cache[(provider, external_id)] = person_id
+            return person_id, False
+
         self.cache_misses += 1
-        
-        # Determine canonical person_id
+        fallback_person_id = f"person_{provider}_{external_id}"
+
+        # ── 3. DB lookup by email (cross-provider, prior sync runs) ──────────
         if email:
-            person_id = f"person_{email}"
-            logger.debug(f"    Using email-based person ID: {person_id}")
-        elif provider and external_id:
-            person_id = f"person_{provider}_{external_id}"
-            logger.debug(f"    No email available, using provider-specific ID: {person_id}")
-        else:
-            raise ValueError("    Cannot create person_id: both email and provider/external_id are missing")
-     
-        # Check if Person already exists in database
-        is_new = False
-        if email:
-            logger.debug(f"    Checking database for Person with email: {email}")
             self.db_queries += 1
             result = session.run(
-                """
-                MATCH (p:Person)
-                WHERE p.email = $email AND p.email IS NOT NULL
-                RETURN p.id as id
-                LIMIT 1
-                """,
-                email=email
+                "MATCH (p:Person) WHERE p.email = $email RETURN p.id AS id LIMIT 1",
+                email=email,
             )
-            existing = result.single()
-            
-            if existing:
-                existing_id = existing['id']
-                logger.debug(f"    ✓ Found existing Person in DB: {existing_id}")
-                person_id = existing_id
-                # Cache it for future lookups
+            existing_by_email = result.single()
+            if existing_by_email:
+                person_id = existing_by_email["id"]
+                logger.debug(
+                    f"    ✓ Found existing Person by email '{email}': {person_id} — "
+                    f"reusing instead of creating {fallback_person_id}"
+                )
+                person = Person(
+                    id=person_id, name=name, email=email, url=url,
+                )
+                merge_person(session, person)
                 self._email_cache[email] = person_id
-                if provider and external_id:
-                    self._provider_cache[(provider, external_id)] = person_id
+                self._provider_cache[(provider, external_id)] = person_id
                 return person_id, False
-        
-        # Person doesn't exist - create new one
-        logger.debug(f"    Creating new Person node: {person_id}")
+
+        # ── 4 & 5. Provider-scoped lookup / create ────────────────────────────
+        person_id = fallback_person_id
+        logger.debug(f"    Using provider-scoped person ID: {person_id}")
+
+        self.db_queries += 1
+        existing_by_id = session.run(
+            "MATCH (p:Person {id: $pid}) RETURN p.id AS id LIMIT 1", pid=person_id
+        ).single()
+        is_new = existing_by_id is None
+
         person = Person(
-            id=person_id,
-            name=name,
-            email=email,
-            title="",
-            role="",
-            seniority="",
-            hire_date="",
-            is_manager=False,
-            url=url
+            id=person_id, name=name, email=email, url=url,
         )
-        
         merge_person(session, person)
-        logger.debug(f"    ✓ Created new Person: {person_id}")
-        is_new = True
-        
-        # Add to cache
+        logger.debug(f"    {'✓ Created' if is_new else '✓ Updated'} Person: {person_id}")
+
         if email:
             self._email_cache[email] = person_id
-        if provider and external_id:
-            self._provider_cache[(provider, external_id)] = person_id
-        
+        self._provider_cache[(provider, external_id)] = person_id
         return person_id, is_new
     
     def queue_identity_mapping(

@@ -60,11 +60,10 @@ from connectors.producers.fetch_github import (
 from connectors.producers.map_github import (
     extract_issue_keys,
     extract_issue_keys_from_branch,
+    fetch_github_user,
     map_branch,
     map_commit,
-    map_commit_author,
     map_pr_reviews,
-    map_pr_user,
     map_pull_request,
     map_repo,
 )
@@ -177,13 +176,21 @@ def build_person_signal(
     """Build an ActivitySignal for a Person (GitHub author/contributor)."""
     login = person_data.get("login") or person_data.get("name", "unknown")
     person_id = f"person_github_{login}"
+    logger.debug(
+        "[build_person_signal] id=%s  login=%r  name=%r  email=%r  extra_rels=%d",
+        person_id,
+        login,
+        person_data.get("name"),
+        person_data.get("email"),
+        len(extra_relationships) if extra_relationships else 0,
+    )
     try:
         attrs = PersonAttributes(
             id=person_id,
             name=person_data.get("name") or login,
             # Extra
             login=login,
-            email=person_data.get("email", ""),
+            email=person_data.get("email") or "",
         )
         return ActivitySignal(
             source=_SOURCE,
@@ -559,7 +566,7 @@ async def process_repo_signals(
     logger.info("Fetching commits for '%s' since %s...", full_name, since.date())
     commits_raw = await asyncio.to_thread(fetch_commits, repo, since)
     logger.info(f"Number of commits fetched for {full_name} = {len(commits_raw)}")
-    seen_persons: set[str] = set()
+    published_persons: set[str] = set()
     seen_commits: set[str] = set()
     commit_count = 0
 
@@ -569,10 +576,11 @@ async def process_repo_signals(
         nonlocal commit_count
         async with semaphore:
             try:
-                # Isolate blocking PyGithub lazy-loads in a background thread
+                # Isolate blocking PyGithub lazy-loads in a background thread.
+                # fetch_github_user handles both NamedUser (triggers GET /users/{login})
+                # and GitAuthor (reads git metadata directly).
                 def extract_data() -> tuple[Dict[str, Any], Dict[str, Any]]:
-                    commit_author_obj = commit.author or commit.commit.author
-                    a_data = map_commit_author(commit_author_obj)
+                    a_data = fetch_github_user(commit.author or commit.commit.author)
                     c_data = map_commit(repo.name, commit, repo_owner)
                     return a_data, c_data
 
@@ -580,8 +588,15 @@ async def process_repo_signals(
 
                 # Back on the async event loop (thread-safe updates)
                 login = author_data.get("login") or author_data.get("name", "unknown")
-                if login not in seen_persons:
-                    seen_persons.add(login)
+                if login not in published_persons:
+                    published_persons.add(login)
+                    logger.debug(
+                        "[person:commit_author] login=%r  name=%r  email=%r  sha=%s",
+                        login,
+                        author_data.get("name"),
+                        author_data.get("email"),
+                        commit_data.get("sha", "?")[:8],
+                    )
                     await _pub(build_person_signal(author_data))
 
                 sha_short = commit_data.get("sha", "?")[:8]
@@ -625,9 +640,13 @@ async def process_repo_signals(
             )
             return True
 
-        pr_user_obj = pr.user
-        author_data = map_pr_user(pr_user_obj)
-        pr_data = map_pull_request(repo.name, pr, repo_owner)
+        # fetch_github_user accesses .email and .name on PyGithub NamedUser stubs,
+        # which triggers a blocking GET /users/{login} API call per user.
+        # Run in a worker thread to avoid blocking the event loop.
+        def get_pr_author_and_data() -> tuple[Dict[str, Any], Dict[str, Any]]:
+            return fetch_github_user(pr.user), map_pull_request(repo.name, pr, repo_owner)
+
+        author_data, pr_data = await asyncio.to_thread(get_pr_author_and_data)
 
         author_login = author_data.get("login") or author_data.get("name", "unknown")
         logger.debug(
@@ -641,19 +660,43 @@ async def process_repo_signals(
         reviews_raw = await asyncio.to_thread(fetch_pr_reviews, pr)
         review_map = map_pr_reviews(reviews_raw)
         reviewer_logins = list(review_map.keys())
+        # Build reviewer enriched data in a thread — same lazy-load concern as PR author.
+        def build_reviewer_user_data() -> Dict[str, Dict[str, Any]]:
+            return {
+                review.user.login: fetch_github_user(review.user)
+                for review in reviews_raw
+                if review.user and review.user.login
+            }
 
-        # Extract merger login (only set when state == "merged")
+        reviewer_user_data: Dict[str, Dict[str, Any]] = await asyncio.to_thread(
+            build_reviewer_user_data
+        )
+
+        # Extract merger details — fetch full user data so a proper Person signal
+        # is emitted (not just a stub node created by merge_relationship).
         merger_login: Optional[str] = None
+        merger_data: Optional[Dict[str, Any]] = None
         if pr_data.get("state") == "merged":
             merged_by_obj = getattr(pr, "merged_by", None)
-            if merged_by_obj:
-                merger_login = getattr(merged_by_obj, "login", None)
+            if merged_by_obj and getattr(merged_by_obj, "login", None):
+                merger_data = await asyncio.to_thread(fetch_github_user, merged_by_obj)
+                merger_login = merger_data["login"]
 
-        # Requested reviewers (GitHub API: pr.requested_reviewers)
-        requested_reviewer_logins: List[str] = [
-            u.login for u in (getattr(pr, "requested_reviewers", None) or [])
-            if getattr(u, "login", None)
-        ]
+        # Requested reviewers — fetch full user data via fetch_github_user so
+        # these users get dedicated Person signals, not just stub nodes.
+        requested_reviewers_raw = getattr(pr, "requested_reviewers", None) or []
+
+        def fetch_requested_reviewer_data() -> Dict[str, Dict[str, Any]]:
+            return {
+                u.login: fetch_github_user(u)
+                for u in requested_reviewers_raw
+                if getattr(u, "login", None)
+            }
+
+        requested_reviewer_user_data: Dict[str, Dict[str, Any]] = await asyncio.to_thread(
+            fetch_requested_reviewer_data
+        )
+        requested_reviewer_logins: List[str] = list(requested_reviewer_user_data.keys())
 
         # Commit SHAs for INCLUDES relationships
         try:
@@ -668,13 +711,28 @@ async def process_repo_signals(
                 # If we haven't emitted this commit in the main loop, emit it now!
                 if c_sha not in seen_commits:
                     try:
-                        pr_commit_author_obj = pr_c.author or pr_c.commit.author
-                        pr_a_data = map_commit_author(pr_commit_author_obj)
-                        pr_c_data = map_commit(repo.name, pr_c, repo_owner)
+                        # fetch_github_user handles NamedUser stubs (triggers GET /users/{login})
+                        # and GitAuthor objects (git metadata, no API call) uniformly.
+                        # Run in a worker thread to avoid blocking the event loop.
+                        def extract_pr_commit_data() -> tuple[Dict[str, Any], Dict[str, Any]]:
+                            return (
+                                fetch_github_user(pr_c.author or pr_c.commit.author),
+                                map_commit(repo.name, pr_c, repo_owner),
+                            )
+
+                        pr_a_data, pr_c_data = await asyncio.to_thread(extract_pr_commit_data)
 
                         pr_login = pr_a_data.get("login") or pr_a_data.get("name", "unknown")
-                        if pr_login not in seen_persons:
-                            seen_persons.add(pr_login)
+                        if pr_login not in published_persons:
+                            published_persons.add(pr_login)
+                            logger.debug(
+                                "[person:pr_commit_author] login=%r  name=%r  email=%r  pr=#%s  sha=%s",
+                                pr_login,
+                                pr_a_data.get("name"),
+                                pr_a_data.get("email"),
+                                pr.number,
+                                c_sha[:8],
+                            )
                             await _pub(build_person_signal(pr_a_data))
 
                         # Note: branch_data is set to None because we aren't certain which branch it belongs to here
@@ -688,16 +746,54 @@ async def process_repo_signals(
 
         # Emit Person signals for author + reviewers
         for person_login, _ in [(author_data.get("login") or author_data.get("name", "unknown"), None)]:
-            if person_login not in seen_persons:
-                seen_persons.add(person_login)
+            if person_login not in published_persons:
+                published_persons.add(person_login)
+                logger.debug(
+                    "[person:pr_author] login=%r  name=%r  email=%r  pr=#%s",
+                    person_login,
+                    author_data.get("name"),
+                    author_data.get("email"),
+                    pr.number,
+                )
                 p_sig = build_person_signal(author_data)
                 await _pub(p_sig)
 
         for r_login in reviewer_logins:
-            if r_login not in seen_persons:
-                seen_persons.add(r_login)
-                r_sig = build_person_signal({"login": r_login, "name": r_login, "email": ""})
+            if r_login not in published_persons:
+                published_persons.add(r_login)
+                r_data = reviewer_user_data.get(r_login, {"login": r_login, "name": r_login, "email": ""})
+                logger.debug(
+                    "[person:pr_reviewer] login=%r  name=%r  email=%r  pr=#%s",
+                    r_login,
+                    r_data.get("name"),
+                    r_data.get("email"),
+                    pr.number,
+                )
+                r_sig = build_person_signal(r_data)
                 await _pub(r_sig)
+
+        for rr_login, rr_data in requested_reviewer_user_data.items():
+            if rr_login not in published_persons:
+                published_persons.add(rr_login)
+                logger.debug(
+                    "[person:requested_reviewer] login=%r  name=%r  email=%r  pr=#%s",
+                    rr_login,
+                    rr_data.get("name"),
+                    rr_data.get("email"),
+                    pr.number,
+                )
+                await _pub(build_person_signal(rr_data))
+
+        if merger_login and merger_data and merger_login not in published_persons:
+            published_persons.add(merger_login)
+            logger.debug(
+                "[person:merger] login=%r  name=%r  email=%r  pr=#%s",
+                merger_login,
+                merger_data.get("name"),
+                merger_data.get("email"),
+                pr.number,
+            )
+            await _pub(build_person_signal(merger_data))
 
         pr_sig = build_pull_request_signal(
             pr_data,
@@ -720,7 +816,8 @@ async def process_repo_signals(
             logger.warning("PR skipped: %s", exc)
     logger.info("PRs done (%d) for '%s'", published.get("PullRequest", 0), full_name)
 
-    # Teams — emit Team signals with COLLABORATOR rel; emit MEMBER_OF on Person signals
+    #Teams — emit Team signals with COLLABORATOR rel; emit MEMBER_OF on Person signals
+    max_team_size = int(os.environ.get("MAX_TEAM_SIZE", "100"))
     logger.info("Fetching teams for '%s'...", full_name)
     try:
         teams_raw = await asyncio.to_thread(fetch_repo_teams, repo)
@@ -734,15 +831,41 @@ async def process_repo_signals(
                 "name": team_name,
                 "slug": team_slug,
             }
+            # Fetch members first — gate on MAX_TEAM_SIZE before emitting anything
+            try:
+                logger.info(f"Fetching members for team '{team_slug}' in '{full_name}'...")
+                members_raw = await asyncio.to_thread(lambda: list(team.get_members()))
+            except Exception as exc:
+                logger.warning("Could not fetch members for team '%s': %s", team_slug, exc)
+                members_raw = []
+
+            if len(members_raw) > max_team_size:
+                logger.warning(
+                    "Skipping team '%s' entirely (%d members exceeds MAX_TEAM_SIZE=%d)",
+                    team_slug,
+                    len(members_raw),
+                    max_team_size,
+                )
+                continue
+            logger.info(f"Team '{team_slug}' has {len(members_raw)} members (within MAX_TEAM_SIZE={max_team_size}), processing...")
+
             await _pub(build_team_signal(team_data_dict, repo_data, permission))
+
+            # Fetch member details (name + email) in a worker thread.
+            # The team members API returns NamedUser stubs — fetch_github_user
+            # accesses .name and .email, triggering GET /users/{login} per member.
+            def fetch_member_details() -> List[Dict[str, Any]]:
+                return [
+                    fetch_github_user(m)
+                    for m in members_raw
+                    if getattr(m, "login", None)
+                ]
 
             # Emit Person signals for team members with MEMBER_OF and COLLABORATOR rels
             try:
-                members = await asyncio.to_thread(lambda: list(team.get_members()))
-                for member in members:
-                    member_login = getattr(member, "login", None)
-                    if not member_login:
-                        continue
+                member_details = await asyncio.to_thread(fetch_member_details)
+                for member_info in member_details:
+                    member_login = member_info["login"]
                     member_rels: List[Relationship] = [
                         Relationship(
                             type="MEMBER_OF",
@@ -764,8 +887,21 @@ async def process_repo_signals(
                             properties={"permission": permission} if permission else None,
                         ),
                     ]
+                    member_name = member_info["name"]
+                    member_email = member_info["email"]
+                    logger.debug(
+                        "[person:team_member] login=%r  name=%r  email=%r  team=%s",
+                        member_login,
+                        member_name,
+                        member_email,
+                        team_slug,
+                    )
                     member_sig = build_person_signal(
-                        {"login": member_login, "name": getattr(member, "name", None) or member_login, "email": ""},
+                        {
+                            "login": member_login,
+                            "name": member_name,
+                            "email": member_email,
+                        },
                         extra_relationships=member_rels,
                     )
                     await _pub(member_sig)

@@ -1,14 +1,23 @@
 """
 Identity Resolution Module
 
-Provides email-based identity resolution to ensure a single Person node per individual
-across multiple systems (GitHub, Jira, etc.).
+Provides provider-scoped identity resolution with cross-provider deduplication.
 
-Strategy: Email-as-Master-Key
-- Use email address as the canonical identifier
-- Before creating a Person node, check if one exists with that email
-- Reuse existing Person nodes to prevent duplicates
-- Fall back to provider-specific IDs when email is unavailable
+Strategy:
+1. **Email deduplication (cross-provider)** — if an email is supplied, search
+   for any existing Person node that already carries that email.  If found,
+   that node is reused regardless of which provider originally created it.
+   This merges ``person_github_alice`` and ``person_jira_alice`` into a single
+   node as soon as both are seen with the same email address.
+
+2. **Provider-scoped id for new nodes** — when no existing node is found by
+   email, the id is always ``person_{provider}_{external_id}``
+   (e.g. ``person_github_alice``).
+
+3. **Additive property updates** — null/empty fields on an existing node are
+   filled in whenever a richer record arrives.  Non-empty fields (name, url)
+   are overwritten by the incoming value; only blank/missing values are
+   preserved.
 """
 
 from typing import Optional, Tuple
@@ -21,106 +30,88 @@ def get_or_create_person(
     session: Session,
     email: Optional[str],
     name: str,
-    provider: Optional[str] = None,
-    external_id: Optional[str] = None,
+    provider: str = None,
+    external_id: str = None,
     url: Optional[str] = None
 ) -> Tuple[Optional[str], bool]:
     """
-    Get existing Person by email or create a new one.
-    
-    This function implements email-based identity resolution to ensure that
-    the same individual across different systems (GitHub, Jira, etc.) maps
-    to a single Person node in the graph.
-    
+    Get or create a Person node using the provider-scoped id as the canonical key.
+
+    The node id is always ``person_{provider}_{external_id}``.  Email is stored
+    as an additional property and updated (additive only) whenever it is supplied.
+
     Args:
         session: Neo4j session
-        email: Email address (canonical identifier)
+        email: Email address — stored as a property, not used as the node id
         name: Display name or full name
-        provider: System name ('github', 'jira', etc.) - used for fallback ID
-        external_id: External system ID - used for fallback ID when no email
-        url: URL to user profile (preferably GitHub profile URL)
-        
+        provider: System name ('github', 'jira', etc.)
+        external_id: External system ID (GitHub login, Jira account_id, etc.)
+        url: URL to user profile
+
     Returns:
         tuple: (person_id, is_new)
             - person_id: The canonical Person node ID
             - is_new: True if a new Person was created, False if existing
-            
+
     Examples:
-        # User with email (will match across systems)
         person_id, is_new = get_or_create_person(
-            session, 
+            session,
             email="alice@company.com",
             name="Alice Smith",
             provider="github",
             external_id="alice",
-            url="https://github.com/alice"
         )
-        # Returns: ("person_alice@company.com", True/False)
-        
-        # User without email (falls back to provider-specific ID)
-        person_id, is_new = get_or_create_person(
-            session,
-            email=None,
-            name="Bot User",
-            provider="github", 
-            external_id="bot-123"
-        )
-        # Returns: ("person_github_bot-123", True)
+        # Returns: ("person_github_alice", True/False)
     """
-    
-    # Normalize email: convert empty string to None for proper NULL handling in Neo4j
-    # This allows multiple users without emails (UNIQUE constraint allows multiple NULLs)
-    # NOTE: Email should already be lowercased at source (GitHub/Jira extractors)
-    email = email if email else None
-    
-    # Determine canonical person_id
-    if email:
-        # Email-based canonical ID
-        person_id = f"person_{email}"
-        logger.debug(f"    Using email-based person ID: {person_id}")
-    elif provider and external_id:
-        # Fall back to provider-specific ID (for users without email)
-        person_id = f"person_{provider}_{external_id}"
-        logger.debug(f"    No email available, using provider-specific ID: {person_id}")
-    else:
-        logger.error("    Cannot create person_id: both email and provider/external_id are missing")
+    if not (provider and external_id):
+        logger.error("    Cannot create person_id: provider and external_id are required")
         return None, False
-    
-    # Check if Person already exists by email (canonical lookup)
-    # Only lookup by email if email is not None
+
+    email = email if email else None
+    person_id = f"person_{provider}_{external_id}"
+
+    # ── Step 1: cross-provider deduplication via email ───────────────────────
+    # If we have an email, check whether any Person node already carries it.
+    # This handles the case where the same individual was previously synced
+    # from a different provider (e.g. person_github_alice already exists and
+    # now person_jira_alice arrives with the same email).
     if email:
-        logger.debug(f"    Checking for existing Person with email: {email}")
         result = session.run(
-            """
-            MATCH (p:Person)
-            WHERE p.email = $email AND p.email IS NOT NULL
-            RETURN p.id as id
-            LIMIT 1
-            """,
-            email=email
+            "MATCH (p:Person) WHERE p.email = $email RETURN p.id AS id LIMIT 1",
+            email=email,
         )
-        existing = result.single()
-        
-        if existing:
-            existing_id = existing['id']
-            logger.debug(f"    ✓ Found existing Person: {existing_id}")
+        existing_by_email = result.single()
+        if existing_by_email:
+            existing_id = existing_by_email["id"]
+            logger.debug(
+                f"    ✓ Found existing Person by email '{email}': {existing_id} — "
+                f"reusing instead of creating {person_id}"
+            )
+            # Enrich with any properties this record adds (name, url, etc.)
+            person = Person(
+                id=existing_id,
+                name=name,
+                email=email,
+                url=url,
+            )
+            merge_person(session, person)
             return existing_id, False
-    
-    # No existing Person found - create new one
-    logger.debug(f"    Creating new Person node: {person_id}")
+
+    # ── Step 2: provider-scoped lookup / create ──────────────────────────────
+    logger.debug(f"    Using provider-scoped person ID: {person_id}")
+
+    existing_by_id = session.run(
+        "MATCH (p:Person {id: $pid}) RETURN p.id AS id LIMIT 1", pid=person_id
+    ).single()
+    is_new = existing_by_id is None
+
     person = Person(
         id=person_id,
         name=name,
-        email=email,  # None if no email (allows multiple NULLs with UNIQUE constraint)
-        title="",
-        role="",
-        seniority="",
-        hire_date="",
-        is_manager=False,
-        url=url
+        email=email,
+        url=url,
     )
-    
     merge_person(session, person)
-    logger.debug(f"    ✓ Created new Person: {person_id}")
-    
-    return person_id, True
+    logger.debug(f"    {'✓ Created' if is_new else '✓ Updated'} Person: {person_id}")
+
+    return person_id, is_new

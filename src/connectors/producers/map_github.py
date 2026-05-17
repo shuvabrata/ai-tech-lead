@@ -279,6 +279,13 @@ def map_commit_files(files: List[Any]) -> List[Dict[str, Any]]:
 # Pull request
 # ---------------------------------------------------------------------------
 
+# Module-level in-memory cache: login → resolved {login, name, email} dict.
+# Avoids redundant GET /users/{login} API calls when the same GitHub user
+# appears across multiple commits, PRs, or reviews in a single producer run.
+# Thread-safe for CPython: dict reads/writes are GIL-protected; worst-case
+# race is a duplicate fetch on first encounter, which is harmless.
+_user_cache: Dict[str, Dict[str, Any]] = {}
+
 
 def map_pr_user(pr_user: Any) -> Dict[str, Any]:
     """Normalise a GitHub user attached to a PR (author, reviewer, merger).
@@ -310,6 +317,61 @@ def map_pr_user(pr_user: Any) -> Dict[str, Any]:
         "name": name,
         "email": email.lower() if email else None,
     }
+
+
+def fetch_github_user(user_obj: Any) -> Dict[str, Any]:
+    """Canonical user-detail fetcher for any PyGithub user object.
+
+    All person-discovery paths in the producer should go through this
+    function so that login/name/email are extracted consistently.
+
+    Handles two shapes:
+
+    * **NamedUser** (has a ``login`` attribute) — accessing ``.name`` or
+      ``.email`` triggers a blocking ``GET /users/{login}`` API call via
+      PyGithub lazy loading.  **Always call inside** ``asyncio.to_thread()``.
+    * **GitAuthor** (has ``name``/``email``, no ``login``) — reads
+      git-embedded metadata directly; no network call needed.
+
+    Returns:
+        Dict with keys ``login``, ``name``, ``email``.
+        ``email`` is always a lower-cased string, never ``None``.
+    """
+    if user_obj is None:
+        return {"login": "unknown", "name": "Unknown", "email": ""}
+
+    if hasattr(user_obj, "login") and user_obj.login:
+        login = user_obj.login
+
+        # Cache hit — skip the blocking GET /users/{login} entirely.
+        if login in _user_cache:
+            return _user_cache[login]
+
+        try:
+            name = user_obj.name or login
+        except Exception:
+            name = login
+        try:
+            email = (user_obj.email or "").lower()
+        except Exception:
+            email = ""
+
+        result = {"login": login, "name": name, "email": email}
+        _user_cache[login] = result
+        return result
+
+    elif hasattr(user_obj, "name"):
+        # GitAuthor — email is embedded in git commit metadata, no API call needed.
+        # Not cached: the data is already in the object, no savings from caching.
+        name = user_obj.name or "Unknown"
+        email = (getattr(user_obj, "email", "") or "").lower()
+        login = email.split("@")[0] if email else name.lower().replace(" ", "_")
+    else:
+        login = "unknown"
+        name = "Unknown"
+        email = ""
+
+    return {"login": login, "name": name, "email": email}
 
 
 def map_pull_request(
