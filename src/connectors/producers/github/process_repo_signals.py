@@ -87,4 +87,3 @@ async def process_repo_signals(
         build_team_signal_fn=build_team_signal,
         build_person_signal_fn=build_person_signal,
     )
-
