@@ -27,7 +27,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from common.activity_signal.models import ActivitySignal
-from connectors.producers.github.github_mega_helper import build_person_signal, build_team_signal
+from connectors.producers.github.process_repo_signals import build_person_signal, build_team_signal
 from connectors.producers.github.process_teams import process_teams
 
 # ---------------------------------------------------------------------------

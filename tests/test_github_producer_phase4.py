@@ -27,7 +27,7 @@ from connectors.producers.github.build_commit_signal import build_commit_signal
 from connectors.producers.github.build_person_signal import build_person_signal
 from connectors.producers.github.build_pull_request_signal import build_pull_request_signal
 from connectors.producers.github.build_repository_signal import build_repository_signal
-from connectors.producers.github.github_mega_helper import (
+from connectors.producers.github.process_repo_signals import (
     process_repo_signals,
 )
 
