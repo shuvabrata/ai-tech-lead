@@ -32,6 +32,7 @@ from connectors.producers.map_github import (
     map_repo,
 )
 from connectors.producers.github.process_prs import process_prs
+from connectors.producers.github.process_single_commit import process_single_commit
 from connectors.producers.github.pub_callback import make_pub_callback
 from connectors.producers.github.constants import (
     _SOURCE,
@@ -198,51 +199,23 @@ async def process_repo_signals(
     logger.info(f"Number of commits fetched for {full_name} = {len(commits_raw)}")
     published_persons: set[str] = set()
     seen_commits: set[str] = set()
-    commit_count = 0
 
     semaphore = asyncio.Semaphore(3)  # Capped concurrency to prevent API rate limits
 
-    async def process_single_commit(commit: Any) -> None:
-        nonlocal commit_count
-        async with semaphore:
-            try:
-                # Isolate blocking PyGithub lazy-loads in a background thread.
-                # fetch_github_user handles both NamedUser (triggers GET /users/{login})
-                # and GitAuthor (reads git metadata directly).
-                def extract_data() -> tuple[Dict[str, Any], Dict[str, Any]]:
-                    a_data = fetch_github_user(commit.author or commit.commit.author)
-                    c_data = map_commit(repo.name, commit, repo_owner)
-                    return a_data, c_data
-
-                author_data, commit_data = await asyncio.to_thread(extract_data)
-
-                # Back on the async event loop (thread-safe updates)
-                login = author_data.get("login") or author_data.get("name", "unknown")
-                if login not in published_persons:
-                    published_persons.add(login)
-                    logger.debug(
-                        "[person:commit_author] login=%r  name=%r  email=%r  sha=%s",
-                        login,
-                        author_data.get("name"),
-                        author_data.get("email"),
-                        commit_data.get("sha", "?")[:8],
-                    )
-                    await _pub(build_person_signal(author_data))
-
-                sha_short = commit_data.get("sha", "?")[:8]
-                seen_commits.add(commit_data.get("sha"))
-                logger.debug("Commit %s by '%s' processed", sha_short, login)
-
-                await _pub(build_commit_signal(commit_data, author_data, default_branch_data))
-
-                commit_count += 1
-                if commit_count % 10 == 0:
-                    logger.info("  ... %d commits processed so far for '%s'", commit_count, full_name)
-            except Exception as exc:
-                logger.warning("Commit skipped: %s", exc)
-
     if commits_raw:
-        await asyncio.gather(*(process_single_commit(c) for c in commits_raw))
+        await asyncio.gather(*(
+            process_single_commit(
+                commit=c,
+                semaphore=semaphore,
+                repo=repo,
+                repo_owner=repo_owner,
+                default_branch_data=default_branch_data,
+                published_persons=published_persons,
+                seen_commits=seen_commits,
+                pub_callback=_pub,
+            )
+            for c in commits_raw
+        ))
 
     logger.info("Commits done (%d) for '%s'", published.get("Commit", 0), full_name)
 
