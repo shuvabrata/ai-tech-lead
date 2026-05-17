@@ -450,12 +450,12 @@ class TestProcessRepoSignals:
             patch("connectors.producers.github.github_mega_helper.fetch_repo_topics", return_value=["ai"]),
             patch("connectors.producers.github.github_mega_helper.fetch_branches", return_value=[mock_branch]),
             patch("connectors.producers.github.github_mega_helper.fetch_commits", return_value=[mock_commit]),
-            patch("connectors.producers.github.github_mega_helper.fetch_pull_requests_direct", return_value=[mock_pr]),
+            patch("connectors.producers.github.process_prs.fetch_pull_requests_direct", return_value=[mock_pr]),
             patch("connectors.producers.github.process_single_pr.fetch_pr_reviews", return_value=[]),
             patch("connectors.producers.github.process_single_pr.fetch_pr_commits", return_value=[]),
             patch("connectors.producers.github.process_teams.fetch_repo_teams", return_value=[]),
             patch(
-                "connectors.producers.github.github_mega_helper.resolve_prs_since_date",
+                "connectors.producers.github.process_prs.resolve_prs_since_date",
                 return_value=datetime(2020, 1, 1, tzinfo=timezone.utc),
             ),
         ):
@@ -499,11 +499,11 @@ class TestProcessRepoSignals:
             patch("connectors.producers.github.github_mega_helper.fetch_repo_topics", return_value=[]),
             patch("connectors.producers.github.github_mega_helper.fetch_branches", return_value=[mock_branch]),
             patch("connectors.producers.github.github_mega_helper.fetch_commits", return_value=[mock_commit]),
-            patch("connectors.producers.github.github_mega_helper.fetch_pull_requests_direct", return_value=[mock_pr]),
+            patch("connectors.producers.github.process_prs.fetch_pull_requests_direct", return_value=[mock_pr]),
             patch("connectors.producers.github.process_single_pr.fetch_pr_reviews", return_value=[]),
             patch("connectors.producers.github.process_single_pr.fetch_pr_commits", return_value=[]),
             patch(
-                "connectors.producers.github.github_mega_helper.resolve_prs_since_date",
+                "connectors.producers.github.process_prs.resolve_prs_since_date",
                 return_value=datetime(2020, 1, 1, tzinfo=timezone.utc),
             ),
             patch("connectors.producers.github.process_teams.fetch_repo_teams", return_value=[]),
@@ -533,13 +533,13 @@ class TestProcessRepoSignals:
             patch("connectors.producers.github.github_mega_helper.fetch_branches", return_value=[]),
             patch("connectors.producers.github.github_mega_helper.fetch_commits", return_value=[]),
             patch(
-                "connectors.producers.github.github_mega_helper.fetch_pull_requests_direct",
+                "connectors.producers.github.process_prs.fetch_pull_requests_direct",
                 return_value=[recent_pr, old_pr],
             ),
             patch("connectors.producers.github.process_single_pr.fetch_pr_reviews", return_value=[]),
             patch("connectors.producers.github.process_single_pr.fetch_pr_commits", return_value=[]),
             patch(
-                "connectors.producers.github.github_mega_helper.resolve_prs_since_date",
+                "connectors.producers.github.process_prs.resolve_prs_since_date",
                 return_value=datetime(2020, 1, 1, tzinfo=timezone.utc),
             ),
             patch("connectors.producers.github.process_teams.fetch_repo_teams", return_value=[]),
@@ -566,7 +566,7 @@ class TestProcessRepoSignals:
             patch("connectors.producers.github.github_mega_helper.fetch_branches", return_value=[]),
             patch("connectors.producers.github.github_mega_helper.fetch_commits", return_value=[mock_commit]),
             patch(
-                "connectors.producers.github.github_mega_helper.fetch_pull_requests_direct",
+                "connectors.producers.github.process_prs.fetch_pull_requests_direct",
                 return_value=[mock_pr],
             ),
             patch("connectors.producers.github.process_single_pr.fetch_pr_reviews", return_value=[]),
@@ -575,7 +575,7 @@ class TestProcessRepoSignals:
                 return_value=[mock_commit],  # same sha as main-loop commit
             ),
             patch(
-                "connectors.producers.github.github_mega_helper.resolve_prs_since_date",
+                "connectors.producers.github.process_prs.resolve_prs_since_date",
                 return_value=datetime(2020, 1, 1, tzinfo=timezone.utc),
             ),
             patch("connectors.producers.github.process_teams.fetch_repo_teams", return_value=[]),
@@ -609,7 +609,7 @@ class TestProcessRepoSignals:
             patch("connectors.producers.github.github_mega_helper.fetch_repo_topics", return_value=[]),
             patch("connectors.producers.github.github_mega_helper.fetch_branches", return_value=[]),
             patch("connectors.producers.github.github_mega_helper.fetch_commits", return_value=[]),
-            patch("connectors.producers.github.github_mega_helper.fetch_pull_requests_direct", return_value=[]),
+            patch("connectors.producers.github.process_prs.fetch_pull_requests_direct", return_value=[]),
             patch("connectors.producers.github.process_teams.fetch_repo_teams", return_value=[mock_team]),
         ):
             await process_repo_signals(publisher, mock_repo, "org", None, published)
@@ -658,7 +658,7 @@ class TestProcessRepoSignals:
             patch("connectors.producers.github.github_mega_helper.fetch_repo_topics", return_value=[]),
             patch("connectors.producers.github.github_mega_helper.fetch_branches", return_value=[]),
             patch("connectors.producers.github.github_mega_helper.fetch_commits", return_value=[]),
-            patch("connectors.producers.github.github_mega_helper.fetch_pull_requests_direct", return_value=[]),
+            patch("connectors.producers.github.process_prs.fetch_pull_requests_direct", return_value=[]),
             patch("connectors.producers.github.process_teams.fetch_repo_teams", return_value=[mock_team]),
         ):
             await process_repo_signals(publisher, mock_repo, "org", None, published)

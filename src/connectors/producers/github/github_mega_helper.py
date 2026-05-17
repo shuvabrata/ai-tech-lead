@@ -20,10 +20,8 @@ from common.messaging.rabbitmq import RabbitMQPublisher
 from connectors.producers.fetch_github import (
     fetch_branches,
     fetch_commits,
-    fetch_pull_requests_direct,
     fetch_repo_topics,
     resolve_commits_since_date,
-    resolve_prs_since_date,
 )
 from connectors.producers.github.build_commit_signal import build_commit_signal
 from connectors.producers.github.process_teams import process_teams
@@ -33,7 +31,7 @@ from connectors.producers.map_github import (
     map_commit,
     map_repo,
 )
-from connectors.producers.github.process_single_pr import process_single_pr
+from connectors.producers.github.process_prs import process_prs
 from connectors.producers.github.pub_callback import make_pub_callback
 from connectors.producers.github.constants import (
     _SOURCE,
@@ -281,25 +279,17 @@ async def process_repo_signals(
     logger.info("Commits done (%d) for '%s'", published.get("Commit", 0), full_name)
 
     # Pull Requests
-    pr_since = resolve_prs_since_date(last_synced_at)
-    logger.info("Fetching pull requests for '%s'...", full_name)
-    prs_raw = await asyncio.to_thread(fetch_pull_requests_direct, repo)
-
-    for pr in prs_raw:
-        try:
-            should_stop = await process_single_pr(pr, 
-                                                  pr_since,
-                                                  repo=repo,
-                                                  repo_data=repo_data,
-                                                  repo_owner=repo_owner,
-                                                  seen_commits=seen_commits,
-                                                  published_persons=published_persons,
-                                                  _pub=_pub)
-            if should_stop:
-                break
-        except Exception as exc:
-            logger.warning("PR skipped: %s", exc)
-    logger.info("PRs done (%d) for '%s'", published.get("PullRequest", 0), full_name)
+    await process_prs(
+        repo=repo,
+        repo_data=repo_data,
+        repo_owner=repo_owner,
+        full_name=full_name,
+        last_synced_at=last_synced_at,
+        published=published,
+        seen_commits=seen_commits,
+        published_persons=published_persons,
+        pub_callback=_pub,
+    )
 
     # Teams — emit Team signals with COLLABORATOR rel; emit MEMBER_OF on Person signals
     await process_teams(
