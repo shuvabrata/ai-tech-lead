@@ -17,15 +17,17 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from connectors.producers.github_producer import (
-    _SOURCE,
+from connectors.producers.github.constants import (
     _TEXT_MAX,
-    _truncate,
-    build_branch_signal,
-    build_commit_signal,
-    build_person_signal,
-    build_pull_request_signal,
-    build_repository_signal,
+    _truncate
+)
+
+from connectors.producers.github.build_branch_signal import build_branch_signal
+from connectors.producers.github.build_commit_signal import build_commit_signal
+from connectors.producers.github.build_person_signal import build_person_signal
+from connectors.producers.github.build_pull_request_signal import build_pull_request_signal
+from connectors.producers.github.build_repository_signal import build_repository_signal
+from connectors.producers.github.process_repo_signals import (
     process_repo_signals,
 )
 
@@ -445,15 +447,15 @@ class TestProcessRepoSignals:
         published: Dict[str, int] = {}
 
         with (
-            patch("connectors.producers.github_producer.fetch_repo_topics", return_value=["ai"]),
-            patch("connectors.producers.github_producer.fetch_branches", return_value=[mock_branch]),
-            patch("connectors.producers.github_producer.fetch_commits", return_value=[mock_commit]),
-            patch("connectors.producers.github_producer.fetch_pull_requests_direct", return_value=[mock_pr]),
-            patch("connectors.producers.github_producer.fetch_pr_reviews", return_value=[]),
-            patch("connectors.producers.github_producer.fetch_pr_commits", return_value=[]),
-            patch("connectors.producers.github_producer.fetch_repo_teams", return_value=[]),
+            patch("connectors.producers.github.github_mega_helper.fetch_repo_topics", return_value=["ai"]),
+            patch("connectors.producers.github.process_branches.fetch_branches", return_value=[mock_branch]),
+            patch("connectors.producers.github.process_commits.fetch_commits", return_value=[mock_commit]),
+            patch("connectors.producers.github.process_prs.fetch_pull_requests_direct", return_value=[mock_pr]),
+            patch("connectors.producers.github.process_single_pr.fetch_pr_reviews", return_value=[]),
+            patch("connectors.producers.github.process_single_pr.fetch_pr_commits", return_value=[]),
+            patch("connectors.producers.github.process_teams.fetch_repo_teams", return_value=[]),
             patch(
-                "connectors.producers.github_producer.resolve_prs_since_date",
+                "connectors.producers.github.process_prs.resolve_prs_since_date",
                 return_value=datetime(2020, 1, 1, tzinfo=timezone.utc),
             ),
         ):
@@ -474,7 +476,7 @@ class TestProcessRepoSignals:
         published: Dict[str, int] = {}
 
         with (
-            patch("connectors.producers.github_producer.fetch_repo_topics", return_value=[]),
+            patch("connectors.producers.github.github_mega_helper.fetch_repo_topics", return_value=[]),
         ):
             await process_repo_signals(publisher, mock_repo, "org", None, published)
 
@@ -494,22 +496,94 @@ class TestProcessRepoSignals:
         published: Dict[str, int] = {}
 
         with (
-            patch("connectors.producers.github_producer.fetch_repo_topics", return_value=[]),
-            patch("connectors.producers.github_producer.fetch_branches", return_value=[mock_branch]),
-            patch("connectors.producers.github_producer.fetch_commits", return_value=[mock_commit]),
-            patch("connectors.producers.github_producer.fetch_pull_requests_direct", return_value=[mock_pr]),
-            patch("connectors.producers.github_producer.fetch_pr_reviews", return_value=[]),
-            patch("connectors.producers.github_producer.fetch_pr_commits", return_value=[]),
+            patch("connectors.producers.github.github_mega_helper.fetch_repo_topics", return_value=[]),
+            patch("connectors.producers.github.process_branches.fetch_branches", return_value=[mock_branch]),
+            patch("connectors.producers.github.process_commits.fetch_commits", return_value=[mock_commit]),
+            patch("connectors.producers.github.process_prs.fetch_pull_requests_direct", return_value=[mock_pr]),
+            patch("connectors.producers.github.process_single_pr.fetch_pr_reviews", return_value=[]),
+            patch("connectors.producers.github.process_single_pr.fetch_pr_commits", return_value=[]),
             patch(
-                "connectors.producers.github_producer.resolve_prs_since_date",
+                "connectors.producers.github.process_prs.resolve_prs_since_date",
                 return_value=datetime(2020, 1, 1, tzinfo=timezone.utc),
             ),
-            patch("connectors.producers.github_producer.fetch_repo_teams", return_value=[]),
+            patch("connectors.producers.github.process_teams.fetch_repo_teams", return_value=[]),
         ):
             await process_repo_signals(publisher, mock_repo, "org", None, published)
 
         # devuser should appear exactly once
         assert published.get("Person", 0) == 1
+
+    @pytest.mark.asyncio
+    async def test_pr_date_cutoff_stops_loop(self) -> None:
+        """A PR older than pr_since must halt the loop; no signal emitted for it."""
+        mock_repo = self._make_mock_repo()
+
+        recent_pr = self._make_mock_pr()   # updated_at 2024-06-01, will be processed
+
+        old_pr = self._make_mock_pr()
+        old_pr.number = 99
+        old_pr.updated_at = datetime(2019, 1, 1, tzinfo=timezone.utc)  # before cutoff
+
+        publisher = AsyncMock()
+        publisher.publish = AsyncMock()
+        published: Dict[str, int] = {}
+
+        with (
+            patch("connectors.producers.github.github_mega_helper.fetch_repo_topics", return_value=[]),
+            patch("connectors.producers.github.process_branches.fetch_branches", return_value=[]),
+            patch("connectors.producers.github.process_commits.fetch_commits", return_value=[]),
+            patch(
+                "connectors.producers.github.process_prs.fetch_pull_requests_direct",
+                return_value=[recent_pr, old_pr],
+            ),
+            patch("connectors.producers.github.process_single_pr.fetch_pr_reviews", return_value=[]),
+            patch("connectors.producers.github.process_single_pr.fetch_pr_commits", return_value=[]),
+            patch(
+                "connectors.producers.github.process_prs.resolve_prs_since_date",
+                return_value=datetime(2020, 1, 1, tzinfo=timezone.utc),
+            ),
+            patch("connectors.producers.github.process_teams.fetch_repo_teams", return_value=[]),
+        ):
+            await process_repo_signals(publisher, mock_repo, "org", None, published)
+
+        # The recent PR should be published; old PR halts the loop before emission
+        assert published.get("PullRequest", 0) == 1
+
+    @pytest.mark.asyncio
+    async def test_seen_commits_not_reemitted_from_pr_loop(self) -> None:
+        """A commit processed in the main loop must not be re-emitted when it also appears in a PR."""
+        mock_repo = self._make_mock_repo()
+        mock_commit = self._make_mock_commit()  # sha = "abc123"
+        mock_pr = self._make_mock_pr()
+
+        publisher = AsyncMock()
+        publisher.publish = AsyncMock()
+        published: Dict[str, int] = {}
+
+        # fetch_pr_commits returns the same commit already processed in the main loop
+        with (
+            patch("connectors.producers.github.github_mega_helper.fetch_repo_topics", return_value=[]),
+            patch("connectors.producers.github.process_branches.fetch_branches", return_value=[]),
+            patch("connectors.producers.github.process_commits.fetch_commits", return_value=[mock_commit]),
+            patch(
+                "connectors.producers.github.process_prs.fetch_pull_requests_direct",
+                return_value=[mock_pr],
+            ),
+            patch("connectors.producers.github.process_single_pr.fetch_pr_reviews", return_value=[]),
+            patch(
+                "connectors.producers.github.process_single_pr.fetch_pr_commits",
+                return_value=[mock_commit],  # same sha as main-loop commit
+            ),
+            patch(
+                "connectors.producers.github.process_prs.resolve_prs_since_date",
+                return_value=datetime(2020, 1, 1, tzinfo=timezone.utc),
+            ),
+            patch("connectors.producers.github.process_teams.fetch_repo_teams", return_value=[]),
+        ):
+            await process_repo_signals(publisher, mock_repo, "org", None, published)
+
+        # Commit must be published exactly once despite appearing in both loops
+        assert published.get("Commit", 0) == 1
 
     @pytest.mark.asyncio
     async def test_team_signal_emitted_with_collaborator_and_member_of(self) -> None:
@@ -532,11 +606,11 @@ class TestProcessRepoSignals:
         published: Dict[str, int] = {}
 
         with (
-            patch("connectors.producers.github_producer.fetch_repo_topics", return_value=[]),
-            patch("connectors.producers.github_producer.fetch_branches", return_value=[]),
-            patch("connectors.producers.github_producer.fetch_commits", return_value=[]),
-            patch("connectors.producers.github_producer.fetch_pull_requests_direct", return_value=[]),
-            patch("connectors.producers.github_producer.fetch_repo_teams", return_value=[mock_team]),
+            patch("connectors.producers.github.github_mega_helper.fetch_repo_topics", return_value=[]),
+            patch("connectors.producers.github.process_branches.fetch_branches", return_value=[]),
+            patch("connectors.producers.github.process_commits.fetch_commits", return_value=[]),
+            patch("connectors.producers.github.process_prs.fetch_pull_requests_direct", return_value=[]),
+            patch("connectors.producers.github.process_teams.fetch_repo_teams", return_value=[mock_team]),
         ):
             await process_repo_signals(publisher, mock_repo, "org", None, published)
 
@@ -581,11 +655,11 @@ class TestProcessRepoSignals:
         published: Dict[str, int] = {}
 
         with (
-            patch("connectors.producers.github_producer.fetch_repo_topics", return_value=[]),
-            patch("connectors.producers.github_producer.fetch_branches", return_value=[]),
-            patch("connectors.producers.github_producer.fetch_commits", return_value=[]),
-            patch("connectors.producers.github_producer.fetch_pull_requests_direct", return_value=[]),
-            patch("connectors.producers.github_producer.fetch_repo_teams", return_value=[mock_team]),
+            patch("connectors.producers.github.github_mega_helper.fetch_repo_topics", return_value=[]),
+            patch("connectors.producers.github.process_branches.fetch_branches", return_value=[]),
+            patch("connectors.producers.github.process_commits.fetch_commits", return_value=[]),
+            patch("connectors.producers.github.process_prs.fetch_pull_requests_direct", return_value=[]),
+            patch("connectors.producers.github.process_teams.fetch_repo_teams", return_value=[mock_team]),
         ):
             await process_repo_signals(publisher, mock_repo, "org", None, published)
 
