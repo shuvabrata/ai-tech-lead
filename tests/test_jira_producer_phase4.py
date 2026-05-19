@@ -177,12 +177,12 @@ class TestBuildPersonSignal:
         sig = build_person_signal(_user_data(), _BASE_URL)
         assert sig is not None
         assert sig.routing_key == "jira.Person"
-        assert sig.external_id == "jira_person_acc123"
+        assert sig.external_id == "person_jira_acc123"
 
     def test_id_derived_from_account_id(self) -> None:
         sig = build_person_signal({"account_id": "xyz", "display_name": "Bob", "email": ""}, _BASE_URL)
         assert sig is not None
-        assert sig.external_id == "jira_person_xyz"
+        assert sig.external_id == "person_jira_xyz"
 
     def test_extra_fields_email_and_account_id(self) -> None:
         sig = build_person_signal(_user_data(), _BASE_URL)
@@ -528,13 +528,13 @@ class TestBuildInitiativeSignalPhaseD:
     def test_reported_by_relationship(self) -> None:
         """Initiative with reporter_person_id → REPORTED_BY relationship present."""
         sig = build_initiative_signal(
-            _initiative_data(), _BASE_URL, reporter_person_id="jira_person_acc123"
+            _initiative_data(), _BASE_URL, reporter_person_id="person_jira_acc123"
         )
         assert sig is not None
         reported = [r for r in sig.relationships if r.type == "REPORTED_BY"]
         assert len(reported) == 1
         assert reported[0].target.entity_type == "Person"
-        assert reported[0].target.external_id == "jira_person_acc123"
+        assert reported[0].target.external_id == "person_jira_acc123"
 
     def test_no_reported_by_when_reporter_absent(self) -> None:
         sig = build_initiative_signal(_initiative_data(), _BASE_URL)
@@ -546,7 +546,7 @@ class TestBuildInitiativeSignalPhaseD:
         sig = build_initiative_signal(
             _initiative_data(), _BASE_URL,
             project_id="project_jira_10001",
-            reporter_person_id="jira_person_acc123",
+            reporter_person_id="person_jira_acc123",
         )
         assert sig is not None
         types = {r.type for r in sig.relationships}
@@ -563,7 +563,7 @@ class TestBuildEpicSignalPhaseD:
     def test_reported_by_relationship(self) -> None:
         """Epic with reporter_person_id → REPORTED_BY relationship present."""
         sig = build_epic_signal(
-            _epic_data(), _BASE_URL, reporter_person_id="jira_person_acc123"
+            _epic_data(), _BASE_URL, reporter_person_id="person_jira_acc123"
         )
         assert sig is not None
         reported = [r for r in sig.relationships if r.type == "REPORTED_BY"]
@@ -596,13 +596,13 @@ class TestBuildIssueSignalPhaseD:
     def test_reported_by_relationship(self) -> None:
         """Issue with reporter_person_id → REPORTED_BY relationship present."""
         sig = build_issue_signal(
-            _issue_data(), _BASE_URL, reporter_person_id="jira_person_acc123"
+            _issue_data(), _BASE_URL, reporter_person_id="person_jira_acc123"
         )
         assert sig is not None
         reported = [r for r in sig.relationships if r.type == "REPORTED_BY"]
         assert len(reported) == 1
         assert reported[0].target.entity_type == "Person"
-        assert reported[0].target.external_id == "jira_person_acc123"
+        assert reported[0].target.external_id == "person_jira_acc123"
 
     def test_team_relationship(self) -> None:
         """Issue with team_id → TEAM relationship present."""

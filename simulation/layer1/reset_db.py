@@ -4,7 +4,14 @@ Use this script with caution - it will delete all data in the database.
 """
 import os
 import sys
+from pathlib import Path
+
+from dotenv import load_dotenv
 from neo4j import GraphDatabase
+
+# Load .env from project root (two levels up from simulation/layer1/)
+_project_root = Path(__file__).resolve().parents[2]
+load_dotenv(_project_root / ".env")
 
 
 def clear_database(uri: str, user: str, password: str):

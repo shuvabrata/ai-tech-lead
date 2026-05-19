@@ -786,12 +786,12 @@ def test_upsert_github_person_calls_person_cache_get_or_create() -> None:
 def test_upsert_jira_person_calls_person_cache_with_account_id() -> None:
     """Jira Person signal: PersonCache.get_or_create_person called with account_id as external_id."""
     attrs = PersonAttributes(
-        id="jira_person_abc123",
+        id="person_jira_abc123",
         name="Bob",
         account_id="abc123",
         email="bob@example.com",
     )
-    signal = _make_signal(attrs, source="jira", external_id="jira_person_abc123")
+    signal = _make_signal(attrs, source="jira", external_id="person_jira_abc123")
     session = _mock_session()
 
     person_cache = MagicMock(spec=PersonCache)
