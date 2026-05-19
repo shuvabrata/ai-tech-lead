@@ -132,7 +132,7 @@ def build_person_signal(
 ) -> Optional[ActivitySignal]:
     """Build an ActivitySignal for a Person (Jira user)."""
     account_id = user_data.get("account_id", "")
-    person_id = f"jira_person_{account_id}"
+    person_id = f"person_jira_{account_id}"
     try:
         attrs = PersonAttributes(
             id=person_id,
@@ -615,7 +615,7 @@ async def publish_signals(
         if reporter_raw and isinstance(reporter_raw, dict):
             user_data = map_jira_user(reporter_raw)
             account_id = user_data.get("account_id", "")
-            reporter_person_id = f"jira_person_{account_id}"
+            reporter_person_id = f"person_jira_{account_id}"
             if account_id and account_id not in seen_persons:
                 seen_persons.add(account_id)
                 await _pub(build_person_signal(user_data, jira_base_url))
@@ -677,7 +677,7 @@ async def publish_signals(
             if assignee_raw and isinstance(assignee_raw, dict):
                 user_data = map_jira_user(assignee_raw)
                 account_id = user_data.get("account_id", "")
-                assignee_person_id = f"jira_person_{account_id}"
+                assignee_person_id = f"person_jira_{account_id}"
                 if account_id and account_id not in seen_persons:
                     seen_persons.add(account_id)
                     await _pub(build_person_signal(user_data, jira_base_url))
@@ -688,7 +688,7 @@ async def publish_signals(
             if reporter_raw and isinstance(reporter_raw, dict):
                 user_data = map_jira_user(reporter_raw)
                 account_id = user_data.get("account_id", "")
-                reporter_person_id = f"jira_person_{account_id}"
+                reporter_person_id = f"person_jira_{account_id}"
                 if account_id and account_id not in seen_persons:
                     seen_persons.add(account_id)
                     await _pub(build_person_signal(user_data, jira_base_url))
