@@ -105,3 +105,59 @@ class TestPersonIntegrity:
                 for v in violations
             )
         )
+
+    def test_no_duplicate_persons_sharing_identity_mapping(self) -> None:
+        """No two Person nodes may share the same IdentityMapping node.
+
+        A shared IdentityMapping means the consumer created or merged two
+        separate Person nodes for the same individual, which breaks
+        cross-provider deduplication and relationship queries.
+        """
+        results = execute_cypher_query(
+            """
+            MATCH (im:IdentityMapping)-[:MAPS_TO]->(p:Person)
+            WITH im, collect(p.id) AS person_ids, count(p) AS cnt
+            WHERE cnt > 1
+            RETURN im.id AS identity_id, person_ids, cnt
+            ORDER BY cnt DESC, im.id
+            """,
+            timeout=30,
+        )
+
+        violations = [dict(r) for r in results]
+        assert violations == [], (
+            f"{len(violations)} IdentityMapping node(s) point to multiple Person nodes:\n"
+            + "\n".join(
+                f"  identity={v['identity_id']}  persons={v['person_ids']}  count={v['cnt']}"
+                for v in violations
+            )
+        )
+
+    def test_no_stale_id_prefixes(self) -> None:
+        """Person nodes must not use the legacy ID prefixes jira_person_* or github_person_*.
+
+        The canonical format is person_jira_* and person_github_*. Stale-prefix
+        nodes are stub nodes created when a producer emits relationship targets
+        using the old naming convention, leaving them without email, name, or
+        IdentityMapping.
+        """
+        results = execute_cypher_query(
+            """
+            MATCH (p:Person)
+            WHERE p.id STARTS WITH 'jira_person_'
+               OR p.id STARTS WITH 'github_person_'
+            RETURN p.id AS id, p.name AS name, p.email AS email
+            ORDER BY p.id
+            """,
+            timeout=30,
+        )
+
+        violations = [dict(r) for r in results]
+        assert violations == [], (
+            f"{len(violations)} Person node(s) use a stale ID prefix "
+            f"(jira_person_* or github_person_*) — re-sync required:\n"
+            + "\n".join(
+                f"  id={v['id']}  email={v['email'] or '(none)'}  name={v['name'] or ''}"
+                for v in violations
+            )
+        )
