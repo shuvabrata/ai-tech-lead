@@ -3,15 +3,7 @@ from unittest.mock import patch, Mock
 import os
 import requests
 
-# It's good practice to set the path for module imports
-import sys
-from pathlib import Path
-
-# Add the 'app' directory to the Python path to import modules
-project_root = Path(__file__).resolve().parent.parent.parent.parent
-sys.path.insert(0, str(project_root / 'app'))
-
-from connectors.producers.github_producer import load_config_from_server
+from connectors.producers.github.github_config import load_config_from_server
 
 # --- Tests for load_config_from_server (converted to pytest style) ---
 
