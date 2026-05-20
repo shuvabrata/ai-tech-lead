@@ -147,7 +147,7 @@ The `ActivitySignal` schema has accumulated inconsistencies across producers and
 
 ## Phase 4 — Branch
 
-> **Status:** Not Started
+> **Status:** Complete
 
 **Goal:** Migrate the Branch entity end-to-end.
 
