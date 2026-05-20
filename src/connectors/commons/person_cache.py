@@ -105,7 +105,7 @@ class PersonCache:
             return person_id, False
 
         self.cache_misses += 1
-        fallback_person_id = f"person_{provider}_{external_id}"
+        fallback_person_id = f"{provider}::Person::{external_id}"
 
         # ── 3. DB lookup by email (cross-provider, prior sync runs) ──────────
         if email:

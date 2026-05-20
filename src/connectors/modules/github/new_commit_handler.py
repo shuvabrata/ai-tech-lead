@@ -115,7 +115,7 @@ def get_or_create_commit_author(session: Any, commit_author: Any, person_cache: 
     except Exception as e:
         logger.debug(f"        Error creating commit author: {str(e)}", exc_info=True)
         logger.exception(e)
-        fallback_id = "person_github_unknown"
+        fallback_id = "github::Person::unknown"
         logger.debug(f"        Using fallback person ID: {fallback_id}")
         return fallback_id
 

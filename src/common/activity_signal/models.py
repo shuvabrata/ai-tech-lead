@@ -10,8 +10,8 @@ Key design decisions:
   ``entity_type`` and allow arbitrary extra fields (``extra='allow'``).
 - Discriminated union on ``entity_type`` enforces the correct attributes
   sub-model at parse time.
-- ``RelationshipTarget`` is a flexible dict-like model to support lookup by any
-  combination of identifiers (e.g. only ``email`` for a Person).
+- ``RelationshipTarget`` uses a strict schema (``extra='forbid'``); canonical
+  identity is ``(source, entity_type, id)`` with email/url as alternate lookups.
 """
 
 from __future__ import annotations
@@ -20,7 +20,7 @@ import uuid
 from datetime import datetime
 from typing import Annotated, Any, Dict, Literal, Optional, Union, cast
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, computed_field, model_validator
 
 
 # ---------------------------------------------------------------------------
@@ -29,19 +29,27 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class RelationshipTarget(BaseModel):
-    """Flexible lookup dict identifying the target node of a relationship.
+    """Identifies the target node of a relationship.
 
-    The full canonical identity tuple ``(source, entity_type, external_id)``
-    is the primary lookup, but partial lookups (e.g. ``{"email": "x@y.com"}``)
-    are also valid.  All extra fields are accepted so consumers can choose the
-    most convenient identifier available.
+    Canonical identity tuple: ``(source, entity_type, id)``.
+    Consumers resolve the target node using this priority order:
+
+    1. ``entity_type == "Person"`` and ``email`` is set → look up node by email.
+    2. ``url`` is set → look up node by url.
+    3. ``id`` is set → form the WBA canonical key ``{source}::{entity_type}::{id}``.
+    4. ``external_id`` is set → use directly (backward-compat; removed Phase 13).
+
+    No extra fields are permitted; use the declared fields only.
     """
 
-    model_config = ConfigDict(extra="allow")
+    model_config = ConfigDict(extra="forbid")
 
     source: Optional[str] = None
     entity_type: Optional[str] = None
-    external_id: Optional[str] = None
+    id: Optional[str] = None
+    email: Optional[str] = None
+    url: Optional[str] = None
+    external_id: Optional[str] = None  # backward-compat; removed in Phase 13
 
 
 # ---------------------------------------------------------------------------
@@ -131,7 +139,7 @@ class ProjectAttributes(BaseModel):
 
     model_config = ConfigDict(extra="allow")
 
-    entity_type: Literal["Project"] = "Project"
+    entity_type: Literal["Project"] = Field(default="Project", exclude=True)
     id: str
     key: str
     name: str
@@ -142,7 +150,7 @@ class InitiativeAttributes(BaseModel):
 
     model_config = ConfigDict(extra="allow")
 
-    entity_type: Literal["Initiative"] = "Initiative"
+    entity_type: Literal["Initiative"] = Field(default="Initiative", exclude=True)
     id: str
     key: str
     summary: str
@@ -157,7 +165,7 @@ class EpicAttributes(BaseModel):
 
     model_config = ConfigDict(extra="allow")
 
-    entity_type: Literal["Epic"] = "Epic"
+    entity_type: Literal["Epic"] = Field(default="Epic", exclude=True)
     id: str
     key: str
     summary: str
@@ -171,7 +179,7 @@ class SprintAttributes(BaseModel):
 
     model_config = ConfigDict(extra="allow")
 
-    entity_type: Literal["Sprint"] = "Sprint"
+    entity_type: Literal["Sprint"] = Field(default="Sprint", exclude=True)
     id: str
     name: str
     status: str
@@ -182,7 +190,7 @@ class IssueAttributes(BaseModel):
 
     model_config = ConfigDict(extra="allow")
 
-    entity_type: Literal["Issue"] = "Issue"
+    entity_type: Literal["Issue"] = Field(default="Issue", exclude=True)
     id: str
     key: str
     summary: str
@@ -199,7 +207,7 @@ class RepositoryAttributes(BaseModel):
 
     model_config = ConfigDict(extra="allow")
 
-    entity_type: Literal["Repository"] = "Repository"
+    entity_type: Literal["Repository"] = Field(default="Repository", exclude=True)
     id: str
     full_name: str
     name: str
@@ -213,7 +221,7 @@ class BranchAttributes(BaseModel):
 
     model_config = ConfigDict(extra="allow")
 
-    entity_type: Literal["Branch"] = "Branch"
+    entity_type: Literal["Branch"] = Field(default="Branch", exclude=True)
     name: str
     last_commit_sha: str
     last_commit_timestamp: Optional[str] = None
@@ -227,7 +235,7 @@ class CommitAttributes(BaseModel):
 
     model_config = ConfigDict(extra="allow")
 
-    entity_type: Literal["Commit"] = "Commit"
+    entity_type: Literal["Commit"] = Field(default="Commit", exclude=True)
     sha: str
     message: str
     author: str
@@ -239,7 +247,7 @@ class PullRequestAttributes(BaseModel):
 
     model_config = ConfigDict(extra="allow")
 
-    entity_type: Literal["PullRequest"] = "PullRequest"
+    entity_type: Literal["PullRequest"] = Field(default="PullRequest", exclude=True)
     id: str
     number: int
     title: str
@@ -266,7 +274,7 @@ class PersonAttributes(BaseModel):
 
     model_config = ConfigDict(extra="allow")
 
-    entity_type: Literal["Person"] = "Person"
+    entity_type: Literal["Person"] = Field(default="Person", exclude=True)
     id: str
     name: str
 
@@ -276,7 +284,7 @@ class TeamAttributes(BaseModel):
 
     model_config = ConfigDict(extra="allow")
 
-    entity_type: Literal["Team"] = "Team"
+    entity_type: Literal["Team"] = Field(default="Team", exclude=True)
     id: str
     name: str
     slug: str
@@ -367,6 +375,14 @@ class ActivitySignal(BaseModel):
         description="Unique immutable identifier for this signal (UUID).",
     )
     source: str = Field(..., description="Origin system (e.g. 'github', 'jira').")
+    id: Optional[str] = Field(
+        default=None,
+        description=(
+            "Unique identifier for the entity within its entity type. "
+            "Forms the canonical identity tuple (source, entity_type, id). "
+            "Optional during migration; required from Phase 13."
+        ),
+    )
     external_id: str = Field(
         ..., description="Unique identifier for the entity within the source system."
     )
@@ -401,9 +417,31 @@ class ActivitySignal(BaseModel):
         description="Observed relationships for this node at event_time.",
     )
 
+    @model_validator(mode='before')
+    @classmethod
+    def _inject_entity_type_into_attributes(cls, data: Any) -> Any:
+        """Copy root-level entity_type into attributes for discriminated union dispatch.
+
+        Required for round-trip deserialization: model_dump() emits entity_type at
+        root (via @computed_field) but not inside attributes (Field exclude=True).
+        This validator restores it so Pydantic can dispatch the union correctly.
+        """
+        if isinstance(data, dict):
+            entity_type = data.get('entity_type')
+            attrs = data.get('attributes')
+            if entity_type and isinstance(attrs, dict) and 'entity_type' not in attrs:
+                data = {**data, 'attributes': {**attrs, 'entity_type': entity_type}}
+        return data
+
+    @computed_field
     @property
     def entity_type(self) -> str:
-        """Convenience accessor that mirrors the entity_type from attributes."""
+        """Exposes entity_type at the root level of ActivitySignal.
+
+        Reads the Literal value from the underlying *Attributes model and includes
+        it in model_dump() output. Excluded from attributes serialization via
+        Field(exclude=True) on each *Attributes.entity_type field.
+        """
         return cast(_AttributesUnion, self.attributes).entity_type  # type: ignore[union-attr]
 
     @property
@@ -424,5 +462,10 @@ class ActivitySignal(BaseModel):
         )
 
     def extra_attributes(self) -> dict[str, Any]:
-        """Return the full attributes dict including any extra fields."""
+        """Return the full attributes dict including any extra fields.
+
+        .. deprecated::
+            Use ``signal.attributes.model_dump()`` directly. This helper will
+            be removed in Phase 13 of the ActivitySignal refactoring.
+        """
         return cast(_AttributesUnion, self.attributes).model_dump()  # type: ignore[union-attr]

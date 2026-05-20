@@ -23,7 +23,7 @@ The `ActivitySignal` schema has accumulated inconsistencies across producers and
 
 ## Phase 1 — Foundation
 
-> **Status:** Not Started
+> **Status:** Complete
 
 **Goal:** Establish all cross-cutting model and consumer infrastructure that every entity-specific phase depends on. No producer or entity-specific attribute changes in this phase.
 
