@@ -31,7 +31,6 @@ def build_repository_signal(repo_data: Dict[str, Any]) -> Optional[ActivitySigna
         return ActivitySignal(
             source=_SOURCE,
             id=full_name,
-            external_id=wba_format(_SOURCE, "Repository", full_name),
             source_config="https://github.com",
             connector_url=_connector_url(),
             event_time=datetime.now(timezone.utc),

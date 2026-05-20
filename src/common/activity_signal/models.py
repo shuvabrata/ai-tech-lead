@@ -37,7 +37,6 @@ class RelationshipTarget(BaseModel):
     1. ``entity_type == "Person"`` and ``email`` is set → look up node by email.
     2. ``url`` is set → look up node by url.
     3. ``id`` is set → form the WBA canonical key ``{source}::{entity_type}::{id}``.
-    4. ``external_id`` is set → use directly (backward-compat; removed Phase 13).
 
     No extra fields are permitted; use the declared fields only.
     """
@@ -49,7 +48,6 @@ class RelationshipTarget(BaseModel):
     id: Optional[str] = None
     email: Optional[str] = None
     url: Optional[str] = None
-    external_id: Optional[str] = None  # backward-compat; removed in Phase 13
 
 
 # ---------------------------------------------------------------------------
@@ -393,7 +391,7 @@ class ActivitySignal(BaseModel):
 
         signal = ActivitySignal(
             source="github",
-            external_id="repo/123",
+            id="org/repo",
             source_config="https://github.com",
             connector_url="https://wba-ai/connectors/github/1",
             event_time=datetime.utcnow(),
@@ -419,16 +417,12 @@ class ActivitySignal(BaseModel):
         description="Unique immutable identifier for this signal (UUID).",
     )
     source: str = Field(..., description="Origin system (e.g. 'github', 'jira').")
-    id: Optional[str] = Field(
-        default=None,
+    id: str = Field(
+        ...,
         description=(
             "Unique identifier for the entity within its entity type. "
-            "Forms the canonical identity tuple (source, entity_type, id). "
-            "Optional during migration; required from Phase 13."
+            "Forms the canonical identity tuple (source, entity_type, id)."
         ),
-    )
-    external_id: Optional[str] = Field(
-        default=None, description="Unique identifier for the entity within the source system. Backward-compat; removed in Phase 13."
     )
     source_config: str = Field(
         ...,
@@ -487,11 +481,6 @@ class ActivitySignal(BaseModel):
         Field(exclude=True) on each *Attributes.entity_type field.
         """
         return cast(_AttributesUnion, self.attributes).entity_type  # type: ignore[union-attr]
-
-    @property
-    def routing_key(self) -> str:
-        """RabbitMQ routing key: ``<source>.<entity_type>``."""
-        return f"{self.source}.{self.entity_type}"
 
     def with_ingestion_time(self, ts: Optional[datetime] = None) -> "ActivitySignal":
         """Return a copy of this signal with ``ingestion_time`` set.

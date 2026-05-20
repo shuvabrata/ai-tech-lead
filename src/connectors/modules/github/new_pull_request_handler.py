@@ -99,7 +99,7 @@ def get_or_create_pr_author(
             external_id=github_login
         )
 
-        identity_id = f"identity_github_{github_login}"
+        identity_id = wba_format("github", "IdentityMapping", github_login)
         person_cache.queue_identity_mapping(
             person_id=person_id,
             identity_id=identity_id,

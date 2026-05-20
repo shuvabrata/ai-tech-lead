@@ -50,7 +50,6 @@ def build_branch_signal(
         signal = ActivitySignal(
             source=_SOURCE,
             id=branch_id,
-            external_id=wba_format(_SOURCE, "Branch", branch_id),
             source_config="https://github.com",
             connector_url=_connector_url(),
             event_time=event_time,

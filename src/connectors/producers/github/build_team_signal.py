@@ -49,7 +49,6 @@ def build_team_signal(
         return ActivitySignal(
             source=_SOURCE,
             id=slug,
-            external_id=wba_format(_SOURCE, "Team", slug),
             source_config="https://github.com",
             connector_url=_connector_url(),
             event_time=datetime.now(timezone.utc),

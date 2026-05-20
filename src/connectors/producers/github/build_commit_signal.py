@@ -88,7 +88,7 @@ def build_commit_signal(
                     target=RelationshipTarget(
                         source="jira",
                         entity_type="Issue",
-                        external_id=f"jira_issue_{issue_key}",
+                        id=issue_key,
                     ),
                 )
             )
@@ -96,7 +96,6 @@ def build_commit_signal(
         return ActivitySignal(
             source=_SOURCE,
             id=sha,
-            external_id=wba_format(_SOURCE, "Commit", sha),
             source_config="https://github.com",
             connector_url=_connector_url(),
             event_time=event_time,

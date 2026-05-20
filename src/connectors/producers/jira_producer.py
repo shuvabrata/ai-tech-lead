@@ -142,7 +142,6 @@ def build_person_signal(
         return ActivitySignal(
             source=_SOURCE,
             id=account_id,
-            external_id=person_id,
             source_config=jira_base_url,
             connector_url=_connector_url(),
             event_time=datetime.now(timezone.utc),
@@ -285,7 +284,7 @@ def build_epic_signal(
                     target=RelationshipTarget(
                         source=_SOURCE,
                         entity_type="Team",
-                        external_id=team_id,
+                        id=team_id,
                     ),
                 )
             )
@@ -531,11 +530,10 @@ async def publish_signals(
         if sig:
             await publisher.publish(sig)
             logger.info(
-                "Published signal_id=%s entity_type=%s external_id=%s routing_key=%s",
+                "Published signal_id=%s entity_type=%s id=%s",
                 sig.signal_id,
                 sig.entity_type,
-                sig.external_id,
-                sig.routing_key,
+                sig.id,
             )
             _inc(sig.entity_type)
 

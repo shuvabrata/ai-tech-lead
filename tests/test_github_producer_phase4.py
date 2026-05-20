@@ -121,8 +121,6 @@ class TestBuildRepositorySignal:
         assert sig is not None
         assert sig.source == "github"
         assert sig.id == "org/myrepo"
-        assert sig.external_id == "github::Repository::org/myrepo"
-        assert sig.routing_key == "github.Repository"
         assert sig.attributes.entity_type == "Repository"  # type: ignore[union-attr]
 
     def test_missing_mandatory_full_name_returns_none(self) -> None:
@@ -154,10 +152,8 @@ class TestBuildBranchSignal:
     def test_valid(self) -> None:
         sig = build_branch_signal(_branch_data(), _repo_data())
         assert sig is not None
-        assert sig.routing_key == "github.Branch"
         assert sig.attributes.entity_type == "Branch"  # type: ignore[union-attr]
         assert sig.id == "myrepo::main"
-        assert sig.external_id == "github::Branch::myrepo::main"
 
     def test_relationship_to_repo(self) -> None:
         sig = build_branch_signal(_branch_data(), _repo_data())
@@ -202,18 +198,17 @@ class TestBuildPersonSignal:
     def test_valid(self) -> None:
         sig = build_person_signal(_author_data())
         assert sig is not None
-        assert sig.routing_key == "github.Person"
-        assert sig.external_id == "github::Person::devuser"
+        assert sig.id == "devuser"
 
     def test_id_derived_from_login(self) -> None:
         sig = build_person_signal({"login": "alice", "name": "Alice", "email": ""})
         assert sig is not None
-        assert sig.external_id == "github::Person::alice"
+        assert sig.id == "alice"
 
     def test_login_fallback_to_name(self) -> None:
         sig = build_person_signal({"name": "Bob", "email": ""})
         assert sig is not None
-        assert "Bob" in sig.external_id
+        assert "Bob" in sig.id
 
     def test_extra_fields_present(self) -> None:
         sig = build_person_signal(_author_data())
@@ -232,9 +227,7 @@ class TestBuildCommitSignal:
     def test_valid(self) -> None:
         sig = build_commit_signal(_commit_data(), _author_data(), _branch_data())
         assert sig is not None
-        assert sig.routing_key == "github.Commit"
         assert sig.id == "abc123"
-        assert sig.external_id == "github::Commit::abc123"
 
     def test_relationships_authored_by_and_part_of(self) -> None:
         sig = build_commit_signal(_commit_data(), _author_data(), _branch_data())
@@ -280,9 +273,7 @@ class TestBuildPullRequestSignal:
     def test_valid(self) -> None:
         sig = build_pull_request_signal(_pr_data(), _author_data(), [], _repo_data())
         assert sig is not None
-        assert sig.routing_key == "github.PullRequest"
         assert sig.id == "myrepo::42"
-        assert sig.external_id == "github::PullRequest::myrepo::42"
 
     def test_authored_by_relationship(self) -> None:
         sig = build_pull_request_signal(_pr_data(), _author_data(), [], _repo_data())
@@ -646,7 +637,7 @@ class TestProcessRepoSignals:
         assert collab_rels[0].target.entity_type == "Repository"
 
         # Member Person signal has MEMBER_OF relationship to team
-        person_sigs = [s for s in all_sigs if s.entity_type == "Person" and s.external_id == "github::Person::teammember"]
+        person_sigs = [s for s in all_sigs if s.entity_type == "Person" and s.id == "teammember"]
         assert len(person_sigs) == 1
         member_of_rels = [r for r in person_sigs[0].relationships if r.type == "MEMBER_OF"]
         assert len(member_of_rels) == 1
@@ -682,7 +673,7 @@ class TestProcessRepoSignals:
             await process_repo_signals(publisher, mock_repo, "org", None, published)
 
         all_sigs = [call.args[0] for call in publisher.publish.call_args_list]
-        person_sigs = [s for s in all_sigs if s.entity_type == "Person" and s.external_id == "github::Person::collab_user"]
+        person_sigs = [s for s in all_sigs if s.entity_type == "Person" and s.id == "collab_user"]
         assert len(person_sigs) == 1
 
         collab_rels = [r for r in person_sigs[0].relationships if r.type == "COLLABORATOR"]
@@ -787,7 +778,7 @@ class TestBuildCommitSignalPhaseD:
         ref_rels = [r for r in sig.relationships if r.type == "REFERENCES"]
         assert len(ref_rels) == 1
         assert ref_rels[0].target.entity_type == "Issue"
-        assert ref_rels[0].target.external_id == "jira_issue_PROJ-42"
+        assert ref_rels[0].target.id == "PROJ-42"
         assert ref_rels[0].target.source == "jira"
 
     def test_multiple_jira_keys_in_message(self) -> None:
@@ -797,8 +788,8 @@ class TestBuildCommitSignalPhaseD:
         assert sig is not None
         ref_rels = [r for r in sig.relationships if r.type == "REFERENCES"]
         assert len(ref_rels) == 2
-        ref_ids = {r.target.external_id for r in ref_rels}
-        assert ref_ids == {"jira_issue_PROJ-1", "jira_issue_PROJ-2"}
+        ref_ids = {r.target.id for r in ref_rels}
+        assert ref_ids == {"PROJ-1", "PROJ-2"}
 
     def test_no_jira_key_no_references(self) -> None:
         sig = build_commit_signal(

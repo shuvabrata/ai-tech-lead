@@ -40,9 +40,9 @@ _BASE_URL = "https://jira.example.com"
 
 def _project_data(**overrides: Any) -> Dict[str, Any]:
     data: Dict[str, Any] = {
-        "id": "project_jira_10001",
-        "key": "PROJ",
-        "name": "Test Project",
+        "project_id": "project_jira_10001",
+        "project_key": "PROJ",
+        "project_name": "Test Project",
         "status": "Active",
         "project_type": "software",
         "url": f"{_BASE_URL}/browse/PROJ",
@@ -101,7 +101,7 @@ def _epic_data(**overrides: Any) -> Dict[str, Any]:
 
 def _sprint_data(**overrides: Any) -> Dict[str, Any]:
     data: Dict[str, Any] = {
-        "id": "sprint_jira_40001",
+        "sprint_id": "40001",
         "name": "Sprint 1",
         "status": "Active",
         "goal": "Ship feature X",
@@ -144,19 +144,18 @@ class TestBuildProjectSignal:
         sig = build_project_signal(_project_data(), _BASE_URL)
         assert sig is not None
         assert sig.source == "jira"
-        assert sig.external_id == "project_jira_10001"
-        assert sig.routing_key == "jira.Project"
+        assert sig.id == "PROJ"
         assert sig.attributes.entity_type == "Project"  # type: ignore[union-attr]
 
     def test_missing_id_returns_none(self) -> None:
         d = _project_data()
-        del d["id"]
+        del d["project_id"]
         sig = build_project_signal(d, _BASE_URL)
         assert sig is None
 
     def test_missing_key_returns_none(self) -> None:
         d = _project_data()
-        del d["key"]
+        del d["project_key"]
         sig = build_project_signal(d, _BASE_URL)
         assert sig is None
 
@@ -176,13 +175,12 @@ class TestBuildPersonSignal:
     def test_valid(self) -> None:
         sig = build_person_signal(_user_data(), _BASE_URL)
         assert sig is not None
-        assert sig.routing_key == "jira.Person"
-        assert sig.external_id == "person_jira_acc123"
+        assert sig.id == "acc123"
 
     def test_id_derived_from_account_id(self) -> None:
         sig = build_person_signal({"account_id": "xyz", "display_name": "Bob", "email": ""}, _BASE_URL)
         assert sig is not None
-        assert sig.external_id == "person_jira_xyz"
+        assert sig.id == "xyz"
 
     def test_extra_fields_email_and_account_id(self) -> None:
         sig = build_person_signal(_user_data(), _BASE_URL)
@@ -201,8 +199,7 @@ class TestBuildInitiativeSignal:
     def test_valid(self) -> None:
         sig = build_initiative_signal(_initiative_data(), _BASE_URL)
         assert sig is not None
-        assert sig.routing_key == "jira.Initiative"
-        assert sig.external_id == "initiative_jira_20001"
+        assert sig.id == "PROJ-1"
 
     def test_part_of_project_relationship(self) -> None:
         sig = build_initiative_signal(_initiative_data(), _BASE_URL, project_id="project_jira_10001")
@@ -211,7 +208,7 @@ class TestBuildInitiativeSignal:
         rel = sig.relationships[0]
         assert rel.type == "PART_OF"
         assert rel.target.entity_type == "Project"
-        assert rel.target.external_id == "project_jira_10001"
+        assert rel.target.id == "project_jira_10001"
 
     def test_no_project_id_no_relationships(self) -> None:
         sig = build_initiative_signal(_initiative_data(), _BASE_URL, project_id=None)
@@ -220,7 +217,7 @@ class TestBuildInitiativeSignal:
 
     def test_missing_id_returns_none(self) -> None:
         d = _initiative_data()
-        del d["id"]
+        del d["key"]
         sig = build_initiative_signal(d, _BASE_URL)
         assert sig is None
 
@@ -245,7 +242,6 @@ class TestBuildEpicSignal:
     def test_valid(self) -> None:
         sig = build_epic_signal(_epic_data(), _BASE_URL)
         assert sig is not None
-        assert sig.routing_key == "jira.Epic"
 
     def test_part_of_initiative(self) -> None:
         sig = build_epic_signal(_epic_data(), _BASE_URL, initiative_id="initiative_jira_20001")
@@ -268,7 +264,7 @@ class TestBuildEpicSignal:
 
     def test_missing_id_returns_none(self) -> None:
         d = _epic_data()
-        del d["id"]
+        del d["key"]
         sig = build_epic_signal(d, _BASE_URL)
         assert sig is None
 
@@ -282,12 +278,11 @@ class TestBuildSprintSignal:
     def test_valid(self) -> None:
         sig = build_sprint_signal(_sprint_data(), _BASE_URL)
         assert sig is not None
-        assert sig.routing_key == "jira.Sprint"
-        assert sig.external_id == "sprint_jira_40001"
+        assert sig.id == "40001"
 
     def test_missing_id_returns_none(self) -> None:
         d = _sprint_data()
-        del d["id"]
+        del d["sprint_id"]
         sig = build_sprint_signal(d, _BASE_URL)
         assert sig is None
 
@@ -307,8 +302,7 @@ class TestBuildIssueSignal:
     def test_valid(self) -> None:
         sig = build_issue_signal(_issue_data(), _BASE_URL)
         assert sig is not None
-        assert sig.routing_key == "jira.Issue"
-        assert sig.external_id == "issue_jira_50001"
+        assert sig.id == "PROJ-10"
 
     def test_part_of_epic_relationship(self) -> None:
         sig = build_issue_signal(_issue_data(), _BASE_URL, epic_id="epic_jira_30001")
@@ -321,7 +315,7 @@ class TestBuildIssueSignal:
         assert sig is not None
         sprints = [r for r in sig.relationships if r.type == "IN_SPRINT" and r.target.entity_type == "Sprint"]
         assert len(sprints) == 1
-        assert sprints[0].target.external_id == "sprint_jira_40001"
+        assert sprints[0].target.id == "sprint_jira_40001"
 
     def test_multiple_sprints(self) -> None:
         sig = build_issue_signal(
@@ -337,7 +331,7 @@ class TestBuildIssueSignal:
         assigned = [r for r in sig.relationships if r.type == "ASSIGNED_TO"]
         assert len(assigned) == 1
         assert assigned[0].target.entity_type == "Person"
-        assert assigned[0].target.external_id == "person_jira_acc123"
+        assert assigned[0].target.id == "person_jira_acc123"
 
     def test_long_summary_truncated(self) -> None:
         sig = build_issue_signal(_issue_data(summary="S" * (_TEXT_MAX + 200)), _BASE_URL)
@@ -346,7 +340,7 @@ class TestBuildIssueSignal:
 
     def test_missing_id_returns_none(self) -> None:
         d = _issue_data()
-        del d["id"]
+        del d["key"]
         sig = build_issue_signal(d, _BASE_URL)
         assert sig is None
 
@@ -534,7 +528,7 @@ class TestBuildInitiativeSignalPhaseD:
         reported = [r for r in sig.relationships if r.type == "REPORTED_BY"]
         assert len(reported) == 1
         assert reported[0].target.entity_type == "Person"
-        assert reported[0].target.external_id == "person_jira_acc123"
+        assert reported[0].target.id == "person_jira_acc123"
 
     def test_no_reported_by_when_reporter_absent(self) -> None:
         sig = build_initiative_signal(_initiative_data(), _BASE_URL)
@@ -579,7 +573,7 @@ class TestBuildEpicSignalPhaseD:
         team_rels = [r for r in sig.relationships if r.type == "TEAM"]
         assert len(team_rels) == 1
         assert team_rels[0].target.entity_type == "Team"
-        assert team_rels[0].target.external_id == "jira_team_alpha"
+        assert team_rels[0].target.id == "jira_team_alpha"
 
     def test_no_team_when_team_id_absent(self) -> None:
         sig = build_epic_signal(_epic_data(), _BASE_URL)
@@ -602,7 +596,7 @@ class TestBuildIssueSignalPhaseD:
         reported = [r for r in sig.relationships if r.type == "REPORTED_BY"]
         assert len(reported) == 1
         assert reported[0].target.entity_type == "Person"
-        assert reported[0].target.external_id == "person_jira_acc123"
+        assert reported[0].target.id == "person_jira_acc123"
 
     def test_team_relationship(self) -> None:
         """Issue with team_id → TEAM relationship present."""
@@ -613,7 +607,7 @@ class TestBuildIssueSignalPhaseD:
         team_rels = [r for r in sig.relationships if r.type == "TEAM"]
         assert len(team_rels) == 1
         assert team_rels[0].target.entity_type == "Team"
-        assert team_rels[0].target.external_id == "jira_team_alpha"
+        assert team_rels[0].target.id == "jira_team_alpha"
 
     def test_blocks_relationship_from_issue_links(self) -> None:
         """issue_links_raw with outward 'blocks' → BLOCKS relationship emitted."""
@@ -626,7 +620,7 @@ class TestBuildIssueSignalPhaseD:
         blocks = [r for r in sig.relationships if r.type == "BLOCKS"]
         assert len(blocks) == 1
         assert blocks[0].target.entity_type == "Issue"
-        assert blocks[0].target.external_id == "jira_issue_PROJ-20"
+        assert blocks[0].target.id == "PROJ-20"
 
     def test_depends_on_relationship_from_is_blocked_by(self) -> None:
         """issue_links_raw with inward 'is blocked by' → DEPENDS_ON relationship emitted."""
@@ -639,7 +633,7 @@ class TestBuildIssueSignalPhaseD:
         depends = [r for r in sig.relationships if r.type == "DEPENDS_ON"]
         assert len(depends) == 1
         assert depends[0].target.entity_type == "Issue"
-        assert depends[0].target.external_id == "jira_issue_PROJ-21"
+        assert depends[0].target.id == "PROJ-21"
 
     def test_relates_to_relationship(self) -> None:
         """issue_links_raw with 'relates to' → RELATES_TO relationship emitted."""
@@ -652,7 +646,7 @@ class TestBuildIssueSignalPhaseD:
         relates = [r for r in sig.relationships if r.type == "RELATES_TO"]
         assert len(relates) == 1
         assert relates[0].target.entity_type == "Issue"
-        assert relates[0].target.external_id == "jira_issue_PROJ-22"
+        assert relates[0].target.id == "PROJ-22"
 
     def test_multiple_issue_links(self) -> None:
         """Multiple different link types in one issue → all relationships emitted."""

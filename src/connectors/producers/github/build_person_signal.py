@@ -40,7 +40,6 @@ def build_person_signal(
         return ActivitySignal(
             source=_SOURCE,
             id=login,
-            external_id=person_id,
             source_config="https://github.com",
             connector_url=_connector_url(),
             event_time=datetime.now(timezone.utc),
