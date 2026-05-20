@@ -206,10 +206,9 @@ class SprintAttributes(BaseModel):
 class IssueAttributes(BaseModel):
     """Mandatory attributes for a Jira Issue node."""
 
-    model_config = ConfigDict(extra="allow")
+    model_config = ConfigDict(extra="forbid")
 
     entity_type: Literal["Issue"] = Field(default="Issue", exclude=True)
-    id: str
     key: str
     summary: str
     priority: str
@@ -218,6 +217,11 @@ class IssueAttributes(BaseModel):
     created_at: str
     updated_at: Optional[str] = None
     story_points: Optional[float] = None
+    assignee: Optional[str] = None
+    reporter: Optional[str] = None
+    labels: Optional[list] = None
+    url: Optional[str] = None
+    custom: Optional[Dict[str, Any]] = None
 
 
 class RepositoryAttributes(BaseModel):

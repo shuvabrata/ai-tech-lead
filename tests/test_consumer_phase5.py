@@ -509,7 +509,6 @@ def test_upsert_sprint_calls_merge_sprint() -> None:
 @pytest.mark.unit
 def test_upsert_issue_calls_merge_issue() -> None:
     attrs = IssueAttributes(
-        id="issue_jira_PLAT1",
         key="PLAT-1",
         summary="Implement Kubernetes deployment",
         priority="High",
@@ -520,7 +519,7 @@ def test_upsert_issue_calls_merge_issue() -> None:
         story_points=5,
         url="https://jira.example.com/browse/PLAT-1",
     )
-    signal = _make_signal(attrs, external_id="issue_jira_PLAT1", source="jira")
+    signal = _make_signal(attrs, id="PLAT-1", source="jira")
     session = _mock_session()
 
     with patch("connectors.consumers.sinks.neo4j_sink.merge_issue") as mock_merge:
@@ -528,7 +527,7 @@ def test_upsert_issue_calls_merge_issue() -> None:
 
     mock_merge.assert_called_once()
     issue_arg = mock_merge.call_args.args[1]
-    assert issue_arg.id == "issue_jira_PLAT1"
+    assert issue_arg.id == "jira::Issue::PLAT-1"
     assert issue_arg.key == "PLAT-1"
     assert issue_arg.type == "Story"
     assert issue_arg.story_points == 5

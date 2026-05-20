@@ -226,7 +226,6 @@ def test_project_attributes_old_fields_rejected() -> None:
 @pytest.mark.unit
 def test_issue_attributes_type_and_created_at_round_trip() -> None:
     attrs = IssueAttributes(
-        id="issue_jira_1",
         key="PLAT-1",
         summary="Implement feature",
         priority="High",
@@ -248,7 +247,6 @@ def test_issue_attributes_old_issue_type_not_canonical() -> None:
     """issue_type is not declared; omitting ``type`` must raise."""
     with pytest.raises((ValidationError, TypeError)):
         IssueAttributes(
-            id="issue_1",
             key="X-1",
             summary="s",
             priority="High",
@@ -263,7 +261,6 @@ def test_issue_attributes_old_created_not_canonical() -> None:
     """created is not declared; omitting ``created_at`` must raise."""
     with pytest.raises((ValidationError, TypeError)):
         IssueAttributes(
-            id="issue_1",
             key="X-1",
             summary="s",
             priority="High",
@@ -271,6 +268,21 @@ def test_issue_attributes_old_created_not_canonical() -> None:
             type="Bug",
             # created_at deliberately omitted
         )  # type: ignore[call-arg]
+
+
+@pytest.mark.unit
+def test_issue_attributes_old_id_rejected() -> None:
+    """``id`` is no longer a declared field; extra="forbid" must reject it."""
+    with pytest.raises(Exception):
+        IssueAttributes(
+            id="issue_jira_PLAT1",
+            key="PLAT-1",
+            summary="s",
+            priority="High",
+            status="Open",
+            type="Bug",
+            created_at="2026-01-01",
+        )
 
 
 # ---------------------------------------------------------------------------

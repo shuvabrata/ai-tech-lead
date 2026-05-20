@@ -347,17 +347,14 @@ def build_issue_signal(
     """Build an ActivitySignal for a Jira Issue."""
     try:
         attrs = IssueAttributes(
-            id=issue_data["id"],
             key=issue_data["key"],
             summary=_truncate(issue_data.get("summary", "")),
             priority=issue_data.get("priority", "None"),
             status=issue_data.get("status", "Unknown"),
             type=issue_data.get("type", "Unknown"),
             created_at=issue_data.get("created_at", ""),
-            # Extra
-            updated_at=issue_data.get("updated_at", ""),
-            story_points=issue_data.get("story_points", 0),
-            team_value=issue_data.get("team_value"),
+            updated_at=issue_data.get("updated_at") or None,
+            story_points=issue_data.get("story_points") or None,
             url=issue_data.get("url"),
         )
         rels: List[Relationship] = []
@@ -427,7 +424,7 @@ def build_issue_signal(
                     target=RelationshipTarget(
                         source=_SOURCE,
                         entity_type="Team",
-                        external_id=team_id,
+                        id=team_id,
                     ),
                 )
             )
@@ -442,7 +439,6 @@ def build_issue_signal(
                 target_key = link["outwardIssue"].get("key")
                 if not target_key:
                     continue
-                target_id = f"jira_issue_{target_key}"
                 rels.append(
                     Relationship(
                         type="BLOCKS",
@@ -450,7 +446,7 @@ def build_issue_signal(
                         target=RelationshipTarget(
                             source=_SOURCE,
                             entity_type="Issue",
-                            external_id=target_id,
+                            id=target_key,
                         ),
                     )
                 )
@@ -459,7 +455,6 @@ def build_issue_signal(
                 target_key = link["inwardIssue"].get("key")
                 if not target_key:
                     continue
-                target_id = f"jira_issue_{target_key}"
                 rels.append(
                     Relationship(
                         type="DEPENDS_ON",
@@ -467,7 +462,7 @@ def build_issue_signal(
                         target=RelationshipTarget(
                             source=_SOURCE,
                             entity_type="Issue",
-                            external_id=target_id,
+                            id=target_key,
                         ),
                     )
                 )
@@ -478,7 +473,6 @@ def build_issue_signal(
                     target_key = linked_issue.get("key")
                     if not target_key:
                         continue
-                    target_id = f"jira_issue_{target_key}"
                     rels.append(
                         Relationship(
                             type="RELATES_TO",
@@ -486,14 +480,14 @@ def build_issue_signal(
                             target=RelationshipTarget(
                                 source=_SOURCE,
                                 entity_type="Issue",
-                                external_id=target_id,
+                                id=target_key,
                             ),
                         )
                     )
 
         return ActivitySignal(
             source=_SOURCE,
-            external_id=issue_data["id"],
+            id=issue_data["key"],
             source_config=jira_base_url,
             connector_url=_connector_url(),
             event_time=_event_time_from(

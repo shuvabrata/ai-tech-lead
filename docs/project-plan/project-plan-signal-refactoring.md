@@ -402,7 +402,7 @@ The `ActivitySignal` schema has accumulated inconsistencies across producers and
 
 ## Phase 12 — Issue
 
-> **Status:** Not Started
+> **Status:** In Progress
 
 **Goal:** Migrate the Jira Issue entity end-to-end. This is the final entity migration phase.
 
