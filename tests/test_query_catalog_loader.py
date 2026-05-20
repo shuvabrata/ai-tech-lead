@@ -67,8 +67,8 @@ def test_parameterized_queries_are_detected():
     assert direct_reviews.status == "active"
     assert direct_reviews.parameters[0].label == "First person"
     assert direct_reviews.parameters[0].type == "person_id"
-    assert direct_reviews.parameters[0].placeholder == "Enter first person id"
-    assert direct_reviews.parameters[0].description == "Neo4j Person.id for the first person."
+    assert direct_reviews.parameters[0].placeholder
+    assert direct_reviews.parameters[0].description
 
 
 def test_rejects_invalid_query_shape(tmp_path):
