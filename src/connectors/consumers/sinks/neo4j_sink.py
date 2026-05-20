@@ -322,15 +322,16 @@ def _handle_person(
 
 
 def _handle_team(session: Session, signal: ActivitySignal) -> None:
-    attrs = signal.extra_attributes()
+    attrs = signal.attributes.model_dump()
+    node_id = wba_node_id(signal)
     team = Team(
-        id=signal.external_id,
+        id=node_id,
         name=attrs.get("name"),
         source=signal.source,
         created_at=attrs.get("created_at"),
         url=attrs.get("url"),
     )
-    db_rels = _to_db_relationships(session, signal.relationships, signal.external_id, "Team")
+    db_rels = _to_db_relationships(session, signal.relationships, node_id, "Team")
     merge_team(session, team, relationships=db_rels)
 
 

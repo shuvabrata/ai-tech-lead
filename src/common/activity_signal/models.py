@@ -303,12 +303,13 @@ class PersonAttributes(BaseModel):
 class TeamAttributes(BaseModel):
     """Mandatory attributes for a GitHub Team node."""
 
-    model_config = ConfigDict(extra="allow")
+    model_config = ConfigDict(extra="forbid")
 
     entity_type: Literal["Team"] = Field(default="Team", exclude=True)
-    id: str
     name: str
-    slug: str
+    url: Optional[str] = None
+    description: Optional[str] = None
+    custom: Optional[Dict[str, Any]] = None
 
 
 # ---------------------------------------------------------------------------

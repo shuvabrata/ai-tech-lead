@@ -11,6 +11,7 @@ from common.activity_signal.models import (
     RelationshipTarget,
     TeamAttributes,
 )
+from common.activity_signal.wba_node_id import wba_format
 
 from connectors.producers.github.constants import (
     _SOURCE,
@@ -26,10 +27,11 @@ def build_team_signal(
 ) -> Optional[ActivitySignal]:
     """Build an ActivitySignal for a GitHub Team."""
     try:
+        slug = team_data["slug"]
         attrs = TeamAttributes(
-            id=team_data["id"],
             name=team_data["name"],
-            slug=team_data["slug"],
+            url=team_data.get("url"),
+            description=team_data.get("description"),
         )
         props: Optional[Dict[str, Any]] = {"permission": permission} if permission else None
         rels: List[Relationship] = [
@@ -46,7 +48,8 @@ def build_team_signal(
         ]
         return ActivitySignal(
             source=_SOURCE,
-            external_id=team_data["id"],
+            id=slug,
+            external_id=wba_format(_SOURCE, "Team", slug),
             source_config="https://github.com",
             connector_url=_connector_url(),
             event_time=datetime.now(timezone.utc),
