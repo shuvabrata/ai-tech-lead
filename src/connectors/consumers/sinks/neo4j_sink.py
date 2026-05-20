@@ -186,10 +186,11 @@ def _handle_repository(session: Session, signal: ActivitySignal) -> None:
 
 
 def _handle_branch(session: Session, signal: ActivitySignal) -> None:
-    attrs = signal.extra_attributes()
+    attrs = signal.attributes.model_dump()
+    node_id = wba_node_id(signal)
     branch = Branch(
-        id=signal.external_id,
-        name=attrs.get("name", ""),
+        id=node_id,
+        name=attrs.get("branch_name", ""),
         is_default=attrs.get("is_default", False),
         is_protected=attrs.get("is_protected", False),
         is_deleted=attrs.get("is_deleted", False),
@@ -198,7 +199,7 @@ def _handle_branch(session: Session, signal: ActivitySignal) -> None:
         last_commit_timestamp=attrs.get("last_commit_timestamp", ""),
         url=attrs.get("url"),
     )
-    db_rels = _to_db_relationships(session, signal.relationships, signal.external_id, "Branch")
+    db_rels = _to_db_relationships(session, signal.relationships, node_id, "Branch")
     merge_branch(session, branch, relationships=db_rels)
 
 

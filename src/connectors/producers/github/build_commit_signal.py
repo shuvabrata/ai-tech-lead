@@ -70,7 +70,7 @@ def build_commit_signal(
                     target=RelationshipTarget(
                         source=_SOURCE,
                         entity_type="Branch",
-                        external_id=branch_data["id"],
+                        id=f"{branch_data['repo_name']}::{branch_data['name']}",
                     ),
                 )
             )  # Commit→Branch: PART_OF is correct (matches neo4j_db handler)

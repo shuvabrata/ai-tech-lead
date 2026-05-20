@@ -37,18 +37,21 @@ from common.activity_signal.models import (
 @pytest.mark.unit
 def test_branch_attributes_last_commit_sha_round_trips() -> None:
     attrs = BranchAttributes(
-        name="main",
+        repo_name="myrepo",
+        branch_name="main",
         last_commit_sha="abc123def456",
     )
     d = attrs.model_dump()
     assert d["last_commit_sha"] == "abc123def456"
-    assert d["name"] == "main"
+    assert d["repo_name"] == "myrepo"
+    assert d["branch_name"] == "main"
 
 
 @pytest.mark.unit
 def test_branch_attributes_optional_new_fields() -> None:
     attrs = BranchAttributes(
-        name="feat/x",
+        repo_name="myrepo",
+        branch_name="feat/x",
         last_commit_sha="sha1",
         last_commit_timestamp="2026-05-01T10:00:00",
         is_protected=True,
@@ -65,11 +68,10 @@ def test_branch_attributes_optional_new_fields() -> None:
 @pytest.mark.unit
 def test_branch_attributes_old_commit_sha_not_accepted_as_canonical() -> None:
     """commit_sha is not a declared field; it should NOT populate last_commit_sha."""
-    # With extra='allow', commit_sha lands in extra fields — last_commit_sha must
-    # be provided separately or the model should raise (missing required field).
+    # With extra='forbid', unknown fields raise ValidationError.
     with pytest.raises((ValidationError, TypeError)):
         # omit last_commit_sha entirely — required field missing
-        BranchAttributes(name="main")  # type: ignore[call-arg]
+        BranchAttributes(repo_name="myrepo", branch_name="main")  # type: ignore[call-arg]
 
 
 # ---------------------------------------------------------------------------

@@ -97,6 +97,7 @@ def map_branch(
     return {
         "id": branch_id,
         "name": branch_name,
+        "repo_name": repo_name,
         "is_default": branch_name == default_branch,
         "is_protected": branch.protected,
         "is_deleted": False,
@@ -411,14 +412,14 @@ def map_pull_request(
     if repo_owner:
         url = f"https://github.com/{repo_owner}/{repo_name}/pull/{pr.number}"
 
-    # Pre-compute internal branch IDs for convenience
-    base_branch_id = f"github_branch_{repo_name}_{pr.base.ref.replace('/', '_').replace('-', '_')}"
+    # Pre-compute internal branch IDs for convenience (new format: repo_name::branch_ref)
+    base_branch_id = f"{repo_name}::{pr.base.ref}"
     head_branch_id: Optional[str] = None
     is_external_head = pr.head.repo is None or (
         hasattr(pr.head, "repo") and pr.head.repo is not None and pr.head.repo.id != getattr(pr, "_base_repo_id", None)
     )
     if not is_external_head and pr.head.repo is not None:
-        head_branch_id = f"github_branch_{repo_name}_{pr.head.ref.replace('/', '_').replace('-', '_')}"
+        head_branch_id = f"{repo_name}::{pr.head.ref}"
 
     return {
         "id": pr_id,
