@@ -1,5 +1,4 @@
-name: Pytest, Pylint and Spec Freshness
-
+name: PR Checks
 on:
   pull_request:
   workflow_dispatch:
