@@ -115,7 +115,7 @@ The `ActivitySignal` schema has accumulated inconsistencies across producers and
 
 ## Phase 3 — Repository
 
-> **Status:** Not Started
+> **Status:** Complete
 
 **Goal:** Migrate the Repository entity end-to-end.
 
@@ -161,7 +161,7 @@ The `ActivitySignal` schema has accumulated inconsistencies across producers and
 - Enable `extra="forbid"`; add `custom: Optional[Dict[str, Any]] = None`
 
 **Changes — GitHub producer (`build_branch_signal.py`, `map_github.py`):**
-- Set `id=f"{repo_name}:{branch_name}"` on `ActivitySignal`; remove `external_id`
+- Set `id=f"{repo_name}::{branch_name}"` on `ActivitySignal`; remove `external_id`
 - Set `repo_name` and `branch_name` on `BranchAttributes`; remove `name`
 - Update `RelationshipTarget(entity_type="Branch")` to use new `id`
 
