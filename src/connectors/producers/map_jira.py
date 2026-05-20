@@ -142,9 +142,9 @@ def map_project(
         url = f"{jira_base_url.rstrip('/')}/browse/{project_key}"
 
     return {
-        "id": f"jira_project_{jira_project_id}",
-        "key": project_key,
-        "name": project_name,
+        "project_id": str(jira_project_id) if jira_project_id is not None else "",
+        "project_key": project_key,
+        "project_name": project_name,
         "status": status,
         "project_type": project_type or None,
         "url": url,
@@ -214,7 +214,6 @@ def map_initiative(
         url = f"{jira_base_url.rstrip('/')}/browse/{issue_key}"
 
     return {
-        "id": f"jira_initiative_{issue_id}",
         "key": issue_key,
         "summary": fields.get("summary", ""),
         "priority": priority_obj.get("name", "None"),
@@ -279,7 +278,6 @@ def map_epic(
         url = f"{jira_base_url.rstrip('/')}/browse/{issue_key}"
 
     return {
-        "id": f"jira_epic_{issue_id}",
         "key": issue_key,
         "summary": fields.get("summary", ""),
         "priority": priority_obj.get("name", "None"),
@@ -321,11 +319,12 @@ def map_sprint(sprint_data: Dict[str, Any]) -> Dict[str, Any]:
     status = status_map.get(state.lower(), state)
 
     return {
-        "id": f"jira_sprint_{jira_sprint_id}",
+        "sprint_id": str(jira_sprint_id) if jira_sprint_id is not None else "",
         "name": sprint_name,
         "goal": sprint_data.get("goal", ""),
         "start_date": _date(sprint_data.get("startDate")),
         "end_date": _date(sprint_data.get("endDate")),
+        "complete_date": _date(sprint_data.get("completeDate")),
         "status": status,
         "url": None,  # Sprint browse URLs require board ID; left for future enrichment
     }
@@ -403,7 +402,6 @@ def map_issue(
 
     return {
         # Node attributes
-        "id": f"jira_issue_{issue_key}",
         "key": issue_key,
         "type": issue_type_obj.get("name", "Unknown"),
         "summary": fields.get("summary", ""),

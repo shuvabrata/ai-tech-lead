@@ -16,6 +16,7 @@ Usage:
 from typing import Optional, Tuple, Dict, Set
 
 from connectors.neo4j_db.models import Person, IdentityMapping, Relationship, merge_person, merge_identity_mapping
+from common.activity_signal.wba_node_id import wba_format
 from common.logger import logger
 
 
@@ -105,7 +106,7 @@ class PersonCache:
             return person_id, False
 
         self.cache_misses += 1
-        fallback_person_id = f"person_{provider}_{external_id}"
+        fallback_person_id = wba_format(provider, "Person", external_id)
 
         # ── 3. DB lookup by email (cross-provider, prior sync runs) ──────────
         if email:

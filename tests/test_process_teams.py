@@ -151,7 +151,7 @@ class TestProcessTeamsHappyPath:
         collab_rels = [r for r in team_sig.relationships if r.type == "COLLABORATOR"]
         assert len(collab_rels) == 1
         assert collab_rels[0].target.entity_type == "Repository"
-        assert collab_rels[0].target.external_id == "repo_myrepo"
+        assert collab_rels[0].target.id == "org/myrepo"
 
     @pytest.mark.asyncio
     async def test_team_id_derived_from_slug(self) -> None:
@@ -160,7 +160,7 @@ class TestProcessTeamsHappyPath:
         sigs, _ = await _run_process_teams([team])
 
         team_sig = next(s for s in sigs if s.entity_type == "Team")
-        assert team_sig.external_id == "github_team_frontend"
+        assert team_sig.id == "frontend"
 
     @pytest.mark.asyncio
     async def test_person_signal_has_member_of_rel_to_team(self) -> None:
@@ -176,7 +176,7 @@ class TestProcessTeamsHappyPath:
         member_of_rels = [r for r in person_sig.relationships if r.type == "MEMBER_OF"]
         assert len(member_of_rels) == 1
         assert member_of_rels[0].target.entity_type == "Team"
-        assert member_of_rels[0].target.external_id == "github_team_eng"
+        assert member_of_rels[0].target.id == "eng"
 
     @pytest.mark.asyncio
     async def test_person_signal_has_collaborator_rel_with_permission(self) -> None:
@@ -213,8 +213,8 @@ class TestProcessTeamsHappyPath:
 
         assert published.get("Team", 0) == 2
         assert published.get("Person", 0) == 2
-        team_ids = {s.external_id for s in sigs if s.entity_type == "Team"}
-        assert team_ids == {"github_team_frontend", "github_team_backend"}
+        team_ids = {s.id for s in sigs if s.entity_type == "Team"}
+        assert team_ids == {"frontend", "backend"}
 
     @pytest.mark.asyncio
     async def test_team_with_zero_members_emits_team_signal_only(self) -> None:
@@ -241,7 +241,7 @@ class TestProcessTeamsHappyPath:
 
         assert published.get("Person", 0) == 1
         person_sig = next(s for s in sigs if s.entity_type == "Person")
-        assert person_sig.external_id == "person_github_dave"
+        assert person_sig.id == "dave"
 
 
 class TestProcessTeamsMaxTeamSize:
@@ -289,7 +289,7 @@ class TestProcessTeamsMaxTeamSize:
         assert published.get("Team", 0) == 1
         assert published.get("Person", 0) == 1
         team_sig = next(s for s in sigs if s.entity_type == "Team")
-        assert team_sig.external_id == "github_team_solo-team"
+        assert team_sig.id == "solo-team"
 
 
 class TestProcessTeamsErrorHandling:

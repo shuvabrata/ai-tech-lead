@@ -129,7 +129,7 @@ async def consume_queue(
                         "Processed signal_id=%s entity_type=%s id=%s queue=%s",
                         signal.signal_id,
                         signal.entity_type,
-                        signal.external_id,
+                        signal.id,
                         queue_name,
                     )
                 except Exception as exc:

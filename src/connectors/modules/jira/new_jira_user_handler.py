@@ -2,6 +2,7 @@ from typing import Any, Optional, Dict
 from datetime import datetime, timezone
 
 from connectors.commons.person_cache import PersonCache
+from common.activity_signal.wba_node_id import wba_format
 from common.logger import logger
 from connectors.producers.map_jira import map_jira_user
 
@@ -46,7 +47,7 @@ def new_jira_user_handler(
 
         logger.debug(f"      {'Created new' if is_new else 'Found existing'} Person: {person_id}")
 
-        identity_id = f"identity_jira_{account_id}"
+        identity_id = wba_format("jira", "IdentityMapping", account_id)
         person_cache.queue_identity_mapping(
             person_id=person_id,
             identity_id=identity_id,

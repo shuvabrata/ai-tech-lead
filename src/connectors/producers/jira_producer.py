@@ -28,6 +28,7 @@ from typing import Any, Dict, List, Optional
 
 from atlassian import Jira  # type: ignore[import-untyped]
 
+from common.activity_signal.wba_node_id import wba_format
 from common.activity_signal.models import (
     ActivitySignal,
     EpicAttributes,
@@ -104,17 +105,16 @@ def build_project_signal(
     """Build an ActivitySignal for a Jira Project."""
     try:
         attrs = ProjectAttributes(
-            id=project_data["id"],
-            key=project_data["key"],
-            name=project_data["name"],
-            # Extra
+            project_id=project_data["project_id"],
+            project_key=project_data["project_key"],
+            project_name=project_data["project_name"],
             status=project_data.get("status"),
             project_type=project_data.get("project_type"),
             url=project_data.get("url"),
         )
         return ActivitySignal(
             source=_SOURCE,
-            external_id=project_data["id"],
+            id=project_data["project_key"],
             source_config=jira_base_url,
             connector_url=_connector_url(),
             event_time=datetime.now(timezone.utc),
@@ -122,7 +122,7 @@ def build_project_signal(
             attributes=attrs,
         )
     except Exception as exc:
-        logger.warning("Skipping Project signal for '%s' (validation error): %s", project_data.get("key"), exc)
+        logger.warning("Skipping Project signal for '%s' (validation error): %s", project_data.get("project_key"), exc)
         return None
 
 
@@ -132,18 +132,16 @@ def build_person_signal(
 ) -> Optional[ActivitySignal]:
     """Build an ActivitySignal for a Person (Jira user)."""
     account_id = user_data.get("account_id", "")
-    person_id = f"person_jira_{account_id}"
+    person_id = wba_format(_SOURCE, "Person", account_id)
     try:
         attrs = PersonAttributes(
-            id=person_id,
-            name=user_data.get("display_name") or account_id,
-            # Extra
+            full_name=user_data.get("display_name") or account_id,
             account_id=account_id,
-            email=user_data.get("email", ""),
+            email=user_data.get("email") or None,
         )
         return ActivitySignal(
             source=_SOURCE,
-            external_id=person_id,
+            id=account_id,
             source_config=jira_base_url,
             connector_url=_connector_url(),
             event_time=datetime.now(timezone.utc),
@@ -164,14 +162,12 @@ def build_initiative_signal(
     """Build an ActivitySignal for a Jira Initiative."""
     try:
         attrs = InitiativeAttributes(
-            id=initiative_data["id"],
             key=initiative_data["key"],
             summary=_truncate(initiative_data.get("summary", "")),
             priority=initiative_data.get("priority", "None"),
             status=initiative_data.get("status", "Unknown"),
             created_at=initiative_data.get("created_at", ""),
             project_id=project_id,
-            # Extra
             updated_at=initiative_data.get("updated_at", ""),
             duedate=initiative_data.get("duedate"),
             labels=initiative_data.get("labels"),
@@ -187,7 +183,7 @@ def build_initiative_signal(
                     target=RelationshipTarget(
                         source=_SOURCE,
                         entity_type="Project",
-                        external_id=project_id,
+                        id=project_id,
                     ),
                 )
             )
@@ -199,13 +195,13 @@ def build_initiative_signal(
                     target=RelationshipTarget(
                         source=_SOURCE,
                         entity_type="Person",
-                        external_id=reporter_person_id,
+                        id=reporter_person_id,
                     ),
                 )
             )
         return ActivitySignal(
             source=_SOURCE,
-            external_id=initiative_data["id"],
+            id=initiative_data["key"],
             source_config=jira_base_url,
             connector_url=_connector_url(),
             event_time=_event_time_from(
@@ -232,17 +228,14 @@ def build_epic_signal(
     """Build an ActivitySignal for a Jira Epic."""
     try:
         attrs = EpicAttributes(
-            id=epic_data["id"],
             key=epic_data["key"],
             summary=_truncate(epic_data.get("summary", "")),
             priority=epic_data.get("priority", "None"),
             status=epic_data.get("status", "Unknown"),
             created_at=epic_data.get("created_at", ""),
-            # Extra
             updated_at=epic_data.get("updated_at", ""),
             start_date=epic_data.get("start_date"),
             due_date=epic_data.get("due_date"),
-            team_value=epic_data.get("team_value"),
             url=epic_data.get("url"),
         )
         rels: List[Relationship] = []
@@ -254,7 +247,7 @@ def build_epic_signal(
                     target=RelationshipTarget(
                         source=_SOURCE,
                         entity_type="Initiative",
-                        external_id=initiative_id,
+                        id=initiative_id,
                     ),
                 )
             )
@@ -267,7 +260,7 @@ def build_epic_signal(
                     target=RelationshipTarget(
                         source=_SOURCE,
                         entity_type="Project",
-                        external_id=project_id,
+                        id=project_id,
                     ),
                 )
             )
@@ -279,7 +272,7 @@ def build_epic_signal(
                     target=RelationshipTarget(
                         source=_SOURCE,
                         entity_type="Person",
-                        external_id=reporter_person_id,
+                        id=reporter_person_id,
                     ),
                 )
             )
@@ -291,13 +284,13 @@ def build_epic_signal(
                     target=RelationshipTarget(
                         source=_SOURCE,
                         entity_type="Team",
-                        external_id=team_id,
+                        id=team_id,
                     ),
                 )
             )
         return ActivitySignal(
             source=_SOURCE,
-            external_id=epic_data["id"],
+            id=epic_data["key"],
             source_config=jira_base_url,
             connector_url=_connector_url(),
             event_time=_event_time_from(
@@ -320,17 +313,16 @@ def build_sprint_signal(
     """Build an ActivitySignal for a Jira Sprint."""
     try:
         attrs = SprintAttributes(
-            id=sprint_data["id"],
             name=sprint_data["name"],
             status=sprint_data.get("status", "Unknown"),
-            # Extra
-            goal=sprint_data.get("goal", ""),
-            start_date=sprint_data.get("start_date", ""),
-            end_date=sprint_data.get("end_date", ""),
+            goal=sprint_data.get("goal") or None,
+            start_date=sprint_data.get("start_date") or None,
+            end_date=sprint_data.get("end_date") or None,
+            complete_date=sprint_data.get("complete_date") or None,
         )
         return ActivitySignal(
             source=_SOURCE,
-            external_id=sprint_data["id"],
+            id=sprint_data["sprint_id"],
             source_config=jira_base_url,
             connector_url=_connector_url(),
             event_time=datetime.now(timezone.utc),
@@ -354,17 +346,14 @@ def build_issue_signal(
     """Build an ActivitySignal for a Jira Issue."""
     try:
         attrs = IssueAttributes(
-            id=issue_data["id"],
             key=issue_data["key"],
             summary=_truncate(issue_data.get("summary", "")),
             priority=issue_data.get("priority", "None"),
             status=issue_data.get("status", "Unknown"),
             type=issue_data.get("type", "Unknown"),
             created_at=issue_data.get("created_at", ""),
-            # Extra
-            updated_at=issue_data.get("updated_at", ""),
-            story_points=issue_data.get("story_points", 0),
-            team_value=issue_data.get("team_value"),
+            updated_at=issue_data.get("updated_at") or None,
+            story_points=issue_data.get("story_points") or None,
             url=issue_data.get("url"),
         )
         rels: List[Relationship] = []
@@ -378,7 +367,7 @@ def build_issue_signal(
                     target=RelationshipTarget(
                         source=_SOURCE,
                         entity_type="Epic",
-                        external_id=epic_id,
+                        id=epic_id,
                     ),
                 )
             )
@@ -392,7 +381,7 @@ def build_issue_signal(
                     target=RelationshipTarget(
                         source=_SOURCE,
                         entity_type="Sprint",
-                        external_id=sid,
+                        id=sid,
                     ),
                 )
             )
@@ -406,7 +395,7 @@ def build_issue_signal(
                     target=RelationshipTarget(
                         source=_SOURCE,
                         entity_type="Person",
-                        external_id=assignee_person_id,
+                        id=assignee_person_id,
                     ),
                 )
             )
@@ -420,7 +409,7 @@ def build_issue_signal(
                     target=RelationshipTarget(
                         source=_SOURCE,
                         entity_type="Person",
-                        external_id=reporter_person_id,
+                        id=reporter_person_id,
                     ),
                 )
             )
@@ -434,7 +423,7 @@ def build_issue_signal(
                     target=RelationshipTarget(
                         source=_SOURCE,
                         entity_type="Team",
-                        external_id=team_id,
+                        id=team_id,
                     ),
                 )
             )
@@ -449,7 +438,6 @@ def build_issue_signal(
                 target_key = link["outwardIssue"].get("key")
                 if not target_key:
                     continue
-                target_id = f"jira_issue_{target_key}"
                 rels.append(
                     Relationship(
                         type="BLOCKS",
@@ -457,7 +445,7 @@ def build_issue_signal(
                         target=RelationshipTarget(
                             source=_SOURCE,
                             entity_type="Issue",
-                            external_id=target_id,
+                            id=target_key,
                         ),
                     )
                 )
@@ -466,7 +454,6 @@ def build_issue_signal(
                 target_key = link["inwardIssue"].get("key")
                 if not target_key:
                     continue
-                target_id = f"jira_issue_{target_key}"
                 rels.append(
                     Relationship(
                         type="DEPENDS_ON",
@@ -474,7 +461,7 @@ def build_issue_signal(
                         target=RelationshipTarget(
                             source=_SOURCE,
                             entity_type="Issue",
-                            external_id=target_id,
+                            id=target_key,
                         ),
                     )
                 )
@@ -485,7 +472,6 @@ def build_issue_signal(
                     target_key = linked_issue.get("key")
                     if not target_key:
                         continue
-                    target_id = f"jira_issue_{target_key}"
                     rels.append(
                         Relationship(
                             type="RELATES_TO",
@@ -493,14 +479,14 @@ def build_issue_signal(
                             target=RelationshipTarget(
                                 source=_SOURCE,
                                 entity_type="Issue",
-                                external_id=target_id,
+                                id=target_key,
                             ),
                         )
                     )
 
         return ActivitySignal(
             source=_SOURCE,
-            external_id=issue_data["id"],
+            id=issue_data["key"],
             source_config=jira_base_url,
             connector_url=_connector_url(),
             event_time=_event_time_from(
@@ -544,11 +530,10 @@ async def publish_signals(
         if sig:
             await publisher.publish(sig)
             logger.info(
-                "Published signal_id=%s entity_type=%s external_id=%s routing_key=%s",
+                "Published signal_id=%s entity_type=%s id=%s",
                 sig.signal_id,
                 sig.entity_type,
-                sig.external_id,
-                sig.routing_key,
+                sig.id,
             )
             _inc(sig.entity_type)
 
@@ -563,8 +548,8 @@ async def publish_signals(
 
     for p_raw in projects_raw:
         p_data = map_project(p_raw, jira_base_url)
-        project_key_to_id[p_data["key"]] = p_data["id"]
-        logger.debug("Processing project '%s' (%s)", p_data.get("key"), p_data.get("name"))
+        project_key_to_id[p_data["project_key"]] = p_data["project_key"]
+        logger.debug("Processing project '%s' (%s)", p_data.get("project_key"), p_data.get("project_name"))
         await _pub(build_project_signal(p_data, jira_base_url))
 
     logger.info("Projects done (%d)", published.get("Project", 0))
@@ -580,7 +565,7 @@ async def publish_signals(
 
     for i_raw in initiatives_raw:
         i_data = map_initiative(i_raw, jira_base_url)
-        initiative_jira_id_to_id[i_raw.get("id", "")] = i_data["id"]
+        initiative_jira_id_to_id[i_raw.get("id", "")] = i_data["key"]
         project_key = i_data.get("project_key")
         project_id = project_key_to_id.get(project_key) if project_key else None
         logger.debug("Processing initiative '%s': '%s'", i_data.get("key"), str(i_data.get("summary", ""))[:60])
@@ -599,7 +584,7 @@ async def publish_signals(
 
     for e_raw in epics_raw:
         e_data = map_epic(e_raw, jira_base_url)
-        epic_jira_id_to_id[e_raw.get("id", "")] = e_data["id"]
+        epic_jira_id_to_id[e_raw.get("id", "")] = e_data["key"]
 
         # Resolve parent initiative
         parent_jira_id = e_data.get("parent_jira_id")
@@ -615,7 +600,7 @@ async def publish_signals(
         if reporter_raw and isinstance(reporter_raw, dict):
             user_data = map_jira_user(reporter_raw)
             account_id = user_data.get("account_id", "")
-            reporter_person_id = f"person_jira_{account_id}"
+            reporter_person_id = account_id
             if account_id and account_id not in seen_persons:
                 seen_persons.add(account_id)
                 await _pub(build_person_signal(user_data, jira_base_url))
@@ -646,7 +631,7 @@ async def publish_signals(
 
     for s_raw in sprints_raw:
         s_data = map_sprint(s_raw)
-        sprint_jira_id_to_id[str(s_raw.get("id", ""))] = s_data["id"]
+        sprint_jira_id_to_id[str(s_raw.get("id", ""))] = s_data["sprint_id"]
         logger.debug("Processing sprint '%s' (state=%s)", s_data.get("name"), s_data.get("status"))
         await _pub(build_sprint_signal(s_data, jira_base_url))
 
@@ -677,7 +662,7 @@ async def publish_signals(
             if assignee_raw and isinstance(assignee_raw, dict):
                 user_data = map_jira_user(assignee_raw)
                 account_id = user_data.get("account_id", "")
-                assignee_person_id = f"person_jira_{account_id}"
+                assignee_person_id = account_id
                 if account_id and account_id not in seen_persons:
                     seen_persons.add(account_id)
                     await _pub(build_person_signal(user_data, jira_base_url))
@@ -688,7 +673,7 @@ async def publish_signals(
             if reporter_raw and isinstance(reporter_raw, dict):
                 user_data = map_jira_user(reporter_raw)
                 account_id = user_data.get("account_id", "")
-                reporter_person_id = f"person_jira_{account_id}"
+                reporter_person_id = account_id
                 if account_id and account_id not in seen_persons:
                     seen_persons.add(account_id)
                     await _pub(build_person_signal(user_data, jira_base_url))

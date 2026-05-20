@@ -21,6 +21,7 @@ from neo4j import Session
 
 from common.activity_signal.models import ActivitySignal
 from common.activity_signal.models import Relationship as SignalRelationship
+from common.activity_signal.wba_node_id import wba_format, wba_node_id
 from connectors.commons.person_cache import PersonCache
 from connectors.neo4j_db.models import (
     Branch,
@@ -72,6 +73,7 @@ def _label(entity_type: str) -> str:
 
 
 def _to_db_relationships(
+    session: Session,
     signal_rels: List[SignalRelationship],
     from_id: str,
     from_type: str,
@@ -83,21 +85,57 @@ def _to_db_relationships(
     - ``"IN"``             → swap from/to so the stored edge is
       ``(target)-[:REL]->(from)``, i.e. ``(to)-[:REL]->(from)`` after swap.
 
-    Relationships without ``target.external_id`` are skipped with a warning.
+    Target node resolution priority:
+    1. ``entity_type == "Person"`` and ``target.email`` set → look up by email.
+    2. ``target.url`` set → look up node by url.
+    3. ``target.id`` set → ``{source}::{entity_type}::{id}`` canonical key.
+
+    Relationships with no resolvable target identifier are skipped with a warning.
     """
     result: List[DbRelationship] = []
     for rel in signal_rels:
         target = rel.target
-        if not target.external_id:
+
+        if not (target.id or target.email or target.url):
             logger.warning(
-                "Skipping relationship %s from %s/%s: target has no external_id",
+                "Skipping relationship %s from %s/%s: target has no identifier",
                 rel.type,
                 from_type,
                 from_id,
             )
             continue
 
-        to_id = target.external_id
+        # Resolve to_id using priority order
+        to_id: Optional[str] = None
+
+        if target.entity_type == "Person" and target.email:
+            row = session.run(
+                "MATCH (p:Person) WHERE p.email = $email RETURN p.id AS id LIMIT 1",
+                email=target.email,
+            ).single()
+            if row:
+                to_id = row["id"]
+
+        if to_id is None and target.url:
+            row = session.run(
+                "MATCH (n) WHERE n.url = $url RETURN n.id AS id LIMIT 1",
+                url=target.url,
+            ).single()
+            if row:
+                to_id = row["id"]
+
+        if to_id is None and target.source and target.entity_type and target.id:
+            to_id = wba_format(target.source, target.entity_type, target.id)
+
+        if to_id is None:
+            logger.warning(
+                "Skipping relationship %s from %s/%s: target identifier could not be resolved",
+                rel.type,
+                from_type,
+                from_id,
+            )
+            continue
+
         to_type = _label(target.entity_type) if target.entity_type else "Node"
 
         if rel.direction == "IN":
@@ -128,26 +166,27 @@ def _to_db_relationships(
 
 
 def _handle_repository(session: Session, signal: ActivitySignal) -> None:
-    attrs = signal.extra_attributes()
+    attrs = signal.attributes.model_dump()  # type: ignore[union-attr]
+    node_id = wba_node_id(signal)
     repo = Repository(
-        id=signal.external_id,
-        name=attrs.get("name", ""),
-        full_name=attrs.get("full_name", ""),
+        id=node_id,
+        name=signal.id,
         url=attrs.get("url", ""),
         language=attrs.get("language", ""),
         is_private=attrs.get("is_private", False),
         topics=attrs.get("topics") or [],
         created_at=attrs.get("created_at", ""),
     )
-    db_rels = _to_db_relationships(signal.relationships, signal.external_id, "Repository")
+    db_rels = _to_db_relationships(session, signal.relationships, node_id, "Repository")
     merge_repository(session, repo, relationships=db_rels)
 
 
 def _handle_branch(session: Session, signal: ActivitySignal) -> None:
-    attrs = signal.extra_attributes()
+    attrs = signal.attributes.model_dump()
+    node_id = wba_node_id(signal)
     branch = Branch(
-        id=signal.external_id,
-        name=attrs.get("name", ""),
+        id=node_id,
+        name=attrs.get("branch_name", ""),
         is_default=attrs.get("is_default", False),
         is_protected=attrs.get("is_protected", False),
         is_deleted=attrs.get("is_deleted", False),
@@ -156,14 +195,15 @@ def _handle_branch(session: Session, signal: ActivitySignal) -> None:
         last_commit_timestamp=attrs.get("last_commit_timestamp", ""),
         url=attrs.get("url"),
     )
-    db_rels = _to_db_relationships(signal.relationships, signal.external_id, "Branch")
+    db_rels = _to_db_relationships(session, signal.relationships, node_id, "Branch")
     merge_branch(session, branch, relationships=db_rels)
 
 
 def _handle_commit(session: Session, signal: ActivitySignal) -> None:
-    attrs = signal.extra_attributes()
+    attrs = signal.attributes.model_dump()
+    node_id = wba_node_id(signal)
     commit = Commit(
-        id=signal.external_id,
+        id=node_id,
         sha=attrs.get("sha", ""),
         message=attrs.get("message", ""),
         created_at=attrs.get("created_at", ""),
@@ -172,15 +212,16 @@ def _handle_commit(session: Session, signal: ActivitySignal) -> None:
         files_changed=attrs.get("files_changed", 0),
         url=attrs.get("url"),
     )
-    db_rels = _to_db_relationships(signal.relationships, signal.external_id, "Commit")
+    db_rels = _to_db_relationships(session, signal.relationships, node_id, "Commit")
     merge_commit(session, commit, relationships=db_rels)
 
 
 def _handle_pull_request(session: Session, signal: ActivitySignal) -> None:
-    attrs = signal.extra_attributes()
+    attrs = signal.attributes.model_dump()
+    node_id = wba_node_id(signal)
     pr = PullRequest(
-        id=signal.external_id,
-        number=attrs.get("number", 0),
+        id=node_id,
+        number=attrs.get("pull_request_number", 0),
         title=attrs.get("title", ""),
         state=attrs.get("state", ""),
         created_at=attrs.get("created_at", ""),
@@ -199,7 +240,7 @@ def _handle_pull_request(session: Session, signal: ActivitySignal) -> None:
         mergeable_state=attrs.get("mergeable_state", ""),
         url=attrs.get("url"),
     )
-    db_rels = _to_db_relationships(signal.relationships, signal.external_id, "PullRequest")
+    db_rels = _to_db_relationships(session, signal.relationships, node_id, "PullRequest")
     merge_pull_request(session, pr, relationships=db_rels)
 
 
@@ -208,12 +249,12 @@ def _handle_person(
     signal: ActivitySignal,
     person_cache: Optional[PersonCache] = None,
 ) -> None:
-    attrs = signal.extra_attributes()
+    attrs = signal.attributes.model_dump()  # type: ignore[union-attr]
 
     if person_cache is not None:
         if signal.source == "github":
             login = attrs.get("login", "")
-            name = attrs.get("name") or login
+            name = attrs.get("full_name") or login
             raw_email = attrs.get("email")
             email = raw_email.lower() if raw_email else None
             url = attrs.get("url")
@@ -227,7 +268,7 @@ def _handle_person(
                 url=url,
             )
             if person_id:
-                identity_id = f"identity_github_{login}"
+                identity_id = wba_format("github", "IdentityMapping", login)
                 person_cache.queue_identity_mapping(
                     person_id=person_id,
                     identity_id=identity_id,
@@ -240,7 +281,7 @@ def _handle_person(
 
         elif signal.source == "jira":
             account_id = attrs.get("account_id", "")
-            name = attrs.get("name", "")
+            name = attrs.get("full_name", "")
             raw_email = attrs.get("email")
             email = raw_email.lower() if raw_email else None
 
@@ -252,7 +293,7 @@ def _handle_person(
                 external_id=account_id,
             )
             if person_id:
-                identity_id = f"identity_jira_{account_id}"
+                identity_id = wba_format("jira", "IdentityMapping", account_id)
                 person_cache.queue_identity_mapping(
                     person_id=person_id,
                     identity_id=identity_id,
@@ -265,47 +306,49 @@ def _handle_person(
 
     # Fallback: no PersonCache — original behaviour
     raw_email = attrs.get("email")
+    node_id = wba_node_id(signal)
     person = Person(
-        id=signal.external_id,
-        name=attrs.get("name"),
+        id=node_id,
+        name=attrs.get("full_name"),
         email=raw_email.lower() if raw_email else None,
         url=attrs.get("url"),
     )
-    db_rels = _to_db_relationships(signal.relationships, signal.external_id, "Person")
+    db_rels = _to_db_relationships(session, signal.relationships, node_id, "Person")
     merge_person(session, person, relationships=db_rels)
 
 
 def _handle_team(session: Session, signal: ActivitySignal) -> None:
-    attrs = signal.extra_attributes()
+    attrs = signal.attributes.model_dump()
+    node_id = wba_node_id(signal)
     team = Team(
-        id=signal.external_id,
+        id=node_id,
         name=attrs.get("name"),
         source=signal.source,
         created_at=attrs.get("created_at"),
         url=attrs.get("url"),
     )
-    db_rels = _to_db_relationships(signal.relationships, signal.external_id, "Team")
+    db_rels = _to_db_relationships(session, signal.relationships, node_id, "Team")
     merge_team(session, team, relationships=db_rels)
 
 
 def _handle_project(session: Session, signal: ActivitySignal) -> None:
-    attrs = signal.extra_attributes()
+    attrs = signal.attributes.model_dump()
     project = Project(
-        id=signal.external_id,
-        key=attrs.get("key", ""),
-        name=attrs.get("name", ""),
+        id=wba_node_id(signal),
+        key=attrs.get("project_key", ""),
+        name=attrs.get("project_name", ""),
         status=attrs.get("status"),
         project_type=attrs.get("project_type"),
         url=attrs.get("url"),
     )
-    db_rels = _to_db_relationships(signal.relationships, signal.external_id, "Project")
+    db_rels = _to_db_relationships(session, signal.relationships, wba_node_id(signal), "Project")
     merge_project(session, project, relationships=db_rels)
 
 
 def _handle_initiative(session: Session, signal: ActivitySignal) -> None:
-    attrs = signal.extra_attributes()
+    attrs = signal.attributes.model_dump()
     initiative = Initiative(
-        id=signal.external_id,
+        id=wba_node_id(signal),
         key=attrs.get("key", ""),
         summary=attrs.get("summary", ""),
         priority=attrs.get("priority", ""),
@@ -318,14 +361,14 @@ def _handle_initiative(session: Session, signal: ActivitySignal) -> None:
         url=attrs.get("url"),
         _last_synced_at=datetime.now(timezone.utc).isoformat(),
     )
-    db_rels = _to_db_relationships(signal.relationships, signal.external_id, "Initiative")
+    db_rels = _to_db_relationships(session, signal.relationships, wba_node_id(signal), "Initiative")
     merge_initiative(session, initiative, relationships=db_rels)
 
 
 def _handle_epic(session: Session, signal: ActivitySignal) -> None:
-    attrs = signal.extra_attributes()
+    attrs = signal.attributes.model_dump()
     epic = Epic(
-        id=signal.external_id,
+        id=wba_node_id(signal),
         key=attrs.get("key", ""),
         summary=attrs.get("summary", ""),
         priority=attrs.get("priority", ""),
@@ -337,30 +380,29 @@ def _handle_epic(session: Session, signal: ActivitySignal) -> None:
         url=attrs.get("url"),
         _last_synced_at=datetime.now(timezone.utc).isoformat(),
     )
-    db_rels = _to_db_relationships(signal.relationships, signal.external_id, "Epic")
+    db_rels = _to_db_relationships(session, signal.relationships, wba_node_id(signal), "Epic")
     merge_epic(session, epic, relationships=db_rels)
 
 
 def _handle_sprint(session: Session, signal: ActivitySignal) -> None:
-    attrs = signal.extra_attributes()
+    attrs = signal.attributes.model_dump()
     sprint = Sprint(
-        id=signal.external_id,
+        id=wba_node_id(signal),
         name=attrs.get("name", ""),
-        goal=attrs.get("goal", ""),
-        start_date=attrs.get("start_date", ""),
-        end_date=attrs.get("end_date", ""),
-        # SprintAttributes: status is the canonical field
+        goal=attrs.get("goal") or "",
+        start_date=attrs.get("start_date") or "",
+        end_date=attrs.get("end_date") or "",
         status=attrs.get("status", ""),
         url=attrs.get("url"),
     )
-    db_rels = _to_db_relationships(signal.relationships, signal.external_id, "Sprint")
+    db_rels = _to_db_relationships(session, signal.relationships, wba_node_id(signal), "Sprint")
     merge_sprint(session, sprint, relationships=db_rels)
 
 
 def _handle_issue(session: Session, signal: ActivitySignal) -> None:
-    attrs = signal.extra_attributes()
+    attrs = signal.attributes.model_dump()
     issue = Issue(
-        id=signal.external_id,
+        id=wba_node_id(signal),
         key=attrs.get("key", ""),
         type=attrs.get("type", ""),
         summary=attrs.get("summary", ""),
@@ -372,7 +414,7 @@ def _handle_issue(session: Session, signal: ActivitySignal) -> None:
         url=attrs.get("url"),
         _last_synced_at=datetime.now(timezone.utc).isoformat(),
     )
-    db_rels = _to_db_relationships(signal.relationships, signal.external_id, "Issue")
+    db_rels = _to_db_relationships(session, signal.relationships, wba_node_id(signal), "Issue")
     merge_issue(session, issue, relationships=db_rels)
 
 
@@ -446,7 +488,7 @@ def upsert_signal(
         "Upserted signal_id=%s entity_type=%s id=%s",
         signal.signal_id,
         entity_type,
-        signal.external_id,
+        signal.id,
     )
 
 

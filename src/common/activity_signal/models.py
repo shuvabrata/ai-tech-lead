@@ -10,17 +10,17 @@ Key design decisions:
   ``entity_type`` and allow arbitrary extra fields (``extra='allow'``).
 - Discriminated union on ``entity_type`` enforces the correct attributes
   sub-model at parse time.
-- ``RelationshipTarget`` is a flexible dict-like model to support lookup by any
-  combination of identifiers (e.g. only ``email`` for a Person).
+- ``RelationshipTarget`` uses a strict schema (``extra='forbid'``); canonical
+  identity is ``(source, entity_type, id)`` with email/url as alternate lookups.
 """
 
 from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import Annotated, Any, Dict, Literal, Optional, Union, cast
+from typing import Annotated, Any, Dict, List, Literal, Optional, Union, cast
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, computed_field, model_validator
 
 
 # ---------------------------------------------------------------------------
@@ -29,19 +29,25 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class RelationshipTarget(BaseModel):
-    """Flexible lookup dict identifying the target node of a relationship.
+    """Identifies the target node of a relationship.
 
-    The full canonical identity tuple ``(source, entity_type, external_id)``
-    is the primary lookup, but partial lookups (e.g. ``{"email": "x@y.com"}``)
-    are also valid.  All extra fields are accepted so consumers can choose the
-    most convenient identifier available.
+    Canonical identity tuple: ``(source, entity_type, id)``.
+    Consumers resolve the target node using this priority order:
+
+    1. ``entity_type == "Person"`` and ``email`` is set → look up node by email.
+    2. ``url`` is set → look up node by url.
+    3. ``id`` is set → form the WBA canonical key ``{source}::{entity_type}::{id}``.
+
+    No extra fields are permitted; use the declared fields only.
     """
 
-    model_config = ConfigDict(extra="allow")
+    model_config = ConfigDict(extra="forbid")
 
     source: Optional[str] = None
     entity_type: Optional[str] = None
-    external_id: Optional[str] = None
+    id: Optional[str] = None
+    email: Optional[str] = None
+    url: Optional[str] = None
 
 
 # ---------------------------------------------------------------------------
@@ -129,61 +135,78 @@ class Relationship(BaseModel):
 class ProjectAttributes(BaseModel):
     """Mandatory attributes for a Jira Project node."""
 
-    model_config = ConfigDict(extra="allow")
+    model_config = ConfigDict(extra="forbid")
 
-    entity_type: Literal["Project"] = "Project"
-    id: str
-    key: str
-    name: str
+    entity_type: Literal["Project"] = Field(default="Project", exclude=True)
+    project_id: str
+    project_key: str
+    project_name: str
+    status: Optional[str] = None
+    project_type: Optional[str] = None
+    url: Optional[str] = None
+    custom: Optional[Dict[str, Any]] = None
 
 
 class InitiativeAttributes(BaseModel):
     """Mandatory attributes for a Jira Initiative node."""
 
-    model_config = ConfigDict(extra="allow")
+    model_config = ConfigDict(extra="forbid")
 
-    entity_type: Literal["Initiative"] = "Initiative"
-    id: str
+    entity_type: Literal["Initiative"] = Field(default="Initiative", exclude=True)
     key: str
     summary: str
     priority: str
     status: str
     created_at: str
     project_id: Optional[str] = None
+    updated_at: Optional[str] = None
+    duedate: Optional[str] = None
+    labels: Optional[list] = None
+    components: Optional[list] = None
+    url: Optional[str] = None
+    custom: Optional[Dict[str, Any]] = None
 
 
 class EpicAttributes(BaseModel):
     """Mandatory attributes for a Jira Epic node."""
 
-    model_config = ConfigDict(extra="allow")
+    model_config = ConfigDict(extra="forbid")
 
-    entity_type: Literal["Epic"] = "Epic"
-    id: str
+    entity_type: Literal["Epic"] = Field(default="Epic", exclude=True)
     key: str
     summary: str
     priority: str
     status: str
     created_at: str
+    updated_at: Optional[str] = None
+    start_date: Optional[str] = None
+    due_date: Optional[str] = None
+    url: Optional[str] = None
+    custom: Optional[Dict[str, Any]] = None
 
 
 class SprintAttributes(BaseModel):
     """Mandatory attributes for a Jira Sprint node."""
 
-    model_config = ConfigDict(extra="allow")
+    model_config = ConfigDict(extra="forbid")
 
-    entity_type: Literal["Sprint"] = "Sprint"
-    id: str
+    entity_type: Literal["Sprint"] = Field(default="Sprint", exclude=True)
     name: str
     status: str
+    goal: Optional[str] = None
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
+    complete_date: Optional[str] = None
+    url: Optional[str] = None
+    custom: Optional[Dict[str, Any]] = None
 
 
 class IssueAttributes(BaseModel):
     """Mandatory attributes for a Jira Issue node."""
 
-    model_config = ConfigDict(extra="allow")
+    model_config = ConfigDict(extra="forbid")
 
-    entity_type: Literal["Issue"] = "Issue"
-    id: str
+    entity_type: Literal["Issue"] = Field(default="Issue", exclude=True)
     key: str
     summary: str
     priority: str
@@ -192,56 +215,73 @@ class IssueAttributes(BaseModel):
     created_at: str
     updated_at: Optional[str] = None
     story_points: Optional[float] = None
+    assignee: Optional[str] = None
+    reporter: Optional[str] = None
+    labels: Optional[list] = None
+    url: Optional[str] = None
+    custom: Optional[Dict[str, Any]] = None
 
 
 class RepositoryAttributes(BaseModel):
     """Mandatory attributes for a GitHub Repository node."""
 
-    model_config = ConfigDict(extra="allow")
+    model_config = ConfigDict(extra="forbid")
 
-    entity_type: Literal["Repository"] = "Repository"
-    id: str
-    full_name: str
+    entity_type: Literal["Repository"] = Field(default="Repository", exclude=True)
     name: str
-    created_at: str
-    updated_at: str
-    url: str
+    description: Optional[str] = None
+    language: Optional[str] = None
+    is_private: Optional[bool] = None
+    topics: Optional[List[str]] = None
+    url: Optional[str] = None
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+    custom: Optional[Dict[str, Any]] = None
 
 
 class BranchAttributes(BaseModel):
     """Mandatory attributes for a GitHub Branch node."""
 
-    model_config = ConfigDict(extra="allow")
+    model_config = ConfigDict(extra="forbid")
 
-    entity_type: Literal["Branch"] = "Branch"
-    name: str
+    entity_type: Literal["Branch"] = Field(default="Branch", exclude=True)
+    repo_name: str
+    branch_name: str
     last_commit_sha: str
     last_commit_timestamp: Optional[str] = None
+    is_default: Optional[bool] = None
     is_protected: Optional[bool] = None
     is_deleted: Optional[bool] = None
     is_external: Optional[bool] = None
+    url: Optional[str] = None
+    custom: Optional[Dict[str, Any]] = None
 
 
 class CommitAttributes(BaseModel):
     """Mandatory attributes for a GitHub Commit node."""
 
-    model_config = ConfigDict(extra="allow")
+    model_config = ConfigDict(extra="forbid")
 
-    entity_type: Literal["Commit"] = "Commit"
+    entity_type: Literal["Commit"] = Field(default="Commit", exclude=True)
     sha: str
     message: str
     author: str
     created_at: str
+    additions: Optional[int] = None
+    deletions: Optional[int] = None
+    files_changed: Optional[int] = None
+    url: Optional[str] = None
+    custom: Optional[Dict[str, Any]] = None
 
 
 class PullRequestAttributes(BaseModel):
     """Mandatory attributes for a GitHub PullRequest node."""
 
-    model_config = ConfigDict(extra="allow")
+    model_config = ConfigDict(extra="forbid")
 
-    entity_type: Literal["PullRequest"] = "PullRequest"
-    id: str
-    number: int
+    entity_type: Literal["PullRequest"] = Field(default="PullRequest", exclude=True)
+    repo_name: str
+    pull_request_number: int
     title: str
     state: str
     created_at: str
@@ -259,27 +299,37 @@ class PullRequestAttributes(BaseModel):
     base_branch_name: Optional[str] = None
     labels: Optional[list] = None
     mergeable_state: Optional[str] = None
+    url: Optional[str] = None
+    custom: Optional[Dict[str, Any]] = None
 
 
 class PersonAttributes(BaseModel):
     """Mandatory attributes for a Person node."""
 
-    model_config = ConfigDict(extra="allow")
+    model_config = ConfigDict(extra="forbid")
 
-    entity_type: Literal["Person"] = "Person"
-    id: str
-    name: str
+    entity_type: Literal["Person"] = Field(default="Person", exclude=True)
+    full_name: str
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    login: Optional[str] = None
+    email: Optional[str] = None
+    url: Optional[str] = None
+    avatar_url: Optional[str] = None
+    account_id: Optional[str] = None
+    custom: Optional[Dict[str, Any]] = None
 
 
 class TeamAttributes(BaseModel):
     """Mandatory attributes for a GitHub Team node."""
 
-    model_config = ConfigDict(extra="allow")
+    model_config = ConfigDict(extra="forbid")
 
-    entity_type: Literal["Team"] = "Team"
-    id: str
+    entity_type: Literal["Team"] = Field(default="Team", exclude=True)
     name: str
-    slug: str
+    url: Optional[str] = None
+    description: Optional[str] = None
+    custom: Optional[Dict[str, Any]] = None
 
 
 # ---------------------------------------------------------------------------
@@ -341,7 +391,7 @@ class ActivitySignal(BaseModel):
 
         signal = ActivitySignal(
             source="github",
-            external_id="repo/123",
+            id="org/repo",
             source_config="https://github.com",
             connector_url="https://wba-ai/connectors/github/1",
             event_time=datetime.utcnow(),
@@ -367,8 +417,12 @@ class ActivitySignal(BaseModel):
         description="Unique immutable identifier for this signal (UUID).",
     )
     source: str = Field(..., description="Origin system (e.g. 'github', 'jira').")
-    external_id: str = Field(
-        ..., description="Unique identifier for the entity within the source system."
+    id: str = Field(
+        ...,
+        description=(
+            "Unique identifier for the entity within its entity type. "
+            "Forms the canonical identity tuple (source, entity_type, id)."
+        ),
     )
     source_config: str = Field(
         ...,
@@ -401,15 +455,32 @@ class ActivitySignal(BaseModel):
         description="Observed relationships for this node at event_time.",
     )
 
+    @model_validator(mode='before')
+    @classmethod
+    def _inject_entity_type_into_attributes(cls, data: Any) -> Any:
+        """Copy root-level entity_type into attributes for discriminated union dispatch.
+
+        Required for round-trip deserialization: model_dump() emits entity_type at
+        root (via @computed_field) but not inside attributes (Field exclude=True).
+        This validator restores it so Pydantic can dispatch the union correctly.
+        """
+        if isinstance(data, dict):
+            entity_type = data.get('entity_type')
+            attrs = data.get('attributes')
+            if entity_type and isinstance(attrs, dict) and 'entity_type' not in attrs:
+                data = {**data, 'attributes': {**attrs, 'entity_type': entity_type}}
+        return data
+
+    @computed_field
     @property
     def entity_type(self) -> str:
-        """Convenience accessor that mirrors the entity_type from attributes."""
-        return cast(_AttributesUnion, self.attributes).entity_type  # type: ignore[union-attr]
+        """Exposes entity_type at the root level of ActivitySignal.
 
-    @property
-    def routing_key(self) -> str:
-        """RabbitMQ routing key: ``<source>.<entity_type>``."""
-        return f"{self.source}.{self.entity_type}"
+        Reads the Literal value from the underlying *Attributes model and includes
+        it in model_dump() output. Excluded from attributes serialization via
+        Field(exclude=True) on each *Attributes.entity_type field.
+        """
+        return cast(_AttributesUnion, self.attributes).entity_type  # type: ignore[union-attr]
 
     def with_ingestion_time(self, ts: Optional[datetime] = None) -> "ActivitySignal":
         """Return a copy of this signal with ``ingestion_time`` set.
@@ -424,5 +495,10 @@ class ActivitySignal(BaseModel):
         )
 
     def extra_attributes(self) -> dict[str, Any]:
-        """Return the full attributes dict including any extra fields."""
+        """Return the full attributes dict including any extra fields.
+
+        .. deprecated::
+            Use ``signal.attributes.model_dump()`` directly. This helper will
+            be removed in Phase 13 of the ActivitySignal refactoring.
+        """
         return cast(_AttributesUnion, self.attributes).model_dump()  # type: ignore[union-attr]

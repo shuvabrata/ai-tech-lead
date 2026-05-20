@@ -23,6 +23,7 @@ Strategy:
 from typing import Optional, Tuple
 from neo4j import Session
 from connectors.neo4j_db.models import Person, merge_person
+from common.activity_signal.wba_node_id import wba_format
 from common.logger import logger
 
 
@@ -68,7 +69,7 @@ def get_or_create_person(
         return None, False
 
     email = email if email else None
-    person_id = f"person_{provider}_{external_id}"
+    person_id = wba_format(provider, "Person", external_id)
 
     # ── Step 1: cross-provider deduplication via email ───────────────────────
     # If we have an email, check whether any Person node already carries it.
