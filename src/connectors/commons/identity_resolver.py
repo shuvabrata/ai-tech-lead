@@ -68,7 +68,7 @@ def get_or_create_person(
         return None, False
 
     email = email if email else None
-    person_id = f"person_{provider}_{external_id}"
+    person_id = f"{provider}::Person::{external_id}"
 
     # ── Step 1: cross-provider deduplication via email ───────────────────────
     # If we have an email, check whether any Person node already carries it.

@@ -83,7 +83,7 @@ def get_or_create_pr_author(
     """
     try:
         if pr_user is None:
-            return "person_github_unknown"
+            return "github::Person::unknown"
 
         user_data = map_pr_user(pr_user)
         github_login = user_data["login"]
@@ -113,7 +113,7 @@ def get_or_create_pr_author(
     except Exception as e:
         logger.info(f"      Warning: Failed to create PR author: {str(e)}")
         logger.exception(e)
-        return "person_github_unknown"
+        return "github::Person::unknown"
 
 
 def new_pull_request_handler(

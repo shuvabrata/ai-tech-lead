@@ -111,12 +111,14 @@ def test_label_returns_entity_type_unchanged(entity_type: str) -> None:
 
 @pytest.mark.unit
 def test_to_db_relationships_direction_none_is_forward() -> None:
+    mock_session = MagicMock()
+    mock_session.run.return_value.single.return_value = None
     rel = Relationship(
         type="PART_OF",
         direction=None,
         target=RelationshipTarget(entity_type="Repository", external_id="repo_1"),
     )
-    result = _to_db_relationships([rel], "branch_1", "Branch")
+    result = _to_db_relationships(mock_session, [rel], "branch_1", "Branch")
     assert len(result) == 1
     db_rel = result[0]
     assert db_rel.from_id == "branch_1"
@@ -128,24 +130,28 @@ def test_to_db_relationships_direction_none_is_forward() -> None:
 
 @pytest.mark.unit
 def test_to_db_relationships_direction_out_is_forward() -> None:
+    mock_session = MagicMock()
+    mock_session.run.return_value.single.return_value = None
     rel = Relationship(
         type="MERGED_INTO",
         direction="OUT",
         target=RelationshipTarget(entity_type="Branch", external_id="branch_main"),
     )
-    result = _to_db_relationships([rel], "pr_1", "PullRequest")
+    result = _to_db_relationships(mock_session, [rel], "pr_1", "PullRequest")
     assert result[0].from_id == "pr_1"
     assert result[0].to_id == "branch_main"
 
 
 @pytest.mark.unit
 def test_to_db_relationships_direction_in_swaps_from_to() -> None:
+    mock_session = MagicMock()
+    mock_session.run.return_value.single.return_value = None
     rel = Relationship(
         type="REVIEWS",
         direction="IN",
         target=RelationshipTarget(entity_type="Person", external_id="person_github_bob"),
     )
-    result = _to_db_relationships([rel], "pr_1", "PullRequest")
+    result = _to_db_relationships(mock_session, [rel], "pr_1", "PullRequest")
     assert len(result) == 1
     db_rel = result[0]
     # "IN" means target-[:REL]->source, so from_id is the target
@@ -157,17 +163,20 @@ def test_to_db_relationships_direction_in_swaps_from_to() -> None:
 
 @pytest.mark.unit
 def test_to_db_relationships_no_external_id_skipped() -> None:
+    mock_session = MagicMock()
     rel = Relationship(
         type="PART_OF",
         direction=None,
-        target=RelationshipTarget(entity_type="Repository"),  # no external_id
+        target=RelationshipTarget(entity_type="Repository"),  # no identifier at all
     )
-    result = _to_db_relationships([rel], "branch_1", "Branch")
+    result = _to_db_relationships(mock_session, [rel], "branch_1", "Branch")
     assert result == []
 
 
 @pytest.mark.unit
 def test_to_db_relationships_multiple() -> None:
+    mock_session = MagicMock()
+    mock_session.run.return_value.single.return_value = None
     rels = [
         Relationship(
             type="AUTHORED_BY",
@@ -180,7 +189,7 @@ def test_to_db_relationships_multiple() -> None:
             target=RelationshipTarget(entity_type="Branch", external_id="branch_main"),
         ),
     ]
-    result = _to_db_relationships(rels, "commit_1", "Commit")
+    result = _to_db_relationships(mock_session, rels, "commit_1", "Commit")
     assert len(result) == 2
     types = {r.type for r in result}
     assert types == {"AUTHORED_BY", "PART_OF"}
