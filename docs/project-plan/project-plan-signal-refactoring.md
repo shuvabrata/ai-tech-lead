@@ -434,7 +434,7 @@ The `ActivitySignal` schema has accumulated inconsistencies across producers and
 
 ## Phase 13 — Cleanup
 
-> **Status:** Not Started
+> **Status:** ✅ Complete (2026-05-20)
 
 **Goal:** Remove all migration scaffolding, finalize the schema, wipe and re-sync Neo4j, and auto-generate the spec. Pre-condition: all Phases 1–12 complete and all unit tests passing.
 
