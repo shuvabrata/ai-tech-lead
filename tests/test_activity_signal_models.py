@@ -303,22 +303,22 @@ def test_sprint_attributes_no_state_field_declared() -> None:
 @pytest.mark.unit
 def test_initiative_attributes_project_id_round_trips() -> None:
     attrs = InitiativeAttributes(
-        id="initiative_jira_1",
         key="INIT-1",
         summary="Big initiative",
         priority="High",
         status="In Progress",
         created_at="2026-01-01",
-        project_id="project_jira_myproject",
+        project_id="CPI",
     )
     d = attrs.model_dump()
-    assert d["project_id"] == "project_jira_myproject"
+    assert d["key"] == "INIT-1"
+    assert d["project_id"] == "CPI"
+    assert "entity_type" not in d
 
 
 @pytest.mark.unit
 def test_initiative_attributes_project_id_defaults_none() -> None:
     attrs = InitiativeAttributes(
-        id="initiative_jira_2",
         key="INIT-2",
         summary="Another initiative",
         priority="Medium",
@@ -327,6 +327,7 @@ def test_initiative_attributes_project_id_defaults_none() -> None:
     )
     d = attrs.model_dump()
     assert d["project_id"] is None
+    assert "entity_type" not in d
 
 
 # ---------------------------------------------------------------------------

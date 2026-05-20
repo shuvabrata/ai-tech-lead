@@ -410,7 +410,6 @@ def test_upsert_project_calls_merge_project() -> None:
 @pytest.mark.unit
 def test_upsert_initiative_calls_merge_initiative() -> None:
     attrs = InitiativeAttributes(
-        id="initiative_jira_INIT1",
         key="INIT-1",
         summary="Platform Modernization",
         priority="High",
@@ -422,7 +421,7 @@ def test_upsert_initiative_calls_merge_initiative() -> None:
         components=["Infrastructure"],
         url="https://jira.example.com/browse/INIT-1",
     )
-    signal = _make_signal(attrs, external_id="initiative_jira_INIT1", source="jira")
+    signal = _make_signal(attrs, source="jira", id="INIT-1")
     session = _mock_session()
 
     with patch("connectors.consumers.sinks.neo4j_sink.merge_initiative") as mock_merge:
@@ -430,7 +429,7 @@ def test_upsert_initiative_calls_merge_initiative() -> None:
 
     mock_merge.assert_called_once()
     init_arg = mock_merge.call_args.args[1]
-    assert init_arg.id == "initiative_jira_INIT1"
+    assert init_arg.id == "jira::Initiative::INIT-1"
     assert init_arg.key == "INIT-1"
     assert init_arg.summary == "Platform Modernization"
     assert init_arg.priority == "High"

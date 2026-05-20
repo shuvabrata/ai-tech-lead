@@ -152,16 +152,21 @@ class ProjectAttributes(BaseModel):
 class InitiativeAttributes(BaseModel):
     """Mandatory attributes for a Jira Initiative node."""
 
-    model_config = ConfigDict(extra="allow")
+    model_config = ConfigDict(extra="forbid")
 
     entity_type: Literal["Initiative"] = Field(default="Initiative", exclude=True)
-    id: str
     key: str
     summary: str
     priority: str
     status: str
     created_at: str
     project_id: Optional[str] = None
+    updated_at: Optional[str] = None
+    duedate: Optional[str] = None
+    labels: Optional[list] = None
+    components: Optional[list] = None
+    url: Optional[str] = None
+    custom: Optional[Dict[str, Any]] = None
 
 
 class EpicAttributes(BaseModel):
