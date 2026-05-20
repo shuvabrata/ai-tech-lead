@@ -142,9 +142,9 @@ def map_project(
         url = f"{jira_base_url.rstrip('/')}/browse/{project_key}"
 
     return {
-        "id": f"jira_project_{jira_project_id}",
-        "key": project_key,
-        "name": project_name,
+        "project_id": str(jira_project_id) if jira_project_id is not None else "",
+        "project_key": project_key,
+        "project_name": project_name,
         "status": status,
         "project_type": project_type or None,
         "url": url,

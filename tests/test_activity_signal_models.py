@@ -24,6 +24,7 @@ from common.activity_signal.models import (
     CommitAttributes,
     InitiativeAttributes,
     IssueAttributes,
+    ProjectAttributes,
     PullRequestAttributes,
     SprintAttributes,
 )
@@ -164,6 +165,56 @@ def test_pull_request_attributes_optional_fields_default_none() -> None:
     assert d["merged_at"] is None
     assert d["labels"] is None
     assert d["mergeable_state"] is None
+
+
+# ---------------------------------------------------------------------------
+# Phase 8 — ProjectAttributes
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+def test_project_attributes_round_trips() -> None:
+    attrs = ProjectAttributes(
+        project_id="10001",
+        project_key="PLAT",
+        project_name="Platform",
+        status="Active",
+        project_type="software",
+        url="https://jira.example.com/projects/PLAT",
+    )
+    d = attrs.model_dump()
+    assert d["project_id"] == "10001"
+    assert d["project_key"] == "PLAT"
+    assert d["project_name"] == "Platform"
+    assert d["status"] == "Active"
+    assert d["project_type"] == "software"
+    assert "entity_type" not in d
+
+
+@pytest.mark.unit
+def test_project_attributes_optional_fields_default_none() -> None:
+    attrs = ProjectAttributes(
+        project_id="10002",
+        project_key="AB",
+        project_name="App Broker",
+    )
+    d = attrs.model_dump()
+    assert d["status"] is None
+    assert d["project_type"] is None
+    assert d["url"] is None
+    assert d["custom"] is None
+
+
+@pytest.mark.unit
+def test_project_attributes_old_fields_rejected() -> None:
+    """Old fields id, key, name must raise ValidationError with extra='forbid'."""
+    with pytest.raises(ValidationError):
+        ProjectAttributes(  # type: ignore[call-arg]
+            project_id="10001",
+            project_key="PLAT",
+            project_name="Platform",
+            id="jira_project_10001",  # old field
+        )
 
 
 # ---------------------------------------------------------------------------

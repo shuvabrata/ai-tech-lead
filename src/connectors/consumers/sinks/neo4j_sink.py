@@ -336,16 +336,16 @@ def _handle_team(session: Session, signal: ActivitySignal) -> None:
 
 
 def _handle_project(session: Session, signal: ActivitySignal) -> None:
-    attrs = signal.extra_attributes()
+    attrs = signal.attributes.model_dump()
     project = Project(
-        id=signal.external_id,
-        key=attrs.get("key", ""),
-        name=attrs.get("name", ""),
+        id=wba_node_id(signal),
+        key=attrs.get("project_key", ""),
+        name=attrs.get("project_name", ""),
         status=attrs.get("status"),
         project_type=attrs.get("project_type"),
         url=attrs.get("url"),
     )
-    db_rels = _to_db_relationships(session, signal.relationships, signal.external_id, "Project")
+    db_rels = _to_db_relationships(session, signal.relationships, wba_node_id(signal), "Project")
     merge_project(session, project, relationships=db_rels)
 
 
