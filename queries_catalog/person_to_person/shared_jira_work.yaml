@@ -8,15 +8,15 @@ parameters:
   required: true
   label: First person
   type: person_id
-  placeholder: Enter first person id
-  description: Neo4j Person.id for the first person.
+  placeholder: e.g. github::Person::alice or jira::Person::557058:abc
+  description: WBA canonical Person ID. Format: github::Person::<login> or jira::Person::<account_id>
 - name: person2_id
   env_var: PERSON2_ID
   required: true
   label: Second person
   type: person_id
-  placeholder: Enter second person id
-  description: Neo4j Person.id for the second person.
+  placeholder: e.g. github::Person::alice or jira::Person::557058:abc
+  description: WBA canonical Person ID. Format: github::Person::<login> or jira::Person::<account_id>
 queries:
   tabular: |-
     MATCH (p1:Person {id: $person1_id}), (p2:Person {id: $person2_id})
