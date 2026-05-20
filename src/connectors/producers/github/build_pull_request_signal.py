@@ -154,7 +154,6 @@ def build_pull_request_signal(
         # INCLUDES → each commit SHA associated with this PR
         repo_name = repo_data.get("name", "unknown")
         for sha in (commit_shas or []):
-            commit_id = f"github_commit_{repo_name}_{sha[:8]}"
             rels.append(
                 Relationship(
                     type="INCLUDES",
@@ -162,7 +161,7 @@ def build_pull_request_signal(
                     target=RelationshipTarget(
                         source=_SOURCE,
                         entity_type="Commit",
-                        external_id=commit_id,
+                        id=sha,
                     ),
                 )
             )

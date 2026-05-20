@@ -12,6 +12,7 @@ from common.activity_signal.models import (
     Relationship,
     RelationshipTarget,
 )
+from common.activity_signal.wba_node_id import wba_format
 
 from connectors.producers.map_github import (
     extract_issue_keys,
@@ -31,6 +32,7 @@ def build_commit_signal(
 ) -> Optional[ActivitySignal]:
     """Build an ActivitySignal for a GitHub Commit."""
     try:
+        sha = commit_data["sha"]
         event_time = (
             datetime.fromisoformat(commit_data["created_at"]).replace(tzinfo=timezone.utc)
             if commit_data.get("created_at")
@@ -39,12 +41,10 @@ def build_commit_signal(
         login = author_data.get("login") or author_data.get("name", "unknown")
 
         attrs = CommitAttributes(
-            sha=commit_data["sha"],
+            sha=sha,
             message=_truncate(commit_data.get("message", "")),
             author=author_data.get("name") or login,
             created_at=commit_data.get("created_at", ""),
-            # Extra
-            id=commit_data["id"],
             additions=commit_data.get("additions", 0),
             deletions=commit_data.get("deletions", 0),
             files_changed=commit_data.get("files_changed", 0),
@@ -95,7 +95,8 @@ def build_commit_signal(
 
         return ActivitySignal(
             source=_SOURCE,
-            external_id=commit_data["id"],
+            id=sha,
+            external_id=wba_format(_SOURCE, "Commit", sha),
             source_config="https://github.com",
             connector_url=_connector_url(),
             event_time=event_time,

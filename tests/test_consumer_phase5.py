@@ -269,13 +269,12 @@ def test_upsert_commit_calls_merge_commit() -> None:
         message="fix: bug",
         author="Alice",
         created_at="2026-05-01T10:00:00",
-        id="commit_abc123",
         additions=10,
         deletions=3,
         files_changed=2,
         url="https://github.com/org/repo/commit/abc123",
     )
-    signal = _make_signal(attrs, external_id="commit_abc123")
+    signal = _make_signal(attrs, id="abc123", external_id="github::Commit::abc123")
     session = _mock_session()
 
     with patch("connectors.consumers.sinks.neo4j_sink.merge_commit") as mock_merge:
@@ -283,7 +282,7 @@ def test_upsert_commit_calls_merge_commit() -> None:
 
     mock_merge.assert_called_once()
     commit_arg = mock_merge.call_args.args[1]
-    assert commit_arg.id == "commit_abc123"
+    assert commit_arg.id == "github::Commit::abc123"
     assert commit_arg.sha == "abc123"
     assert commit_arg.message == "fix: bug"
     assert commit_arg.created_at == "2026-05-01T10:00:00"
@@ -593,7 +592,6 @@ def test_upsert_signal_relationships_converted_and_passed() -> None:
         message="fix",
         author="Alice",
         created_at="2026-01-01T00:00:00",
-        id="commit_1",
     )
     signal = _make_signal(attrs, external_id="commit_1", relationships=rels)
     session = _mock_session()
