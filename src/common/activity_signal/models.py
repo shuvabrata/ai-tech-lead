@@ -240,13 +240,18 @@ class BranchAttributes(BaseModel):
 class CommitAttributes(BaseModel):
     """Mandatory attributes for a GitHub Commit node."""
 
-    model_config = ConfigDict(extra="allow")
+    model_config = ConfigDict(extra="forbid")
 
     entity_type: Literal["Commit"] = Field(default="Commit", exclude=True)
     sha: str
     message: str
     author: str
     created_at: str
+    additions: Optional[int] = None
+    deletions: Optional[int] = None
+    files_changed: Optional[int] = None
+    url: Optional[str] = None
+    custom: Optional[Dict[str, Any]] = None
 
 
 class PullRequestAttributes(BaseModel):

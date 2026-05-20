@@ -204,9 +204,10 @@ def _handle_branch(session: Session, signal: ActivitySignal) -> None:
 
 
 def _handle_commit(session: Session, signal: ActivitySignal) -> None:
-    attrs = signal.extra_attributes()
+    attrs = signal.attributes.model_dump()
+    node_id = wba_node_id(signal)
     commit = Commit(
-        id=signal.external_id,
+        id=node_id,
         sha=attrs.get("sha", ""),
         message=attrs.get("message", ""),
         created_at=attrs.get("created_at", ""),
@@ -215,7 +216,7 @@ def _handle_commit(session: Session, signal: ActivitySignal) -> None:
         files_changed=attrs.get("files_changed", 0),
         url=attrs.get("url"),
     )
-    db_rels = _to_db_relationships(session, signal.relationships, signal.external_id, "Commit")
+    db_rels = _to_db_relationships(session, signal.relationships, node_id, "Commit")
     merge_commit(session, commit, relationships=db_rels)
 
 
