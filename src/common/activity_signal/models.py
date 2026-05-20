@@ -427,8 +427,8 @@ class ActivitySignal(BaseModel):
             "Optional during migration; required from Phase 13."
         ),
     )
-    external_id: str = Field(
-        ..., description="Unique identifier for the entity within the source system."
+    external_id: Optional[str] = Field(
+        default=None, description="Unique identifier for the entity within the source system. Backward-compat; removed in Phase 13."
     )
     source_config: str = Field(
         ...,
