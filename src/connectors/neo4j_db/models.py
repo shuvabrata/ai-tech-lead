@@ -430,8 +430,7 @@ class Repository:
     Example:
         repository = Repository(
             id="repo_api_gateway",
-            name="gateway",
-            full_name="company/gateway",
+            name="company/gateway",
             url="https://github.com/company/gateway",
             language="Python",
             is_private=True,
@@ -452,7 +451,6 @@ class Repository:
     """
     id: str
     name: str
-    full_name: str
     url: str
     language: str
     is_private: bool
@@ -467,10 +465,9 @@ class Repository:
     def print_cli(self) -> None:
         """Print the Repository object in an easy-to-read CLI format."""
         print(f"\n{'='*60}")
-        print(f"REPOSITORY: {self.full_name}")
+        print(f"REPOSITORY: {self.name}")
         print(f"{'='*60}")
         print(f"  ID:          {self.id}")
-        print(f"  Name:        {self.name}")
         print(f"  URL:         {self.url}")
         print(f"  Language:    {self.language}")
         print(f"  Is Private:  {self.is_private}")
@@ -1343,8 +1340,6 @@ def merge_repository(session: Session, repository: Repository, relationships: Op
     set_clauses = []
     if _has_value(props, 'name'):
         set_clauses.append("r.name = $name")
-    if _has_value(props, 'full_name'):
-        set_clauses.append("r.full_name = $full_name")
     if _has_value(props, 'created_at'):
         set_clauses.append("r.created_at = date($created_at)")
     if _has_value(props, 'url'):

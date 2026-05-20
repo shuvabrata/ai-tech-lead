@@ -39,7 +39,7 @@ def build_team_signal(
                 target=RelationshipTarget(
                     source=_SOURCE,
                     entity_type="Repository",
-                    external_id=repo_data["id"],
+                    id=repo_data["full_name"],
                 ),
                 properties=props,
             )

@@ -170,18 +170,18 @@ def _to_db_relationships(
 
 
 def _handle_repository(session: Session, signal: ActivitySignal) -> None:
-    attrs = signal.extra_attributes()
+    attrs = signal.attributes.model_dump()  # type: ignore[union-attr]
+    node_id = wba_node_id(signal)
     repo = Repository(
-        id=signal.external_id,
-        name=attrs.get("name", ""),
-        full_name=attrs.get("full_name", ""),
+        id=node_id,
+        name=signal.id or signal.external_id,
         url=attrs.get("url", ""),
         language=attrs.get("language", ""),
         is_private=attrs.get("is_private", False),
         topics=attrs.get("topics") or [],
         created_at=attrs.get("created_at", ""),
     )
-    db_rels = _to_db_relationships(session, signal.relationships, signal.external_id, "Repository")
+    db_rels = _to_db_relationships(session, signal.relationships, node_id, "Repository")
     merge_repository(session, repo, relationships=db_rels)
 
 

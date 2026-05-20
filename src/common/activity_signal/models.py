@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import Annotated, Any, Dict, Literal, Optional, Union, cast
+from typing import Annotated, Any, Dict, List, Literal, Optional, Union, cast
 
 from pydantic import BaseModel, ConfigDict, Field, computed_field, model_validator
 
@@ -205,15 +205,18 @@ class IssueAttributes(BaseModel):
 class RepositoryAttributes(BaseModel):
     """Mandatory attributes for a GitHub Repository node."""
 
-    model_config = ConfigDict(extra="allow")
+    model_config = ConfigDict(extra="forbid")
 
     entity_type: Literal["Repository"] = Field(default="Repository", exclude=True)
-    id: str
-    full_name: str
     name: str
-    created_at: str
-    updated_at: str
-    url: str
+    description: Optional[str] = None
+    language: Optional[str] = None
+    is_private: Optional[bool] = None
+    topics: Optional[List[str]] = None
+    url: Optional[str] = None
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+    custom: Optional[Dict[str, Any]] = None
 
 
 class BranchAttributes(BaseModel):

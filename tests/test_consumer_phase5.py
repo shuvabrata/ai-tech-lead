@@ -56,10 +56,12 @@ def _make_signal(
     attributes: object,
     source: str = _SOURCE,
     external_id: str = "node_1",
+    id: str | None = None,
     relationships: list[Relationship] | None = None,
 ) -> ActivitySignal:
     return ActivitySignal(
         source=source,
+        id=id,
         external_id=external_id,
         source_config=_CONFIG,
         connector_url=_CONNECTOR_URL,
@@ -203,8 +205,6 @@ def test_to_db_relationships_multiple() -> None:
 @pytest.mark.unit
 def test_upsert_repository_calls_merge_repository() -> None:
     attrs = RepositoryAttributes(
-        id="repo_1",
-        full_name="org/repo",
         name="repo",
         created_at="2023-01-01",
         updated_at="2024-01-01",
@@ -213,7 +213,7 @@ def test_upsert_repository_calls_merge_repository() -> None:
         is_private=True,
         topics=["api", "python"],
     )
-    signal = _make_signal(attrs, external_id="repo_1")
+    signal = _make_signal(attrs, external_id="github::Repository::org/repo", id="org/repo")
     session = _mock_session()
 
     with patch("connectors.consumers.sinks.neo4j_sink.merge_repository") as mock_merge:
@@ -221,9 +221,8 @@ def test_upsert_repository_calls_merge_repository() -> None:
 
     mock_merge.assert_called_once()
     repo_arg = mock_merge.call_args.args[1]
-    assert repo_arg.id == "repo_1"
-    assert repo_arg.name == "repo"
-    assert repo_arg.full_name == "org/repo"
+    assert repo_arg.id == "github::Repository::org/repo"
+    assert repo_arg.name == "org/repo"
     assert repo_arg.language == "Python"
     assert repo_arg.is_private is True
     assert repo_arg.topics == ["api", "python"]
@@ -333,8 +332,7 @@ def test_upsert_pull_request_calls_merge_pull_request() -> None:
 @pytest.mark.unit
 def test_upsert_person_calls_merge_person() -> None:
     attrs = PersonAttributes(
-        id="person_github_alice",
-        name="Alice",
+        full_name="Alice",
         login="alice",
         email="alice@example.com",
     )
@@ -677,8 +675,6 @@ async def test_consume_queue_acks_on_success() -> None:
     from connectors.consumers.main import consume_queue
 
     attrs = RepositoryAttributes(
-        id="repo_1",
-        full_name="org/repo",
         name="repo",
         created_at="2023-01-01",
         updated_at="2024-01-01",
@@ -721,8 +717,6 @@ async def test_consume_queue_nacks_on_upsert_failure() -> None:
     from connectors.consumers.main import consume_queue
 
     attrs = RepositoryAttributes(
-        id="repo_1",
-        full_name="org/repo",
         name="repo",
         created_at="2023-01-01",
         updated_at="2024-01-01",
@@ -771,8 +765,7 @@ def test_upsert_github_person_calls_person_cache_get_or_create() -> None:
     """GitHub Person signal: PersonCache.get_or_create_person called with login as external_id,
     and flush_identity_mappings is called after upsert_signal returns."""
     attrs = PersonAttributes(
-        id="person_github_alice",
-        name="Alice",
+        full_name="Alice",
         login="alice",
         email="alice@example.com",
     )
@@ -795,8 +788,7 @@ def test_upsert_github_person_calls_person_cache_get_or_create() -> None:
 def test_upsert_jira_person_calls_person_cache_with_account_id() -> None:
     """Jira Person signal: PersonCache.get_or_create_person called with account_id as external_id."""
     attrs = PersonAttributes(
-        id="person_jira_abc123",
-        name="Bob",
+        full_name="Bob",
         account_id="abc123",
         email="bob@example.com",
     )
@@ -819,8 +811,7 @@ def test_upsert_jira_person_calls_person_cache_with_account_id() -> None:
 def test_person_cache_hit_prevents_duplicate_merge_person() -> None:
     """Two Person signals with the same login: merge_person fires only once (cache hit on second call)."""
     attrs = PersonAttributes(
-        id="person_github_alice",
-        name="Alice",
+        full_name="Alice",
         login="alice",
         email="alice@example.com",
     )
@@ -845,8 +836,7 @@ def test_person_cache_hit_prevents_duplicate_merge_person() -> None:
 def test_person_cache_queues_and_flushes_identity_mapping() -> None:
     """GitHub Person signal: IdentityMapping is queued and flushed with the expected external_id."""
     attrs = PersonAttributes(
-        id="person_github_alice",
-        name="Alice",
+        full_name="Alice",
         login="alice",
         email="alice@example.com",
     )
