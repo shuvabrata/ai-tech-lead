@@ -404,9 +404,9 @@ def _handle_sprint(session: Session, signal: ActivitySignal) -> None:
 
 
 def _handle_issue(session: Session, signal: ActivitySignal) -> None:
-    attrs = signal.extra_attributes()
+    attrs = signal.attributes.model_dump()
     issue = Issue(
-        id=signal.external_id,
+        id=wba_node_id(signal),
         key=attrs.get("key", ""),
         type=attrs.get("type", ""),
         summary=attrs.get("summary", ""),
@@ -418,7 +418,7 @@ def _handle_issue(session: Session, signal: ActivitySignal) -> None:
         url=attrs.get("url"),
         _last_synced_at=datetime.now(timezone.utc).isoformat(),
     )
-    db_rels = _to_db_relationships(session, signal.relationships, signal.external_id, "Issue")
+    db_rels = _to_db_relationships(session, signal.relationships, wba_node_id(signal), "Issue")
     merge_issue(session, issue, relationships=db_rels)
 
 
