@@ -319,11 +319,12 @@ def map_sprint(sprint_data: Dict[str, Any]) -> Dict[str, Any]:
     status = status_map.get(state.lower(), state)
 
     return {
-        "id": f"jira_sprint_{jira_sprint_id}",
+        "sprint_id": str(jira_sprint_id) if jira_sprint_id is not None else "",
         "name": sprint_name,
         "goal": sprint_data.get("goal", ""),
         "start_date": _date(sprint_data.get("startDate")),
         "end_date": _date(sprint_data.get("endDate")),
+        "complete_date": _date(sprint_data.get("completeDate")),
         "status": status,
         "url": None,  # Sprint browse URLs require board ID; left for future enrichment
     }
