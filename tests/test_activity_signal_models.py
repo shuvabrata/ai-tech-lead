@@ -280,7 +280,7 @@ def test_issue_attributes_old_created_not_canonical() -> None:
 
 @pytest.mark.unit
 def test_sprint_attributes_has_status_field() -> None:
-    attrs = SprintAttributes(id="sprint_1", name="Sprint 1", status="active")
+    attrs = SprintAttributes(name="Sprint 1", status="active")
     d = attrs.model_dump()
     assert d["status"] == "active"
     assert "state" not in d
@@ -294,6 +294,13 @@ def test_sprint_attributes_no_state_field_declared() -> None:
     declared_fields = set(SprintAttributes.model_fields.keys())
     assert "state" not in declared_fields
     assert "status" in declared_fields
+
+
+@pytest.mark.unit
+def test_sprint_attributes_old_id_rejected() -> None:
+    """``id`` is no longer a declared field; it is rejected with extra="forbid"."""
+    with pytest.raises(Exception):
+        SprintAttributes(id="sprint_jira_1", name="Sprint 1", status="active")
 
 
 # ---------------------------------------------------------------------------

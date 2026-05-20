@@ -389,18 +389,17 @@ def _handle_epic(session: Session, signal: ActivitySignal) -> None:
 
 
 def _handle_sprint(session: Session, signal: ActivitySignal) -> None:
-    attrs = signal.extra_attributes()
+    attrs = signal.attributes.model_dump()
     sprint = Sprint(
-        id=signal.external_id,
+        id=wba_node_id(signal),
         name=attrs.get("name", ""),
-        goal=attrs.get("goal", ""),
-        start_date=attrs.get("start_date", ""),
-        end_date=attrs.get("end_date", ""),
-        # SprintAttributes: status is the canonical field
+        goal=attrs.get("goal") or "",
+        start_date=attrs.get("start_date") or "",
+        end_date=attrs.get("end_date") or "",
         status=attrs.get("status", ""),
         url=attrs.get("url"),
     )
-    db_rels = _to_db_relationships(session, signal.relationships, signal.external_id, "Sprint")
+    db_rels = _to_db_relationships(session, signal.relationships, wba_node_id(signal), "Sprint")
     merge_sprint(session, sprint, relationships=db_rels)
 
 

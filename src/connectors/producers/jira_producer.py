@@ -314,17 +314,16 @@ def build_sprint_signal(
     """Build an ActivitySignal for a Jira Sprint."""
     try:
         attrs = SprintAttributes(
-            id=sprint_data["id"],
             name=sprint_data["name"],
             status=sprint_data.get("status", "Unknown"),
-            # Extra
-            goal=sprint_data.get("goal", ""),
-            start_date=sprint_data.get("start_date", ""),
-            end_date=sprint_data.get("end_date", ""),
+            goal=sprint_data.get("goal") or None,
+            start_date=sprint_data.get("start_date") or None,
+            end_date=sprint_data.get("end_date") or None,
+            complete_date=sprint_data.get("complete_date") or None,
         )
         return ActivitySignal(
             source=_SOURCE,
-            external_id=sprint_data["id"],
+            id=sprint_data["sprint_id"],
             source_config=jira_base_url,
             connector_url=_connector_url(),
             event_time=datetime.now(timezone.utc),
@@ -386,7 +385,7 @@ def build_issue_signal(
                     target=RelationshipTarget(
                         source=_SOURCE,
                         entity_type="Sprint",
-                        external_id=sid,
+                        id=sid,
                     ),
                 )
             )
@@ -640,7 +639,7 @@ async def publish_signals(
 
     for s_raw in sprints_raw:
         s_data = map_sprint(s_raw)
-        sprint_jira_id_to_id[str(s_raw.get("id", ""))] = s_data["id"]
+        sprint_jira_id_to_id[str(s_raw.get("id", ""))] = s_data["sprint_id"]
         logger.debug("Processing sprint '%s' (state=%s)", s_data.get("name"), s_data.get("status"))
         await _pub(build_sprint_signal(s_data, jira_base_url))
 

@@ -371,7 +371,7 @@ The `ActivitySignal` schema has accumulated inconsistencies across producers and
 
 ## Phase 11 — Sprint
 
-> **Status:** Not Started
+> **Status:** Complete
 
 **Goal:** Migrate the Jira Sprint entity end-to-end.
 

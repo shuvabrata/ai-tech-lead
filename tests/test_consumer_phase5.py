@@ -479,14 +479,13 @@ def test_upsert_epic_calls_merge_epic() -> None:
 @pytest.mark.unit
 def test_upsert_sprint_calls_merge_sprint() -> None:
     attrs = SprintAttributes(
-        id="sprint_jira_1",
         name="Sprint 1",
         status="Completed",
         goal="Foundations",
         start_date="2025-12-09",
         end_date="2025-12-20",
     )
-    signal = _make_signal(attrs, external_id="sprint_jira_1", source="jira")
+    signal = _make_signal(attrs, id="42575", source="jira")
     session = _mock_session()
 
     with patch("connectors.consumers.sinks.neo4j_sink.merge_sprint") as mock_merge:
@@ -494,7 +493,7 @@ def test_upsert_sprint_calls_merge_sprint() -> None:
 
     mock_merge.assert_called_once()
     sprint_arg = mock_merge.call_args.args[1]
-    assert sprint_arg.id == "sprint_jira_1"
+    assert sprint_arg.id == "jira::Sprint::42575"
     assert sprint_arg.name == "Sprint 1"
     assert sprint_arg.goal == "Foundations"
     assert sprint_arg.start_date == "2025-12-09"
