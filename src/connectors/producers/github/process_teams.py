@@ -90,7 +90,7 @@ async def process_teams(
                             target=RelationshipTarget(
                                 source=_SOURCE,
                                 entity_type="Team",
-                                external_id=team_id,
+                                id=team_slug,
                             ),
                         ),
                         Relationship(

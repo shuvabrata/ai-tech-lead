@@ -356,12 +356,10 @@ def test_upsert_person_calls_merge_person() -> None:
 @pytest.mark.unit
 def test_upsert_team_calls_merge_team() -> None:
     attrs = TeamAttributes(
-        id="team_github_platform",
         name="Platform Team",
-        slug="platform",
         url="https://github.com/orgs/org/teams/platform",
     )
-    signal = _make_signal(attrs, external_id="team_github_platform", source="github")
+    signal = _make_signal(attrs, id="platform", external_id="github::Team::platform", source="github")
     session = _mock_session()
 
     with patch("connectors.consumers.sinks.neo4j_sink.merge_team") as mock_merge:
@@ -369,7 +367,7 @@ def test_upsert_team_calls_merge_team() -> None:
 
     mock_merge.assert_called_once()
     team_arg = mock_merge.call_args.args[1]
-    assert team_arg.id == "team_github_platform"
+    assert team_arg.id == "github::Team::platform"
     assert team_arg.name == "Platform Team"
     assert team_arg.source == "github"
 
