@@ -70,7 +70,7 @@ The `ActivitySignal` schema has accumulated inconsistencies across producers and
 
 ## Phase 2 — Person
 
-> **Status:** Not Started
+> **Status:** Complete
 
 **Goal:** Migrate the Person entity end-to-end. GitHub and Jira persons are done together since they share `PersonAttributes` and a single `_handle_person()` in the consumer.
 
