@@ -37,7 +37,7 @@ def build_pull_request_signal(
             else datetime.now(timezone.utc)
         )
         author_login = author_data.get("login") or author_data.get("name", "unknown")
-        author_person_id = f"person_github_{author_login}"
+        author_person_id = author_login
 
         attrs = PullRequestAttributes(
             id=str(pr_data["id"]),
@@ -72,7 +72,7 @@ def build_pull_request_signal(
                 target=RelationshipTarget(
                     source=_SOURCE,
                     entity_type="Person",
-                    external_id=author_person_id,
+                    id=author_person_id,
                 ),
             )
         ]
@@ -109,7 +109,7 @@ def build_pull_request_signal(
 
         # REVIEWED_BY → each reviewer
         for reviewer_login in reviewer_logins:
-            reviewer_person_id = f"person_github_{reviewer_login}"
+            reviewer_person_id = reviewer_login
             rels.append(
                 Relationship(
                     type="REVIEWED_BY",
@@ -117,14 +117,13 @@ def build_pull_request_signal(
                     target=RelationshipTarget(
                         source=_SOURCE,
                         entity_type="Person",
-                        external_id=reviewer_person_id,
+                        id=reviewer_person_id,
                     ),
                 )
             )
 
-        # REQUESTED_REVIEWER → each requested reviewer person
         for rr_login in (requested_reviewer_logins or []):
-            rr_person_id = f"person_github_{rr_login}"
+            rr_person_id = rr_login
             rels.append(
                 Relationship(
                     type="REQUESTED_REVIEWER",
@@ -132,14 +131,14 @@ def build_pull_request_signal(
                     target=RelationshipTarget(
                         source=_SOURCE,
                         entity_type="Person",
-                        external_id=rr_person_id,
+                        id=rr_person_id,
                     ),
                 )
             )
 
         # MERGED_BY → merger person (only when the PR was merged)
         if pr_data.get("state") == "merged" and merger_login:
-            merger_person_id = f"person_github_{merger_login}"
+            merger_person_id = merger_login
             rels.append(
                 Relationship(
                     type="MERGED_BY",
@@ -147,7 +146,7 @@ def build_pull_request_signal(
                     target=RelationshipTarget(
                         source=_SOURCE,
                         entity_type="Person",
-                        external_id=merger_person_id,
+                        id=merger_person_id,
                     ),
                 )
             )

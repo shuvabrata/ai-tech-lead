@@ -28,6 +28,7 @@ from typing import Any, Dict, List, Optional
 
 from atlassian import Jira  # type: ignore[import-untyped]
 
+from common.activity_signal.wba_node_id import wba_format
 from common.activity_signal.models import (
     ActivitySignal,
     EpicAttributes,
@@ -132,17 +133,16 @@ def build_person_signal(
 ) -> Optional[ActivitySignal]:
     """Build an ActivitySignal for a Person (Jira user)."""
     account_id = user_data.get("account_id", "")
-    person_id = f"person_jira_{account_id}"
+    person_id = wba_format(_SOURCE, "Person", account_id)
     try:
         attrs = PersonAttributes(
-            id=person_id,
-            name=user_data.get("display_name") or account_id,
-            # Extra
+            full_name=user_data.get("display_name") or account_id,
             account_id=account_id,
-            email=user_data.get("email", ""),
+            email=user_data.get("email") or None,
         )
         return ActivitySignal(
             source=_SOURCE,
+            id=account_id,
             external_id=person_id,
             source_config=jira_base_url,
             connector_url=_connector_url(),
@@ -199,7 +199,7 @@ def build_initiative_signal(
                     target=RelationshipTarget(
                         source=_SOURCE,
                         entity_type="Person",
-                        external_id=reporter_person_id,
+                        id=reporter_person_id,
                     ),
                 )
             )
@@ -279,7 +279,7 @@ def build_epic_signal(
                     target=RelationshipTarget(
                         source=_SOURCE,
                         entity_type="Person",
-                        external_id=reporter_person_id,
+                        id=reporter_person_id,
                     ),
                 )
             )
@@ -406,7 +406,7 @@ def build_issue_signal(
                     target=RelationshipTarget(
                         source=_SOURCE,
                         entity_type="Person",
-                        external_id=assignee_person_id,
+                        id=assignee_person_id,
                     ),
                 )
             )
@@ -420,7 +420,7 @@ def build_issue_signal(
                     target=RelationshipTarget(
                         source=_SOURCE,
                         entity_type="Person",
-                        external_id=reporter_person_id,
+                        id=reporter_person_id,
                     ),
                 )
             )
@@ -615,7 +615,7 @@ async def publish_signals(
         if reporter_raw and isinstance(reporter_raw, dict):
             user_data = map_jira_user(reporter_raw)
             account_id = user_data.get("account_id", "")
-            reporter_person_id = f"person_jira_{account_id}"
+            reporter_person_id = account_id
             if account_id and account_id not in seen_persons:
                 seen_persons.add(account_id)
                 await _pub(build_person_signal(user_data, jira_base_url))
@@ -677,7 +677,7 @@ async def publish_signals(
             if assignee_raw and isinstance(assignee_raw, dict):
                 user_data = map_jira_user(assignee_raw)
                 account_id = user_data.get("account_id", "")
-                assignee_person_id = f"person_jira_{account_id}"
+                assignee_person_id = account_id
                 if account_id and account_id not in seen_persons:
                     seen_persons.add(account_id)
                     await _pub(build_person_signal(user_data, jira_base_url))
@@ -688,7 +688,7 @@ async def publish_signals(
             if reporter_raw and isinstance(reporter_raw, dict):
                 user_data = map_jira_user(reporter_raw)
                 account_id = user_data.get("account_id", "")
-                reporter_person_id = f"person_jira_{account_id}"
+                reporter_person_id = account_id
                 if account_id and account_id not in seen_persons:
                     seen_persons.add(account_id)
                     await _pub(build_person_signal(user_data, jira_base_url))

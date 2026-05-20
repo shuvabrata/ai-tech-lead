@@ -4,6 +4,7 @@ from typing import Optional, List
 from connectors.neo4j_db.models import Commit, Relationship, merge_commit, merge_relationship
 from connectors.modules.github.new_file_handler import new_file_handler
 from connectors.commons.person_cache import PersonCache
+from common.activity_signal.wba_node_id import wba_format
 from common.logger import logger
 from connectors.producers.fetch_github import fetch_commit_files
 from connectors.producers.map_github import (
@@ -115,7 +116,7 @@ def get_or_create_commit_author(session: Any, commit_author: Any, person_cache: 
     except Exception as e:
         logger.debug(f"        Error creating commit author: {str(e)}", exc_info=True)
         logger.exception(e)
-        fallback_id = "github::Person::unknown"
+        fallback_id = wba_format("github", "Person", "unknown")
         logger.debug(f"        Using fallback person ID: {fallback_id}")
         return fallback_id
 

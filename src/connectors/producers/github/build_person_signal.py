@@ -7,6 +7,7 @@ from common.activity_signal.models import (
     PersonAttributes,
     Relationship,
 )
+from common.activity_signal.wba_node_id import wba_format
 from common.logger import logger
 
 from connectors.producers.github.constants import (
@@ -21,7 +22,7 @@ def build_person_signal(
 ) -> Optional[ActivitySignal]:
     """Build an ActivitySignal for a Person (GitHub author/contributor)."""
     login = person_data.get("login") or person_data.get("name", "unknown")
-    person_id = f"person_github_{login}"
+    person_id = wba_format(_SOURCE, "Person", login)
     logger.debug(
         "[build_person_signal] id=%s  login=%r  name=%r  email=%r  extra_rels=%d",
         person_id,
@@ -32,14 +33,13 @@ def build_person_signal(
     )
     try:
         attrs = PersonAttributes(
-            id=person_id,
-            name=person_data.get("name") or login,
-            # Extra
+            full_name=person_data.get("name") or login,
             login=login,
-            email=person_data.get("email") or "",
+            email=person_data.get("email") or None,
         )
         return ActivitySignal(
             source=_SOURCE,
+            id=login,
             external_id=person_id,
             source_config="https://github.com",
             connector_url=_connector_url(),
