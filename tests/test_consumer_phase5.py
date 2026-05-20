@@ -237,13 +237,13 @@ def test_upsert_repository_calls_merge_repository() -> None:
 @pytest.mark.unit
 def test_upsert_branch_calls_merge_branch() -> None:
     attrs = BranchAttributes(
-        name="main",
+        repo_name="org/repo",
+        branch_name="main",
         last_commit_sha="abc123def",
-        id="branch_repo_main",
         is_default=True,
         url="https://github.com/org/repo/tree/main",
     )
-    signal = _make_signal(attrs, external_id="branch_repo_main")
+    signal = _make_signal(attrs, id="org/repo::main")
     session = _mock_session()
 
     with patch("connectors.consumers.sinks.neo4j_sink.merge_branch") as mock_merge:
@@ -251,7 +251,7 @@ def test_upsert_branch_calls_merge_branch() -> None:
 
     mock_merge.assert_called_once()
     branch_arg = mock_merge.call_args.args[1]
-    assert branch_arg.id == "branch_repo_main"
+    assert branch_arg.id == "github::Branch::org/repo::main"
     assert branch_arg.name == "main"
     assert branch_arg.is_default is True
     assert branch_arg.last_commit_sha == "abc123def"
@@ -618,8 +618,8 @@ def test_upsert_signal_relationship_target_no_external_id_excluded() -> None:
             target=RelationshipTarget(entity_type="Repository"),  # no external_id
         ),
     ]
-    attrs = BranchAttributes(name="main", last_commit_sha="abc", id="branch_1")
-    signal = _make_signal(attrs, external_id="branch_1", relationships=rels)
+    attrs = BranchAttributes(repo_name="org/repo", branch_name="main", last_commit_sha="abc")
+    signal = _make_signal(attrs, id="org/repo::main", relationships=rels)
     session = _mock_session()
 
     with patch("connectors.consumers.sinks.neo4j_sink.merge_branch") as mock_merge:

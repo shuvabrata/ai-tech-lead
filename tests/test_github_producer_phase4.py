@@ -57,6 +57,7 @@ def _branch_data(**overrides: Any) -> Dict[str, Any]:
     data: Dict[str, Any] = {
         "id": "branch_myrepo_main",
         "name": "main",
+        "repo_name": "myrepo",
         "is_default": True,
         "is_protected": False,
         "last_commit_sha": "abc123",
@@ -101,8 +102,8 @@ def _pr_data(**overrides: Any) -> Dict[str, Any]:
         "created_at": "2024-05-01",
         "updated_at": "2024-06-01T10:00:00",
         "merged_at": "2024-06-01",
-        "base_branch_id": "branch_myrepo_main",
-        "head_branch_id": "branch_myrepo_feature",
+        "base_branch_id": "myrepo::main",
+        "head_branch_id": "myrepo::feature",
         "url": "https://github.com/org/myrepo/pull/42",
     }
     data.update(overrides)
@@ -154,6 +155,8 @@ class TestBuildBranchSignal:
         assert sig is not None
         assert sig.routing_key == "github.Branch"
         assert sig.attributes.entity_type == "Branch"  # type: ignore[union-attr]
+        assert sig.id == "myrepo::main"
+        assert sig.external_id == "github::Branch::myrepo::main"
 
     def test_relationship_to_repo(self) -> None:
         sig = build_branch_signal(_branch_data(), _repo_data())
@@ -163,7 +166,7 @@ class TestBuildBranchSignal:
         assert rel.type == "BRANCH_OF"
         assert rel.direction is None
         assert rel.target.entity_type == "Repository"
-        assert rel.target.external_id == "repo_myrepo"
+        assert rel.target.id == "org/myrepo"
 
     def test_missing_commit_sha_returns_none(self) -> None:
         d = _branch_data()

@@ -87,7 +87,7 @@ def build_pull_request_signal(
                     target=RelationshipTarget(
                         source=_SOURCE,
                         entity_type="Branch",
-                        external_id=base_branch_id,
+                        id=base_branch_id,
                     ),
                 )
             )
@@ -102,7 +102,7 @@ def build_pull_request_signal(
                     target=RelationshipTarget(
                         source=_SOURCE,
                         entity_type="Branch",
-                        external_id=head_branch_id,
+                        id=head_branch_id,
                     ),
                 )
             )
