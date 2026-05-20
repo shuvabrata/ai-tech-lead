@@ -21,6 +21,7 @@ from neo4j import Session
 
 from common.activity_signal.models import ActivitySignal
 from common.activity_signal.models import Relationship as SignalRelationship
+from common.activity_signal.wba_node_id import wba_format, wba_node_id
 from connectors.commons.person_cache import PersonCache
 from connectors.neo4j_db.models import (
     Branch,
@@ -64,23 +65,6 @@ def _label(entity_type: str) -> str:
     stable hook for future overrides and for test assertions.
     """
     return entity_type
-
-
-def _wba_format(source: str, entity_type: str, id: str) -> str:
-    """Format the WBA canonical node ID string: ``{source}::{entity_type}::{id}``."""
-    return f"{source}::{entity_type}::{id}"
-
-
-def _wba_node_id(signal: ActivitySignal) -> str:
-    """Return the WBA canonical node ID for a signal.
-
-    Returns ``{source}::{entity_type}::{id}`` when ``signal.id`` is set.
-    Falls back to ``signal.external_id`` for backward compatibility during
-    the migration period (Phases 1–12).  The fallback is removed in Phase 13.
-    """
-    if signal.id:
-        return _wba_format(signal.source, signal.entity_type, signal.id)
-    return signal.external_id
 
 
 # ---------------------------------------------------------------------------
@@ -142,7 +126,7 @@ def _to_db_relationships(
                 to_id = row["id"]
 
         if to_id is None and target.source and target.entity_type and target.id:
-            to_id = _wba_format(target.source, target.entity_type, target.id)
+            to_id = wba_format(target.source, target.entity_type, target.id)
 
         if to_id is None and target.external_id:
             to_id = target.external_id  # backward-compat fallback; removed Phase 13
@@ -266,12 +250,12 @@ def _handle_person(
     signal: ActivitySignal,
     person_cache: Optional[PersonCache] = None,
 ) -> None:
-    attrs = signal.extra_attributes()
+    attrs = signal.attributes.model_dump()  # type: ignore[union-attr]
 
     if person_cache is not None:
         if signal.source == "github":
             login = attrs.get("login", "")
-            name = attrs.get("name") or login
+            name = attrs.get("full_name") or login
             raw_email = attrs.get("email")
             email = raw_email.lower() if raw_email else None
             url = attrs.get("url")
@@ -298,7 +282,7 @@ def _handle_person(
 
         elif signal.source == "jira":
             account_id = attrs.get("account_id", "")
-            name = attrs.get("name", "")
+            name = attrs.get("full_name", "")
             raw_email = attrs.get("email")
             email = raw_email.lower() if raw_email else None
 
@@ -323,13 +307,14 @@ def _handle_person(
 
     # Fallback: no PersonCache — original behaviour
     raw_email = attrs.get("email")
+    node_id = wba_node_id(signal)
     person = Person(
-        id=signal.external_id,
-        name=attrs.get("name"),
+        id=node_id,
+        name=attrs.get("full_name"),
         email=raw_email.lower() if raw_email else None,
         url=attrs.get("url"),
     )
-    db_rels = _to_db_relationships(session, signal.relationships, signal.external_id, "Person")
+    db_rels = _to_db_relationships(session, signal.relationships, node_id, "Person")
     merge_person(session, person, relationships=db_rels)
 
 

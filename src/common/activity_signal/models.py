@@ -272,11 +272,18 @@ class PullRequestAttributes(BaseModel):
 class PersonAttributes(BaseModel):
     """Mandatory attributes for a Person node."""
 
-    model_config = ConfigDict(extra="allow")
+    model_config = ConfigDict(extra="forbid")
 
     entity_type: Literal["Person"] = Field(default="Person", exclude=True)
-    id: str
-    name: str
+    full_name: str
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    login: Optional[str] = None
+    email: Optional[str] = None
+    url: Optional[str] = None
+    avatar_url: Optional[str] = None
+    account_id: Optional[str] = None
+    custom: Optional[Dict[str, Any]] = None
 
 
 class TeamAttributes(BaseModel):

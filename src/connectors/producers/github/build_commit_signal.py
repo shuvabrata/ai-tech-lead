@@ -37,7 +37,6 @@ def build_commit_signal(
             else datetime.now(timezone.utc)
         )
         login = author_data.get("login") or author_data.get("name", "unknown")
-        author_person_id = f"person_github_{login}"
 
         attrs = CommitAttributes(
             sha=commit_data["sha"],
@@ -59,7 +58,7 @@ def build_commit_signal(
                 target=RelationshipTarget(
                     source=_SOURCE,
                     entity_type="Person",
-                    external_id=author_person_id,
+                    id=login,
                 ),
             )
         ]

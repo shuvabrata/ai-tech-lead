@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 from typing import Any, Optional
 from connectors.neo4j_db.models import PullRequest, Branch, Relationship, merge_pull_request, merge_branch, merge_relationship
 from connectors.commons.person_cache import PersonCache
+from common.activity_signal.wba_node_id import wba_format
 from common.logger import logger
 from connectors.producers.fetch_github import (
     fetch_external_branch_details,
@@ -83,7 +84,7 @@ def get_or_create_pr_author(
     """
     try:
         if pr_user is None:
-            return "github::Person::unknown"
+            return wba_format("github", "Person", "unknown")
 
         user_data = map_pr_user(pr_user)
         github_login = user_data["login"]
@@ -113,7 +114,7 @@ def get_or_create_pr_author(
     except Exception as e:
         logger.info(f"      Warning: Failed to create PR author: {str(e)}")
         logger.exception(e)
-        return "github::Person::unknown"
+        return wba_format("github", "Person", "unknown")
 
 
 def new_pull_request_handler(
