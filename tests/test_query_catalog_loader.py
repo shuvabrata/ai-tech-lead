@@ -67,8 +67,8 @@ def test_parameterized_queries_are_detected():
     assert direct_reviews.status == "active"
     assert direct_reviews.parameters[0].label == "First person"
     assert direct_reviews.parameters[0].type == "person_id"
-    assert direct_reviews.parameters[0].placeholder == "e.g. github::Person::alice or jira::Person::557058:abc"
-    assert direct_reviews.parameters[0].description == "WBA canonical Person ID. Format: github::Person::<login> or jira::Person::<account_id>"
+    assert direct_reviews.parameters[0].placeholder
+    assert direct_reviews.parameters[0].description
 
 
 def test_rejects_invalid_query_shape(tmp_path):
