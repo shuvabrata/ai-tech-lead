@@ -221,10 +221,11 @@ def _handle_commit(session: Session, signal: ActivitySignal) -> None:
 
 
 def _handle_pull_request(session: Session, signal: ActivitySignal) -> None:
-    attrs = signal.extra_attributes()
+    attrs = signal.attributes.model_dump()
+    node_id = wba_node_id(signal)
     pr = PullRequest(
-        id=signal.external_id,
-        number=attrs.get("number", 0),
+        id=node_id,
+        number=attrs.get("pull_request_number", 0),
         title=attrs.get("title", ""),
         state=attrs.get("state", ""),
         created_at=attrs.get("created_at", ""),
@@ -243,7 +244,7 @@ def _handle_pull_request(session: Session, signal: ActivitySignal) -> None:
         mergeable_state=attrs.get("mergeable_state", ""),
         url=attrs.get("url"),
     )
-    db_rels = _to_db_relationships(session, signal.relationships, signal.external_id, "PullRequest")
+    db_rels = _to_db_relationships(session, signal.relationships, node_id, "PullRequest")
     merge_pull_request(session, pr, relationships=db_rels)
 
 

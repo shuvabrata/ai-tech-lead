@@ -11,6 +11,7 @@ from common.activity_signal.models import (
     Relationship,
     RelationshipTarget,
 )
+from common.activity_signal.wba_node_id import wba_format
 
 from connectors.producers.github.constants import (
     _SOURCE,
@@ -31,6 +32,9 @@ def build_pull_request_signal(
 ) -> Optional[ActivitySignal]:
     """Build an ActivitySignal for a GitHub PullRequest."""
     try:
+        repo_name = repo_data.get("name", "unknown")
+        pull_request_number = int(pr_data["number"])
+        pr_id = f"{repo_name}::{pull_request_number}"
         event_time = (
             datetime.fromisoformat(pr_data["updated_at"]).replace(tzinfo=timezone.utc)
             if pr_data.get("updated_at")
@@ -40,8 +44,8 @@ def build_pull_request_signal(
         author_person_id = author_login
 
         attrs = PullRequestAttributes(
-            id=str(pr_data["id"]),
-            number=int(pr_data["number"]),
+            repo_name=repo_name,
+            pull_request_number=pull_request_number,
             title=_truncate(pr_data.get("title", "")),
             state=pr_data.get("state", ""),
             created_at=pr_data.get("created_at", ""),
@@ -59,10 +63,7 @@ def build_pull_request_signal(
             labels=pr_data.get("labels"),
             mergeable_state=pr_data.get("mergeable_state"),
             user=author_login,
-            # Extra
             url=pr_data.get("url"),
-            base_branch_id=pr_data.get("base_branch_id"),
-            head_branch_id=pr_data.get("head_branch_id"),
         )
 
         rels: List[Relationship] = [
@@ -168,7 +169,8 @@ def build_pull_request_signal(
 
         return ActivitySignal(
             source=_SOURCE,
-            external_id=str(pr_data["id"]),
+            id=pr_id,
+            external_id=wba_format(_SOURCE, "PullRequest", pr_id),
             source_config="https://github.com",
             connector_url=_connector_url(),
             event_time=event_time,

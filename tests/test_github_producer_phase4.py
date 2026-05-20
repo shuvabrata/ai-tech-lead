@@ -281,6 +281,8 @@ class TestBuildPullRequestSignal:
         sig = build_pull_request_signal(_pr_data(), _author_data(), [], _repo_data())
         assert sig is not None
         assert sig.routing_key == "github.PullRequest"
+        assert sig.id == "myrepo::42"
+        assert sig.external_id == "github::PullRequest::myrepo::42"
 
     def test_authored_by_relationship(self) -> None:
         sig = build_pull_request_signal(_pr_data(), _author_data(), [], _repo_data())
@@ -326,6 +328,13 @@ class TestBuildPullRequestSignal:
         del d["number"]
         sig = build_pull_request_signal(d, _author_data(), [], _repo_data())
         assert sig is None
+
+    def test_missing_mandatory_id_accepted(self) -> None:
+        """id is no longer in PullRequestAttributes; signal should build fine."""
+        d = _pr_data()
+        d.pop("id", None)
+        sig = build_pull_request_signal(d, _author_data(), [], _repo_data())
+        assert sig is not None
 
 
 # ---------------------------------------------------------------------------

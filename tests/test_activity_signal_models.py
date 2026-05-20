@@ -111,8 +111,8 @@ def test_commit_attributes_committed_date_raises() -> None:
 @pytest.mark.unit
 def test_pull_request_attributes_all_new_optional_fields() -> None:
     attrs = PullRequestAttributes(
-        id="pr_1",
-        number=42,
+        repo_name="org/myrepo",
+        pull_request_number=42,
         title="Add feature",
         state="open",
         created_at="2026-01-01T00:00:00",
@@ -132,6 +132,8 @@ def test_pull_request_attributes_all_new_optional_fields() -> None:
         mergeable_state="clean",
     )
     d = attrs.model_dump()
+    assert d["repo_name"] == "org/myrepo"
+    assert d["pull_request_number"] == 42
     assert d["updated_at"] == "2026-02-01T00:00:00"
     assert d["merged_at"] == "2026-02-15T12:00:00"
     assert d["closed_at"] == "2026-02-15T13:00:00"
@@ -150,8 +152,8 @@ def test_pull_request_attributes_all_new_optional_fields() -> None:
 @pytest.mark.unit
 def test_pull_request_attributes_optional_fields_default_none() -> None:
     attrs = PullRequestAttributes(
-        id="pr_2",
-        number=1,
+        repo_name="org/myrepo",
+        pull_request_number=1,
         title="Minimal PR",
         state="open",
         created_at="2026-01-01",
