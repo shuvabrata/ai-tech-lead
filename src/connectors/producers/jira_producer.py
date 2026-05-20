@@ -105,17 +105,16 @@ def build_project_signal(
     """Build an ActivitySignal for a Jira Project."""
     try:
         attrs = ProjectAttributes(
-            id=project_data["id"],
-            key=project_data["key"],
-            name=project_data["name"],
-            # Extra
+            project_id=project_data["project_id"],
+            project_key=project_data["project_key"],
+            project_name=project_data["project_name"],
             status=project_data.get("status"),
             project_type=project_data.get("project_type"),
             url=project_data.get("url"),
         )
         return ActivitySignal(
             source=_SOURCE,
-            external_id=project_data["id"],
+            id=project_data["project_key"],
             source_config=jira_base_url,
             connector_url=_connector_url(),
             event_time=datetime.now(timezone.utc),
@@ -123,7 +122,7 @@ def build_project_signal(
             attributes=attrs,
         )
     except Exception as exc:
-        logger.warning("Skipping Project signal for '%s' (validation error): %s", project_data.get("key"), exc)
+        logger.warning("Skipping Project signal for '%s' (validation error): %s", project_data.get("project_key"), exc)
         return None
 
 
@@ -187,7 +186,7 @@ def build_initiative_signal(
                     target=RelationshipTarget(
                         source=_SOURCE,
                         entity_type="Project",
-                        external_id=project_id,
+                        id=project_id,
                     ),
                 )
             )
@@ -267,7 +266,7 @@ def build_epic_signal(
                     target=RelationshipTarget(
                         source=_SOURCE,
                         entity_type="Project",
-                        external_id=project_id,
+                        id=project_id,
                     ),
                 )
             )
@@ -563,8 +562,8 @@ async def publish_signals(
 
     for p_raw in projects_raw:
         p_data = map_project(p_raw, jira_base_url)
-        project_key_to_id[p_data["key"]] = p_data["id"]
-        logger.debug("Processing project '%s' (%s)", p_data.get("key"), p_data.get("name"))
+        project_key_to_id[p_data["project_key"]] = p_data["project_key"]
+        logger.debug("Processing project '%s' (%s)", p_data.get("project_key"), p_data.get("project_name"))
         await _pub(build_project_signal(p_data, jira_base_url))
 
     logger.info("Projects done (%d)", published.get("Project", 0))

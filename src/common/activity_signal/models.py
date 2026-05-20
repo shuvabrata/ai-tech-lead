@@ -137,12 +137,16 @@ class Relationship(BaseModel):
 class ProjectAttributes(BaseModel):
     """Mandatory attributes for a Jira Project node."""
 
-    model_config = ConfigDict(extra="allow")
+    model_config = ConfigDict(extra="forbid")
 
     entity_type: Literal["Project"] = Field(default="Project", exclude=True)
-    id: str
-    key: str
-    name: str
+    project_id: str
+    project_key: str
+    project_name: str
+    status: Optional[str] = None
+    project_type: Optional[str] = None
+    url: Optional[str] = None
+    custom: Optional[Dict[str, Any]] = None
 
 
 class InitiativeAttributes(BaseModel):

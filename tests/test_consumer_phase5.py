@@ -380,14 +380,14 @@ def test_upsert_team_calls_merge_team() -> None:
 @pytest.mark.unit
 def test_upsert_project_calls_merge_project() -> None:
     attrs = ProjectAttributes(
-        id="project_jira_ENG",
-        key="ENG",
-        name="Engineering",
+        project_id="10001",
+        project_key="ENG",
+        project_name="Engineering",
         status="active",
         project_type="software",
         url="https://jira.example.com/projects/ENG",
     )
-    signal = _make_signal(attrs, external_id="project_jira_ENG", source="jira")
+    signal = _make_signal(attrs, source="jira", id="ENG")
     session = _mock_session()
 
     with patch("connectors.consumers.sinks.neo4j_sink.merge_project") as mock_merge:
@@ -395,7 +395,7 @@ def test_upsert_project_calls_merge_project() -> None:
 
     mock_merge.assert_called_once()
     proj_arg = mock_merge.call_args.args[1]
-    assert proj_arg.id == "project_jira_ENG"
+    assert proj_arg.id == "jira::Project::ENG"
     assert proj_arg.key == "ENG"
     assert proj_arg.name == "Engineering"
     assert proj_arg.status == "active"

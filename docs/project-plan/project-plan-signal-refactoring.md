@@ -245,7 +245,7 @@ The `ActivitySignal` schema has accumulated inconsistencies across producers and
 
 ## Phase 7 — Team
 
-> **Status:** Not Started
+> **Status:** Complete
 
 **Goal:** Migrate the Team entity end-to-end.
 
