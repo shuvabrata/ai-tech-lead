@@ -163,14 +163,12 @@ def build_initiative_signal(
     """Build an ActivitySignal for a Jira Initiative."""
     try:
         attrs = InitiativeAttributes(
-            id=initiative_data["id"],
             key=initiative_data["key"],
             summary=_truncate(initiative_data.get("summary", "")),
             priority=initiative_data.get("priority", "None"),
             status=initiative_data.get("status", "Unknown"),
             created_at=initiative_data.get("created_at", ""),
             project_id=project_id,
-            # Extra
             updated_at=initiative_data.get("updated_at", ""),
             duedate=initiative_data.get("duedate"),
             labels=initiative_data.get("labels"),
@@ -204,7 +202,7 @@ def build_initiative_signal(
             )
         return ActivitySignal(
             source=_SOURCE,
-            external_id=initiative_data["id"],
+            id=initiative_data["key"],
             source_config=jira_base_url,
             connector_url=_connector_url(),
             event_time=_event_time_from(
@@ -253,7 +251,7 @@ def build_epic_signal(
                     target=RelationshipTarget(
                         source=_SOURCE,
                         entity_type="Initiative",
-                        external_id=initiative_id,
+                        id=initiative_id,
                     ),
                 )
             )
@@ -579,7 +577,7 @@ async def publish_signals(
 
     for i_raw in initiatives_raw:
         i_data = map_initiative(i_raw, jira_base_url)
-        initiative_jira_id_to_id[i_raw.get("id", "")] = i_data["id"]
+        initiative_jira_id_to_id[i_raw.get("id", "")] = i_data["key"]
         project_key = i_data.get("project_key")
         project_id = project_key_to_id.get(project_key) if project_key else None
         logger.debug("Processing initiative '%s': '%s'", i_data.get("key"), str(i_data.get("summary", ""))[:60])

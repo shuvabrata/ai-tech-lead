@@ -276,7 +276,7 @@ The `ActivitySignal` schema has accumulated inconsistencies across producers and
 
 ## Phase 8 — Project
 
-> **Status:** Not Started
+> **Status:** Complete
 
 **Goal:** Migrate the Jira Project entity end-to-end.
 
@@ -308,7 +308,7 @@ The `ActivitySignal` schema has accumulated inconsistencies across producers and
 
 ## Phase 9 — Initiative
 
-> **Status:** Not Started
+> **Status:** Complete
 
 **Goal:** Migrate the Jira Initiative entity end-to-end.
 

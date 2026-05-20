@@ -214,7 +214,6 @@ def map_initiative(
         url = f"{jira_base_url.rstrip('/')}/browse/{issue_key}"
 
     return {
-        "id": f"jira_initiative_{issue_id}",
         "key": issue_key,
         "summary": fields.get("summary", ""),
         "priority": priority_obj.get("name", "None"),

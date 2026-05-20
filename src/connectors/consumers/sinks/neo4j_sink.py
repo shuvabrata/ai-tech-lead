@@ -350,9 +350,9 @@ def _handle_project(session: Session, signal: ActivitySignal) -> None:
 
 
 def _handle_initiative(session: Session, signal: ActivitySignal) -> None:
-    attrs = signal.extra_attributes()
+    attrs = signal.attributes.model_dump()
     initiative = Initiative(
-        id=signal.external_id,
+        id=wba_node_id(signal),
         key=attrs.get("key", ""),
         summary=attrs.get("summary", ""),
         priority=attrs.get("priority", ""),
@@ -365,7 +365,7 @@ def _handle_initiative(session: Session, signal: ActivitySignal) -> None:
         url=attrs.get("url"),
         _last_synced_at=datetime.now(timezone.utc).isoformat(),
     )
-    db_rels = _to_db_relationships(session, signal.relationships, signal.external_id, "Initiative")
+    db_rels = _to_db_relationships(session, signal.relationships, wba_node_id(signal), "Initiative")
     merge_initiative(session, initiative, relationships=db_rels)
 
 
