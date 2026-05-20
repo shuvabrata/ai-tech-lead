@@ -22,6 +22,7 @@ from common.activity_signal.models import (
     SUPPORTED_RELATIONSHIP_TYPES,
     BranchAttributes,
     CommitAttributes,
+    EpicAttributes,
     InitiativeAttributes,
     IssueAttributes,
     ProjectAttributes,
@@ -293,6 +294,43 @@ def test_sprint_attributes_no_state_field_declared() -> None:
     declared_fields = set(SprintAttributes.model_fields.keys())
     assert "state" not in declared_fields
     assert "status" in declared_fields
+
+
+# ---------------------------------------------------------------------------
+# Phase 10 — EpicAttributes
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+def test_epic_attributes_round_trips() -> None:
+    attrs = EpicAttributes(
+        key="PLAT-42",
+        summary="Platform migration",
+        priority="High",
+        status="In Progress",
+        created_at="2026-01-01",
+        updated_at="2026-02-01",
+        start_date="2026-01-01",
+        due_date="2026-06-30",
+        url="https://jira.example.com/browse/PLAT-42",
+    )
+    d = attrs.model_dump()
+    assert d["key"] == "PLAT-42"
+    assert d["due_date"] == "2026-06-30"
+    assert "entity_type" not in d
+
+
+@pytest.mark.unit
+def test_epic_attributes_old_id_rejected() -> None:
+    with pytest.raises(ValidationError):
+        EpicAttributes(  # type: ignore[call-arg]
+            key="PLAT-1",
+            summary="s",
+            priority="High",
+            status="Open",
+            created_at="2026-01-01",
+            id="jira_epic_12345",
+        )
 
 
 # ---------------------------------------------------------------------------

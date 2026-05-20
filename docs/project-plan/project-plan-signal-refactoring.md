@@ -340,7 +340,7 @@ The `ActivitySignal` schema has accumulated inconsistencies across producers and
 
 ## Phase 10 — Epic
 
-> **Status:** Not Started
+> **Status:** Complete
 
 **Goal:** Migrate the Jira Epic entity end-to-end.
 

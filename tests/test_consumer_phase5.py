@@ -446,7 +446,6 @@ def test_upsert_initiative_calls_merge_initiative() -> None:
 @pytest.mark.unit
 def test_upsert_epic_calls_merge_epic() -> None:
     attrs = EpicAttributes(
-        id="epic_jira_PLAT1",
         key="PLAT-1",
         summary="Migrate to Kubernetes",
         priority="High",
@@ -457,7 +456,7 @@ def test_upsert_epic_calls_merge_epic() -> None:
         due_date="2026-06-30",
         url="https://jira.example.com/browse/PLAT-1",
     )
-    signal = _make_signal(attrs, external_id="epic_jira_PLAT1", source="jira")
+    signal = _make_signal(attrs, source="jira", id="PLAT-1")
     session = _mock_session()
 
     with patch("connectors.consumers.sinks.neo4j_sink.merge_epic") as mock_merge:
@@ -465,7 +464,7 @@ def test_upsert_epic_calls_merge_epic() -> None:
 
     mock_merge.assert_called_once()
     epic_arg = mock_merge.call_args.args[1]
-    assert epic_arg.id == "epic_jira_PLAT1"
+    assert epic_arg.id == "jira::Epic::PLAT-1"
     assert epic_arg.key == "PLAT-1"
     assert epic_arg.start_date == "2025-12-01"
     assert epic_arg.due_date == "2026-06-30"

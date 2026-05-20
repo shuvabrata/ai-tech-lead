@@ -229,17 +229,14 @@ def build_epic_signal(
     """Build an ActivitySignal for a Jira Epic."""
     try:
         attrs = EpicAttributes(
-            id=epic_data["id"],
             key=epic_data["key"],
             summary=_truncate(epic_data.get("summary", "")),
             priority=epic_data.get("priority", "None"),
             status=epic_data.get("status", "Unknown"),
             created_at=epic_data.get("created_at", ""),
-            # Extra
             updated_at=epic_data.get("updated_at", ""),
             start_date=epic_data.get("start_date"),
             due_date=epic_data.get("due_date"),
-            team_value=epic_data.get("team_value"),
             url=epic_data.get("url"),
         )
         rels: List[Relationship] = []
@@ -294,7 +291,7 @@ def build_epic_signal(
             )
         return ActivitySignal(
             source=_SOURCE,
-            external_id=epic_data["id"],
+            id=epic_data["key"],
             source_config=jira_base_url,
             connector_url=_connector_url(),
             event_time=_event_time_from(
@@ -375,7 +372,7 @@ def build_issue_signal(
                     target=RelationshipTarget(
                         source=_SOURCE,
                         entity_type="Epic",
-                        external_id=epic_id,
+                        id=epic_id,
                     ),
                 )
             )
@@ -596,7 +593,7 @@ async def publish_signals(
 
     for e_raw in epics_raw:
         e_data = map_epic(e_raw, jira_base_url)
-        epic_jira_id_to_id[e_raw.get("id", "")] = e_data["id"]
+        epic_jira_id_to_id[e_raw.get("id", "")] = e_data["key"]
 
         # Resolve parent initiative
         parent_jira_id = e_data.get("parent_jira_id")
