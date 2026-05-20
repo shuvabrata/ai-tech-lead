@@ -370,9 +370,9 @@ def _handle_initiative(session: Session, signal: ActivitySignal) -> None:
 
 
 def _handle_epic(session: Session, signal: ActivitySignal) -> None:
-    attrs = signal.extra_attributes()
+    attrs = signal.attributes.model_dump()
     epic = Epic(
-        id=signal.external_id,
+        id=wba_node_id(signal),
         key=attrs.get("key", ""),
         summary=attrs.get("summary", ""),
         priority=attrs.get("priority", ""),
@@ -384,7 +384,7 @@ def _handle_epic(session: Session, signal: ActivitySignal) -> None:
         url=attrs.get("url"),
         _last_synced_at=datetime.now(timezone.utc).isoformat(),
     )
-    db_rels = _to_db_relationships(session, signal.relationships, signal.external_id, "Epic")
+    db_rels = _to_db_relationships(session, signal.relationships, wba_node_id(signal), "Epic")
     merge_epic(session, epic, relationships=db_rels)
 
 

@@ -172,15 +172,19 @@ class InitiativeAttributes(BaseModel):
 class EpicAttributes(BaseModel):
     """Mandatory attributes for a Jira Epic node."""
 
-    model_config = ConfigDict(extra="allow")
+    model_config = ConfigDict(extra="forbid")
 
     entity_type: Literal["Epic"] = Field(default="Epic", exclude=True)
-    id: str
     key: str
     summary: str
     priority: str
     status: str
     created_at: str
+    updated_at: Optional[str] = None
+    start_date: Optional[str] = None
+    due_date: Optional[str] = None
+    url: Optional[str] = None
+    custom: Optional[Dict[str, Any]] = None
 
 
 class SprintAttributes(BaseModel):
