@@ -257,11 +257,11 @@ class CommitAttributes(BaseModel):
 class PullRequestAttributes(BaseModel):
     """Mandatory attributes for a GitHub PullRequest node."""
 
-    model_config = ConfigDict(extra="allow")
+    model_config = ConfigDict(extra="forbid")
 
     entity_type: Literal["PullRequest"] = Field(default="PullRequest", exclude=True)
-    id: str
-    number: int
+    repo_name: str
+    pull_request_number: int
     title: str
     state: str
     created_at: str
@@ -279,6 +279,8 @@ class PullRequestAttributes(BaseModel):
     base_branch_name: Optional[str] = None
     labels: Optional[list] = None
     mergeable_state: Optional[str] = None
+    url: Optional[str] = None
+    custom: Optional[Dict[str, Any]] = None
 
 
 class PersonAttributes(BaseModel):

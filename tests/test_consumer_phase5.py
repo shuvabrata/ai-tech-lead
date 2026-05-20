@@ -299,8 +299,8 @@ def test_upsert_commit_calls_merge_commit() -> None:
 @pytest.mark.unit
 def test_upsert_pull_request_calls_merge_pull_request() -> None:
     attrs = PullRequestAttributes(
-        id="pr_42",
-        number=42,
+        repo_name="org/repo",
+        pull_request_number=42,
         title="feat: Auth",
         state="merged",
         created_at="2026-04-01T09:00:00",
@@ -308,7 +308,7 @@ def test_upsert_pull_request_calls_merge_pull_request() -> None:
         url="https://github.com/org/repo/pull/42",
         merged_at="2026-04-10T10:00:00",
     )
-    signal = _make_signal(attrs, external_id="pr_42")
+    signal = _make_signal(attrs, id="org/repo::42", external_id="github::PullRequest::org/repo::42")
     session = _mock_session()
 
     with patch("connectors.consumers.sinks.neo4j_sink.merge_pull_request") as mock_merge:
@@ -316,7 +316,7 @@ def test_upsert_pull_request_calls_merge_pull_request() -> None:
 
     mock_merge.assert_called_once()
     pr_arg = mock_merge.call_args.args[1]
-    assert pr_arg.id == "pr_42"
+    assert pr_arg.id == "github::PullRequest::org/repo::42"
     assert pr_arg.number == 42
     assert pr_arg.title == "feat: Auth"
     assert pr_arg.state == "merged"
@@ -638,14 +638,14 @@ def test_upsert_signal_direction_in_swaps_from_to_in_db_relationship() -> None:
         ),
     ]
     attrs = PullRequestAttributes(
-        id="pr_1",
-        number=1,
+        repo_name="org/repo",
+        pull_request_number=1,
         title="T",
         state="open",
         created_at="2026-01-01",
         user="alice",
     )
-    signal = _make_signal(attrs, external_id="pr_1", relationships=rels)
+    signal = _make_signal(attrs, id="org/repo::1", external_id="github::PullRequest::org/repo::1", relationships=rels)
     session = _mock_session()
 
     with patch("connectors.consumers.sinks.neo4j_sink.merge_pull_request") as mock_merge:
@@ -656,7 +656,7 @@ def test_upsert_signal_direction_in_swaps_from_to_in_db_relationship() -> None:
     db_rel = passed_rels[0]
     # "IN" → target becomes from, signal node becomes to
     assert db_rel.from_id == "person_github_bob"
-    assert db_rel.to_id == "pr_1"
+    assert db_rel.to_id == "github::PullRequest::org/repo::1"
     assert db_rel.from_type == "Person"
     assert db_rel.to_type == "PullRequest"
 

@@ -213,7 +213,7 @@ The `ActivitySignal` schema has accumulated inconsistencies across producers and
 
 ## Phase 6 — PullRequest
 
-> **Status:** Not Started
+> **Status:** Complete
 
 **Goal:** Migrate the PullRequest entity end-to-end.
 
