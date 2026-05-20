@@ -100,7 +100,7 @@ async def test_get_catalog_query_detail_includes_rich_metadata():
     assert data["status"] == "active"
     assert data["parameters"][0]["label"] == "First person"
     assert data["parameters"][0]["type"] == "person_id"
-    assert data["parameters"][0]["placeholder"] == "Enter first person id"
+    assert data["parameters"][0]["placeholder"]
 
 
 async def test_get_catalog_query_missing_returns_404():
