@@ -11,6 +11,7 @@ from common.activity_signal.models import (
     Relationship,
     RelationshipTarget,
 )
+from common.activity_signal.wba_node_id import wba_format
 
 from connectors.producers.github.constants import (
     _SOURCE,
@@ -31,17 +32,20 @@ def build_pull_request_signal(
 ) -> Optional[ActivitySignal]:
     """Build an ActivitySignal for a GitHub PullRequest."""
     try:
+        repo_name = repo_data.get("name", "unknown")
+        pull_request_number = int(pr_data["number"])
+        pr_id = f"{repo_name}::{pull_request_number}"
         event_time = (
             datetime.fromisoformat(pr_data["updated_at"]).replace(tzinfo=timezone.utc)
             if pr_data.get("updated_at")
             else datetime.now(timezone.utc)
         )
         author_login = author_data.get("login") or author_data.get("name", "unknown")
-        author_person_id = f"person_github_{author_login}"
+        author_person_id = author_login
 
         attrs = PullRequestAttributes(
-            id=str(pr_data["id"]),
-            number=int(pr_data["number"]),
+            repo_name=repo_name,
+            pull_request_number=pull_request_number,
             title=_truncate(pr_data.get("title", "")),
             state=pr_data.get("state", ""),
             created_at=pr_data.get("created_at", ""),
@@ -59,10 +63,7 @@ def build_pull_request_signal(
             labels=pr_data.get("labels"),
             mergeable_state=pr_data.get("mergeable_state"),
             user=author_login,
-            # Extra
             url=pr_data.get("url"),
-            base_branch_id=pr_data.get("base_branch_id"),
-            head_branch_id=pr_data.get("head_branch_id"),
         )
 
         rels: List[Relationship] = [
@@ -72,7 +73,7 @@ def build_pull_request_signal(
                 target=RelationshipTarget(
                     source=_SOURCE,
                     entity_type="Person",
-                    external_id=author_person_id,
+                    id=author_person_id,
                 ),
             )
         ]
@@ -87,7 +88,7 @@ def build_pull_request_signal(
                     target=RelationshipTarget(
                         source=_SOURCE,
                         entity_type="Branch",
-                        external_id=base_branch_id,
+                        id=base_branch_id,
                     ),
                 )
             )
@@ -102,14 +103,14 @@ def build_pull_request_signal(
                     target=RelationshipTarget(
                         source=_SOURCE,
                         entity_type="Branch",
-                        external_id=head_branch_id,
+                        id=head_branch_id,
                     ),
                 )
             )
 
         # REVIEWED_BY → each reviewer
         for reviewer_login in reviewer_logins:
-            reviewer_person_id = f"person_github_{reviewer_login}"
+            reviewer_person_id = reviewer_login
             rels.append(
                 Relationship(
                     type="REVIEWED_BY",
@@ -117,14 +118,13 @@ def build_pull_request_signal(
                     target=RelationshipTarget(
                         source=_SOURCE,
                         entity_type="Person",
-                        external_id=reviewer_person_id,
+                        id=reviewer_person_id,
                     ),
                 )
             )
 
-        # REQUESTED_REVIEWER → each requested reviewer person
         for rr_login in (requested_reviewer_logins or []):
-            rr_person_id = f"person_github_{rr_login}"
+            rr_person_id = rr_login
             rels.append(
                 Relationship(
                     type="REQUESTED_REVIEWER",
@@ -132,14 +132,14 @@ def build_pull_request_signal(
                     target=RelationshipTarget(
                         source=_SOURCE,
                         entity_type="Person",
-                        external_id=rr_person_id,
+                        id=rr_person_id,
                     ),
                 )
             )
 
         # MERGED_BY → merger person (only when the PR was merged)
         if pr_data.get("state") == "merged" and merger_login:
-            merger_person_id = f"person_github_{merger_login}"
+            merger_person_id = merger_login
             rels.append(
                 Relationship(
                     type="MERGED_BY",
@@ -147,7 +147,7 @@ def build_pull_request_signal(
                     target=RelationshipTarget(
                         source=_SOURCE,
                         entity_type="Person",
-                        external_id=merger_person_id,
+                        id=merger_person_id,
                     ),
                 )
             )
@@ -155,7 +155,6 @@ def build_pull_request_signal(
         # INCLUDES → each commit SHA associated with this PR
         repo_name = repo_data.get("name", "unknown")
         for sha in (commit_shas or []):
-            commit_id = f"github_commit_{repo_name}_{sha[:8]}"
             rels.append(
                 Relationship(
                     type="INCLUDES",
@@ -163,14 +162,14 @@ def build_pull_request_signal(
                     target=RelationshipTarget(
                         source=_SOURCE,
                         entity_type="Commit",
-                        external_id=commit_id,
+                        id=sha,
                     ),
                 )
             )
 
         return ActivitySignal(
             source=_SOURCE,
-            external_id=str(pr_data["id"]),
+            id=pr_id,
             source_config="https://github.com",
             connector_url=_connector_url(),
             event_time=event_time,

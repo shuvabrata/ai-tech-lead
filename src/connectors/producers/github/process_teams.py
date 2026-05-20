@@ -90,7 +90,7 @@ async def process_teams(
                             target=RelationshipTarget(
                                 source=_SOURCE,
                                 entity_type="Team",
-                                external_id=team_id,
+                                id=team_slug,
                             ),
                         ),
                         Relationship(
@@ -99,7 +99,7 @@ async def process_teams(
                             target=RelationshipTarget(
                                 source=_SOURCE,
                                 entity_type="Repository",
-                                external_id=repo_data["id"],
+                                id=repo_data["full_name"],
                             ),
                             properties={"permission": permission} if permission else None,
                         ),

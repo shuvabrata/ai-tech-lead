@@ -57,6 +57,7 @@ def _branch_data(**overrides: Any) -> Dict[str, Any]:
     data: Dict[str, Any] = {
         "id": "branch_myrepo_main",
         "name": "main",
+        "repo_name": "myrepo",
         "is_default": True,
         "is_protected": False,
         "last_commit_sha": "abc123",
@@ -101,8 +102,8 @@ def _pr_data(**overrides: Any) -> Dict[str, Any]:
         "created_at": "2024-05-01",
         "updated_at": "2024-06-01T10:00:00",
         "merged_at": "2024-06-01",
-        "base_branch_id": "branch_myrepo_main",
-        "head_branch_id": "branch_myrepo_feature",
+        "base_branch_id": "myrepo::main",
+        "head_branch_id": "myrepo::feature",
         "url": "https://github.com/org/myrepo/pull/42",
     }
     data.update(overrides)
@@ -119,19 +120,18 @@ class TestBuildRepositorySignal:
         sig = build_repository_signal(_repo_data())
         assert sig is not None
         assert sig.source == "github"
-        assert sig.external_id == "repo_myrepo"
-        assert sig.routing_key == "github.Repository"
+        assert sig.id == "org/myrepo"
         assert sig.attributes.entity_type == "Repository"  # type: ignore[union-attr]
 
-    def test_missing_mandatory_id_returns_none(self) -> None:
+    def test_missing_mandatory_full_name_returns_none(self) -> None:
         d = _repo_data()
-        del d["id"]
+        del d["full_name"]
         sig = build_repository_signal(d)
         assert sig is None
 
-    def test_missing_updated_at_returns_none(self) -> None:
+    def test_missing_name_returns_none(self) -> None:
         d = _repo_data()
-        del d["updated_at"]
+        del d["name"]
         sig = build_repository_signal(d)
         assert sig is None
 
@@ -152,8 +152,8 @@ class TestBuildBranchSignal:
     def test_valid(self) -> None:
         sig = build_branch_signal(_branch_data(), _repo_data())
         assert sig is not None
-        assert sig.routing_key == "github.Branch"
         assert sig.attributes.entity_type == "Branch"  # type: ignore[union-attr]
+        assert sig.id == "myrepo::main"
 
     def test_relationship_to_repo(self) -> None:
         sig = build_branch_signal(_branch_data(), _repo_data())
@@ -163,7 +163,7 @@ class TestBuildBranchSignal:
         assert rel.type == "BRANCH_OF"
         assert rel.direction is None
         assert rel.target.entity_type == "Repository"
-        assert rel.target.external_id == "repo_myrepo"
+        assert rel.target.id == "org/myrepo"
 
     def test_missing_commit_sha_returns_none(self) -> None:
         d = _branch_data()
@@ -198,18 +198,17 @@ class TestBuildPersonSignal:
     def test_valid(self) -> None:
         sig = build_person_signal(_author_data())
         assert sig is not None
-        assert sig.routing_key == "github.Person"
-        assert sig.external_id == "person_github_devuser"
+        assert sig.id == "devuser"
 
     def test_id_derived_from_login(self) -> None:
         sig = build_person_signal({"login": "alice", "name": "Alice", "email": ""})
         assert sig is not None
-        assert sig.external_id == "person_github_alice"
+        assert sig.id == "alice"
 
     def test_login_fallback_to_name(self) -> None:
         sig = build_person_signal({"name": "Bob", "email": ""})
         assert sig is not None
-        assert "Bob" in sig.external_id
+        assert "Bob" in sig.id
 
     def test_extra_fields_present(self) -> None:
         sig = build_person_signal(_author_data())
@@ -228,8 +227,7 @@ class TestBuildCommitSignal:
     def test_valid(self) -> None:
         sig = build_commit_signal(_commit_data(), _author_data(), _branch_data())
         assert sig is not None
-        assert sig.routing_key == "github.Commit"
-        assert sig.external_id == "commit_abc123"
+        assert sig.id == "abc123"
 
     def test_relationships_authored_by_and_part_of(self) -> None:
         sig = build_commit_signal(_commit_data(), _author_data(), _branch_data())
@@ -263,7 +261,7 @@ class TestBuildCommitSignal:
         assert sig is not None
         authored_by = next(r for r in sig.relationships if r.type == "AUTHORED_BY")
         assert authored_by.target.entity_type == "Person"
-        assert authored_by.target.external_id == "person_github_devuser"
+        assert authored_by.target.id == "devuser"
 
 
 # ---------------------------------------------------------------------------
@@ -275,7 +273,7 @@ class TestBuildPullRequestSignal:
     def test_valid(self) -> None:
         sig = build_pull_request_signal(_pr_data(), _author_data(), [], _repo_data())
         assert sig is not None
-        assert sig.routing_key == "github.PullRequest"
+        assert sig.id == "myrepo::42"
 
     def test_authored_by_relationship(self) -> None:
         sig = build_pull_request_signal(_pr_data(), _author_data(), [], _repo_data())
@@ -290,7 +288,7 @@ class TestBuildPullRequestSignal:
         assert len(targets) == 1
         assert targets[0].direction == "OUT"
         assert targets[0].target.entity_type == "Branch"
-        assert targets[0].target.external_id == "branch_myrepo_main"
+        assert targets[0].target.id == "myrepo::main"
 
     def test_reviewed_by_relationships(self) -> None:
         sig = build_pull_request_signal(
@@ -299,8 +297,8 @@ class TestBuildPullRequestSignal:
         assert sig is not None
         reviews = [r for r in sig.relationships if r.type == "REVIEWED_BY"]
         assert len(reviews) == 2
-        reviewer_ids = {r.target.external_id for r in reviews}
-        assert reviewer_ids == {"person_github_reviewer1", "person_github_reviewer2"}
+        reviewer_ids = {r.target.id for r in reviews}
+        assert reviewer_ids == {"reviewer1", "reviewer2"}
 
     def test_no_base_branch_omits_targets(self) -> None:
         d = _pr_data()
@@ -321,6 +319,13 @@ class TestBuildPullRequestSignal:
         del d["number"]
         sig = build_pull_request_signal(d, _author_data(), [], _repo_data())
         assert sig is None
+
+    def test_missing_mandatory_id_accepted(self) -> None:
+        """id is no longer in PullRequestAttributes; signal should build fine."""
+        d = _pr_data()
+        d.pop("id", None)
+        sig = build_pull_request_signal(d, _author_data(), [], _repo_data())
+        assert sig is not None
 
 
 # ---------------------------------------------------------------------------
@@ -432,6 +437,9 @@ class TestProcessRepoSignals:
         head.repo.owner.login = "org"
         head.repo.name = "myrepo"
         pr.head = head
+
+        # No merged_by to avoid MagicMock cascade in process_single_pr
+        pr.merged_by = None
 
         return pr
 
@@ -594,7 +602,7 @@ class TestProcessRepoSignals:
         mock_member = MagicMock()
         mock_member.login = "teammember"
         mock_member.name = "Team Member"
-
+        mock_member.email = "teammember@example.com"
         mock_team = MagicMock()
         mock_team.name = "Engineering"
         mock_team.slug = "engineering"
@@ -629,7 +637,7 @@ class TestProcessRepoSignals:
         assert collab_rels[0].target.entity_type == "Repository"
 
         # Member Person signal has MEMBER_OF relationship to team
-        person_sigs = [s for s in all_sigs if s.entity_type == "Person" and s.external_id == "person_github_teammember"]
+        person_sigs = [s for s in all_sigs if s.entity_type == "Person" and s.id == "teammember"]
         assert len(person_sigs) == 1
         member_of_rels = [r for r in person_sigs[0].relationships if r.type == "MEMBER_OF"]
         assert len(member_of_rels) == 1
@@ -643,6 +651,7 @@ class TestProcessRepoSignals:
         mock_member = MagicMock()
         mock_member.login = "collab_user"
         mock_member.name = "Collab User"
+        mock_member.email = "collab@example.com"
 
         mock_team = MagicMock()
         mock_team.name = "Ops"
@@ -664,7 +673,7 @@ class TestProcessRepoSignals:
             await process_repo_signals(publisher, mock_repo, "org", None, published)
 
         all_sigs = [call.args[0] for call in publisher.publish.call_args_list]
-        person_sigs = [s for s in all_sigs if s.entity_type == "Person" and s.external_id == "person_github_collab_user"]
+        person_sigs = [s for s in all_sigs if s.entity_type == "Person" and s.id == "collab_user"]
         assert len(person_sigs) == 1
 
         collab_rels = [r for r in person_sigs[0].relationships if r.type == "COLLABORATOR"]
@@ -684,12 +693,12 @@ class TestBuildPullRequestSignalPhaseD:
 
     def test_from_relationship(self) -> None:
         """PR with head_branch_id → FROM relationship present."""
-        sig = build_pull_request_signal(_pr_data(head_branch_id="branch_myrepo_feature"), _author_data(), [], _repo_data())
+        sig = build_pull_request_signal(_pr_data(head_branch_id="myrepo::feature"), _author_data(), [], _repo_data())
         assert sig is not None
         from_rels = [r for r in sig.relationships if r.type == "FROM"]
         assert len(from_rels) == 1
         assert from_rels[0].target.entity_type == "Branch"
-        assert from_rels[0].target.external_id == "branch_myrepo_feature"
+        assert from_rels[0].target.id == "myrepo::feature"
 
     def test_from_relationship_absent_when_no_head_branch(self) -> None:
         d = _pr_data()
@@ -707,8 +716,8 @@ class TestBuildPullRequestSignalPhaseD:
         assert sig is not None
         rr_rels = [r for r in sig.relationships if r.type == "REQUESTED_REVIEWER"]
         assert len(rr_rels) == 2
-        rr_ids = {r.target.external_id for r in rr_rels}
-        assert rr_ids == {"person_github_alice", "person_github_bob"}
+        rr_ids = {r.target.id for r in rr_rels}
+        assert rr_ids == {"alice", "bob"}
 
     def test_requested_reviewer_absent_when_empty(self) -> None:
         sig = build_pull_request_signal(_pr_data(), _author_data(), [], _repo_data(), requested_reviewer_logins=[])
@@ -724,7 +733,7 @@ class TestBuildPullRequestSignalPhaseD:
         merged_rels = [r for r in sig.relationships if r.type == "MERGED_BY"]
         assert len(merged_rels) == 1
         assert merged_rels[0].target.entity_type == "Person"
-        assert merged_rels[0].target.external_id == "person_github_bob"
+        assert merged_rels[0].target.id == "bob"
 
     def test_merged_by_absent_when_open(self) -> None:
         """PR state=open → MERGED_BY not emitted even if merger_login provided."""
@@ -743,8 +752,8 @@ class TestBuildPullRequestSignalPhaseD:
         assert sig is not None
         inc_rels = [r for r in sig.relationships if r.type == "INCLUDES"]
         assert len(inc_rels) == 3
-        inc_ids = {r.target.external_id for r in inc_rels}
-        assert inc_ids == {"github_commit_myrepo_aaa111", "github_commit_myrepo_bbb222", "github_commit_myrepo_ccc333"}
+        inc_ids = {r.target.id for r in inc_rels}
+        assert inc_ids == {"aaa111", "bbb222", "ccc333"}
 
     def test_includes_absent_when_no_shas(self) -> None:
         sig = build_pull_request_signal(_pr_data(), _author_data(), [], _repo_data(), commit_shas=[])
@@ -769,7 +778,7 @@ class TestBuildCommitSignalPhaseD:
         ref_rels = [r for r in sig.relationships if r.type == "REFERENCES"]
         assert len(ref_rels) == 1
         assert ref_rels[0].target.entity_type == "Issue"
-        assert ref_rels[0].target.external_id == "jira_issue_PROJ-42"
+        assert ref_rels[0].target.id == "PROJ-42"
         assert ref_rels[0].target.source == "jira"
 
     def test_multiple_jira_keys_in_message(self) -> None:
@@ -779,8 +788,8 @@ class TestBuildCommitSignalPhaseD:
         assert sig is not None
         ref_rels = [r for r in sig.relationships if r.type == "REFERENCES"]
         assert len(ref_rels) == 2
-        ref_ids = {r.target.external_id for r in ref_rels}
-        assert ref_ids == {"jira_issue_PROJ-1", "jira_issue_PROJ-2"}
+        ref_ids = {r.target.id for r in ref_rels}
+        assert ref_ids == {"PROJ-1", "PROJ-2"}
 
     def test_no_jira_key_no_references(self) -> None:
         sig = build_commit_signal(

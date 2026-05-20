@@ -140,11 +140,11 @@ class RabbitMQPublisher:
             delivery_mode=DeliveryMode.PERSISTENT,
             content_type="application/json",
         )
-        await exchange.publish(message, routing_key=signal.routing_key)
+        await exchange.publish(message, routing_key=f"{signal.source}.{signal.entity_type}")
         logger.debug(
             "Published signal signal_id=%s routing_key=%s",
             signal.signal_id,
-            signal.routing_key,
+            f"{signal.source}.{signal.entity_type}",
         )
 
 
