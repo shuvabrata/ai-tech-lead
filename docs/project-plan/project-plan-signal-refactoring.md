@@ -2,684 +2,498 @@
 
 ## Background
 
-The `ActivitySignal` schema has accumulated inconsistencies across producers and consumers. This plan standardises it across four macro groups, each broken into small independently-testable phases. Every phase leaves the system in a fully working state.
+The `ActivitySignal` schema has accumulated inconsistencies across producers and consumers. This plan standardises it end-to-end using a **vertical-slice** approach: each phase delivers a complete model + producer + consumer change for one entity type, leaving the system in a fully working and end-to-end testable state after every phase.
 
 ## Decisions Made
 
 | Decision | Choice |
 |---|---|
-| Migration strategy | Phased; one concern per phase |
-| `entity_type` in model | Option C: top-level `@computed_field` via `model_validator(mode='before')` injection; excluded from `*Attributes` serialization |
+| Migration strategy | Vertical slices — one entity type per phase; every phase is end-to-end testable |
+| `id` in model | `Optional[str]` during migration (Phases 1–12); becomes required in Phase 13 cleanup |
+| `entity_type` in model | `@computed_field` via `model_validator(mode='before')` injection; excluded from `*Attributes` serialization |
 | `id` uniqueness tuple | `(source, entity_type, id)` at top level of `ActivitySignal` |
 | `wba_node_id` format | `"{source}::{entity_type}::{id}"` (PascalCase entity type, `::` separator) |
-| `RelationshipTarget` lookup field | `id` (mirrors `ActivitySignal.id`) |
-| Strict schema | `extra="forbid"` on all `*Attributes`; known optional fields promoted; `custom: Optional[Dict[str, Any]]` for arbitrary extras |
-| `routing_key` | Removed from model; inlined in `rabbitmq.py` as `f"{signal.source}.{signal.entity_type}"` |
-| Neo4j clearing | Clear at Macro Group 3 boundary; re-sync from scratch using `scripts/clear_all_data.sh` |
+| `extra="forbid"` rollout | Enabled per entity type as part of each entity's phase (not globally upfront) |
+| `custom` escape hatch | `custom: Optional[Dict[str, Any]] = None` on each `*Attributes` (inline field, not base class) |
+| `RelationshipTarget` lookup | `id` field; `email` overrides for Person; `url` overrides for all others |
+| `routing_key` | Removed from model in Phase 13; inlined in `rabbitmq.py` as `f"{signal.source}.{signal.entity_type}"` |
+| Neo4j clearing | After Phase 13 cleanup; re-sync from scratch using `scripts/clear_all_data.sh` |
 
 ---
 
-## Macro Group 1 — Model Layer
-
-All changes are in `src/common/activity_signal/models.py` and `tests/test_activity_signal_models.py`. No producer or consumer code changes. Each phase ends with a passing test suite.
-
----
-
-### Phase 1.1 — Promote `id` and `entity_type` to top-level `ActivitySignal`
+## Phase 1 — Foundation
 
 > **Status:** Not Started
 
-**Goal:** Add `id: str` as a required top-level field. Convert `entity_type` from a `@property` to a `@computed_field` that is injected into `attributes` via `model_validator(mode='before')` before union dispatch.
+**Goal:** Establish all cross-cutting model and consumer infrastructure that every entity-specific phase depends on. No producer or entity-specific attribute changes in this phase.
 
-**Changes — `models.py`:**
-- Add `id: str` field to `ActivitySignal` (keep `external_id` for now — it will be removed in Phase 1.15 after all producers are updated in Macro Group 2)
-- Add a `@model_validator(mode='before')` on `ActivitySignal` that copies `data['entity_type']` into `data['attributes']['entity_type']` when `attributes` is a dict and `entity_type` is present at top level
-- Replace `@property entity_type` with `@computed_field` returning `self.attributes.entity_type`, and mark `entity_type` in all `*Attributes` with `exclude=True` in serialization so it does not appear in the `attributes` JSON block
-- Update the module-level docstring to reflect the new design
+**Pre-work — verify signal dumps:**
+- Inspect `logs/signals/github_queue_signals_iam_deploy.json` and `logs/signals/jira_queue_signals.json`
+- Confirm the current `external_id` format is `<source>_<entity_type>_<name>` for all entity types
+- Document any anomalies before proceeding
+
+**Changes — `src/common/activity_signal/models.py`:**
+- Add `id: Optional[str] = None` to `ActivitySignal` (Optional during migration; made required in Phase 13)
+- Add `@model_validator(mode='before')` that copies `data['entity_type']` into `data['attributes']['entity_type']` when both are present
+- Replace `@property entity_type` with `@computed_field` returning `self.attributes.entity_type`; mark `entity_type` on all `*Attributes` with `exclude=True` in serialization
+- Redesign `RelationshipTarget`:
+  - Rename `external_id` → `id: Optional[str] = None`
+  - Add `email: Optional[str] = None` (first-preference lookup for Person targets)
+  - Add `url: Optional[str] = None` (first-preference lookup for non-Person targets)
+  - Change `extra="allow"` → `extra="forbid"`
+  - Update docstring: canonical lookup is `(source, entity_type, id)`; `email` overrides for Person; `url` overrides for all others
+- Remove `extra_attributes()` helper from `ActivitySignal`
+
+**Changes — `src/connectors/consumers/sinks/neo4j_sink.py`:**
+- Add helper: `def _wba_node_id(signal: ActivitySignal) -> str` — returns `f"{signal.source}::{signal.entity_type}::{signal.id}"` if `signal.id` is set, otherwise falls back to `signal.external_id` (fallback removed in Phase 13)
+- Update `_to_db_relationships()`: replace `to_id = target.external_id` with resolution logic:
+  1. Person target with `target.email` → look up node by email
+  2. Non-Person target with `target.url` → look up node by url
+  3. Fallback → `f"{target.source}::{target.entity_type}::{target.id}"`
+  - Update guard: `if not target.external_id` → `if not (target.id or target.email or target.url)`
+
+**Changes — `src/connectors/commons/identity_resolver.py`, `person_cache.py`:**
+- `identity_resolver.py`: replace `f"person_{provider}_{external_id}"` with `f"{provider}::Person::{external_id}"`
+- `person_cache.py`: update `fallback_person_id` to same formula
+- `new_commit_handler.py`, `new_pull_request_handler.py`: replace `"person_github_unknown"` hardcodes with `f"{source}::Person::unknown"`
 
 **Changes — tests:**
-- Test that `ActivitySignal` accepts `entity_type` at top level and dispatches to the correct `*Attributes` submodel without setting `entity_type` inside `attributes`
-- Test that `model_dump()` includes `entity_type` and `id` at the top level
-- Test that `model_dump()` does NOT include `entity_type` inside the `attributes` block
-- Test that a mismatch between top-level `entity_type` and the `*Attributes` literal raises a `ValidationError`
+- `ActivitySignal` accepts `entity_type` at top level; dispatches to correct `*Attributes`
+- `model_dump()` includes `entity_type` and `id` at top level; `entity_type` absent inside `attributes`
+- Mismatch between top-level `entity_type` and `*Attributes` literal raises `ValidationError`
+- `RelationshipTarget` rejects `external_id`; accepts `id`, `email`, `url`; rejects extra fields
+- `_wba_node_id()` returns `::` format when `id` set; falls back gracefully when `id` is None
+- `identity_resolver` produces `"github::Person::alice"` for login `alice`, source `github`
+- `person_cache` fallback produces `"github::Person::unknown"` (not old underscore format)
 
 ---
 
-### Phase 1.2 — Strict schema + `custom` field on all `*Attributes`
+## Phase 2 — Person
 
 > **Status:** Not Started
 
-**Goal:** Enforce `extra="forbid"` on every `*Attributes` model. Add `custom: Optional[Dict[str, Any]] = None` to each one as the sanctioned escape hatch for arbitrary producer-specific data.
+**Goal:** Migrate the Person entity end-to-end. GitHub and Jira persons are done together since they share `PersonAttributes` and a single `_handle_person()` in the consumer.
 
-**Changes — `models.py`:**
-- Change every `model_config = ConfigDict(extra="allow")` to `model_config = ConfigDict(extra="forbid")` on all `*Attributes` classes
-- Add `custom: Optional[Dict[str, Any]] = Field(default=None, description="Arbitrary producer-specific fields not covered by the declared schema.")` to every `*Attributes` class
-- Remove the `extra_attributes()` helper method from `ActivitySignal` — it is no longer meaningful and callers will be updated in Macro Group 3
+**Pre-condition:** Phase 1 complete.
 
-**Changes — tests:**
-- Test that setting an undeclared field directly on any `*Attributes` raises `ValidationError`
-- Test that the same data placed in `custom` is accepted and round-trips correctly
-- Test `RelationshipTarget` also gets `extra="forbid"` (see Phase 1.3 — can be combined here if preferred)
-
----
-
-### Phase 1.3 — Redesign `RelationshipTarget`
-
-> **Status:** Not Started
-
-**Goal:** Replace the current flexible `extra="allow"` model with a strict model. Replace `external_id` with `id`. Add `email` and `url` as optional alternate lookup fields.
-
-**Changes — `models.py`:**
-- Change `RelationshipTarget.external_id` → `id: Optional[str] = None`
-- Change `model_config = ConfigDict(extra="allow")` → `extra="forbid"`
-- Add `email: Optional[str] = None` — consumer uses this as first-preference lookup for `Person` targets
-- Add `url: Optional[str] = None` — consumer uses this as first-preference lookup for non-Person targets
-- Update the class docstring: the canonical lookup tuple is `(source, entity_type, id)`; `email` overrides for Person; `url` overrides for all other types
-
-**Changes — tests:**
-- Test that extra fields on `RelationshipTarget` are rejected
-- Test `(source, entity_type, id)` round-trips correctly
-- Test `email` and `url` optional fields are accepted
-- Test that the old `external_id` field is rejected (breaking change validation)
-
----
-
-### Phase 1.4 — Update `PersonAttributes`
-
-> **Status:** Not Started
-
-**Goal:** Remove `id` (moves to top-level). Rename `name` → `full_name`. Add `first_name`, `last_name`. Promote known optional fields.
-
-**Changes — `models.py`:**
-- Remove `id: str` from `PersonAttributes`
+**Changes — `models.py` (`PersonAttributes`):**
+- Remove `id: str`
 - Rename `name: str` → `full_name: str`
-- Add `first_name: Optional[str] = None`
-- Add `last_name: Optional[str] = None`
-- Promote known optional fields from producer/consumer audit: `login: Optional[str] = None`, `email: Optional[str] = None`, `avatar_url: Optional[str] = None`, `url: Optional[str] = None`
+- Add `first_name: Optional[str] = None`, `last_name: Optional[str] = None`
+- Promote known optional fields: `login`, `email`, `avatar_url`, `url`
+- Enable `extra="forbid"`; add `custom: Optional[Dict[str, Any]] = None`
+
+**Changes — GitHub producer (`build_person_signal.py`):**
+- Set `id=login` on `ActivitySignal`; remove `external_id`
+- Set `full_name` (not `name`); remove `id` from `PersonAttributes`
+- `build_commit_signal.py`, `build_pull_request_signal.py`: update all `RelationshipTarget(entity_type="Person")` to use `id=login` (remove `external_id=f"person_github_{login}"`)
+- Confirm `identity_resolver.py` and `person_cache.py` no longer produce `person_github_` prefixed IDs
+
+**Changes — Jira producer (`jira_producer.py`):**
+- Set `id=account_id` on `ActivitySignal`; remove `external_id`
+- Set `full_name` and `email` (not `name`); remove `id` from `PersonAttributes`
+- Update `RelationshipTarget(entity_type="Person")` to use `id=account_id`
+
+**Changes — consumer (`neo4j_sink.py` — `_handle_person()`):**
+- Replace `id=signal.external_id` with `id=_wba_node_id(signal)`
+- Replace `attrs.get('name')` with `attrs.get('full_name')`
+- Update all attribute reads to new `PersonAttributes` field names
+- Use `attrs = signal.attributes.model_dump(exclude={"entity_type", "custom"})` and `custom = signal.attributes.custom or {}`
 
 **Changes — tests:**
-- Test new schema accepts `full_name` and rejects `name`
-- Test `first_name`, `last_name` are optional
-- Test that `id` inside `PersonAttributes` is rejected
+- `PersonAttributes` rejects `name` and `id`; accepts `full_name`, `login`, `email`
+- `first_name`, `last_name` optional; undeclared fields raise `ValidationError`
+- GitHub Person signal: `signal.id == login`, no `external_id`, `RelationshipTarget.id == login`
+- Jira Person signal: `signal.id == account_id`, no `id` or `name` inside attributes
+- Consumer: Person node id is `"github::Person::alice"` / `"jira::Person::<account_id>"`
+
+**E2E checkpoint:**
+- Re-run GitHub and Jira producers; spot-check Neo4j: Person nodes use `::` format
+- Confirm zero `person_github_` prefixed nodes exist in Neo4j
 
 ---
 
-### Phase 1.5 — Update `RepositoryAttributes`
+## Phase 3 — Repository
 
 > **Status:** Not Started
 
-**Goal:** Remove `id` and `full_name` (full_name's value becomes the top-level `id`). Keep `name` (short name). Promote known optional fields.
+**Goal:** Migrate the Repository entity end-to-end.
 
-**Changes — `models.py`:**
-- Remove `id: str` from `RepositoryAttributes`
-- Remove `full_name: str` from `RepositoryAttributes`
-- Keep `name: str` (the short repository name, e.g. `iam-deploy`)
-- Promote from audit: `language: Optional[str] = None`, `is_private: Optional[bool] = None`, `topics: Optional[list] = None`, `description: Optional[str] = None`
+**Pre-condition:** Phase 1 complete.
+
+**Changes — `models.py` (`RepositoryAttributes`):**
+- Remove `id: str` and `full_name: str`
+- Keep `name: str` (short name, e.g. `iam-deploy`)
+- Promote: `language`, `is_private`, `topics`, `description`
+- Enable `extra="forbid"`; add `custom: Optional[Dict[str, Any]] = None`
+
+**Changes — GitHub producer (`build_repository_signal.py`, `map_github.py`):**
+- Set `id=full_name` (e.g. `flexera/iam-deploy`) on `ActivitySignal`; remove `external_id`
+- Set `name` = short name only; remove `full_name` and `id` from `RepositoryAttributes`
+- Update `RelationshipTarget(entity_type="Repository")` to use `id=full_name`
+
+**Changes — consumer (`neo4j_sink.py` — `_handle_repository()`):**
+- Replace `id=signal.external_id` with `id=_wba_node_id(signal)`
+- Update attribute reads to new field names
 
 **Changes — tests:**
-- Test schema accepts `name`, `created_at`, `updated_at`, `url`
-- Test `id` and `full_name` inside attributes are rejected
-- Test optional fields round-trip
+- `signal.id == "flexera/iam-deploy"`, no `external_id`, `signal.attributes.name == "iam-deploy"`
+- `id` and `full_name` inside attributes rejected
+- Consumer: Repository node id is `"github::Repository::flexera/iam-deploy"`
+
+**E2E checkpoint:** Re-run GitHub producer; verify Repository nodes in Neo4j.
 
 ---
 
-### Phase 1.6 — Update `BranchAttributes`
+## Phase 4 — Branch
 
 > **Status:** Not Started
 
-**Goal:** Remove `name` (branch identity moves to top-level `id = repo_name:branch_name`). Add explicit `repo_name` and `branch_name`. Promote known optional fields.
+**Goal:** Migrate the Branch entity end-to-end.
 
-**Changes — `models.py`:**
-- Remove `name: str` from `BranchAttributes`
-- Add `repo_name: str` (e.g. `iam-deploy`)
-- Add `branch_name: str` (e.g. `main`)
-- Promote from audit: `is_default: Optional[bool] = None`, `url: Optional[str] = None`
-- Keep `last_commit_sha`, `last_commit_timestamp`, `is_protected`, `is_deleted`, `is_external`
+**Pre-condition:** Phase 1 complete.
+
+**Changes — `models.py` (`BranchAttributes`):**
+- Remove `name: str`
+- Add `repo_name: str`, `branch_name: str`
+- Promote: `is_default`, `url`
+- Keep: `last_commit_sha`, `last_commit_timestamp`, `is_protected`, `is_deleted`, `is_external`
+- Enable `extra="forbid"`; add `custom: Optional[Dict[str, Any]] = None`
+
+**Changes — GitHub producer (`build_branch_signal.py`, `map_github.py`):**
+- Set `id=f"{repo_name}:{branch_name}"` on `ActivitySignal`; remove `external_id`
+- Set `repo_name` and `branch_name` on `BranchAttributes`; remove `name`
+- Update `RelationshipTarget(entity_type="Branch")` to use new `id`
+
+**Changes — consumer (`neo4j_sink.py` — `_handle_branch()`):**
+- Replace `id=signal.external_id` with `id=_wba_node_id(signal)`
+- Replace `attrs.get('name')` with `attrs.get('repo_name')` / `attrs.get('branch_name')` as appropriate
 
 **Changes — tests:**
-- Test `repo_name` and `branch_name` are required
-- Test `name` is rejected
-- Test optional fields round-trip
+- `signal.id == "iam-deploy:main"`, `signal.attributes.repo_name == "iam-deploy"`, `signal.attributes.branch_name == "main"`
+- `name` inside attributes rejected; `repo_name` and `branch_name` required
+- Consumer: Branch node id is `"github::Branch::iam-deploy:main"`
+
+**E2E checkpoint:** Re-run GitHub producer; verify Branch nodes in Neo4j.
 
 ---
 
-### Phase 1.7 — Update `CommitAttributes`
+## Phase 5 — Commit
 
 > **Status:** Not Started
 
-**Goal:** Remove `sha` (becomes top-level `id`). Promote known optional fields.
+**Goal:** Migrate the Commit entity end-to-end.
 
-**Changes — `models.py`:**
-- Remove `sha: str` from `CommitAttributes`
+**Pre-condition:** Phase 1 complete.
+
+**Changes — `models.py` (`CommitAttributes`):**
+- Remove `sha: str`
 - Keep `message`, `author`, `created_at`
-- Promote from audit: `additions: Optional[int] = None`, `deletions: Optional[int] = None`, `files_changed: Optional[int] = None`, `url: Optional[str] = None`
+- Promote: `additions`, `deletions`, `files_changed`, `url`
+- Enable `extra="forbid"`; add `custom: Optional[Dict[str, Any]] = None`
+
+**Changes — GitHub producer (`build_commit_signal.py`, `map_github.py`):**
+- Set `id=sha` on `ActivitySignal`; remove `external_id`
+- Remove `sha` from `CommitAttributes` (now top-level `id`)
+- Update `RelationshipTarget(entity_type="Commit")` to use `id=sha`
+
+**Changes — consumer (`neo4j_sink.py` — `_handle_commit()`):**
+- Replace `id=signal.external_id` with `id=_wba_node_id(signal)`
+- Remove reads of `attrs.get('sha')`; use `signal.id` if SHA is needed
+- Update attribute reads
 
 **Changes — tests:**
-- Test `sha` inside attributes is rejected
-- Test promoted optional fields are accepted
+- `signal.id == sha`, `sha` inside attributes rejected
+- Promoted optional fields (`additions`, `deletions`, `files_changed`) accepted
+- Consumer: Commit node id is `"github::Commit::<sha>"`
+
+**E2E checkpoint:** Re-run GitHub producer; verify Commit nodes in Neo4j.
 
 ---
 
-### Phase 1.8 — Update `PullRequestAttributes`
+## Phase 6 — PullRequest
 
 > **Status:** Not Started
 
-**Goal:** Remove `id` and `number` (identity moves to top-level `id = repo_name:pull_number`). Add `repo_name` and `pull_request_number`. Keep all existing optional metadata fields.
+**Goal:** Migrate the PullRequest entity end-to-end.
 
-**Changes — `models.py`:**
-- Remove `id: str` from `PullRequestAttributes`
-- Remove `number: int` from `PullRequestAttributes`
-- Add `repo_name: str`
-- Add `pull_request_number: int`
-- Keep all existing optional fields: `title`, `state`, `created_at`, `user`, `updated_at`, `merged_at`, `closed_at`, `commits_count`, `additions`, `deletions`, `changed_files`, `comments`, `review_comments`, `head_branch_name`, `base_branch_name`, `labels`, `mergeable_state`
-- Promote from audit: `url: Optional[str] = None`
+**Pre-condition:** Phase 1 complete.
+
+**Changes — `models.py` (`PullRequestAttributes`):**
+- Remove `id: str`, `number: int`
+- Add `repo_name: str`, `pull_request_number: int`
+- Keep all existing optional metadata fields; promote `url`
+- Enable `extra="forbid"`; add `custom: Optional[Dict[str, Any]] = None`
+
+**Changes — GitHub producer (`build_pull_request_signal.py`):**
+- Set `id=f"{repo_name}:{pull_number}"` on `ActivitySignal`; remove `external_id`
+- Set `repo_name` and `pull_request_number`; remove `id` and `number` from attributes
+- Update `RelationshipTarget(entity_type="PullRequest")` to use new `id`
+
+**Changes — consumer (`neo4j_sink.py` — `_handle_pull_request()`):**
+- Replace `id=signal.external_id` with `id=_wba_node_id(signal)`
+- Replace `attrs.get('number')` with `attrs.get('pull_request_number')`; read `repo_name` from attrs
 
 **Changes — tests:**
-- Test `repo_name` and `pull_request_number` are required
-- Test `id` and `number` inside attributes are rejected
-- Test all optional metadata fields round-trip
+- `signal.id == "iam-deploy:42"`, `signal.attributes.repo_name == "iam-deploy"`, `signal.attributes.pull_request_number == 42`
+- `id` and `number` inside attributes rejected
+- Consumer: PullRequest node id is `"github::PullRequest::iam-deploy:42"`
+
+**E2E checkpoint:** Re-run GitHub producer; verify PullRequest nodes in Neo4j.
 
 ---
 
-### Phase 1.9 — Update `TeamAttributes`
+## Phase 7 — Team
 
 > **Status:** Not Started
 
-**Goal:** Remove `id` and `slug` (slug becomes top-level `id`). Keep `name`.
+**Goal:** Migrate the Team entity end-to-end.
 
-**Changes — `models.py`:**
-- Remove `id: str` from `TeamAttributes`
-- Remove `slug: str` from `TeamAttributes`
+**Pre-condition:** Phase 1 complete.
+
+**Changes — `models.py` (`TeamAttributes`):**
+- Remove `id: str`, `slug: str`
 - Keep `name: str`
-- Promote from audit: `url: Optional[str] = None`, `description: Optional[str] = None`
-
-**Changes — tests:**
-- Test `id` and `slug` inside attributes are rejected
-- Test `name` is required
-
----
-
-### Phase 1.10 — Update `ProjectAttributes`
-
-> **Status:** Not Started
-
-**Goal:** Remove `id`, `key`, `name` as generic field names. Replace with explicit `project_id`, `project_key`, `project_name` to be unambiguous.
-
-**Changes — `models.py`:**
-- Remove `id: str`, `key: str`, `name: str` from `ProjectAttributes`
-- Add `project_id: str` (Jira's numeric project ID)
-- Add `project_key: str` (e.g. `PLAT`)
-- Add `project_name: str`
-- Promote from audit: `status: Optional[str] = None`, `project_type: Optional[str] = None`, `url: Optional[str] = None`
-
-**Changes — tests:**
-- Test `project_id`, `project_key`, `project_name` are required
-- Test old field names `id`, `key`, `name` are rejected
-
----
-
-### Phase 1.11 — Update `InitiativeAttributes`
-
-> **Status:** Not Started
-
-**Goal:** Remove `id` (Jira issue key becomes top-level `id`). Keep `key` as an attribute.
-
-**Changes — `models.py`:**
-- Remove `id: str` from `InitiativeAttributes`
-- Keep `key: str` as a declared attribute
-- Keep `summary`, `priority`, `status`, `created_at`
-- Keep `project_id: Optional[str]`
-- Promote from audit: `updated_at: Optional[str] = None`, `assignee: Optional[str] = None`
-
-**Changes — tests:**
-- Test `id` inside attributes is rejected
-- Test `key` remains required
-- Test optional fields round-trip
-
----
-
-### Phase 1.12 — Update `EpicAttributes`
-
-> **Status:** Not Started
-
-**Goal:** Remove `id` (Jira issue key becomes top-level `id`). Keep `key`.
-
-**Changes — `models.py`:**
-- Remove `id: str` from `EpicAttributes`
-- Keep `key: str`, `summary`, `priority`, `status`, `created_at`
-- Promote from audit: `updated_at: Optional[str] = None`, `assignee: Optional[str] = None`
-
-**Changes — tests:**
-- Test `id` inside attributes is rejected
-- Test `key` remains required
-
----
-
-### Phase 1.13 — Update `SprintAttributes`
-
-> **Status:** Not Started
-
-**Goal:** Remove `id` (Jira sprint numeric ID becomes top-level `id`). Keep `name` and `status`.
-
-**Changes — `models.py`:**
-- Remove `id: str` from `SprintAttributes`
-- Keep `name: str`, `status: str`
-- Promote from audit: `start_date: Optional[str] = None`, `end_date: Optional[str] = None`, `complete_date: Optional[str] = None`
-
-**Changes — tests:**
-- Test `id` inside attributes is rejected
-- Test `name` and `status` remain required
-
----
-
-### Phase 1.14 — Update `IssueAttributes`
-
-> **Status:** Not Started
-
-**Goal:** Remove `id` (Jira issue key becomes top-level `id`). Keep `key`.
-
-**Changes — `models.py`:**
-- Remove `id: str` from `IssueAttributes`
-- Keep `key: str`, `summary`, `priority`, `status`, `type`, `created_at`
-- Keep `updated_at: Optional[str]`, `story_points: Optional[float]`
-- Promote from audit: `assignee: Optional[str] = None`, `reporter: Optional[str] = None`, `labels: Optional[list] = None`
-
-**Changes — tests:**
-- Test `id` inside attributes is rejected
-- Test `key` remains required
-
----
-
-### Phase 1.15 — Remove `external_id` from `ActivitySignal`
-
-> **Status:** Not Started
-
-**Goal:** Drop the now-redundant `external_id` field from `ActivitySignal`. This is the final model-layer change. Pre-condition: all Macro Group 2 producer phases must be complete so no producer still emits `external_id`.
-
-**Changes — `models.py`:**
-- Remove `external_id: str` field from `ActivitySignal`
-- Remove any remaining references to `external_id` in docstrings or examples
-
-**Changes — tests:**
-- Test that `ActivitySignal` rejects `external_id` in input JSON
-- Run full `pytest -m unit tests -q` and verify all model tests pass
-
----
-
-## Macro Group 2 — Producer Updates
-
-Each phase updates one entity type across its producer file(s). After each phase:
-- The producer emits the new `id` value at top level
-- The producer no longer sets `external_id`
-- The producer constructs `RelationshipTarget` using `id` instead of `external_id`
-- All references to `person_github_<login>` prefix patterns are replaced
-
-Pre-condition: Macro Group 1 must be complete.
-
----
-
-### Phase 2.1 — GitHub Person producer
-
-> **Status:** Not Started
-
-**File:** `src/connectors/producers/github/build_person_signal.py`
-Also update: `build_commit_signal.py`, `build_pull_request_signal.py` (all use `person_github_<login>` for RelationshipTarget)
-
-**Changes:**
-- Set `id=login` on `ActivitySignal` (not `person_github_{login}`)
-- Remove `external_id` from the signal constructor
-- Update all `RelationshipTarget` constructions that reference a Person to use `id=login` instead of `external_id=f"person_github_{login}"`
-- Update `PersonAttributes`: set `full_name`, `login`, `email`, `avatar_url` (not `name`, not `id`)
-
-**Also update:**
-- `src/connectors/commons/identity_resolver.py` — replace `f"person_{provider}_{external_id}"` with the new `wba_node_id` formula
-- `src/connectors/commons/person_cache.py` — same
-
-**Changes — tests:**
-- Update `tests/test_github_producer_phase4.py` for Person signal: assert `signal.id == login`, no `external_id`, `RelationshipTarget.id == login`
-
----
-
-### Phase 2.2 — GitHub Repository producer
-
-> **Status:** Not Started
-
-**File:** `src/connectors/producers/github/build_repository_signal.py`, `src/connectors/producers/map_github.py`
-
-**Changes:**
-- Set `id=full_name` on `ActivitySignal` (e.g. `flexera/iam-deploy`)
-- Remove `external_id` from signal constructor
-- Update `RepositoryAttributes`: set `name` (short name only); remove `full_name`, remove `id`
-- Update all `RelationshipTarget(entity_type="Repository")` to use `id=full_name`
-
-**Changes — tests:**
-- Assert `signal.id == "flexera/iam-deploy"`, no `external_id`, `signal.attributes.name == "iam-deploy"`
-
----
-
-### Phase 2.3 — GitHub Branch producer
-
-> **Status:** Not Started
-
-**File:** `src/connectors/producers/github/build_branch_signal.py`, `src/connectors/producers/map_github.py`
-
-**Changes:**
-- Set `id=f"{repo_name}:{branch_name}"` on `ActivitySignal` (e.g. `iam-deploy:main`)
-- Remove `external_id`
-- Update `BranchAttributes`: set `repo_name` and `branch_name`; remove `name`
-- Update all `RelationshipTarget(entity_type="Branch")` to use `id=f"{repo_name}:{branch_name}"`
-
-**Changes — tests:**
-- Assert `signal.id == "iam-deploy:main"`, `signal.attributes.repo_name == "iam-deploy"`, `signal.attributes.branch_name == "main"`
-
----
-
-### Phase 2.4 — GitHub Commit producer
-
-> **Status:** Not Started
-
-**File:** `src/connectors/producers/github/build_commit_signal.py`, `src/connectors/producers/map_github.py`
-
-**Changes:**
-- Set `id=sha` on `ActivitySignal` (full SHA)
-- Remove `external_id`
-- Update `CommitAttributes`: remove `sha` field (it is now top-level `id`)
-- Update all `RelationshipTarget(entity_type="Commit")` to use `id=sha`
-
-**Changes — tests:**
-- Assert `signal.id == sha`, no `sha` inside `signal.attributes`
-
----
-
-### Phase 2.5 — GitHub PullRequest producer
-
-> **Status:** Not Started
-
-**File:** `src/connectors/producers/github/build_pull_request_signal.py`
-
-**Changes:**
-- Set `id=f"{repo_name}:{pull_number}"` on `ActivitySignal`
-- Remove `external_id`
-- Update `PullRequestAttributes`: set `repo_name`, `pull_request_number`; remove `id`, `number`
-- Update all `RelationshipTarget(entity_type="PullRequest")` to use new id format
-
-**Changes — tests:**
-- Assert `signal.id == "iam-deploy:42"`, `signal.attributes.repo_name == "iam-deploy"`, `signal.attributes.pull_request_number == 42`
-
----
-
-### Phase 2.6 — GitHub Team producer
-
-> **Status:** Not Started
-
-**File:** `src/connectors/producers/github/build_team_signal.py`, `src/connectors/producers/map_github.py`
-
-**Changes:**
-- Set `id=slug` on `ActivitySignal`
-- Remove `external_id`
-- Update `TeamAttributes`: remove `id`, `slug`; keep `name`
+- Promote: `url`, `description`
+- Enable `extra="forbid"`; add `custom: Optional[Dict[str, Any]] = None`
+
+**Changes — GitHub producer (`build_team_signal.py`, `map_github.py`):**
+- Set `id=slug` on `ActivitySignal`; remove `external_id`
+- Remove `id` and `slug` from `TeamAttributes`; keep `name`
 - Update `RelationshipTarget(entity_type="Team")` to use `id=slug`
 
-**Changes — tests:**
-- Assert `signal.id == slug`, no `id` or `slug` inside attributes
-
----
-
-### Phase 2.7 — Jira Project producer
-
-> **Status:** Not Started
-
-**File:** `src/connectors/producers/jira_producer.py`, `src/connectors/producers/map_jira.py`
-
-**Changes:**
-- Set `id=project_key` on `ActivitySignal` (e.g. `PLAT`)
-- Remove `external_id`
-- Update `ProjectAttributes`: set `project_id`, `project_key`, `project_name`; remove `id`, `key`, `name`
-- Update all `RelationshipTarget(entity_type="Project")` to use `id=project_key`
+**Changes — consumer (`neo4j_sink.py` — `_handle_team()`):**
+- Replace `id=signal.external_id` with `id=_wba_node_id(signal)`
+- Update attribute reads
 
 **Changes — tests:**
-- Assert `signal.id == "PLAT"`, `signal.attributes.project_key == "PLAT"`
+- `signal.id == slug`, no `id` or `slug` inside attributes, `name` required
+- Consumer: Team node id is `"github::Team::<slug>"`
+
+**E2E checkpoint:** Re-run GitHub producer; verify Team nodes in Neo4j.
 
 ---
 
-### Phase 2.8 — Jira Person producer
+## Phase 8 — Project
 
 > **Status:** Not Started
 
-**File:** `src/connectors/producers/jira_producer.py`
+**Goal:** Migrate the Jira Project entity end-to-end.
 
-**Changes:**
-- Set `id=account_id` on `ActivitySignal`
-- Remove `external_id`
-- Update `PersonAttributes`: set `full_name`, `email`; remove `id`, `name`
-- Update all `RelationshipTarget(entity_type="Person")` in Jira to use `id=account_id`
+**Pre-condition:** Phase 1 complete.
+
+**Changes — `models.py` (`ProjectAttributes`):**
+- Remove `id: str`, `key: str`, `name: str`
+- Add `project_id: str` (Jira numeric project ID), `project_key: str` (e.g. `PLAT`), `project_name: str`
+- Promote: `status`, `project_type`, `url`
+- Enable `extra="forbid"`; add `custom: Optional[Dict[str, Any]] = None`
+
+**Changes — Jira producer (`jira_producer.py`, `map_jira.py`):**
+- Set `id=project_key` on `ActivitySignal`; remove `external_id`
+- Set `project_id`, `project_key`, `project_name`; remove `id`, `key`, `name` from attributes
+- Update `RelationshipTarget(entity_type="Project")` to use `id=project_key`
+
+**Changes — consumer (`neo4j_sink.py` — `_handle_project()`):**
+- Replace `id=signal.external_id` with `id=_wba_node_id(signal)`
+- Replace `attrs.get('key')` with `attrs.get('project_key')`; update all attribute reads
 
 **Changes — tests:**
-- Assert `signal.id == account_id`, no `id` or `name` inside attributes
+- `signal.id == "PLAT"`, `signal.attributes.project_key == "PLAT"`
+- Old field names `id`, `key`, `name` inside attributes rejected
+- Consumer: Project node id is `"jira::Project::PLAT"`
+
+**E2E checkpoint:** Re-run Jira producer; verify Project nodes in Neo4j.
 
 ---
 
-### Phase 2.9 — Jira Initiative producer
+## Phase 9 — Initiative
 
 > **Status:** Not Started
 
-**Changes:**
-- `id = issue_key` on `ActivitySignal`
-- Remove `external_id`
-- `InitiativeAttributes`: remove `id`; keep `key`
-- Update `RelationshipTarget(entity_type="Initiative")`
+**Goal:** Migrate the Jira Initiative entity end-to-end.
 
-**Changes — tests:** Assert `signal.id == issue_key`, `signal.attributes.key == issue_key`
+**Pre-condition:** Phase 1 complete.
 
----
+**Changes — `models.py` (`InitiativeAttributes`):**
+- Remove `id: str`
+- Keep `key: str`, `summary`, `priority`, `status`, `created_at`, `project_id`
+- Promote: `updated_at`, `assignee`
+- Enable `extra="forbid"`; add `custom: Optional[Dict[str, Any]] = None`
 
-### Phase 2.10 — Jira Epic producer
+**Changes — Jira producer (`jira_producer.py`):**
+- Set `id=issue_key` on `ActivitySignal`; remove `external_id`
+- Remove `id` from `InitiativeAttributes`; keep `key`
+- Update `RelationshipTarget(entity_type="Initiative")` to use `id=issue_key`
 
-> **Status:** Not Started
-
-**Changes:**
-- `id = issue_key`
-- Remove `external_id`
-- `EpicAttributes`: remove `id`; keep `key`
-
-**Changes — tests:** Assert `signal.id == issue_key`
-
----
-
-### Phase 2.11 — Jira Sprint producer
-
-> **Status:** Not Started
-
-**Changes:**
-- `id = str(sprint_id)` (Jira numeric sprint ID as string)
-- Remove `external_id`
-- `SprintAttributes`: remove `id`
-
-**Changes — tests:** Assert `signal.id == str(sprint_id)`
-
----
-
-### Phase 2.12 — Jira Issue producer
-
-> **Status:** Not Started
-
-**Changes:**
-- `id = issue_key` (e.g. `PLAT-123`)
-- Remove `external_id`
-- `IssueAttributes`: remove `id`; keep `key`
-- Update all `RelationshipTarget(entity_type="Issue")` to use `id=issue_key`
-
-**Changes — tests:** Assert `signal.id == "PLAT-123"`, `signal.attributes.key == "PLAT-123"`
-
----
-
-### Phase 2.13 — Verify `external_id` fully removed from producers
-
-> **Status:** Not Started
-
-**Goal:** Confirm no producer code still references or sets `external_id`.
-
-**Changes:**
-- Grep `external_id` across all `src/connectors/producers/`; fix any remaining occurrences
-- Grep `person_github_` and `person_jira_` across all producer and mapping files; fix any remaining occurrences
+**Changes — consumer (`neo4j_sink.py` — `_handle_initiative()`):**
+- Replace `id=signal.external_id` with `id=_wba_node_id(signal)`
+- Update attribute reads
 
 **Changes — tests:**
-- Run `pytest -m unit tests -q` on all producer tests
-- Assert no test constructs an `ActivitySignal` with `external_id`
-- After all producer tests pass: proceed to Phase 1.15 (remove `external_id` from model)
+- `signal.id == issue_key`, `signal.attributes.key == issue_key`
+- `id` inside attributes rejected; `key` required
+- Consumer: Initiative node id is `"jira::Initiative::<key>"`
+
+**E2E checkpoint:** Re-run Jira producer; verify Initiative nodes in Neo4j.
 
 ---
 
-## Macro Group 3 — Consumer Updates
-
-Pre-condition: Macro Groups 1 and 2 complete. Phase 1.15 (`external_id` removed from model) must be done.
-
-> **Neo4j clearing:** Before executing Phase 3.3, run `scripts/clear_all_data.sh` to wipe the graph. Re-run all producers to re-populate Neo4j with new `wba_node_id` values.
-
----
-
-### Phase 3.1 — Derive `wba_node_id` in `neo4j_sink.py`
+## Phase 10 — Epic
 
 > **Status:** Not Started
 
-**File:** `src/connectors/consumers/sinks/neo4j_sink.py`
+**Goal:** Migrate the Jira Epic entity end-to-end.
 
-**Changes:**
-- Add a helper: `def _wba_node_id(signal: ActivitySignal) -> str: return f"{signal.source}::{signal.entity_type}::{signal.id}"`
-- Replace every `id=signal.external_id` in all `_handle_*` functions with `id=_wba_node_id(signal)`
-- Replace `attrs = signal.extra_attributes()` calls with `attrs = signal.attributes.model_dump(exclude={"entity_type", "custom"})` for declared fields and `custom = signal.attributes.custom or {}` for extras; update each `attrs.get(...)` call accordingly
+**Pre-condition:** Phase 1 complete.
+
+**Changes — `models.py` (`EpicAttributes`):**
+- Remove `id: str`
+- Keep `key: str`, `summary`, `priority`, `status`, `created_at`
+- Promote: `updated_at`, `assignee`
+- Enable `extra="forbid"`; add `custom: Optional[Dict[str, Any]] = None`
+
+**Changes — Jira producer (`jira_producer.py`):**
+- Set `id=issue_key` on `ActivitySignal`; remove `external_id`
+- Remove `id` from `EpicAttributes`; keep `key`
+- Update `RelationshipTarget(entity_type="Epic")` to use `id=issue_key`
+
+**Changes — consumer (`neo4j_sink.py` — `_handle_epic()`):**
+- Replace `id=signal.external_id` with `id=_wba_node_id(signal)`
+- Update attribute reads
 
 **Changes — tests:**
-- Update `tests/test_consumer_phase5.py`: verify that Neo4j dataclass `id` is `"github::Repository::flexera/iam-deploy"` for a Repository signal, `"github::Person::alice"` for a Person signal, etc.
+- `signal.id == issue_key`; `id` inside attributes rejected; `key` required
+- Consumer: Epic node id is `"jira::Epic::<key>"`
+
+**E2E checkpoint:** Re-run Jira producer; verify Epic nodes in Neo4j.
 
 ---
 
-### Phase 3.2 — Update `RelationshipTarget` resolution in consumer
+## Phase 11 — Sprint
 
 > **Status:** Not Started
 
-**File:** `src/connectors/consumers/sinks/neo4j_sink.py` — `_to_db_relationships()` function
+**Goal:** Migrate the Jira Sprint entity end-to-end.
 
-**Changes:**
-- Replace `to_id = target.external_id` with resolution logic:
-  1. If `target.entity_type == "Person"` and `target.email` is set → look up Person node by `email` property first
-  2. Else if `target.url` is set → look up node by `url` property first
-  3. Else → `to_id = f"{target.source}::{target.entity_type}::{target.id}"`
-- Update the guard `if not target.external_id` → `if not (target.id or target.email or target.url)`
+**Pre-condition:** Phase 1 complete.
+
+**Changes — `models.py` (`SprintAttributes`):**
+- Remove `id: str`
+- Keep `name: str`, `status: str`
+- Promote: `start_date`, `end_date`, `complete_date`
+- Enable `extra="forbid"`; add `custom: Optional[Dict[str, Any]] = None`
+
+**Changes — Jira producer (`jira_producer.py`):**
+- Set `id=str(sprint_id)` on `ActivitySignal`; remove `external_id`
+- Remove `id` from `SprintAttributes`
+- Update `RelationshipTarget(entity_type="Sprint")` to use `id=str(sprint_id)`
+
+**Changes — consumer (`neo4j_sink.py` — `_handle_sprint()`):**
+- Replace `id=signal.external_id` with `id=_wba_node_id(signal)`
+- Update attribute reads
 
 **Changes — tests:**
-- Test email-first lookup path for Person targets
-- Test url-first lookup path for non-Person targets
-- Test fallback to `source::entity_type::id` tuple
+- `signal.id == str(sprint_id)`; `id` inside attributes rejected; `name` and `status` required
+- Consumer: Sprint node id is `"jira::Sprint::<sprint_id>"`
+
+**E2E checkpoint:** Re-run Jira producer; verify Sprint nodes in Neo4j.
 
 ---
 
-### Phase 3.3 — Update `PersonCache` and `identity_resolver`
+## Phase 12 — Issue
 
 > **Status:** Not Started
 
-**Files:** `src/connectors/commons/identity_resolver.py`, `src/connectors/commons/person_cache.py`
+**Goal:** Migrate the Jira Issue entity end-to-end. This is the final entity migration phase.
 
-**Changes:**
-- `identity_resolver.py`: replace `f"person_{provider}_{external_id}"` with `f"{provider}::Person::{external_id}"`
-- `person_cache.py`: update `fallback_person_id` same formula
-- Remove hardcoded fallbacks `"person_github_unknown"` in `new_commit_handler.py` and `new_pull_request_handler.py`; replace with `f"{source}::Person::unknown"`
+**Pre-condition:** Phase 1 complete.
+
+**Changes — `models.py` (`IssueAttributes`):**
+- Remove `id: str`
+- Keep `key: str`, `summary`, `priority`, `status`, `type`, `created_at`, `updated_at`, `story_points`
+- Promote: `assignee`, `reporter`, `labels`
+- Enable `extra="forbid"`; add `custom: Optional[Dict[str, Any]] = None`
+
+**Changes — Jira producer (`jira_producer.py`):**
+- Set `id=issue_key` on `ActivitySignal`; remove `external_id`
+- Remove `id` from `IssueAttributes`; keep `key`
+- Update `RelationshipTarget(entity_type="Issue")` to use `id=issue_key`
+
+**Changes — consumer (`neo4j_sink.py` — `_handle_issue()`):**
+- Replace `id=signal.external_id` with `id=_wba_node_id(signal)`
+- Update attribute reads
 
 **Changes — tests:**
-- Test `identity_resolver` produces `"github::Person::alice"` for login `alice`, source `github`
-- Test `person_cache` fallback produces `"github::Person::unknown"` not the old format
+- `signal.id == "PLAT-123"`, `signal.attributes.key == "PLAT-123"`
+- `id` inside attributes rejected; `key` required
+- Consumer: Issue node id is `"jira::Issue::PLAT-123"`
+
+**E2E checkpoint:** Re-run Jira producer; verify Issue nodes in Neo4j.
 
 ---
 
-### Phase 3.4 — Clear Neo4j and re-sync
+## Phase 13 — Cleanup
 
 > **Status:** Not Started
 
-**Steps (manual, not code):**
-1. `bash scripts/clear_all_data.sh` — wipe all nodes and relationships
-2. Re-run GitHub producer: `docker compose run --rm github-producer`
-3. Re-run Jira producer: `docker compose run --rm jira-producer`
-4. Re-run sync services: `docker compose run --rm github-sync && docker compose run --rm jira-sync`
-5. Spot-check Neo4j Browser: verify node IDs use `::` format (e.g. `github::Repository::flexera/iam-deploy`)
-6. Run `pytest -m neo4j tests -q` if Neo4j tests exist
+**Goal:** Remove all migration scaffolding, finalize the schema, wipe and re-sync Neo4j, and auto-generate the spec. Pre-condition: all Phases 1–12 complete and all unit tests passing.
 
----
-
-## Macro Group 4 — Cleanup
-
----
-
-### Phase 4.1 — Remove `routing_key` from `ActivitySignal`
-
-> **Status:** Not Started
-
-**Files:** `src/common/activity_signal/models.py`, `src/common/messaging/rabbitmq.py`, `src/connectors/producers/github/pub_callback.py`, `src/connectors/producers/jira_producer.py`
-
-**Changes:**
+**Changes — `src/common/activity_signal/models.py`:**
+- Change `id: Optional[str] = None` → `id: str` (now required)
+- Remove `external_id: str` field entirely
 - Remove `@property routing_key` from `ActivitySignal`
-- In `rabbitmq.py`: replace `signal.routing_key` with `f"{signal.source}.{signal.entity_type}"`
-- In producer log statements: replace `signal.routing_key` with the same inline expression
-- In `init_rabbitmq.py` and `redrive_dlq.py`: verify these use literal routing key strings (not `signal.routing_key`) — if they do, no change needed
+- Remove any remaining references to `external_id` or `routing_key` in docstrings
 
-**Changes — tests:**
-- Test that `ActivitySignal` has no `routing_key` attribute
-- Test that `rabbitmq.py` still publishes to the correct queue (use existing messaging tests)
-- Run `pytest -m unit tests -q`
+**Changes — `src/common/messaging/rabbitmq.py` and producers:**
+- `rabbitmq.py`: replace `signal.routing_key` with `f"{signal.source}.{signal.entity_type}"`
+- `pub_callback.py`, `jira_producer.py`: replace `signal.routing_key` in log statements with the same inline expression
+- Verify `init_rabbitmq.py` and `redrive_dlq.py` use literal routing key strings (no change needed if so)
 
----
+**Changes — `neo4j_sink.py`:**
+- Remove `external_id` fallback from `_wba_node_id()`: simplify to `return f"{signal.source}::{signal.entity_type}::{signal.id}"`
 
-### Phase 4.2 — Final `external_id` audit
-
-> **Status:** Not Started
-
-**Goal:** Confirm `external_id` is completely eradicated from the codebase.
-
-**Steps:**
+**Final audit:**
 - `grep -r "external_id" src/ tests/` — must return zero matches
 - `grep -r "person_github_\|person_jira_" src/ tests/` — must return zero matches
 - Fix any remaining occurrences
 
-**Changes — tests:**
-- Run the full test suite: `pytest -m unit tests -q`
-- Run integration tests if the server is up: `pytest -m "integration and server" tests -q`
+**Neo4j re-sync (manual):**
+1. `bash scripts/clear_all_data.sh` — wipe all nodes and relationships
+2. `docker compose run --rm github-producer`
+3. `docker compose run --rm jira-producer`
+4. `docker compose run --rm github-sync && docker compose run --rm jira-sync`
+5. Spot-check Neo4j Browser: all node IDs in `source::EntityType::id` format
+6. `pytest -m neo4j tests -q`
 
----
-
-### Phase 4.3 — Auto-generate spec from models
-
-> **Status:** Not Started
-
-**Goal:** Replace the manually-maintained `docs/design/spec-activity-signal.md` with a generated file. Eliminates documentation drift.
-
-**Changes:**
-- Create `scripts/generate_spec.py`:
-  - Imports all `*Attributes` models and `ActivitySignal` from `src/common/activity_signal/models.py`
-  - Uses Pydantic's `model_json_schema()` to extract field names, types, and descriptions
-  - Renders a structured Markdown file covering: canonical identity tuple, all entity types with their declared fields, `RelationshipTarget` schema, `SUPPORTED_RELATIONSHIP_TYPES`, `SUPPORTED_ENTITY_TYPES`
-  - Writes output to `docs/design/spec-activity-signal.md`
-- Add a header comment to `spec-activity-signal.md`: `<!-- AUTO-GENERATED by scripts/generate_spec.py — do not edit manually -->`
+**Auto-generate spec — `scripts/generate_spec.py`:**
+- Import all `*Attributes` models and `ActivitySignal` from `src/common/activity_signal/models.py`
+- Use `model_json_schema()` to extract field names, types, and descriptions
+- Render `docs/design/spec-activity-signal.md` covering: canonical identity tuple, all entity types with declared fields, `RelationshipTarget` schema, `SUPPORTED_RELATIONSHIP_TYPES`, `SUPPORTED_ENTITY_TYPES`
+- Add header: `<!-- AUTO-GENERATED by scripts/generate_spec.py — do not edit manually -->`
 
 **Changes — tests:**
-- Test that running `generate_spec.py` produces output that matches the current committed spec (i.e., the spec is in sync with the models)
-- This can be a simple `pytest` test that runs the generator and diffs against the committed file
+- `ActivitySignal` requires `id` (not Optional); rejects `external_id` in input
+- `ActivitySignal` has no `routing_key` attribute
+- `rabbitmq.py` still publishes to correct queue
+- Running `generate_spec.py` produces output matching committed spec
+- Full suite: `pytest -m unit tests -q` and `pytest -m "integration and server" tests -q`
 
 ---
 
 ## Summary Table
 
-| Phase | File(s) Changed | Test Marker |
-|---|---|---|
-| 1.1 | `models.py` | `unit` |
-| 1.2 | `models.py` | `unit` |
-| 1.3 | `models.py` | `unit` |
-| 1.4–1.14 | `models.py` (one entity per phase) | `unit` |
-| 1.15 | `models.py` | `unit` |
-| 2.1–2.12 | `producers/` (one entity per phase) | `unit` |
-| 2.13 | `producers/` (audit) | `unit` |
-| 3.1 | `neo4j_sink.py` | `unit` |
-| 3.2 | `neo4j_sink.py` | `unit` |
-| 3.3 | `identity_resolver.py`, `person_cache.py` | `unit` |
-| 3.4 | Manual re-sync | `neo4j` |
-| 4.1 | `models.py`, `rabbitmq.py`, producers | `unit` |
-| 4.2 | Audit across all | `unit` + `integration` |
-| 4.3 | `scripts/generate_spec.py` | `unit` |
+| Phase | Entity / Scope | Files Changed | Test Marker |
+|---|---|---|---|
+| 1 | Foundation (cross-cutting model + consumer infra) | `models.py`, `neo4j_sink.py`, `identity_resolver.py`, `person_cache.py` | `unit` |
+| 2 | Person | `models.py`, GitHub/Jira producers, `neo4j_sink.py` | `unit` + e2e |
+| 3 | Repository | `models.py`, GitHub producer, `neo4j_sink.py` | `unit` + e2e |
+| 4 | Branch | `models.py`, GitHub producer, `neo4j_sink.py` | `unit` + e2e |
+| 5 | Commit | `models.py`, GitHub producer, `neo4j_sink.py` | `unit` + e2e |
+| 6 | PullRequest | `models.py`, GitHub producer, `neo4j_sink.py` | `unit` + e2e |
+| 7 | Team | `models.py`, GitHub producer, `neo4j_sink.py` | `unit` + e2e |
+| 8 | Project | `models.py`, Jira producer, `neo4j_sink.py` | `unit` + e2e |
+| 9 | Initiative | `models.py`, Jira producer, `neo4j_sink.py` | `unit` + e2e |
+| 10 | Epic | `models.py`, Jira producer, `neo4j_sink.py` | `unit` + e2e |
+| 11 | Sprint | `models.py`, Jira producer, `neo4j_sink.py` | `unit` + e2e |
+| 12 | Issue | `models.py`, Jira producer, `neo4j_sink.py` | `unit` + e2e |
+| 13 | Cleanup (`id` required, `external_id` + `routing_key` removed, re-sync, spec gen) | `models.py`, `rabbitmq.py`, producers, `neo4j_sink.py`, `scripts/generate_spec.py` | `unit` + `integration` + `neo4j` |
