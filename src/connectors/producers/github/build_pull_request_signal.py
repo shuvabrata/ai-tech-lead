@@ -170,7 +170,6 @@ def build_pull_request_signal(
         return ActivitySignal(
             source=_SOURCE,
             id=pr_id,
-            external_id=wba_format(_SOURCE, "PullRequest", pr_id),
             source_config="https://github.com",
             connector_url=_connector_url(),
             event_time=event_time,

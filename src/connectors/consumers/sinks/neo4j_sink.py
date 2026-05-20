@@ -89,7 +89,6 @@ def _to_db_relationships(
     1. ``entity_type == "Person"`` and ``target.email`` set → look up by email.
     2. ``target.url`` set → look up node by url.
     3. ``target.id`` set → ``{source}::{entity_type}::{id}`` canonical key.
-    4. ``target.external_id`` set → use directly (backward-compat; Phase 13 removes).
 
     Relationships with no resolvable target identifier are skipped with a warning.
     """
@@ -97,7 +96,7 @@ def _to_db_relationships(
     for rel in signal_rels:
         target = rel.target
 
-        if not (target.id or target.email or target.url or target.external_id):
+        if not (target.id or target.email or target.url):
             logger.warning(
                 "Skipping relationship %s from %s/%s: target has no identifier",
                 rel.type,
@@ -127,9 +126,6 @@ def _to_db_relationships(
 
         if to_id is None and target.source and target.entity_type and target.id:
             to_id = wba_format(target.source, target.entity_type, target.id)
-
-        if to_id is None and target.external_id:
-            to_id = target.external_id  # backward-compat fallback; removed Phase 13
 
         if to_id is None:
             logger.warning(
@@ -174,7 +170,7 @@ def _handle_repository(session: Session, signal: ActivitySignal) -> None:
     node_id = wba_node_id(signal)
     repo = Repository(
         id=node_id,
-        name=signal.id or signal.external_id,
+        name=signal.id,
         url=attrs.get("url", ""),
         language=attrs.get("language", ""),
         is_private=attrs.get("is_private", False),
@@ -272,7 +268,7 @@ def _handle_person(
                 url=url,
             )
             if person_id:
-                identity_id = f"identity_github_{login}"
+                identity_id = wba_format("github", "IdentityMapping", login)
                 person_cache.queue_identity_mapping(
                     person_id=person_id,
                     identity_id=identity_id,
@@ -297,7 +293,7 @@ def _handle_person(
                 external_id=account_id,
             )
             if person_id:
-                identity_id = f"identity_jira_{account_id}"
+                identity_id = wba_format("jira", "IdentityMapping", account_id)
                 person_cache.queue_identity_mapping(
                     person_id=person_id,
                     identity_id=identity_id,
@@ -492,7 +488,7 @@ def upsert_signal(
         "Upserted signal_id=%s entity_type=%s id=%s",
         signal.signal_id,
         entity_type,
-        signal.external_id,
+        signal.id,
     )
 
 

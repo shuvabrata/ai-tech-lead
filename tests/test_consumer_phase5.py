@@ -9,7 +9,7 @@ Key behaviours tested:
 - Signal attributes are mapped to dataclass fields (including Phase-B aliases).
 - Relationships from the signal are converted and passed to merge_*.
 - Direction=IN swaps from/to on the DbRelationship.
-- Targets without external_id are skipped.
+- Targets without identifier are skipped.
 - Unknown entity_type is logged and skipped (no merge call).
 - consume_queue acks on success, nacks on failure.
 """
@@ -55,14 +55,12 @@ _CONNECTOR_URL = "http://localhost:8000/connectors/github"
 def _make_signal(
     attributes: object,
     source: str = _SOURCE,
-    external_id: str = "node_1",
-    id: str | None = None,
+    id: str = "node_1",
     relationships: list[Relationship] | None = None,
 ) -> ActivitySignal:
     return ActivitySignal(
         source=source,
         id=id,
-        external_id=external_id,
         source_config=_CONFIG,
         connector_url=_CONNECTOR_URL,
         event_time=_NOW,
@@ -118,13 +116,13 @@ def test_to_db_relationships_direction_none_is_forward() -> None:
     rel = Relationship(
         type="PART_OF",
         direction=None,
-        target=RelationshipTarget(entity_type="Repository", external_id="repo_1"),
+        target=RelationshipTarget(source="github", entity_type="Repository", id="repo_1"),
     )
     result = _to_db_relationships(mock_session, [rel], "branch_1", "Branch")
     assert len(result) == 1
     db_rel = result[0]
     assert db_rel.from_id == "branch_1"
-    assert db_rel.to_id == "repo_1"
+    assert db_rel.to_id == "github::Repository::repo_1"
     assert db_rel.from_type == "Branch"
     assert db_rel.to_type == "Repository"
     assert db_rel.type == "PART_OF"
@@ -137,11 +135,11 @@ def test_to_db_relationships_direction_out_is_forward() -> None:
     rel = Relationship(
         type="MERGED_INTO",
         direction="OUT",
-        target=RelationshipTarget(entity_type="Branch", external_id="branch_main"),
+        target=RelationshipTarget(source="github", entity_type="Branch", id="branch_main"),
     )
     result = _to_db_relationships(mock_session, [rel], "pr_1", "PullRequest")
     assert result[0].from_id == "pr_1"
-    assert result[0].to_id == "branch_main"
+    assert result[0].to_id == "github::Branch::branch_main"
 
 
 @pytest.mark.unit
@@ -151,20 +149,20 @@ def test_to_db_relationships_direction_in_swaps_from_to() -> None:
     rel = Relationship(
         type="REVIEWS",
         direction="IN",
-        target=RelationshipTarget(entity_type="Person", external_id="person_github_bob"),
+        target=RelationshipTarget(source="github", entity_type="Person", id="bob"),
     )
     result = _to_db_relationships(mock_session, [rel], "pr_1", "PullRequest")
     assert len(result) == 1
     db_rel = result[0]
     # "IN" means target-[:REL]->source, so from_id is the target
-    assert db_rel.from_id == "person_github_bob"
+    assert db_rel.from_id == "github::Person::bob"
     assert db_rel.to_id == "pr_1"
     assert db_rel.from_type == "Person"
     assert db_rel.to_type == "PullRequest"
 
 
 @pytest.mark.unit
-def test_to_db_relationships_no_external_id_skipped() -> None:
+def test_to_db_relationships_no_identifier_skipped() -> None:
     mock_session = MagicMock()
     rel = Relationship(
         type="PART_OF",
@@ -183,12 +181,12 @@ def test_to_db_relationships_multiple() -> None:
         Relationship(
             type="AUTHORED_BY",
             direction=None,
-            target=RelationshipTarget(entity_type="Person", external_id="person_alice"),
+            target=RelationshipTarget(source="github", entity_type="Person", id="alice"),
         ),
         Relationship(
             type="PART_OF",
             direction=None,
-            target=RelationshipTarget(entity_type="Branch", external_id="branch_main"),
+            target=RelationshipTarget(source="github", entity_type="Branch", id="branch_main"),
         ),
     ]
     result = _to_db_relationships(mock_session, rels, "commit_1", "Commit")
@@ -213,7 +211,7 @@ def test_upsert_repository_calls_merge_repository() -> None:
         is_private=True,
         topics=["api", "python"],
     )
-    signal = _make_signal(attrs, external_id="github::Repository::org/repo", id="org/repo")
+    signal = _make_signal(attrs, id="org/repo")
     session = _mock_session()
 
     with patch("connectors.consumers.sinks.neo4j_sink.merge_repository") as mock_merge:
@@ -274,7 +272,7 @@ def test_upsert_commit_calls_merge_commit() -> None:
         files_changed=2,
         url="https://github.com/org/repo/commit/abc123",
     )
-    signal = _make_signal(attrs, id="abc123", external_id="github::Commit::abc123")
+    signal = _make_signal(attrs, id="abc123")
     session = _mock_session()
 
     with patch("connectors.consumers.sinks.neo4j_sink.merge_commit") as mock_merge:
@@ -308,7 +306,7 @@ def test_upsert_pull_request_calls_merge_pull_request() -> None:
         url="https://github.com/org/repo/pull/42",
         merged_at="2026-04-10T10:00:00",
     )
-    signal = _make_signal(attrs, id="org/repo::42", external_id="github::PullRequest::org/repo::42")
+    signal = _make_signal(attrs, id="org/repo::42")
     session = _mock_session()
 
     with patch("connectors.consumers.sinks.neo4j_sink.merge_pull_request") as mock_merge:
@@ -335,7 +333,7 @@ def test_upsert_person_calls_merge_person() -> None:
         login="alice",
         email="alice@example.com",
     )
-    signal = _make_signal(attrs, external_id="person_github_alice")
+    signal = _make_signal(attrs, id="alice")
     session = _mock_session()
 
     with patch("connectors.consumers.sinks.neo4j_sink.merge_person") as mock_merge:
@@ -343,7 +341,7 @@ def test_upsert_person_calls_merge_person() -> None:
 
     mock_merge.assert_called_once()
     person_arg = mock_merge.call_args.args[1]
-    assert person_arg.id == "person_github_alice"
+    assert person_arg.id == "github::Person::alice"
     assert person_arg.name == "Alice"
     assert person_arg.email == "alice@example.com"
 
@@ -359,7 +357,7 @@ def test_upsert_team_calls_merge_team() -> None:
         name="Platform Team",
         url="https://github.com/orgs/org/teams/platform",
     )
-    signal = _make_signal(attrs, id="platform", external_id="github::Team::platform", source="github")
+    signal = _make_signal(attrs, id="platform", source="github")
     session = _mock_session()
 
     with patch("connectors.consumers.sinks.neo4j_sink.merge_team") as mock_merge:
@@ -573,12 +571,12 @@ def test_upsert_signal_relationships_converted_and_passed() -> None:
         Relationship(
             type="AUTHORED_BY",
             direction=None,
-            target=RelationshipTarget(entity_type="Person", external_id="person_github_alice"),
+            target=RelationshipTarget(source="github", entity_type="Person", id="alice"),
         ),
         Relationship(
             type="PART_OF",
             direction=None,
-            target=RelationshipTarget(entity_type="Branch", external_id="branch_main"),
+            target=RelationshipTarget(source="github", entity_type="Branch", id="branch_main"),
         ),
     ]
     attrs = CommitAttributes(
@@ -587,7 +585,7 @@ def test_upsert_signal_relationships_converted_and_passed() -> None:
         author="Alice",
         created_at="2026-01-01T00:00:00",
     )
-    signal = _make_signal(attrs, external_id="commit_1", relationships=rels)
+    signal = _make_signal(attrs, id="abc123", relationships=rels)
     session = _mock_session()
 
     with patch("connectors.consumers.sinks.neo4j_sink.merge_commit") as mock_merge:
@@ -601,13 +599,13 @@ def test_upsert_signal_relationships_converted_and_passed() -> None:
 
 
 @pytest.mark.unit
-def test_upsert_signal_relationship_target_no_external_id_excluded() -> None:
-    """Relationships with no external_id are excluded from the passed list."""
+def test_upsert_signal_relationship_target_no_identifier_excluded() -> None:
+    """Relationships with no identifier (id/email/url) are excluded from the passed list."""
     rels = [
         Relationship(
             type="PART_OF",
             direction=None,
-            target=RelationshipTarget(entity_type="Repository"),  # no external_id
+            target=RelationshipTarget(entity_type="Repository"),  # no identifier
         ),
     ]
     attrs = BranchAttributes(repo_name="org/repo", branch_name="main", last_commit_sha="abc")
@@ -628,7 +626,7 @@ def test_upsert_signal_direction_in_swaps_from_to_in_db_relationship() -> None:
         Relationship(
             type="REVIEWS",
             direction="IN",
-            target=RelationshipTarget(entity_type="Person", external_id="person_github_bob"),
+            target=RelationshipTarget(source="github", entity_type="Person", id="bob"),
         ),
     ]
     attrs = PullRequestAttributes(
@@ -639,7 +637,7 @@ def test_upsert_signal_direction_in_swaps_from_to_in_db_relationship() -> None:
         created_at="2026-01-01",
         user="alice",
     )
-    signal = _make_signal(attrs, id="org/repo::1", external_id="github::PullRequest::org/repo::1", relationships=rels)
+    signal = _make_signal(attrs, id="org/repo::1", relationships=rels)
     session = _mock_session()
 
     with patch("connectors.consumers.sinks.neo4j_sink.merge_pull_request") as mock_merge:
@@ -649,7 +647,7 @@ def test_upsert_signal_direction_in_swaps_from_to_in_db_relationship() -> None:
     assert len(passed_rels) == 1
     db_rel = passed_rels[0]
     # "IN" → target becomes from, signal node becomes to
-    assert db_rel.from_id == "person_github_bob"
+    assert db_rel.from_id == "github::Person::bob"
     assert db_rel.to_id == "github::PullRequest::org/repo::1"
     assert db_rel.from_type == "Person"
     assert db_rel.to_type == "PullRequest"
@@ -672,7 +670,7 @@ async def test_consume_queue_acks_on_success() -> None:
         updated_at="2024-01-01",
         url="https://github.com/org/repo",
     )
-    signal = _make_signal(attrs, external_id="repo_1")
+    signal = _make_signal(attrs, id="repo_1")
     mock_message = AsyncMock()
 
     with (
@@ -714,7 +712,7 @@ async def test_consume_queue_nacks_on_upsert_failure() -> None:
         updated_at="2024-01-01",
         url="https://github.com/org/repo",
     )
-    signal = _make_signal(attrs, external_id="repo_1")
+    signal = _make_signal(attrs, id="repo_1")
     mock_message = AsyncMock()
 
     with (
@@ -761,7 +759,7 @@ def test_upsert_github_person_calls_person_cache_get_or_create() -> None:
         login="alice",
         email="alice@example.com",
     )
-    signal = _make_signal(attrs, source="github", external_id="person_github_alice")
+    signal = _make_signal(attrs, source="github", id="alice")
     session = _mock_session()
 
     person_cache = MagicMock(spec=PersonCache)
@@ -784,7 +782,7 @@ def test_upsert_jira_person_calls_person_cache_with_account_id() -> None:
         account_id="abc123",
         email="bob@example.com",
     )
-    signal = _make_signal(attrs, source="jira", external_id="person_jira_abc123")
+    signal = _make_signal(attrs, source="jira", id="abc123")
     session = _mock_session()
 
     person_cache = MagicMock(spec=PersonCache)
@@ -807,7 +805,7 @@ def test_person_cache_hit_prevents_duplicate_merge_person() -> None:
         login="alice",
         email="alice@example.com",
     )
-    signal = _make_signal(attrs, source="github", external_id="person_github_alice")
+    signal = _make_signal(attrs, source="github", id="alice")
 
     session = _mock_session()
     # No existing person in DB — simulate empty result
@@ -832,7 +830,7 @@ def test_person_cache_queues_and_flushes_identity_mapping() -> None:
         login="alice",
         email="alice@example.com",
     )
-    signal = _make_signal(attrs, source="github", external_id="person_github_alice")
+    signal = _make_signal(attrs, source="github", id="alice")
 
     session = _mock_session()
     session.run.return_value.single.return_value = None
@@ -845,6 +843,6 @@ def test_person_cache_queues_and_flushes_identity_mapping() -> None:
 
     mock_merge_identity.assert_called_once()
     identity_arg = mock_merge_identity.call_args.args[1]
-    assert identity_arg.id == "identity_github_alice"
+    assert identity_arg.id == "github::IdentityMapping::alice"
     assert identity_arg.provider == "GitHub"
     assert identity_arg.username == "alice"

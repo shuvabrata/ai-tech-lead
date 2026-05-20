@@ -161,7 +161,6 @@ class TestProcessTeamsHappyPath:
 
         team_sig = next(s for s in sigs if s.entity_type == "Team")
         assert team_sig.id == "frontend"
-        assert team_sig.external_id == "github::Team::frontend"
 
     @pytest.mark.asyncio
     async def test_person_signal_has_member_of_rel_to_team(self) -> None:
@@ -214,8 +213,8 @@ class TestProcessTeamsHappyPath:
 
         assert published.get("Team", 0) == 2
         assert published.get("Person", 0) == 2
-        team_ids = {s.external_id for s in sigs if s.entity_type == "Team"}
-        assert team_ids == {"github::Team::frontend", "github::Team::backend"}
+        team_ids = {s.id for s in sigs if s.entity_type == "Team"}
+        assert team_ids == {"frontend", "backend"}
 
     @pytest.mark.asyncio
     async def test_team_with_zero_members_emits_team_signal_only(self) -> None:
@@ -242,7 +241,7 @@ class TestProcessTeamsHappyPath:
 
         assert published.get("Person", 0) == 1
         person_sig = next(s for s in sigs if s.entity_type == "Person")
-        assert person_sig.external_id == "github::Person::dave"
+        assert person_sig.id == "dave"
 
 
 class TestProcessTeamsMaxTeamSize:
@@ -290,7 +289,7 @@ class TestProcessTeamsMaxTeamSize:
         assert published.get("Team", 0) == 1
         assert published.get("Person", 0) == 1
         team_sig = next(s for s in sigs if s.entity_type == "Team")
-        assert team_sig.external_id == "github::Team::solo-team"
+        assert team_sig.id == "solo-team"
 
 
 class TestProcessTeamsErrorHandling:
