@@ -157,7 +157,9 @@ duplicates, no deduplication logic required.
 | Field category | Fields | Mapping |
 |----------------|--------|---------|
 | Free-text descriptive | `summary`, `title`, `message`, `description`, `name`, `project_name`, `full_name`, `path` | `text` (english analyser) + `.keyword` sub-field (ignore_above: 512) |
-| Identifiers / entity keys | `key`, `sha`, `branch_name`, `login`, `email`, `id`, `wba_id` | `keyword` |
+| Issue / entity keys | `key` | `text` (standard analyser — tokenises `PROJ-123` → `["proj", "123"]`, enabling prefix and number matches) + `.keyword` sub-field for exact match and sort |
+| Person identifiers | `login`, `email` | `text` (standard analyser — enables partial match: `alice` matches `alice_dev`; `alice` matches local part of `alice@company.com`) + `.keyword` sub-field for exact filter |
+| Identifiers | `sha`, `branch_name`, `id`, `wba_id` | `keyword` |
 | Categorical | `entity_type`, `source`, `status`, `priority`, `type`, `state` | `keyword` |
 | Temporal | `event_time`, `created_at`, `updated_at`, `merged_at`, `closed_at` | `date` |
 | Numeric | `story_points`, `additions`, `deletions`, `commits_count`, `changed_files`, `comments` | `float` / `integer` |
@@ -166,6 +168,14 @@ duplicates, no deduplication logic required.
 **Dual mapping rationale:** `text` enables tokenised full-text search (`"login bug"` matches
 `"Fix login bug on mobile"`). The `.keyword` sub-field enables exact filter, sort, and
 aggregation on the same field. Storage overhead is negligible at this scale.
+
+**`key` field note:** Jira issue keys (`PROJ-123`) are queried frequently. The standard
+analyser tokenises on the hyphen, so `PROJ`, `123`, and `PROJ-123` all match. The `.keyword`
+sub-field preserves the exact value for filtering and sorting.
+
+**`login` / `email` note:** Person partial-name search is a primary use case. `login` and
+`email` use the standard analyser so `alice` matches `alice_dev` and the local part of
+`alice@company.com`. The `.keyword` sub-field is retained for exact filter and deduplication.
 
 ---
 
@@ -217,15 +227,15 @@ GET /api/v1/search
 **`multi_match` field list with boost weights:**
 
 ```
-full_name^5, login^4, email^4,
+full_name^5, login^4, email^4, key^4,
 summary^3, title^3,
 message^2, description^2, name^2, project_name^2, path^2,
-entity_type^1, source^1, id^1, key^1, branch_name^1
+entity_type^1, source^1, id^1, branch_name^1
 ```
 
-Person-identity fields receive the highest boost (`^4–5`) because people-centric search is a
-primary use case. Primary content fields (`summary`, `title`) are boosted above structural
-identifiers.
+Person-identity fields and `key` receive the highest boost (`^4–5`) because people-centric
+search and issue key lookup (e.g. `PROJ-123`) are the two most common search patterns.
+Primary content fields (`summary`, `title`) are boosted above structural identifiers.
 
 **Highlight:** Always requested via the ES `highlight` clause. One best-matching fragment per
 result, capped at 150 characters, with `<em>` tags wrapping matched terms.
@@ -269,6 +279,25 @@ all stored document fields exactly as indexed — no transformation layer, no cu
     ...
   }
 }
+```
+
+> **Important:** The `attributes` object in a `?full=true` response is the **flat ES document**
+> as stored in Elasticsearch (see section 2.3). It is **not** the original `ActivitySignal`
+> JSON format and must never be treated as one. Specifically:
+>
+> - The nested `attributes` sub-object from `ActivitySignal` is flattened — all attribute
+>   fields appear at the top level of the stored document.
+> - `relationships` are stored as a flat `relationship_ids` keyword array (WBA canonical keys
+>   only), not as the original `Relationship` objects with `type`, `direction`, and `target`.
+> - `entity_type` is present as a top-level field; it does not appear inside `attributes`.
+> - Fields excluded by the `ActivitySignal` Pydantic model (e.g. internal discriminator fields)
+>   may be absent.
+>
+> No consumer of the search API should attempt to reconstruct an `ActivitySignal` from a search
+> result. **The original `ActivitySignal` shape is only guaranteed at the point of production
+> (the RabbitMQ message emitted by the producer). Neither the Neo4j sink nor the Elasticsearch
+> sink preserves the original signal envelope structure — both transform the signal into their
+> own storage representation during ingestion.**
 ```
 
 ---
@@ -325,16 +354,17 @@ graph neighbourhood") requires its own design session. Out of scope for this pla
 
 - [ ] Add `elasticsearch` to `requirements.github-consumer.txt` and `requirements.jira-consumer.txt`
 - [ ] Wire `ELASTICSEARCH_ENABLED`, `ELASTICSEARCH_URL`, `ELASTIC_PASSWORD` into `src/app/settings.py`
-- [ ] Create `src/app/scripts/create_es_indexes.py` — define mappings for all 13 indexes, register `wba_all` alias; **must export `MANAGED_INDEXES: list[tuple[str, str]]`** (imported by the coverage test)
-- [ ] ~~`scripts/create_neo4j_indexes.py`~~ already done — moved from `scripts/create_indexes.py` and wired into `entrypoint.sh`
-- [ ] Create `src/connectors/consumers/sinks/elasticsearch_sink.py` — flat document builder + upsert
+- [ ] Create `src/app/scripts/create_es_indexes.py` — define mappings for all 13 indexes, register `wba_all` alias; **must export `MANAGED_INDEXES: list[tuple[str, str]]`** (imported by the coverage test); apply standard analyser to `key`, `login`, `email`
+- [ ] ⁠~~`scripts/create_neo4j_indexes.py`~~ already done — moved from `scripts/create_indexes.py` and wired into `entrypoint.sh`
+- [ ] Create `src/connectors/consumers/sinks/elasticsearch_sink.py` — builds a flat document by merging signal envelope fields (`wba_id`, `source`, `entity_type`, `source_config`, `event_time`) with all attribute fields at the top level; stores `relationship_ids` as a WBA canonical key array; uses `wba_id` as the ES `_id`; upserts via `client.index()`
 - [ ] Update `src/connectors/consumers/main.py` — call ES sink after successful Neo4j write; log-and-continue on failure
 - [ ] Create `scripts/reconcile_es.py` — full sync: upsert all Neo4j nodes, delete stale ES documents (workspace root — dev tool, not in Docker image)
 
 ### Phase B — Search API
 
-- [ ] Create `src/app/api/search/v1/model.py` — `SearchRequest`, `SearchResult`, `SearchResponse` Pydantic models
-- [ ] Create `src/app/api/search/v1/service.py` — ES query builder (multi_match, bool filters, highlight, pagination)
+- [ ] Create `src/app/api/search/v1/__init__.py`
+- [ ] Create `src/app/api/search/v1/model.py` — `SearchRequest` (q, entity_type, source, status, priority, date_from, date_to, page, page_size, full), `SearchResult` (wba_id, score, url, event_time, highlight; optional attributes dict when full=true), `SearchResponse` (total, page, page_size, results)
+- [ ] Create `src/app/api/search/v1/service.py` — ES query builder: uses `wba_all` alias by default; derives `{source}_{entity_type_lower}_index` when filters present; `multi_match` with boost weights when `q` present; `match_all` + `event_time` desc sort when `q` absent; highlight clause (150 chars, `<em>` tags); page/offset pagination; returns raw `_source` for `full=true` without transformation
 - [ ] Create `src/app/api/search/v1/router.py` — `GET /api/v1/search`
 - [ ] Register router in `src/app/main.py`
 
@@ -347,8 +377,8 @@ graph neighbourhood") requires its own design session. Out of scope for this pla
 
 ### Phase D — Tests
 
-- [ ] `tests/test_elasticsearch_sink.py` (unit) — mock ES client; verify index name, document shape, `_id`, failure handling
-- [ ] `tests/test_create_es_indexes.py` (unit) — assert mapping structure (dual-mapping on text fields, correct types)
+- [ ] `tests/test_elasticsearch_sink.py` (unit) — mock ES client; verify: flat document shape (no nested sub-objects), all envelope fields present at top level, `relationship_ids` is a list of WBA key strings, `_id` equals `wba_id`, ES failure logs warning and does not raise
+- [ ] `tests/test_create_es_indexes.py` (unit) — assert mapping structure: dual-mapping on free-text fields, standard analyser on `key`/`login`/`email`, correct types for categorical/temporal/numeric fields, `MANAGED_INDEXES` covers all `SUPPORTED_ENTITY_TYPES`
 - [ ] `tests/test_es_index_coverage.py` (integration, elasticsearch) — **regression guard**: verifies every entity type in `SUPPORTED_ENTITY_TYPES` from `models.py` has a corresponding index in a live ES instance. Catches the case where a new `*Attributes` model is added to `models.py` but `create_es_indexes.py` is not updated.
 
   **How it works:**
@@ -357,7 +387,14 @@ graph neighbourhood") requires its own design session. Out of scope for this pla
   - The test also connects to live ES and asserts each `{source}_{entity_type_lower}_index` actually exists (index existence check).
   - Run with: `pytest -m "integration and elasticsearch" tests/test_es_index_coverage.py`
 
-- [ ] `tests/test_search_api.py` (integration, server, elasticsearch) — end-to-end: index a signal, query `/api/v1/search`, assert result
+- [ ] `tests/test_search_api.py` (integration, server, elasticsearch) — end-to-end tests covering:
+  - Basic `?q=` returns results with `wba_id`, `score`, `url`, `event_time`, `highlight`
+  - `?full=true` returns flat `attributes` dict — assert it is **not** nested ActivitySignal shape
+  - Person partial name match: `alice` matches a Person with `login=alice_dev` or `email=alice@company.com`
+  - Jira key lookup: `PROJ`, `123`, and `PROJ-123` all match an Issue with `key=PROJ-123`
+  - `entity_type` filter scopes to the correct index
+  - Pagination (`page`, `page_size`) returns correct slice
+  - `wba_id` in every result equals the Neo4j node `id` property (same WBA canonical key)
 
 ---
 
@@ -368,16 +405,11 @@ graph neighbourhood") requires its own design session. Out of scope for this pla
 - Delete reconciliation triggered automatically on signal deletion
 - Multi-tenancy / access control (single-user local deployment)
 
-# Tehcnical requirements
-- Search results should always have the neo4j node id.
-- The Search databse should always remain synced with neo4j db
-- The actual user interface search results may be a mix of Elastic search and Neo4j depending on the use case.
-- Seatch should support non exact text match search specially on Person name. A partial match on user name, login on email is needed for usefulness.
+---
 
-# Index design
+## 8. Non-Negotiable Constraints
 
-
-# Data population
-
-
-# API interfaces
+- **`wba_id` = Neo4j node id.** Every search result must include `wba_id`. This value is identical to the `id` property stored on every Neo4j node (`{source}::{entity_type}::{raw_id}`). The search API and UI must never omit it — it is the join key between ES results and the graph.
+- **ES stays in sync with Neo4j.** The consumer pipeline and reconciliation script together guarantee this. ES is a derived read model; Neo4j is the authoritative store.
+- **Original `ActivitySignal` shape is not preserved.** Neither ES nor Neo4j reconstructs the original signal envelope. Do not design any feature that assumes the original format is recoverable from either store.
+- **Partial person name matching is required.** `login` and `email` use the standard analyser (dual-mapped). A user typing a partial name or email fragment must get relevant Person results.
