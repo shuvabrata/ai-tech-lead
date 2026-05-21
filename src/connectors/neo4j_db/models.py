@@ -607,46 +607,53 @@ class Commit:
 @dataclass
 class File:
     """File node representing a file in a repository.
-    
-    Example:
+
+    ``id`` holds the WBA canonical key: ``github::File::{repo_name}::{path}``.
+    All metadata fields are Optional because they are derived at producer time
+    and may not be present on every signal (e.g. size is not available via the
+    GitHub commits API).
+
+    Example::
+
         file = File(
-            id="file_42",
+            id="github::File::my-repo::src/services/UserService.ts",
             path="src/services/UserService.ts",
+            repo_name="my-repo",
             name="UserService.ts",
             extension=".ts",
             language="TypeScript",
             is_test=False,
-            size=3420,
-            created_at="2025-10-11T09:00:00",
-            url="https://github.com/owner/repo/blob/main/src/services/UserService.ts"
+            last_updated_at="2025-10-11T09:00:00",
+            url="https://github.com/owner/my-repo/blob/main/src/services/UserService.ts",
         )
     """
     id: str
     path: str
-    name: str
-    extension: str
-    language: str
-    is_test: bool
-    size: int
-    created_at: str  # ISO format datetime string
-    url: Optional[str] = None  # GitHub URL to view file in browser
-    
+    repo_name: str
+    name: Optional[str] = None
+    extension: Optional[str] = None
+    language: Optional[str] = None
+    is_test: Optional[bool] = None
+    size: Optional[int] = None
+    last_updated_at: Optional[str] = None
+    url: Optional[str] = None
+
     def to_neo4j_properties(self) -> Dict[str, Any]:
-        """Convert to Neo4j properties."""
-        return asdict(self)
-    
+        """Convert to Neo4j properties, excluding None values."""
+        return {k: v for k, v in asdict(self).items() if v is not None}
+
     def print_cli(self) -> None:
         """Print the File object in an easy-to-read CLI format."""
         print(f"\n{'='*60}")
-        print(f"FILE: {self.name}")
+        print(f"FILE: {self.name or self.path}")
         print(f"{'='*60}")
-        print(f"  ID:         {self.id}")
-        print(f"  Path:       {self.path}")
-        print(f"  Extension:  {self.extension}")
-        print(f"  Language:   {self.language}")
-        print(f"  Is Test:    {self.is_test}")
-        print(f"  Size:       {self.size} bytes")
-        print(f"  Created At: {self.created_at}")
+        print(f"  ID:              {self.id}")
+        print(f"  Path:            {self.path}")
+        print(f"  Repo:            {self.repo_name}")
+        print(f"  Extension:       {self.extension}")
+        print(f"  Language:        {self.language}")
+        print(f"  Is Test:         {self.is_test}")
+        print(f"  Last Updated At: {self.last_updated_at}")
         print(f"{'='*60}\n")
 
 
@@ -1488,52 +1495,28 @@ def merge_commit(session: Session, commit: Commit, relationships: Optional[List[
 def merge_file(session: Session, file: File, relationships: Optional[List[Relationship]] = None) -> None:
     """
     Merge a File node into Neo4j.
-    
+
+    Uses ``SET n += $props`` for additive updates and ``REMOVE f.stub`` to
+    clear the stub flag when a full signal arrives for a previously-stubbed node.
+
     Args:
         session: Neo4j session
         file: File dataclass instance
-        relationships: Optional list of relationships to create
+        relationships: Optional list of DbRelationship instances to create
     """
     props = file.to_neo4j_properties()
-    
-    # Build SET clause dynamically based on available properties (additive updates only)
-    set_clauses = []
-    if _has_value(props, 'path'):
-        set_clauses.append("f.path = $path")
-    if _has_value(props, 'name'):
-        set_clauses.append("f.name = $name")
-    if _has_value(props, 'extension'):
-        set_clauses.append("f.extension = $extension")
-    if _has_value(props, 'language'):
-        set_clauses.append("f.language = $language")
-    if _has_value(props, 'is_test'):
-        set_clauses.append("f.is_test = $is_test")
-    if _has_value(props, 'size'):
-        set_clauses.append("f.size = $size")
-    if _has_value(props, 'created_at'):
-        set_clauses.append("f.created_at = datetime($created_at)")
-    if _has_value(props, 'url'):
-        set_clauses.append("f.url = $url")
-    
-    # MERGE the File node
-    if set_clauses:
-        query = f"""
-        MERGE (f:File {{id: $id}})
-        SET {', '.join(set_clauses)}
-        RETURN f
+    session.run(
         """
-    else:
-        query = """
         MERGE (f:File {id: $id})
-        RETURN f
-        """
-    
-    session.run(query, **props)
-    
-    # Create relationships if provided
-    if relationships:
-        for rel in relationships:
-            merge_relationship(session, rel)
+        SET f += $props
+        REMOVE f.stub
+        """,
+        id=file.id,
+        props=props,
+    )
+
+    for rel in (relationships or []):
+        merge_relationship(session, rel)
 
 
 # ============================================================================

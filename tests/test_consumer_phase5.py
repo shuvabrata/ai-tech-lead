@@ -846,3 +846,93 @@ def test_person_cache_queues_and_flushes_identity_mapping() -> None:
     assert identity_arg.id == "github::IdentityMapping::alice"
     assert identity_arg.provider == "GitHub"
     assert identity_arg.username == "alice"
+
+
+# ---------------------------------------------------------------------------
+# File handler
+# ---------------------------------------------------------------------------
+
+from common.activity_signal.models import FileAttributes
+from connectors.consumers.sinks.neo4j_sink import _HANDLERS
+from common.activity_signal.models import SUPPORTED_ENTITY_TYPES
+
+
+@pytest.mark.unit
+def test_handle_file_upserts_correct_node() -> None:
+    attrs = FileAttributes(
+        path="src/app/main.py",
+        repo_name="myrepo",
+        name="main.py",
+        extension=".py",
+        language="Python",
+        is_test=False,
+        last_updated_at="2024-06-01T10:00:00",
+    )
+    signal = _make_signal(attrs, source="github", id="myrepo::src/app/main.py")
+    session = _mock_session()
+    session.run.return_value.single.return_value = None
+
+    with patch("connectors.consumers.sinks.neo4j_sink.merge_file") as mock_merge:
+        upsert_signal(session, signal)
+
+    mock_merge.assert_called_once()
+    file_node = mock_merge.call_args.args[1]
+    assert file_node.id == "github::File::myrepo::src/app/main.py"
+    assert file_node.path == "src/app/main.py"
+    assert file_node.repo_name == "myrepo"
+    assert file_node.language == "Python"
+
+
+@pytest.mark.unit
+def test_handle_file_creates_modifies_relationship() -> None:
+    attrs = FileAttributes(
+        path="src/app/main.py",
+        repo_name="myrepo",
+    )
+    signal = _make_signal(
+        attrs,
+        source="github",
+        id="myrepo::src/app/main.py",
+        relationships=[
+            Relationship(
+                type="MODIFIES",
+                direction="IN",
+                target=RelationshipTarget(source="github", entity_type="Commit", id="abc123"),
+                properties={"additions": 3, "deletions": 1},
+            )
+        ],
+    )
+    session = _mock_session()
+    session.run.return_value.single.return_value = None
+
+    with patch("connectors.consumers.sinks.neo4j_sink.merge_file") as mock_merge:
+        upsert_signal(session, signal)
+
+    mock_merge.assert_called_once()
+    db_rels = mock_merge.call_args.kwargs.get("relationships") or mock_merge.call_args.args[2]
+    assert len(db_rels) == 1
+    db_rel = db_rels[0]
+    # direction=IN swaps from/to: (Commit)-[:MODIFIES]->(File)
+    assert db_rel.type == "MODIFIES"
+    assert db_rel.to_id == "github::File::myrepo::src/app/main.py"
+    assert db_rel.from_id == "github::Commit::abc123"
+
+
+# ---------------------------------------------------------------------------
+# Migration completeness guard
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+def test_all_supported_entity_types_have_handlers() -> None:
+    """Every entity type in SUPPORTED_ENTITY_TYPES must have a consumer handler.
+
+    Person is handled directly in upsert_signal (outside _HANDLERS) to support
+    PersonCache injection, so it is excluded from the _HANDLERS check.
+    """
+    covered = set(_HANDLERS.keys()) | {"Person"}
+    missing = SUPPORTED_ENTITY_TYPES - covered
+    assert not missing, (
+        f"No consumer handler for entity type(s): {missing}. "
+        "Add a handler to _HANDLERS in neo4j_sink.py and a test in test_consumer_phase5.py."
+    )
