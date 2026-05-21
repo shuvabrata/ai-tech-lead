@@ -433,7 +433,6 @@ def _handle_file(session: Session, signal: ActivitySignal) -> None:
         extension=attrs.get("extension"),
         language=attrs.get("language"),
         is_test=attrs.get("is_test"),
-        size=attrs.get("size"),
         last_updated_at=attrs.get("last_updated_at"),
         url=attrs.get("url"),
     )
