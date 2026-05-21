@@ -345,7 +345,6 @@ class FileAttributes(BaseModel):
     extension: Optional[str] = None
     language: Optional[str] = None
     is_test: Optional[bool] = None
-    size: Optional[int] = None
     last_updated_at: Optional[str] = None
     url: Optional[str] = None
     additions: Optional[int] = None

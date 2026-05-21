@@ -610,8 +610,7 @@ class File:
 
     ``id`` holds the WBA canonical key: ``github::File::{repo_name}::{path}``.
     All metadata fields are Optional because they are derived at producer time
-    and may not be present on every signal (e.g. size is not available via the
-    GitHub commits API).
+    and may not be present on every signal.
 
     Example::
 
@@ -634,7 +633,6 @@ class File:
     extension: Optional[str] = None
     language: Optional[str] = None
     is_test: Optional[bool] = None
-    size: Optional[int] = None
     last_updated_at: Optional[str] = None
     url: Optional[str] = None
 
