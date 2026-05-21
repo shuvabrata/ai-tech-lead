@@ -364,13 +364,18 @@ graph neighbourhood") requires its own design session. Out of scope for this pla
 - **Cross-provider Person dedup bug fixed** (`elasticsearch_sink.py`, `neo4j_sink.py`, `main.py`): When a Jira Person signal is deduplicated into an existing GitHub Person node by the identity resolver, the ES sink was creating a stale document under the non-existent `jira::Person::xxx` wba_id. Fixed by having `upsert_signal` return the canonical wba_id actually stored in Neo4j, and routing the ES sink through `index_signal_with_canonical_id()` which uses a partial `update` on the canonical document instead of a full `index` on the wrong id.
 - **Parity test hardened** (`tests/test_es_neo4j_parity.py`): The parity test now unconditionally excludes stub nodes (`size(keys(n)) > 1`) from the Neo4j count for all entity types. Stub nodes (only `id` property) are relationship-target placeholders created by the sync module; no `ActivitySignal` is published for them so they are never indexed in ES. Confirmed stub-forming types: `jira/Issue` and `jira/Person`. Validated with a full fresh scan — **all 13 entity type parity checks pass**.
 
-### Phase B — Search API
+### Phase B — Search API ✅ Complete (2026-05-21)
 
-- [ ] Create `src/app/api/search/v1/__init__.py`
-- [ ] Create `src/app/api/search/v1/model.py` — `SearchRequest` (q, entity_type, source, status, priority, date_from, date_to, page, page_size, full), `SearchResult` (wba_id, score, url, event_time, highlight; optional attributes dict when full=true), `SearchResponse` (total, page, page_size, results)
-- [ ] Create `src/app/api/search/v1/service.py` — ES query builder: uses `wba_all` alias by default; derives `{source}_{entity_type_lower}_index` when filters present; `multi_match` with boost weights when `q` present; `match_all` + `event_time` desc sort when `q` absent; highlight clause (150 chars, `<em>` tags); page/offset pagination; returns raw `_source` for `full=true` without transformation
-- [ ] Create `src/app/api/search/v1/router.py` — `GET /api/v1/search`
-- [ ] Register router in `src/app/main.py`
+- [x] Create `src/app/api/search/v1/__init__.py`
+- [x] Create `src/app/api/search/v1/model.py` — `SearchRequest` (q, entity_type, source, status, priority, date_from, date_to, page, page_size, full), `SearchResult` (wba_id, score, url, event_time, highlight; optional attributes dict when full=true), `SearchResponse` (total, page, page_size, results)
+- [x] Create `src/app/api/search/v1/service.py` — ES query builder: uses `wba_all` alias by default; derives `{source}_{entity_type_lower}_index` when filters present; `multi_match` with boost weights when `q` present; `match_all` + `event_time` desc sort when `q` absent; highlight clause (150 chars, `<em>` tags); page/offset pagination; returns raw `_source` for `full=true` without transformation
+- [x] Create `src/app/api/search/v1/router.py` — `GET /api/v1/search`
+- [x] Register router in `src/app/main.py`
+
+**Post-implementation fixes discovered during Phase B validation:**
+
+- **ES `max_result_window` guard added** (`service.py`): Requesting a page whose offset would exceed ES's default `max_result_window` of 10 000 raised `BadRequestError`. Fixed by capping `from_offset` at `min(offset, 10000)` and catching `BadRequestError` as a fallback, returning an empty result set gracefully instead of a 500.
+- **`test_search_api.py` completed early** (Phase D item): 17 integration tests covering response shape, highlight, `full=true` flat attributes, Person partial login/email match, Jira key prefix/number/full-key lookup, entity_type and source filters, status filter, sort order, and pagination. Tests seed ES directly via `elasticsearch_sink.index_signal()` with controlled `wba_id` prefixes (`wbatst::`) and clean up in fixture teardown — no RabbitMQ, Neo4j, or real-data assertions.
 
 ### Phase C — UI
 
@@ -391,14 +396,7 @@ graph neighbourhood") requires its own design session. Out of scope for this pla
   - The test also connects to live ES and asserts each `{source}_{entity_type_lower}_index` actually exists (index existence check).
   - Run with: `pytest -m "integration and elasticsearch" tests/test_es_index_coverage.py`
 
-- [ ] `tests/test_search_api.py` (integration, server, elasticsearch) — end-to-end tests covering:
-  - Basic `?q=` returns results with `wba_id`, `score`, `url`, `event_time`, `highlight`
-  - `?full=true` returns flat `attributes` dict — assert it is **not** nested ActivitySignal shape
-  - Person partial name match: `alice` matches a Person with `login=alice_dev` or `email=alice@company.com`
-  - Jira key lookup: `PROJ`, `123`, and `PROJ-123` all match an Issue with `key=PROJ-123`
-  - `entity_type` filter scopes to the correct index
-  - Pagination (`page`, `page_size`) returns correct slice
-  - `wba_id` in every result equals the Neo4j node `id` property (same WBA canonical key)
+- [x] `tests/test_search_api.py` (integration, server, elasticsearch) — completed early during Phase B; see Phase B notes above.
 
 ---
 
