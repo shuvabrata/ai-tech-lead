@@ -328,9 +328,9 @@ The consumer reads these via `os.environ` directly (consistent with how it reads
 - **Submit-on-Enter** (search-as-you-type deferred to a future enhancement).
 - Registered as a page route in `src/app/dash_app/layout.py`.
 
-### 5.2 Global search bar — sidebar in `src/app/dash_app/layout.py`
+### 5.2 Global search bar — top navbar in `src/app/dash_app/layout.py`
 
-- Single text input in the sidebar header area.
+- Single text input in the top navbar, always visible regardless of which page is active.
 - On Enter, navigates to the search page with `?q=<value>` pre-filled in the URL.
 - No filter controls — just the search box.
 
@@ -340,10 +340,24 @@ The consumer reads these via `os.environ` directly (consistent with how it reads
 - Filters/highlights nodes **already rendered** in the current graph — no ES call.
 - Implementation: client-side string match against the rendered node label data.
 
-### 5.4 Graph-from-search — deferred
+### 5.4 Graph-from-search
 
-Starting a graph plot from a search result (e.g. "search for a person, then expand their
-graph neighbourhood") requires its own design session. Out of scope for this plan.
+Each search result card includes a **"View in Graph"** button.
+Clicking it navigates to `/app/graph?node_id=<wba_id>`. The graph page detects the
+`node_id` URL parameter on load and auto-executes a node-expansion query to fetch
+the target node and its immediate neighbours, rendering them into the Cytoscape canvas.
+
+The `wba_id` maps directly to the Neo4j node `id` property (same canonical key), so
+no extra lookup is needed.
+
+### 5.5 AI Agent search chain
+
+A new `elasticsearch_chain.py` augmentation chain enriches AI chat responses with
+entity context from Elasticsearch. When the user asks about a person, ticket, or
+repository, the chain queries ES for matching documents and injects the top results
+as structured context into the LLM prompt, alongside the existing Neo4j and MCP chains.
+
+Feature flag: `ELASTICSEARCH_ENABLED` (reuses the existing setting).
 
 ---
 
@@ -379,10 +393,100 @@ graph neighbourhood") requires its own design session. Out of scope for this pla
 
 ### Phase C — UI
 
-- [ ] Create `src/app/dash_app/pages/search.py` — dedicated search page with filters and result cards
-- [ ] Add nav link in `src/app/dash_app/layout.py` sidebar
-- [ ] Add global search bar to sidebar with Enter-to-navigate behaviour
-- [ ] Add client-side node filter input to graph filter panel
+Phase C is broken into four sub-phases aligned with the four user-facing workflows.
+C1 is the largest and is itself broken into four sequential steps (C1a–C1d). C2, C3,
+and C4 are independently deliverable once C1 is live.
+
+#### C1 — Standalone search page with Graph-from-Search
+
+The primary search surface. Full-featured with advanced filter options. Each result
+card includes a **"View in Graph"** button that navigates to the graph page with
+the node and its immediate neighbours pre-loaded.
+
+**C1a — Route, nav link, and static layout**
+
+- [ ] Create `src/app/dash_app/pages/search.py` with `get_layout()` returning:
+  - Search bar (`dbc.Input`, id=`search-q-input`, placeholder "Search entities…") with
+    submit button (id=`search-submit-btn`); Enter handled via `n_submit`
+  - Collapsible advanced filters row: `entity_type` dropdown, `source` dropdown,
+    `status` text input, `priority` text input, `date_from` / `date_to` date pickers
+  - Results count label (`html.Div`, id=`search-results-count`)
+  - Results area (`html.Div`, id=`search-results-container`)
+  - Pagination row: Prev / page-indicator / Next (`html.Div`, id=`search-pagination-row`)
+  - Hidden stores: `search-current-page` (int, default 1),
+    `search-last-query-params` (dict)
+  - `dcc.Location` id=`search-url` for reading `?q=` on page load
+  - Design: Executive Dashboard tokens from `styles.py`; no ad-hoc inline values
+- [ ] Add `/app/search` branch to `display_page` routing callback in `layout.py`
+- [ ] Add "Search" `NavLink` to the sidebar (`fas fa-search` icon,
+  `executive-nav-link` pattern)
+
+**C1b — Search execution and result cards**
+
+- [ ] Add callback `[Input("search-submit-btn", "n_clicks"), Input("search-q-input", "n_submit")]`
+  → builds query params from filter controls → calls `GET /api/v1/search` (sync `httpx`
+  inside the Dash callback) → renders result cards; updates `search-last-query-params`;
+  resets `search-current-page` to 1; updates results count
+- [ ] Result card: `entity_type` badge (colour-coded by source), `source` badge,
+  `wba_id` monospace, `url` hyperlink, `event_time` (formatted via `UI_DATETIME_FORMAT`),
+  `highlight` snippet (`dangerously_allow_html=True` for `<em>` rendering),
+  **"View in Graph" button** linking to `/app/graph?node_id=<wba_id>`
+- [ ] Inline alert when ES is disabled or request fails
+
+**C1c — Pagination**
+
+- [ ] Callback on Prev/Next clicks → reads `search-last-query-params` +
+  `search-current-page` → calls API with updated `page` → re-renders results;
+  disables Prev on page 1, disables Next when `page * page_size >= total`
+
+**C1d — Graph-from-Search: graph page `?node_id=` handler**
+
+- [ ] Add `dcc.Location` id=`graph-url` to the graph page layout (if not already present)
+- [ ] Add callback in `src/app/dash_app/pages/graph/callbacks/navigation.py`:
+  `Input("graph-url", "search")` → parse `?node_id=<wba_id>` → auto-execute a
+  node-expansion API call (`GET /api/v1/graph/expand`) for the target node →
+  load the node + its immediate neighbours into the Cytoscape canvas;
+  no-op when `node_id` param is absent
+- [ ] The `wba_id` maps directly to the Neo4j node `id` property — no extra lookup needed
+
+#### C2 — Global search bar in top navbar
+
+Always-visible quick search. No advanced filters — just the query box.
+
+- [ ] Add `dbc.Input` (id=`global-search-input`, size=`sm`, placeholder "Quick search…")
+  to the top navbar row in `layout.py`, between the toggle button and the right-side
+  controls
+- [ ] Add callback on `n_submit` → navigates to `/app/search?q=<value>` via
+  `dcc.Location` and clears the input
+- [ ] Add callback in `search.py` on `Input("search-url", "search")` → parses `?q=`
+  parameter → pre-fills `search-q-input` and auto-fires the search
+
+#### C3 — Graph filter panel node highlight (client-side)
+
+Filters nodes already rendered in the current graph — no ES call, no API round-trip.
+
+- [ ] Add `dbc.Input` (id=`graph-node-filter-input`, placeholder "Filter nodes…")
+  to the graph filter panel in `src/app/dash_app/pages/graph/layout.py`
+- [ ] Add callback in `src/app/dash_app/pages/graph/callbacks/filtering.py`:
+  `Input("graph-node-filter-input", "value")` + `State("cytoscape-graph", "elements")`
+  → dims non-matching nodes and their incident edges via the Cytoscape stylesheet;
+  clears dimming when input is empty
+- [ ] Reset the filter input to empty when a new graph is loaded
+
+#### C4 — AI Agent Elasticsearch chain
+
+Integrates ES search into the AI chat augmentation pipeline so the agent can ground
+its answers with real entity data from Elasticsearch.
+
+- [ ] Create `src/app/ai_agent/chains/elasticsearch_chain.py`:
+  - Async generator following the existing chain contract
+  - Passes the user message directly as `q` to `GET /api/v1/search` with `full=true`,
+    capped at a small result set (configurable via `ELASTICSEARCH_SEARCH_CHAIN_MAX_RESULTS`)
+  - Yields `{"source": "elasticsearch", "context": "<formatted entity summary>"}` envelope
+  - Returns immediately (empty envelope) when `ELASTICSEARCH_ENABLED=false`
+- [ ] Register in `chains.py` `augment_message_stream()` guarded by
+  `settings.ELASTICSEARCH_ENABLED`, alongside the existing Neo4j and MCP chains
+- [ ] Add `ELASTICSEARCH_SEARCH_CHAIN_MAX_RESULTS: int = 5` to `settings.py`
 
 ### Phase D — Tests
 
@@ -403,7 +507,7 @@ graph neighbourhood") requires its own design session. Out of scope for this pla
 ## 7. Out of Scope
 
 - Search-as-you-type / autocomplete (future enhancement)
-- Graph-from-search (requires separate design session)
+- Graph-from-search is **now in scope** — see Phase C1d
 - Delete reconciliation triggered automatically on signal deletion
 - Multi-tenancy / access control (single-user local deployment)
 
