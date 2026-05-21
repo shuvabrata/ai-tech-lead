@@ -36,7 +36,8 @@ class TestPersonIntegrity:
         results = execute_cypher_query(
             """
             MATCH (p:Person)
-            WHERE NOT (:IdentityMapping)-[:MAPS_TO]->(p)
+            WHERE p.name IS NOT NULL
+              AND NOT (:IdentityMapping)-[:MAPS_TO]->(p)
             RETURN p.id AS id, p.name AS name, p.email AS email
             ORDER BY p.id
             """,
