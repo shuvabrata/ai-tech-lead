@@ -252,7 +252,25 @@ def _handle_person(
     session: Session,
     signal: ActivitySignal,
     person_cache: Optional[PersonCache] = None,
-) -> None:
+) -> Optional[str]:
+    """Write a Person signal to Neo4j and return the canonical wba_id that was stored.
+
+    Cross-provider deduplication
+    ----------------------------
+    When a Person arrives from a second provider (e.g. ``jira::Person::abc123``)
+    and the identity resolver finds an existing node from a prior provider
+    (e.g. ``github::Person::alice``) with the same email address, Neo4j reuses
+    the existing node — ``jira::Person::abc123`` is **never created**.  The
+    existing node is enriched additively via ``merge_person`` (null / missing
+    fields are filled in; non-empty fields are overwritten by the richer value).
+    See ``connectors/commons/identity_resolver.py :: get_or_create_person``.
+
+    The returned canonical wba_id reflects what actually exists in Neo4j.  When
+    deduplication occurred the returned id differs from ``wba_node_id(signal)``;
+    callers (e.g. the Elasticsearch sink) must use the returned id — **not** the
+    signal's own wba_id — to avoid creating stale documents pointing to nodes
+    that do not exist in Neo4j.
+    """
     attrs = signal.attributes.model_dump()  # type: ignore[union-attr]
 
     if person_cache is not None:
@@ -281,7 +299,7 @@ def _handle_person(
                     email=email or "",
                     last_updated_at=datetime.now(timezone.utc).isoformat(),
                 )
-            return
+            return person_id
 
         elif signal.source == "jira":
             account_id = attrs.get("account_id", "")
@@ -306,9 +324,9 @@ def _handle_person(
                     email=email or "",
                     last_updated_at=datetime.now(timezone.utc).isoformat(),
                 )
-            return
+            return person_id
 
-    # Fallback: no PersonCache — original behaviour
+    # Fallback: no PersonCache — original behaviour, no cross-provider dedup.
     raw_email = attrs.get("email")
     node_id = wba_node_id(signal)
     person = Person(
@@ -319,6 +337,7 @@ def _handle_person(
     )
     db_rels = _to_db_relationships(session, signal.relationships, node_id, "Person")
     merge_person(session, person, relationships=db_rels)
+    return node_id
 
 
 def _handle_team(session: Session, signal: ActivitySignal) -> None:
@@ -469,8 +488,8 @@ def upsert_signal(
     session: Session,
     signal: ActivitySignal,
     person_cache: Optional[PersonCache] = None,
-) -> None:
-    """Upsert an ActivitySignal into Neo4j using the canonical merge_* functions.
+) -> str:
+    """Upsert an ActivitySignal into Neo4j and return the canonical wba_id stored.
 
     Dispatches to the correct entity-type handler which builds the appropriate
     ``neo4j_db`` dataclass and calls the corresponding ``merge_*`` function,
@@ -481,6 +500,15 @@ def upsert_signal(
     identity resolution and IdentityMapping creation, and
     ``flush_identity_mappings`` is called after every signal.
 
+    Return value — canonical wba_id
+    --------------------------------
+    The returned string is the ``id`` property of the Neo4j node that was
+    actually written.  For most entity types this equals ``wba_node_id(signal)``.
+    For Person signals with cross-provider deduplication (see ``_handle_person``),
+    the returned id may differ from the signal's own wba_id — callers must use
+    this value when writing to downstream stores (e.g. Elasticsearch) to avoid
+    creating documents under wba_ids that do not exist in Neo4j.
+
     Args:
         session:      An active synchronous Neo4j ``Session``.
         signal:       A fully validated ``ActivitySignal`` with ``ingestion_time``
@@ -490,9 +518,12 @@ def upsert_signal(
                       cache for identity resolution.
     """
     entity_type = signal.entity_type
+    canonical_wba_id: str = wba_node_id(signal)
 
     if entity_type == "Person":
-        _handle_person(session, signal, person_cache=person_cache)
+        resolved_id = _handle_person(session, signal, person_cache=person_cache)
+        if resolved_id:
+            canonical_wba_id = resolved_id
     else:
         handler = _HANDLERS.get(entity_type)
         if handler is None:
@@ -501,18 +532,20 @@ def upsert_signal(
                 entity_type,
                 signal.signal_id,
             )
-            return
+            return canonical_wba_id
         handler(session, signal)
 
     if person_cache is not None:
         person_cache.flush_identity_mappings(session)
 
     logger.info(
-        "Upserted signal_id=%s entity_type=%s id=%s",
+        "Upserted signal_id=%s entity_type=%s id=%s canonical_wba_id=%s",
         signal.signal_id,
         entity_type,
         signal.id,
+        canonical_wba_id,
     )
+    return canonical_wba_id
 
 
 
