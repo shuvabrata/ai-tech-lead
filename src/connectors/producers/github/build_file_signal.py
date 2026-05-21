@@ -8,6 +8,7 @@ is the form expected by the query catalog.
 
 from __future__ import annotations
 
+import hashlib
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
@@ -50,8 +51,11 @@ def build_file_signal(
         repo_name: str = repo_data["name"]
         sha: str = commit_data["sha"]
 
+        file_id = hashlib.sha256(f"{repo_name}::{filename}".encode()).hexdigest()
+
         logger.info(
-            "[build_file_signal] file=%r  repo=%r  sha=%s  ext=%r  lang=%r  add=%s  del=%s",
+            "[build_file_signal] id=%s  file=%r  repo=%r  sha=%s  ext=%r  lang=%r  add=%s  del=%s",
+            file_id,
             filename,
             repo_name,
             sha[:8],
@@ -60,8 +64,6 @@ def build_file_signal(
             file_data.get("additions"),
             file_data.get("deletions"),
         )
-
-        file_id = f"{repo_name}::{filename}"
 
         event_time = datetime.fromisoformat(commit_data["created_at"]).replace(
             tzinfo=timezone.utc
