@@ -61,13 +61,17 @@ services:
       GITHUB_MCP_SERVER_URL: http://github-mcp:8082/mcp
       # RabbitMQ configuration
       RABBITMQ_URL: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASSWORD:-guest}@rabbitmq:5672/
+      # Elasticsearch configuration
+      ELASTICSEARCH_ENABLED: ${ELASTICSEARCH_ENABLED:-false}
+      ELASTICSEARCH_URL: http://elasticsearch:9200
+      ELASTIC_PASSWORD: ${ELASTIC_PASSWORD:-}
     ports:
       - "8000:8000"
     volumes:
       # Mount .env file (read-only)
       - ./.env:/app/.env:ro
       # Mount logs directory
-      - ./logs:/var/log/app
+      - ./logs/app:/var/log/app
     networks:
       - wba-ai-network
     healthcheck:
@@ -84,6 +88,8 @@ services:
       github-mcp:
         condition: service_healthy
       rabbitmq:
+        condition: service_healthy
+      elasticsearch:
         condition: service_healthy
 
   github-mcp:
@@ -211,7 +217,7 @@ services:
       PYTHONPATH: /app
       LOG_DIR: /var/log/github-producer
     volumes:
-      - ./logs:/var/log/github-producer
+      - ./logs/github-producer:/var/log/github-producer
     depends_on:
       postgres:
         condition: service_healthy
@@ -237,7 +243,7 @@ services:
       PYTHONPATH: /app
       LOG_DIR: /var/log/jira-producer
     volumes:
-      - ./logs:/var/log/jira-producer
+      - ./logs/jira-producer:/var/log/jira-producer
     depends_on:
       postgres:
         condition: service_healthy
@@ -265,14 +271,20 @@ services:
       LISTEN_QUEUES: github_queue
       PYTHONPATH: /app
       LOG_DIR: /var/log/github-consumer
+      # Override ES URL to use service-to-service networking, not localhost.
+      ELASTICSEARCH_ENABLED: ${ELASTICSEARCH_ENABLED:-false}
+      ELASTICSEARCH_URL: http://elasticsearch:9200
+      ELASTIC_PASSWORD: ${ELASTIC_PASSWORD:-}
     volumes:
-      - ./logs:/var/log/github-consumer
+      - ./logs/github-consumer:/var/log/github-consumer
     depends_on:
       rabbitmq:
         condition: service_healthy
       neo4j:
         condition: service_healthy
       app:
+        condition: service_healthy
+      elasticsearch:
         condition: service_healthy
     restart: unless-stopped  # Long-running consumer; restart on failure
     networks:
@@ -294,14 +306,20 @@ services:
       LISTEN_QUEUES: jira_queue
       PYTHONPATH: /app
       LOG_DIR: /var/log/jira-consumer
+      # Override ES URL to use service-to-service networking, not localhost.
+      ELASTICSEARCH_ENABLED: ${ELASTICSEARCH_ENABLED:-false}
+      ELASTICSEARCH_URL: http://elasticsearch:9200
+      ELASTIC_PASSWORD: ${ELASTIC_PASSWORD:-}
     volumes:
-      - ./logs:/var/log/jira-consumer
+      - ./logs/jira-consumer:/var/log/jira-consumer
     depends_on:
       rabbitmq:
         condition: service_healthy
       neo4j:
         condition: service_healthy
       app:
+        condition: service_healthy
+      elasticsearch:
         condition: service_healthy
     restart: unless-stopped  # Long-running consumer; restart on failure
     networks:

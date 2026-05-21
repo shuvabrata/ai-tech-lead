@@ -298,7 +298,6 @@ all stored document fields exactly as indexed — no transformation layer, no cu
 > (the RabbitMQ message emitted by the producer). Neither the Neo4j sink nor the Elasticsearch
 > sink preserves the original signal envelope structure — both transform the signal into their
 > own storage representation during ingestion.**
-```
 
 ---
 
@@ -350,15 +349,20 @@ graph neighbourhood") requires its own design session. Out of scope for this pla
 
 ## 6. Implementation Checklist
 
-### Phase A — Infrastructure & indexing pipeline
+### Phase A — Infrastructure & indexing pipeline ✅ Complete (2026-05-21)
 
-- [ ] Add `elasticsearch` to `requirements.github-consumer.txt` and `requirements.jira-consumer.txt`
-- [ ] Wire `ELASTICSEARCH_ENABLED`, `ELASTICSEARCH_URL`, `ELASTIC_PASSWORD` into `src/app/settings.py`
-- [ ] Create `src/app/scripts/create_es_indexes.py` — define mappings for all 13 indexes, register `wba_all` alias; **must export `MANAGED_INDEXES: list[tuple[str, str]]`** (imported by the coverage test); apply standard analyser to `key`, `login`, `email`
-- [ ] ⁠~~`scripts/create_neo4j_indexes.py`~~ already done — moved from `scripts/create_indexes.py` and wired into `entrypoint.sh`
-- [ ] Create `src/connectors/consumers/sinks/elasticsearch_sink.py` — builds a flat document by merging signal envelope fields (`wba_id`, `source`, `entity_type`, `source_config`, `event_time`) with all attribute fields at the top level; stores `relationship_ids` as a WBA canonical key array; uses `wba_id` as the ES `_id`; upserts via `client.index()`
-- [ ] Update `src/connectors/consumers/main.py` — call ES sink after successful Neo4j write; log-and-continue on failure
-- [ ] Create `scripts/reconcile_es.py` — full sync: upsert all Neo4j nodes, delete stale ES documents (workspace root — dev tool, not in Docker image)
+- [x] Add `elasticsearch` to `requirements.github-consumer.txt` and `requirements.jira-consumer.txt`
+- [x] Wire `ELASTICSEARCH_ENABLED`, `ELASTICSEARCH_URL`, `ELASTIC_PASSWORD` into `src/app/settings.py`
+- [x] Create `src/app/scripts/create_es_indexes.py` — define mappings for all 13 indexes, register `wba_all` alias; **must export `MANAGED_INDEXES: list[tuple[str, str]]`** (imported by the coverage test); apply standard analyser to `key`, `login`, `email`
+- [x] ⁠~~`scripts/create_neo4j_indexes.py`~~ already done — moved from `scripts/create_indexes.py` and wired into `entrypoint.sh`
+- [x] Create `src/connectors/consumers/sinks/elasticsearch_sink.py` — builds a flat document by merging signal envelope fields (`wba_id`, `source`, `entity_type`, `source_config`, `event_time`) with all attribute fields at the top level; stores `relationship_ids` as a WBA canonical key array; uses `wba_id` as the ES `_id`; upserts via `client.index()`
+- [x] Update `src/connectors/consumers/main.py` — call ES sink after successful Neo4j write; log-and-continue on failure
+- [x] Create `scripts/reconcile_es.py` — full sync: upsert all Neo4j nodes, delete stale ES documents (workspace root — dev tool, not in Docker image)
+
+**Post-implementation fixes discovered during Phase A validation:**
+
+- **Cross-provider Person dedup bug fixed** (`elasticsearch_sink.py`, `neo4j_sink.py`, `main.py`): When a Jira Person signal is deduplicated into an existing GitHub Person node by the identity resolver, the ES sink was creating a stale document under the non-existent `jira::Person::xxx` wba_id. Fixed by having `upsert_signal` return the canonical wba_id actually stored in Neo4j, and routing the ES sink through `index_signal_with_canonical_id()` which uses a partial `update` on the canonical document instead of a full `index` on the wrong id.
+- **Parity test hardened** (`tests/test_es_neo4j_parity.py`): The parity test now unconditionally excludes stub nodes (`size(keys(n)) > 1`) from the Neo4j count for all entity types. Stub nodes (only `id` property) are relationship-target placeholders created by the sync module; no `ActivitySignal` is published for them so they are never indexed in ES. Confirmed stub-forming types: `jira/Issue` and `jira/Person`. Validated with a full fresh scan — **all 13 entity type parity checks pass**.
 
 ### Phase B — Search API
 
