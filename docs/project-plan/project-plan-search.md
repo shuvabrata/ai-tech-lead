@@ -1,0 +1,383 @@
+# Search Capability — Project Plan
+
+## Objective
+
+Add full-text search capability so users can find nodes and relationships of interest across all
+entity types ingested from GitHub and Jira. Neo4j is the authoritative graph store but is not
+optimised for free-text attribute search. Elasticsearch provides the fast keyword search layer.
+
+Search results serve multiple surfaces:
+- Dedicated search page (browse and filter all entities)
+- Global search bar in the sidebar (quick navigation to the search page)
+- Graph filter panel (highlight nodes already rendered in the graph — client-side, no ES call)
+- Graph-from-search (deferred — needs its own design session)
+
+---
+
+## 1. Data Population
+
+### 1.1 Primary path — Consumer pipeline
+
+The existing consumer (`src/connectors/consumers/main.py`) writes `ActivitySignal` events to
+Neo4j via `neo4j_sink.py`. After a **successful** Neo4j write, it calls a new
+`elasticsearch_sink.py` to index the same signal into Elasticsearch.
+
+- ES write is **non-fatal**: on failure, log a warning with the `wba_id` and continue.
+  The RabbitMQ message is still acknowledged. The reconciliation script corrects any drift.
+- `elasticsearch_sink.py` lives alongside the existing sink:
+  `src/connectors/consumers/sinks/elasticsearch_sink.py`
+- `elasticsearch` must be added to `requirements.github-consumer.txt` and
+  `requirements.jira-consumer.txt` (it is already in `requirements.app.txt`).
+
+### 1.2 Reconciliation script — `scripts/reconcile_es.py`
+
+A **full sync** script run on demand (rarely) to correct drift between Neo4j and Elasticsearch.
+
+**Algorithm:**
+1. For each Neo4j node label, read all nodes and their relationship targets.
+2. Upsert each node as an ES document into the correct index (using `wba_id` as `_id`).
+3. After upserting all Neo4j nodes, query each ES index for all document `_id`s.
+4. Delete any ES document whose `_id` is not present in Neo4j (full sync — inserts, updates, and deletes).
+
+The script derives the target index name from the `id` property on every Neo4j node, which
+stores the WBA canonical key (`{source}::{entity_type}::{raw_id}`), making source and entity
+type parseable without additional metadata.
+
+### 1.3 Index bootstrap — `src/app/scripts/create_es_indexes.py`
+
+Creates all Elasticsearch indexes with explicit field mappings and registers them under the
+`wba_all` alias. Called automatically from `src/app/entrypoint.sh` on every app container
+start (guarded by `ELASTICSEARCH_ENABLED=true`). Idempotent — safe to re-run on every
+startup (`ignore=400` for existing indexes).
+
+The Neo4j index creation script (`src/app/scripts/create_neo4j_indexes.py`, moved from
+`scripts/create_indexes.py`) is called unconditionally in the same entrypoint, before the
+Elasticsearch step.
+
+**Design constraint:** The script must export a module-level constant:
+
+```python
+MANAGED_INDEXES: list[tuple[str, str]] = [
+    ("github", "Repository"),
+    ("github", "Branch"),
+    # ... all (source, entity_type) pairs
+]
+```
+
+This constant is the authoritative registry of all `(source, entity_type)` pairs managed by
+the script. It is imported by `tests/test_es_index_coverage.py` to verify that every entity
+type in `SUPPORTED_ENTITY_TYPES` (from `models.py`) is covered. **Any new entity type added
+to `models.py` must also be added to `MANAGED_INDEXES` — the integration test enforces this.**
+
+**Startup sequence in `entrypoint.sh`:**
+1. Wait for PostgreSQL → run `alembic upgrade head`
+2. Run `init_rabbitmq.py`
+3. Run `create_neo4j_indexes.py` (always)
+4. Run `create_es_indexes.py` (only if `ELASTICSEARCH_ENABLED=true`)
+5. Start uvicorn
+
+---
+
+## 2. Index Design
+
+### 2.1 Index naming
+
+Pattern: **`{source}_{entity_type_lowercase}_index`**
+
+Source and entity type are included together because the same entity type name can appear in
+different sources with incompatible schemas (e.g. `File` from GitHub differs from a future
+`File` from another source).
+
+| Source | Entity Type | Index Name |
+|--------|-------------|------------|
+| github | Repository | `github_repository_index` |
+| github | Branch | `github_branch_index` |
+| github | Commit | `github_commit_index` |
+| github | PullRequest | `github_pullrequest_index` |
+| github | Person | `github_person_index` |
+| github | Team | `github_team_index` |
+| github | File | `github_file_index` |
+| jira | Project | `jira_project_index` |
+| jira | Issue | `jira_issue_index` |
+| jira | Epic | `jira_epic_index` |
+| jira | Initiative | `jira_initiative_index` |
+| jira | Sprint | `jira_sprint_index` |
+| jira | Person | `jira_person_index` |
+
+Derived directly from the signal: `f"{signal.source}_{signal.entity_type.lower()}_index"` —
+no hardcoded mapping table required.
+
+### 2.2 `wba_all` alias
+
+All indexes are registered under a single alias: **`wba_all`**.
+
+- Unfiltered searches query `wba_all` and ES fans out to all backing indexes in parallel.
+- When `entity_type` or `source` filters are present, the search service constructs the
+  specific index name(s) and bypasses the alias for a tighter query.
+- Adding a new entity type in the future requires only updating `create_es_indexes.py` —
+  zero code changes to the search API.
+
+### 2.3 Document shape
+
+Each ES document is a **flat merge** of the signal envelope and its entity attributes.
+Relationships are stored as a keyword array of WBA canonical keys (sufficient to resolve them,
+not full-text indexed).
+
+```json
+{
+  "wba_id":       "jira::Issue::PROJ-123",
+  "source":       "jira",
+  "entity_type":  "Issue",
+  "source_config":"https://mycompany.atlassian.net",
+  "event_time":   "2026-05-01T12:00:00Z",
+
+  "key":          "PROJ-123",
+  "summary":      "Fix login bug on mobile",
+  "priority":     "High",
+  "status":       "In Progress",
+  "type":         "Bug",
+  "created_at":   "2026-04-01T09:00:00Z",
+  "updated_at":   "2026-05-01T12:00:00Z",
+  "story_points": 3.0,
+  "url":          "https://mycompany.atlassian.net/browse/PROJ-123",
+
+  "relationship_ids": [
+    "jira::Epic::EPIC-10",
+    "jira::Sprint::42",
+    "jira::Person::557058:abc123"
+  ]
+}
+```
+
+The document `_id` is the `wba_id`. Indexing the same signal twice is a natural upsert — no
+duplicates, no deduplication logic required.
+
+### 2.4 Field mappings
+
+| Field category | Fields | Mapping |
+|----------------|--------|---------|
+| Free-text descriptive | `summary`, `title`, `message`, `description`, `name`, `project_name`, `full_name`, `path` | `text` (english analyser) + `.keyword` sub-field (ignore_above: 512) |
+| Identifiers / entity keys | `key`, `sha`, `branch_name`, `login`, `email`, `id`, `wba_id` | `keyword` |
+| Categorical | `entity_type`, `source`, `status`, `priority`, `type`, `state` | `keyword` |
+| Temporal | `event_time`, `created_at`, `updated_at`, `merged_at`, `closed_at` | `date` |
+| Numeric | `story_points`, `additions`, `deletions`, `commits_count`, `changed_files`, `comments` | `float` / `integer` |
+| Relationship targets | `relationship_ids` | `keyword` array |
+
+**Dual mapping rationale:** `text` enables tokenised full-text search (`"login bug"` matches
+`"Fix login bug on mobile"`). The `.keyword` sub-field enables exact filter, sort, and
+aggregation on the same field. Storage overhead is negligible at this scale.
+
+---
+
+## 3. Search API
+
+### 3.1 Location
+
+New versioned endpoint in the existing FastAPI app:
+
+```
+src/app/api/search/v1/
+    __init__.py
+    router.py    ← GET /api/v1/search
+    service.py   ← Elasticsearch query construction
+    model.py     ← Pydantic request/response models
+```
+
+Registered in `src/app/main.py` following the existing router pattern.
+
+### 3.2 Request
+
+```
+GET /api/v1/search
+```
+
+| Parameter | Type | Required | Description |
+|-----------|------|:--------:|-------------|
+| `q` | string | No | Free-text query. If absent, returns all documents sorted by `event_time` desc. |
+| `entity_type` | string | No | Filter to a specific entity type (e.g. `Issue`, `PullRequest`). |
+| `source` | string | No | Filter to a specific source (`github`, `jira`). |
+| `status` | string | No | Filter by status (categorical exact match). |
+| `priority` | string | No | Filter by priority (categorical exact match). |
+| `date_from` | ISO date | No | Filter `event_time` ≥ this value. |
+| `date_to` | ISO date | No | Filter `event_time` ≤ this value. |
+| `page` | int | No | Page number, 1-based. Default: `1`. |
+| `page_size` | int | No | Results per page. Default: `20`, max: `100`. |
+| `full` | bool | No | If `true`, include all stored attributes in each result. Default: `false`. |
+
+### 3.3 Elasticsearch query strategy
+
+- **Target index:** `wba_all` alias when no `entity_type`/`source` filters are set. When
+  filters are present, derive the specific index name(s): `{source}_{entity_type_lower}_index`.
+- **`q` present:** `bool` query with a `multi_match` in the `must` clause and `filter` clauses
+  for any categorical/date filters.
+- **`q` absent:** `match_all` with `filter` clauses and `sort` by `event_time` desc.
+- **`multi_match` type:** `best_fields` — the document's strongest matching field drives the
+  relevance score.
+
+**`multi_match` field list with boost weights:**
+
+```
+full_name^5, login^4, email^4,
+summary^3, title^3,
+message^2, description^2, name^2, project_name^2, path^2,
+entity_type^1, source^1, id^1, key^1, branch_name^1
+```
+
+Person-identity fields receive the highest boost (`^4–5`) because people-centric search is a
+primary use case. Primary content fields (`summary`, `title`) are boosted above structural
+identifiers.
+
+**Highlight:** Always requested via the ES `highlight` clause. One best-matching fragment per
+result, capped at 150 characters, with `<em>` tags wrapping matched terms.
+
+### 3.4 Response schema
+
+**Default (`full=false`):**
+
+```json
+{
+  "total": 47,
+  "page": 1,
+  "page_size": 20,
+  "results": [
+    {
+      "wba_id":     "jira::Issue::PROJ-123",
+      "score":      1.84,
+      "url":        "https://mycompany.atlassian.net/browse/PROJ-123",
+      "event_time": "2026-05-01T12:00:00Z",
+      "highlight":  "Fix <em>login</em> <em>bug</em> on mobile Safari"
+    }
+  ]
+}
+```
+
+**Full (`?full=true`):** Each result additionally includes an `attributes` object containing
+all stored document fields exactly as indexed — no transformation layer, no custom mapping.
+
+```json
+{
+  "wba_id":     "jira::Issue::PROJ-123",
+  "score":      1.84,
+  "url":        "https://mycompany.atlassian.net/browse/PROJ-123",
+  "event_time": "2026-05-01T12:00:00Z",
+  "highlight":  "Fix <em>login</em> <em>bug</em> on mobile Safari",
+  "attributes": {
+    "key": "PROJ-123",
+    "summary": "Fix login bug on mobile",
+    "priority": "High",
+    "status": "In Progress",
+    ...
+  }
+}
+```
+
+---
+
+## 4. Configuration
+
+The following env vars are already defined in `.env.example`. Wire them into
+`src/app/settings.py` following the existing pydantic-settings pattern:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `ELASTICSEARCH_ENABLED` | `false` | Feature flag. Sink and search API are no-ops when `false`. |
+| `ELASTICSEARCH_URL` | `http://localhost:9200` | ES HTTP endpoint. |
+| `ELASTIC_PASSWORD` | — | ES password (only needed if xpack security is enabled). |
+
+The consumer reads these via `os.environ` directly (consistent with how it reads
+`NEO4J_URI`, `RABBITMQ_URL`, etc.).
+
+---
+
+## 5. UI Surfaces
+
+### 5.1 Dedicated search page — `src/app/dash_app/pages/search.py`
+
+- **Layout:** Search bar at top, optional filter dropdowns (`entity_type`, `source`, `status`,
+  `priority`, date range pickers), paginated results list below.
+- **Result card:** Shows `wba_id`, `entity_type` badge, `source` badge, `url` link,
+  `event_time`, and `highlight` snippet. `?full=true` toggle to expand all attributes.
+- **Submit-on-Enter** (search-as-you-type deferred to a future enhancement).
+- Registered as a page route in `src/app/dash_app/layout.py`.
+
+### 5.2 Global search bar — sidebar in `src/app/dash_app/layout.py`
+
+- Single text input in the sidebar header area.
+- On Enter, navigates to the search page with `?q=<value>` pre-filled in the URL.
+- No filter controls — just the search box.
+
+### 5.3 Graph filter panel — client-side node highlight
+
+- Search input in the existing graph filter panel.
+- Filters/highlights nodes **already rendered** in the current graph — no ES call.
+- Implementation: client-side string match against the rendered node label data.
+
+### 5.4 Graph-from-search — deferred
+
+Starting a graph plot from a search result (e.g. "search for a person, then expand their
+graph neighbourhood") requires its own design session. Out of scope for this plan.
+
+---
+
+## 6. Implementation Checklist
+
+### Phase A — Infrastructure & indexing pipeline
+
+- [ ] Add `elasticsearch` to `requirements.github-consumer.txt` and `requirements.jira-consumer.txt`
+- [ ] Wire `ELASTICSEARCH_ENABLED`, `ELASTICSEARCH_URL`, `ELASTIC_PASSWORD` into `src/app/settings.py`
+- [ ] Create `src/app/scripts/create_es_indexes.py` — define mappings for all 13 indexes, register `wba_all` alias; **must export `MANAGED_INDEXES: list[tuple[str, str]]`** (imported by the coverage test)
+- [ ] ~~`scripts/create_neo4j_indexes.py`~~ already done — moved from `scripts/create_indexes.py` and wired into `entrypoint.sh`
+- [ ] Create `src/connectors/consumers/sinks/elasticsearch_sink.py` — flat document builder + upsert
+- [ ] Update `src/connectors/consumers/main.py` — call ES sink after successful Neo4j write; log-and-continue on failure
+- [ ] Create `scripts/reconcile_es.py` — full sync: upsert all Neo4j nodes, delete stale ES documents (workspace root — dev tool, not in Docker image)
+
+### Phase B — Search API
+
+- [ ] Create `src/app/api/search/v1/model.py` — `SearchRequest`, `SearchResult`, `SearchResponse` Pydantic models
+- [ ] Create `src/app/api/search/v1/service.py` — ES query builder (multi_match, bool filters, highlight, pagination)
+- [ ] Create `src/app/api/search/v1/router.py` — `GET /api/v1/search`
+- [ ] Register router in `src/app/main.py`
+
+### Phase C — UI
+
+- [ ] Create `src/app/dash_app/pages/search.py` — dedicated search page with filters and result cards
+- [ ] Add nav link in `src/app/dash_app/layout.py` sidebar
+- [ ] Add global search bar to sidebar with Enter-to-navigate behaviour
+- [ ] Add client-side node filter input to graph filter panel
+
+### Phase D — Tests
+
+- [ ] `tests/test_elasticsearch_sink.py` (unit) — mock ES client; verify index name, document shape, `_id`, failure handling
+- [ ] `tests/test_create_es_indexes.py` (unit) — assert mapping structure (dual-mapping on text fields, correct types)
+- [ ] `tests/test_es_index_coverage.py` (integration, elasticsearch) — **regression guard**: verifies every entity type in `SUPPORTED_ENTITY_TYPES` from `models.py` has a corresponding index in a live ES instance. Catches the case where a new `*Attributes` model is added to `models.py` but `create_es_indexes.py` is not updated.
+
+  **How it works:**
+  - `create_es_indexes.py` must export a `MANAGED_INDEXES: list[tuple[str, str]]` constant — the authoritative list of `(source, entity_type)` pairs managed by the script.
+  - The test asserts that every type in `SUPPORTED_ENTITY_TYPES` appears in at least one entry in `MANAGED_INDEXES` (schema coverage check — no live ES needed for this assertion).
+  - The test also connects to live ES and asserts each `{source}_{entity_type_lower}_index` actually exists (index existence check).
+  - Run with: `pytest -m "integration and elasticsearch" tests/test_es_index_coverage.py`
+
+- [ ] `tests/test_search_api.py` (integration, server, elasticsearch) — end-to-end: index a signal, query `/api/v1/search`, assert result
+
+---
+
+## 7. Out of Scope
+
+- Search-as-you-type / autocomplete (future enhancement)
+- Graph-from-search (requires separate design session)
+- Delete reconciliation triggered automatically on signal deletion
+- Multi-tenancy / access control (single-user local deployment)
+
+# Tehcnical requirements
+- Search results should always have the neo4j node id.
+- The Search databse should always remain synced with neo4j db
+- The actual user interface search results may be a mix of Elastic search and Neo4j depending on the use case.
+- Seatch should support non exact text match search specially on Person name. A partial match on user name, login on email is needed for usefulness.
+
+# Index design
+
+
+# Data population
+
+
+# API interfaces
