@@ -546,6 +546,10 @@ def test_upsert_unknown_entity_type_is_skipped() -> None:
     signal = MagicMock(spec=ActivitySignal)
     signal.entity_type = "UnknownEntity"
     signal.signal_id = "test-uuid"
+    # source and id are required by wba_node_id(), which upsert_signal calls to
+    # compute the canonical wba_id before dispatching to the entity handler.
+    signal.source = "github"
+    signal.id = "unknown-123"
     session = _mock_session()
 
     with (

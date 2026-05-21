@@ -6,12 +6,15 @@ and starts one async consumer task per queue.  All tasks run concurrently via
 
 Environment variables
 ---------------------
-LISTEN_QUEUES   Comma-separated list of RabbitMQ queue names to consume.
-                e.g. ``github_repository_queue,github_branch_queue``
-RABBITMQ_URL    AMQP connection URL (default: ``amqp://guest:guest@localhost:5672/``)
-NEO4J_URI       Neo4j Bolt URI (default: ``bolt://localhost:7687``)
-NEO4J_USERNAME  Neo4j username (default: ``neo4j``)
-NEO4J_PASSWORD  Neo4j password (default: ``password``)
+LISTEN_QUEUES        Comma-separated list of RabbitMQ queue names to consume.
+                     e.g. ``github_repository_queue,github_branch_queue``
+RABBITMQ_URL         AMQP connection URL (default: ``amqp://guest:guest@localhost:5672/``)
+NEO4J_URI            Neo4j Bolt URI (default: ``bolt://localhost:7687``)
+NEO4J_USERNAME       Neo4j username (default: ``neo4j``)
+NEO4J_PASSWORD       Neo4j password (default: ``password``)
+ELASTICSEARCH_ENABLED  Set to ``true`` to enable the Elasticsearch sink.
+ELASTICSEARCH_URL    Elasticsearch base URL (default: ``http://localhost:9200``)
+ELASTIC_PASSWORD     Elasticsearch password (leave empty when security is off).
 
 Deployment
 ----------
@@ -43,6 +46,10 @@ from neo4j import GraphDatabase
 from common.messaging.rabbitmq import RabbitMQConsumer
 from connectors.commons.person_cache import PersonCache
 from connectors.consumers.sinks.neo4j_sink import upsert_signal
+from connectors.consumers.sinks.elasticsearch_sink import (
+    build_es_client,
+    index_signal_with_canonical_id,
+)
 from common.logger import logger
 
 
@@ -74,10 +81,25 @@ def _env(key: str, default: str) -> str:
     return os.environ.get(key, default)
 
 
-def _sync_upsert(driver: Any, signal: Any, person_cache: PersonCache) -> None:
-    """Execute the synchronous Neo4j upsert blocking operations safely in a thread."""
+def _sync_upsert(driver: Any, signal: Any, person_cache: PersonCache) -> str:
+    """Execute the synchronous Neo4j upsert and return the canonical wba_id.
+
+    The canonical wba_id may differ from ``wba_node_id(signal)`` when
+    cross-provider Person dedup occurs (see ``neo4j_sink.upsert_signal``).
+    The caller must pass this value to ``_sync_es_index`` so the ES sink
+    can index under the correct id.
+    """
     with driver.session() as session:
-        upsert_signal(session, signal, person_cache=person_cache)
+        return upsert_signal(session, signal, person_cache=person_cache)
+
+
+def _sync_es_index(es_client: Any, signal: Any, canonical_wba_id: str) -> None:
+    """Index *signal* into Elasticsearch using the canonical wba_id from Neo4j.
+
+    Delegates to ``index_signal_with_canonical_id`` which handles the
+    cross-provider Person dedup case transparently.
+    """
+    index_signal_with_canonical_id(es_client, signal, canonical_wba_id)
 
 
 async def consume_queue(
@@ -87,11 +109,14 @@ async def consume_queue(
     neo4j_user: str,
     neo4j_password: str,
 ) -> None:
-    """Consume all messages from *queue_name* and upsert them into Neo4j.
+    """Consume all messages from *queue_name* and upsert them into Neo4j and Elasticsearch.
 
     Each message is processed synchronously inside a Neo4j session so that
     ack/nack happens only after the write completes.  The Neo4j driver is
     opened once per queue task and reused for all messages.
+
+    The Elasticsearch write is non-fatal: failures are logged at WARNING level
+    and do not cause the message to be nacked.
 
     Args:
         queue_name:     RabbitMQ queue to listen on.
@@ -101,6 +126,11 @@ async def consume_queue(
         neo4j_password: Neo4j password.
     """
     driver = GraphDatabase.driver(neo4j_uri, auth=(neo4j_user, neo4j_password))
+    es_client = build_es_client()
+    if es_client is not None:
+        logger.info("Elasticsearch sink enabled for queue=%s", queue_name)
+    else:
+        logger.info("Elasticsearch sink disabled for queue=%s", queue_name)
     signal_dumps_enabled = os.environ.get("LOG_SIGNAL_DUMPS", "").strip().lower() in ("1", "true", "yes")
     dump_path = _signal_dump_path(queue_name) if signal_dumps_enabled else None
     if dump_path:
@@ -123,10 +153,10 @@ async def consume_queue(
                 if signal_dumps_enabled:
                     _dump_signal(dump_file, signal)
                 try:
-                    await asyncio.to_thread(_sync_upsert, driver, signal, person_cache)
+                    canonical_wba_id = await asyncio.to_thread(_sync_upsert, driver, signal, person_cache)
                     await message.ack()
                     logger.info(
-                        "Processed signal_id=%s entity_type=%s id=%s queue=%s",
+                        "Upserted to neo4j signal_id=%s entity_type=%s id=%s queue=%s",
                         signal.signal_id,
                         signal.entity_type,
                         signal.id,
@@ -140,6 +170,23 @@ async def consume_queue(
                         exc_info=True,
                     )
                     await message.nack(requeue=False)
+                    continue
+
+                # Elasticsearch write — non-fatal; never nack on ES failure.
+                # canonical_wba_id is passed so the sink can detect and handle
+                # cross-provider Person dedup (signal wba_id != Neo4j node id).
+                if es_client is not None:
+                    try:
+                        await asyncio.to_thread(_sync_es_index, es_client, signal, canonical_wba_id)
+                        logger.info(f"Indexed to Elasticsearch signal_id={signal.signal_id} queue={queue_name}")
+                    except Exception as es_exc:  # pylint: disable=broad-except
+                        logger.warning(
+                            "Elasticsearch index failed for wba_id=%s::%s::%s — %s",
+                            signal.source,
+                            signal.entity_type,
+                            signal.id,
+                            es_exc,
+                        )
     finally:
         driver.close()
         logger.info("Consumer stopped: queue=%s", queue_name)

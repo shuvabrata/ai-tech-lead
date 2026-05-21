@@ -53,6 +53,9 @@ from app.ai_agent.providers import get_provider
 ```
 
 Never use relative imports like `from ..common.logger` across package boundaries.
+Never use sys.path.insert(...) or similar hacks to modify the import path at runtime.
+Rely on PYTHONPATH and proper package structure for clean imports.
+
 
 ## Project Structure
 

@@ -17,6 +17,11 @@ class Settings(BaseSettings):
     # RabbitMQ configuration
     RABBITMQ_URL: str = "amqp://guest:guest@localhost:5672/"
 
+    # Elasticsearch configuration
+    ELASTICSEARCH_ENABLED: bool = False
+    ELASTICSEARCH_URL: str = "http://localhost:9200"
+    ELASTIC_PASSWORD: str = ""
+
     # MCP configuration
     GITHUB_MCP_ENABLED: bool = False
     ATLASSIAN_MCP_ENABLED: bool = False
