@@ -439,14 +439,26 @@ the node and its immediate neighbours pre-loaded.
   `search-current-page` → calls API with updated `page` → re-renders results;
   disables Prev on page 1, disables Next when `page * page_size >= total`
 
-**C1d — Graph-from-Search: graph page `?node_id=` handler**
+**C1d — Graph-from-Search: graph page URL parameter handler**
 
-- [ ] Add `dcc.Location` id=`graph-url` to the graph page layout (if not already present)
+> **Note — supported URL parameters to implement:**
+> The graph page currently supports `?catalog=<id>` and `?view=<graph|tabular>` (deep-linking
+> to catalog queries). C1d must add two new parameters handled in the same `navigation.py`
+> callback:
+> - `?node_id=<wba_id>` — expand a specific node and load its immediate neighbours (primary use case from Search results)
+> - `?cypher=<encoded_cypher>` — pre-fill the query console with a URL-encoded Cypher string and optionally auto-execute it
+
+- [ ] Add `dcc.Location` id=`graph-url` to the graph page layout (if not already present; the global `url` component already carries `pathname` but a page-scoped location is needed for `search` params)
 - [ ] Add callback in `src/app/dash_app/pages/graph/callbacks/navigation.py`:
-  `Input("graph-url", "search")` → parse `?node_id=<wba_id>` → auto-execute a
+  `Input("url", "search")` → parse `?node_id=<wba_id>` → auto-execute a
   node-expansion API call (`GET /api/v1/graph/expand`) for the target node →
   load the node + its immediate neighbours into the Cytoscape canvas;
   no-op when `node_id` param is absent
+- [ ] Same callback also handles `?cypher=<encoded>`: URL-decode the value, pre-fill
+  `graph-query-input`, and auto-execute the query (same path as clicking Run); no-op
+  when `cypher` param is absent
+- [ ] Follow the existing `parse_catalog_deep_link()` pattern in `catalog.py` — add a
+  `parse_node_deep_link(search)` helper that returns `(node_id, cypher)`
 - [ ] The `wba_id` maps directly to the Neo4j node `id` property — no extra lookup needed
 
 #### C2 — Global search bar in top navbar
