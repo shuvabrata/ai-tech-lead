@@ -11,6 +11,7 @@ Tests cover:
 from __future__ import annotations
 
 import asyncio
+import hashlib
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -825,7 +826,7 @@ class TestBuildFileSignal:
         sig = build_file_signal(_file_data(), _commit_data(), _repo_data(name="myrepo", owner="org"))
         assert sig is not None
         assert sig.source == "github"
-        assert sig.id == "myrepo::src/app/main.py"
+        assert sig.id == hashlib.sha256("myrepo::src/app/main.py".encode()).hexdigest()
         assert sig.entity_type == "File"
         assert sig.attributes.path == "src/app/main.py"  # type: ignore[union-attr]
         assert sig.attributes.repo_name == "myrepo"  # type: ignore[union-attr]
