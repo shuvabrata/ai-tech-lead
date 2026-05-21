@@ -27,6 +27,7 @@ source .venv/bin/activate
   - Progress: Project progress tracking and visualization
   - Graph: Neo4j graph visualization and query execution
   - Analytics: Collaboration analytics
+  - Collaboration Network: Team collaboration graph and network analysis
   - Connectors: Connector configuration and management
   - Settings: Application configuration
 
@@ -55,76 +56,35 @@ Never use relative imports like `from ..common.logger` across package boundaries
 
 ## Project Structure
 
+High-level directory map — use the filesystem for exact file names, as this tree is intentionally kept at the directory level to avoid going stale.
+
 ```
 src/
-├── app/                             # Main application (FastAPI + Dash)
-│   ├── main.py                      # FastAPI entry point; registers all routers, mounts Dash
-│   ├── settings.py                  # Pydantic settings (env file loading)
-│   ├── ai_agent/                    # AI agent core
-│   │   ├── ai_agent.py              # Chat session management, LLM interaction
-│   │   ├── chains/                  # Message augmentation chains
-│   │   │   ├── chains.py            # Orchestrator: fans out to active chains
-│   │   │   ├── neo4j_chain.py       # Neo4j context augmentation
-│   │   │   └── mcp_chain.py         # MCP tool-call augmentation
-│   │   ├── mcp_integration/         # MCP client layer
-│   │   │   ├── client_manager.py    # MCP server connection management
-│   │   │   ├── tool_executor.py     # Tool invocation against MCP servers
-│   │   │   └── atlassian_config_loader.py
-│   │   ├── providers/               # LLM provider abstraction
-│   │   │   ├── base.py              # LLMProvider abstract base class
-│   │   │   ├── factory.py           # get_provider() factory (cached singleton)
-│   │   │   ├── openai/              # OpenAI implementation
-│   │   │   └── custom/              # Custom/in-house LLM implementation
-│   │   └── utils/                   # Token counting utilities
-│   ├── api/                         # REST API endpoints
-│   │   ├── endpoints.py             # /api/health and base routes
-│   │   ├── chats/v1/                # Chat API
-│   │   ├── projects/v1/             # Projects API
-│   │   ├── graph/v1/                # Graph query execution API
-│   │   ├── connectors/v1/           # Connector CRUD API
-│   │   └── queries/v1/              # Query catalog API
-│   ├── db/                          # Database layer
-│   │   ├── base.py                  # SQLAlchemy Base
-│   │   ├── session.py               # AsyncSession factory
-│   │   └── models/                  # ORM models
-│   │       ├── project.py
-│   │       ├── connector.py
-│   │       ├── connector_configs.py
-│   │       └── producer_sync_state.py
-│   ├── analytics/                   # Collaboration analytics
-│   │   ├── collaboration/
-│   │   └── registry.py
-│   ├── dash_app/                    # Dash UI
-│   │   ├── layout.py                # create_dash_app() factory; sidebar nav
-│   │   ├── styles.py                # Centralized design tokens
-│   │   ├── components/              # Shared UI components
-│   │   └── pages/                   # Page modules
-│   │       ├── chat.py
-│   │       ├── people.py
-│   │       ├── progress.py
-│   │       ├── analytics.py
-│   │       ├── graph/               # Graph page (callbacks, components, layout)
-│   │       ├── connectors/          # Connectors page (callbacks, components, layout)
-│   │       └── settings.py
-│   ├── common/                      # App-level shared utilities
-│   │   ├── logger.py
-│   │   ├── encryption.py
-│   │   ├── timezone.py
-│   │   └── node_size.py
-│   └── query_catalog/               # Query catalog loader
-├── connectors/                      # Data connector services (separate Dockerfiles)
-│   ├── producers/                   # Fetch from APIs → publish to RabbitMQ
-│   │   ├── github_producer.py
-│   │   ├── jira_producer.py
-│   │   ├── fetch_github.py / fetch_jira.py
-│   │   └── map_github.py / map_jira.py
-│   └── modules/                     # Neo4j sync modules
-│       ├── github/
-│       └── jira/
-├── common/                          # Cross-service shared code
-│   ├── activity_signal/
-│   └── messaging/
-└── activity-signal/                 # Activity signal service
+├── app/              # Main application (FastAPI + Dash)
+│   ├── main.py       # FastAPI entry point; registers all routers, mounts Dash
+│   ├── settings.py   # Pydantic settings (env file loading)
+│   ├── ai_agent/     # LLM interaction, augmentation chains, MCP integration, providers
+│   │   ├── chains/          # Orchestrator + per-source chains (neo4j, mcp)
+│   │   ├── mcp_integration/ # Outbound MCP client layer (client_manager, tool_executor)
+│   │   └── providers/       # LLM provider abstraction (base, factory, openai/, custom/)
+│   ├── api/          # REST API endpoints (chats, projects, graph, connectors, queries)
+│   ├── analytics/    # Collaboration analytics (collaboration/, registry.py)
+│   ├── common/       # App-level shared utilities (encryption, timezone, node_size)
+│   ├── dash_app/     # Dash UI (layout.py, styles.py, components/, pages/)
+│   │   └── pages/   # chat, people, progress, analytics, collaboration_network,
+│   │                #   graph/, connectors/, settings
+│   ├── db/           # Database layer (models/, session.py, Alembic migrations)
+│   └── query_catalog/# Query catalog loader
+├── connectors/       # Data connector services (separate Dockerfiles)
+│   ├── commons/      # Shared connector utilities (identity_resolver, person_cache)
+│   ├── consumers/    # Consume ActivitySignals from RabbitMQ → write to Neo4j
+│   ├── modules/      # Neo4j sync modules (github/, jira/)
+│   ├── neo4j_db/     # Neo4j model definitions for connectors
+│   └── producers/    # Fetch from APIs → publish ActivitySignal to RabbitMQ
+│       ├── github/   # GitHub producer package (multi-file)
+│       └── jira/     # Jira producer package
+├── common/           # Cross-service shared code (logger.py, activity_signal/, messaging/)
+└── activity-signal/  # Activity signal service
 ```
 
 ## Development Guidelines
@@ -332,7 +292,7 @@ The Dash application is created via `create_dash_app()` in `dash_app/layout.py` 
 Neo4j runs as a Docker Compose service. `neo4j_chain.py` augments user messages with graph query results. The sync services (`github-sync`, `jira-sync`) load data into Neo4j from RabbitMQ.
 
 ### Connectors Architecture
-`src/connectors/producers/` contains one-shot scripts that fetch data from GitHub/Jira APIs and publish `ActivitySignal` events to RabbitMQ. Run via `docker compose run --rm github-producer` (or `jira-producer`). Sync modules in `src/connectors/modules/` consume from RabbitMQ and write to Neo4j.
+`src/connectors/producers/` contains one-shot services that fetch data from GitHub/Jira APIs and publish `ActivitySignal` events to RabbitMQ. The GitHub producer is a multi-file package (`producers/github/`); Jira follows the same pattern. Run via `docker compose run --rm github-producer` (or `jira-producer`). `src/connectors/consumers/` is the long-running consumer service that reads from RabbitMQ and routes signals to Neo4j via `sinks/neo4j_sink.py`. Sync modules in `src/connectors/modules/` contain the Neo4j write logic per entity type. Shared connector utilities (identity resolution, person caching) live in `src/connectors/commons/`.
 
 ### Authentication & Multi-Tenancy
 Out of scope. Designed for single-user local deployment; assumes a trusted local environment.
@@ -348,8 +308,14 @@ Consult these when working in the relevant areas. They define patterns and const
 
 | Document | When to consult |
 |---|---|
+| [docs/design/high-level-design.md](docs/design/high-level-design.md) | System architecture overview — start here for understanding how all services fit together. |
 | [docs/design/design-system.md](docs/design/design-system.md) | Any UI work — canonical design tokens (colors, typography, spacing, components). Do not invent styles; use what is defined here and in `src/app/dash_app/styles.py`. |
 | [docs/design/frontend-design-skill.md](docs/design/frontend-design-skill.md) | Any UI work — specifies the "Executive Dashboard" aesthetic: Cormorant Garamond + Inter fonts, navy/charcoal palette, 2px border-radius. Use this to ensure visual consistency. |
 | [docs/design/spec-activity-signal.md](docs/design/spec-activity-signal.md) | Any connector/producer/sync work — defines the canonical `ActivitySignal` JSON schema. All producers must emit this format; all sync modules must consume it. |
+| [docs/design/producer-development-guide.md](docs/design/producer-development-guide.md) | Writing or modifying a producer — conventions, structure, and patterns for new producer packages. |
+| [docs/design/consumer-development-guide.md](docs/design/consumer-development-guide.md) | Writing or modifying the consumer service or adding new sinks. |
+| [docs/design/rabbitmq-design.md](docs/design/rabbitmq-design.md) | Any RabbitMQ work — exchange/queue topology, routing keys, binding patterns. |
+| [docs/design/graph-db-high-level-design.md](docs/design/graph-db-high-level-design.md) | Neo4j schema design — node labels, property conventions, overall graph model. |
 | [docs/design/RELATIONSHIPS_DESIGN.md](docs/design/RELATIONSHIPS_DESIGN.md) | Any Neo4j schema or Cypher work — explains the single-edge undirected relationship design. Do not add bidirectional edges; queries use undirected traversal instead. |
+| [docs/design/INDEX_STRATEGY.md](docs/design/INDEX_STRATEGY.md) | Neo4j index strategy — which properties are indexed and why. Consult before adding new node lookups. |
 | [docs/design/github-api-optimization.md](docs/design/github-api-optimization.md) | GitHub producer or sync work — documents the incremental sync pattern (`_last_synced_at`, `fully_synced` flag) that avoids redundant API calls. New GitHub sync code must honour these flags. |
