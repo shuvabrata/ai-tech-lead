@@ -797,3 +797,74 @@ class TestBuildCommitSignalPhaseD:
         )
         assert sig is not None
         assert all(r.type != "REFERENCES" for r in sig.relationships)
+
+
+# ---------------------------------------------------------------------------
+# File signal
+# ---------------------------------------------------------------------------
+
+from connectors.producers.github.build_file_signal import build_file_signal
+
+
+def _file_data(**overrides: Any) -> Dict[str, Any]:
+    data: Dict[str, Any] = {
+        "filename": "src/app/main.py",
+        "additions": 3,
+        "deletions": 1,
+        "name": "main.py",
+        "extension": ".py",
+        "language": "Python",
+        "is_test": False,
+    }
+    data.update(overrides)
+    return data
+
+
+class TestBuildFileSignal:
+    def test_happy_path(self) -> None:
+        sig = build_file_signal(_file_data(), _commit_data(), _repo_data(name="myrepo", owner="org"))
+        assert sig is not None
+        assert sig.source == "github"
+        assert sig.id == "myrepo::src/app/main.py"
+        assert sig.entity_type == "File"
+        assert sig.attributes.path == "src/app/main.py"  # type: ignore[union-attr]
+        assert sig.attributes.repo_name == "myrepo"  # type: ignore[union-attr]
+        assert len(sig.relationships) == 1
+
+    def test_relationship_is_modifies_direction_in(self) -> None:
+        sig = build_file_signal(_file_data(), _commit_data(), _repo_data(name="myrepo"))
+        assert sig is not None
+        rel = sig.relationships[0]
+        assert rel.type == "MODIFIES"
+        assert rel.direction == "IN"
+        assert rel.target.entity_type == "Commit"
+        assert rel.target.id == "abc123"
+        assert rel.target.source == "github"
+
+    def test_relationship_properties_carry_additions_deletions(self) -> None:
+        sig = build_file_signal(_file_data(additions=5, deletions=2), _commit_data(), _repo_data(name="myrepo"))
+        assert sig is not None
+        props = sig.relationships[0].properties
+        assert props is not None
+        assert props["additions"] == 5
+        assert props["deletions"] == 2
+
+    def test_returns_none_on_missing_filename(self) -> None:
+        sig = build_file_signal({}, _commit_data(), _repo_data(name="myrepo"))
+        assert sig is None
+
+    def test_returns_none_on_missing_sha(self) -> None:
+        sig = build_file_signal(_file_data(), {"created_at": "2024-06-01T10:00:00"}, _repo_data(name="myrepo"))
+        assert sig is None
+
+    def test_url_generated_when_owner_present(self) -> None:
+        sig = build_file_signal(
+            _file_data(), _commit_data(), {"name": "myrepo", "owner": "org"}
+        )
+        assert sig is not None
+        assert sig.attributes.url == "https://github.com/org/myrepo/blob/abc123/src/app/main.py"  # type: ignore[union-attr]
+
+    def test_url_is_none_when_owner_absent(self) -> None:
+        sig = build_file_signal(_file_data(), _commit_data(), {"name": "myrepo"})
+        assert sig is not None
+        assert sig.attributes.url is None  # type: ignore[union-attr]
