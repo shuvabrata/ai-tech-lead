@@ -3,7 +3,7 @@ import dash_bootstrap_components as dbc
 from dash import dcc, html
 from dash.dependencies import Input, Output, State
 
-from app.dash_app.pages import analytics, chat, collaboration_network, connectors, graph, people, progress, settings
+from app.dash_app.pages import analytics, chat, collaboration_network, connectors, graph, people, progress, search, settings
 from .styles import (
     SIDEBAR_STYLE,
     NAVBAR_BRAND_STYLE,
@@ -33,6 +33,7 @@ def create_dash_app():
     sidebar = dbc.Nav(
         [
             dbc.NavLink([html.I(className="fas fa-comment-dots fa-fw me-2"), html.Span("Chat", className="sidebar-text")], href="/app/chat", active="exact", id="nav-genai", className="executive-nav-link d-flex align-items-center text-nowrap"),
+            dbc.NavLink([html.I(className="fas fa-search fa-fw me-2"), html.Span("Search", className="sidebar-text")], href="/app/search", active="exact", id="nav-search", className="executive-nav-link d-flex align-items-center text-nowrap"),
             dbc.NavLink([html.I(className="fas fa-users fa-fw me-2"), html.Span("People", className="sidebar-text")], href="/app/people", active="exact", id="nav-people", className="executive-nav-link d-flex align-items-center text-nowrap"),
             dbc.NavLink([html.I(className="fas fa-chart-line fa-fw me-2"), html.Span("Progress", className="sidebar-text")], href="/app/progress", active="exact", id="nav-progress", className="executive-nav-link d-flex align-items-center text-nowrap"),
             dbc.NavLink([html.I(className="fas fa-project-diagram fa-fw me-2"), html.Span("Graph", className="sidebar-text")], href="/app/graph", active="exact", id="nav-graph", className="executive-nav-link d-flex align-items-center text-nowrap"),
@@ -148,6 +149,8 @@ def create_dash_app():
             return connectors.get_layout()
         if pathname == "/app/settings":
             return settings.get_layout()
+        if pathname == "/app/search":
+            return search.get_layout()
         if pathname == "/app/chat":
             return chat.get_layout()
         # Default to chat page
