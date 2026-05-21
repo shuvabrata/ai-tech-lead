@@ -23,3 +23,14 @@ echo "producer_sync_state cleared."
 echo "Flushing RabbitMQ queues..."
 bash "$SCRIPT_DIR/flush_rabbitmq_queues.sh"
 echo "RabbitMQ queues flushed."
+
+# Clear all Elasticsearch documents (delete and recreate all managed indexes)
+echo "Clearing Elasticsearch indexes..."
+cd "$PROJECT_ROOT" && PYTHONPATH=src ELASTICSEARCH_URL="${ELASTICSEARCH_URL:-http://localhost:9200}" \
+  python scripts/clear_es_data.py
+echo "Elasticsearch cleared."
+
+# Clear log files (keep directory structure intact)
+echo "Clearing log files..."
+find "$PROJECT_ROOT/logs" -type f \( -name "*.log" -o -name "*.jsonl" \) -delete
+echo "Log files cleared."
