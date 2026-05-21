@@ -39,7 +39,7 @@ This spec is derived directly from those models — the code is authoritative.
 | `event_time` | `datetime` | ✓ | Timestamp of the event in the source system (updated_at / created_at). |
 | `ingestion_time` | `Optional[datetime]` |  | Timestamp set by the consumer when the message is received. Must be None when emitted by a producer. |
 | `version` | `str` |  | Schema version string. |
-| `attributes` | `ProjectAttributes | InitiativeAttributes | EpicAttributes | SprintAttributes | IssueAttributes | RepositoryAttributes | BranchAttributes | CommitAttributes | PullRequestAttributes | PersonAttributes | TeamAttributes` | ✓ | Entity-specific attributes.  Discriminated by entity_type. |
+| `attributes` | `ProjectAttributes | InitiativeAttributes | EpicAttributes | SprintAttributes | IssueAttributes | RepositoryAttributes | BranchAttributes | CommitAttributes | PullRequestAttributes | PersonAttributes | TeamAttributes | FileAttributes` | ✓ | Entity-specific attributes.  Discriminated by entity_type. |
 | `relationships` | `list[Relationship]` |  | Observed relationships for this node at event_time. |
 | `entity_type` | `str` | | Exposes entity_type at the root level of ActivitySignal.
 
@@ -352,6 +352,7 @@ The set is fixed; add new types by updating `models.py` and re-running this scri
 | `MEMBER_OF` |
 | `MERGED_BY` |
 | `MERGED_INTO` |
+| `MODIFIES` |
 | `OWNS` |
 | `PARENT_OF` |
 | `PART_OF` |

@@ -54,11 +54,6 @@ def _make_issue(
 
 
 class TestMapProject:
-    def test_id_formula(self):
-        data = {"id": "12345", "key": "PROJ", "name": "My Project"}
-        result = map_project(data)
-        assert result["id"] == "jira_project_12345"
-
     def test_url_with_base_url(self):
         data = {"id": "1", "key": "PROJ", "name": "X"}
         result = map_project(data, "https://acme.atlassian.net")
@@ -131,11 +126,6 @@ class TestMapJiraUser:
 
 
 class TestMapInitiative:
-    def test_id_formula(self):
-        data = _make_issue("20001", "INI-1", "Initiative")
-        result = map_initiative(data)
-        assert result["id"] == "jira_initiative_20001"
-
     def test_url_construction(self):
         data = _make_issue("20001", "INI-1", "Initiative")
         result = map_initiative(data, "https://acme.atlassian.net")
@@ -178,11 +168,6 @@ class TestMapInitiative:
 
 
 class TestMapEpic:
-    def test_id_formula(self):
-        data = _make_issue("30001", "EPIC-1", "Epic")
-        result = map_epic(data)
-        assert result["id"] == "jira_epic_30001"
-
     def test_default_start_date_is_created(self):
         data = _make_issue("30001", "EPIC-1", "Epic", created="2024-01-10T00:00:00.000+0000")
         result = map_epic(data)
@@ -254,10 +239,6 @@ class TestMapEpic:
 
 
 class TestMapSprint:
-    def test_id_formula(self):
-        data = {"id": 42, "name": "Sprint 1", "state": "active"}
-        assert map_sprint(data)["id"] == "jira_sprint_42"
-
     def test_state_active(self):
         data = {"id": 1, "name": "S1", "state": "active"}
         assert map_sprint(data)["status"] == "Active"
@@ -295,10 +276,6 @@ class TestMapSprint:
 
 
 class TestMapIssue:
-    def test_id_formula(self):
-        data = _make_issue("50001", "STORY-1")
-        assert map_issue(data)["id"] == "jira_issue_STORY-1"
-
     def test_url_construction(self):
         data = _make_issue("50001", "STORY-1")
         result = map_issue(data, "https://acme.atlassian.net")

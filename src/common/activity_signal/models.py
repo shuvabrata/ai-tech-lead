@@ -83,6 +83,7 @@ SUPPORTED_RELATIONSHIP_TYPES: frozenset[str] = frozenset(
         "REPORTED_BY",
         "REQUESTED_REVIEWER",
         "REVIEWED_BY",
+        "MODIFIES",
         "REVIEWS",
         "TARGETS",
         "TEAM",
@@ -332,6 +333,25 @@ class TeamAttributes(BaseModel):
     custom: Optional[Dict[str, Any]] = None
 
 
+class FileAttributes(BaseModel):
+    """Mandatory attributes for a GitHub File node."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    entity_type: Literal["File"] = Field(default="File", exclude=True)
+    path: str
+    repo_name: str
+    name: Optional[str] = None
+    extension: Optional[str] = None
+    language: Optional[str] = None
+    is_test: Optional[bool] = None
+    last_updated_at: Optional[str] = None
+    url: Optional[str] = None
+    additions: Optional[int] = None
+    deletions: Optional[int] = None
+    custom: Optional[Dict[str, Any]] = None
+
+
 # ---------------------------------------------------------------------------
 # Discriminated union of all attributes models
 # ---------------------------------------------------------------------------
@@ -350,6 +370,7 @@ _AttributesUnion = Union[
     PullRequestAttributes,
     PersonAttributes,
     TeamAttributes,
+    FileAttributes,
 ]
 
 # Annotated alias used in the field declaration to attach the discriminator.
@@ -369,6 +390,7 @@ SUPPORTED_ENTITY_TYPES: frozenset[str] = frozenset(
         "PullRequest",
         "Person",
         "Team",
+        "File",
     }
 )
 
