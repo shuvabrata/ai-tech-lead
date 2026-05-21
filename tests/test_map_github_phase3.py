@@ -317,8 +317,24 @@ class TestMapCommitFiles:
 
         result = map_commit_files([f1, f2])
         assert len(result) == 2
-        assert result[0] == {"filename": "src/app.py", "additions": 5, "deletions": 2}
-        assert result[1] == {"filename": "tests/test_app.py", "additions": 10, "deletions": 0}
+        assert result[0] == {
+            "filename": "src/app.py",
+            "additions": 5,
+            "deletions": 2,
+            "name": "app.py",
+            "extension": ".py",
+            "language": "Python",
+            "is_test": False,
+        }
+        assert result[1] == {
+            "filename": "tests/test_app.py",
+            "additions": 10,
+            "deletions": 0,
+            "name": "test_app.py",
+            "extension": ".py",
+            "language": "Python",
+            "is_test": True,
+        }
 
     def test_empty_list(self) -> None:
         assert map_commit_files([]) == []
@@ -367,7 +383,7 @@ class TestMapPullRequest:
         assert result["id"] == "github_pr_my-repo_42"
         assert result["state"] == "merged"
         assert result["url"] == "https://github.com/owner/my-repo/pull/42"
-        assert result["base_branch_id"] == "github_branch_my-repo_main"
+        assert result["base_branch_id"] == "my-repo::main"
         assert result["labels"] == ["bug"]
 
     def test_open_pr(self) -> None:

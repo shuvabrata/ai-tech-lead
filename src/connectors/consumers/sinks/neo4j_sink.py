@@ -27,6 +27,7 @@ from connectors.neo4j_db.models import (
     Branch,
     Commit,
     Epic,
+    File,
     Initiative,
     Issue,
     Person,
@@ -39,6 +40,7 @@ from connectors.neo4j_db.models import (
     merge_branch,
     merge_commit,
     merge_epic,
+    merge_file,
     merge_initiative,
     merge_issue,
     merge_person,
@@ -146,6 +148,7 @@ def _to_db_relationships(
                 to_id=from_id,
                 from_type=to_type,
                 to_type=from_type,
+                properties=rel.properties or {},
             )
         else:
             # None or "OUT" → (from)-[:REL]->(to)
@@ -155,6 +158,7 @@ def _to_db_relationships(
                 to_id=to_id,
                 from_type=from_type,
                 to_type=to_type,
+                properties=rel.properties or {},
             )
         result.append(db_rel)
     return result
@@ -418,6 +422,24 @@ def _handle_issue(session: Session, signal: ActivitySignal) -> None:
     merge_issue(session, issue, relationships=db_rels)
 
 
+def _handle_file(session: Session, signal: ActivitySignal) -> None:
+    attrs = signal.attributes.model_dump()
+    node_id = wba_node_id(signal)
+    file_node = File(
+        id=node_id,
+        path=attrs.get("path", ""),
+        repo_name=attrs.get("repo_name", ""),
+        name=attrs.get("name"),
+        extension=attrs.get("extension"),
+        language=attrs.get("language"),
+        is_test=attrs.get("is_test"),
+        last_updated_at=attrs.get("last_updated_at"),
+        url=attrs.get("url"),
+    )
+    db_rels = _to_db_relationships(session, signal.relationships, node_id, "File")
+    merge_file(session, file_node, relationships=db_rels)
+
+
 # ---------------------------------------------------------------------------
 # Dispatch table
 # ---------------------------------------------------------------------------
@@ -434,6 +456,7 @@ _HANDLERS: dict[str, Callable[[Session, ActivitySignal], None]] = {
     "Epic": _handle_epic,
     "Sprint": _handle_sprint,
     "Issue": _handle_issue,
+    "File": _handle_file,
 }
 
 
