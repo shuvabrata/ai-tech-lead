@@ -183,6 +183,58 @@
 }
 
 /* ============================================================================= */
+/* Global Search Bar (Navbar) */
+/* ============================================================================= */
+
+.global-search-group {
+    max-width: 480px;
+    width: 100%;
+}
+
+.global-search-input,
+.global-search-input.form-control {
+    background-color: var(--color-background-light) !important;
+    border: 1px solid var(--color-border) !important;
+    border-right: none !important;
+    color: var(--color-charcoal) !important;
+    font-size: 13px !important;
+    height: 32px !important;
+    border-radius: 2px 0 0 2px !important;
+    box-shadow: none !important;
+}
+
+.global-search-input::placeholder {
+    color: var(--color-gray-light) !important;
+    opacity: 1 !important;
+}
+
+.global-search-input:focus,
+.global-search-input.form-control:focus {
+    border-color: var(--color-navy) !important;
+    box-shadow: none !important;
+    background-color: var(--color-background-light) !important;
+    color: var(--color-charcoal) !important;
+}
+
+.global-search-btn,
+.global-search-btn.btn {
+    background-color: var(--color-navy) !important;
+    border: 1px solid var(--color-navy) !important;
+    color: #ffffff !important;
+    height: 32px !important;
+    padding: 0 12px !important;
+    border-radius: 0 2px 2px 0 !important;
+    font-size: 13px !important;
+    box-shadow: none !important;
+}
+
+.global-search-btn:hover,
+.global-search-btn.btn:hover {
+    background-color: var(--color-navy-dark) !important;
+    border-color: var(--color-navy-dark) !important;
+}
+
+/* ============================================================================= */
 /* Input Form Styling (Global / Light Theme Defaults) */
 /* ============================================================================= */
 
