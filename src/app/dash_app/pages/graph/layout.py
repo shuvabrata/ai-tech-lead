@@ -55,8 +55,6 @@ def create_graph_container():
         id="graph-cytoscape-container",
         style={"display": "none"},  # Hidden initially, then maintains consistent size after first query
         children=[
-            create_graph_controls(),
-            
             cyto.Cytoscape(
                 id="graph-cytoscape",
                 elements=[],
@@ -335,46 +333,47 @@ def create_results_section():
         html.Div containing the complete results section
     """
     return html.Div([
-        dcc.Loading(
-            id="graph-loading",
-            type="circle",
-            color=GRAPH_LOADING_COLOR,
-            children=[
-                dbc.Row([
-                    # Graph visualization area
-                    dbc.Col([
+        dbc.Row([
+            # Left col: controls bar + graph canvas (with loading indicator)
+            dbc.Col([
+                create_graph_controls(),
+                dcc.Loading(
+                    id="graph-loading",
+                    type="circle",
+                    color=GRAPH_LOADING_COLOR,
+                    children=[
                         create_graph_container(),
                         create_table_container(),
                         create_empty_state()
-                    ], id="graph-viz-col", width=8, style={"paddingRight": "24px"}),
-                    
-                    # Right sidebar: Filters + Details panel
-                    dbc.Col([
-                        create_filter_panel(),
-                        html.Div(
-                            id="graph-details-panel",
-                            style={
-                                **GRAPH_DETAILS_PANEL_STYLE,
-                                "border": "none",
-                                "boxShadow": "none",
-                                "padding": "0",
-                                "backgroundColor": "transparent"
-                            },
-                            children=[
-                                html.Div([
-                                    html.I(className="fas fa-info-circle fa-lg mb-2", style=GRAPH_DETAILS_PANEL_ICON_STYLE),
-                                    html.P(
-                                        "Execute a query to see the graph",
-                                        className="mb-0",
-                                        style={"fontSize": "12px", "color": "var(--color-text-secondary)"}
-                                    )
-                                ], className="text-center", style={"marginTop": "100px"})
-                            ]
-                        )
-                    ], id="graph-details-col", width=4, style={"borderLeft": f"1px solid {COLOR_GRAY_LIGHTER}", "paddingLeft": "24px"})
-                ], className="g-0")
-            ]
-        )
+                    ]
+                )
+            ], id="graph-viz-col", width=8, style={"paddingRight": "24px"}),
+
+            # Right col: filter panel + details panel (top-aligned with controls bar)
+            dbc.Col([
+                create_filter_panel(),
+                html.Div(
+                    id="graph-details-panel",
+                    style={
+                        **GRAPH_DETAILS_PANEL_STYLE,
+                        "border": "none",
+                        "boxShadow": "none",
+                        "padding": "0",
+                        "backgroundColor": "transparent"
+                    },
+                    children=[
+                        html.Div([
+                            html.I(className="fas fa-info-circle fa-lg mb-2", style=GRAPH_DETAILS_PANEL_ICON_STYLE),
+                            html.P(
+                                "Execute a query to see the graph",
+                                className="mb-0",
+                                style={"fontSize": "12px", "color": "var(--color-text-secondary)"}
+                            )
+                        ], className="text-center", style={"marginTop": "100px"})
+                    ]
+                )
+            ], id="graph-details-col", width=4, style={"borderLeft": f"1px solid {COLOR_GRAY_LIGHTER}", "paddingLeft": "24px"})
+        ], className="g-0")
     ], className="mb-2")
 
 
