@@ -397,7 +397,7 @@ Phase C is broken into four sub-phases aligned with the four user-facing workflo
 C1 is the largest and is itself broken into four sequential steps (C1a–C1d). C2, C3,
 and C4 are independently deliverable once C1 is live.
 
-**Status (2026-05-22):** C1 ✅ C2 ✅ C3 ✅ C4 ⏸ blocked C5 🔄 in progress
+**Status (2026-05-22):** C1 ✅ C2 ✅ C3 ✅ C4 ⏸ blocked C5 ✅
 
 #### C1 — Standalone search page with Graph-from-Search
 
@@ -497,7 +497,7 @@ Always-visible quick search. No advanced filters — just the query box.
 - [x] Add spotlight Cytoscape stylesheet rules to `styles.py` (amber border `#F59E0B`,
   opacity transitions, highest specificity after community-colour rules)
 
-#### C5 — Collaboration Network Controls & Properties Panel 🔄 In progress (design complete 2026-05-22)
+#### C5 — Collaboration Network Controls & Properties Panel ✅ Complete (2026-05-22)
 
 Adds the same graph-page chrome (controls bar, properties panel, fullwidth/fit/reset) to the
 Analytics → Open Visualization page, with maximal code reuse and visual consistency with the
@@ -608,20 +608,22 @@ collaboration_network/
 **Manual regression check:** All 19 checks passed (2026-05-22).
 Fit button fits graph; Reset button resets layout; filter panel still works.
 
-##### C5-P5 — Collab spotlight
+##### C5-P5 — Collab spotlight ✅ Complete (2026-05-22)
 
-- [ ] Create `collaboration_network/callbacks/spotlight.py`:
-  - Clientside debounce (400 ms, same JS function as graph spotlight):
+- [x] Create `collaboration_network/callbacks/spotlight.py`:
+  - Clientside debounce (400 ms, `window._collabSpotlightTimer`):
     `collab-spotlight-input.value` → `collab-spotlight-debounced-store`
-  - Server callback: `collab-spotlight-debounced-store` + `collab-elements-store` →
+  - Server callback: `collab-spotlight-debounced-store` + `State(collab-cytoscape.elements)` →
     calls `search_service.search()` → applies `spotlight-match` / `spotlight-dim`
-    classes on `collab-cytoscape.elements`; updates `collab-spotlight-count` label
-- [ ] Update `collaboration_network/callbacks/__init__.py` to import `spotlight`
-- [ ] New unit tests in `tests/test_collab_spotlight.py`:
-  - `_apply_spotlight_classes` equivalent for collab elements
-  - spotlight class application for nodes (match / dim)
-  - spotlight class application for edges (both endpoints match / partial match)
-  - clear behaviour (empty/short query strips all spotlight classes)
+    classes on `collab-cytoscape.elements` (`allow_duplicate=True`); updates `collab-spotlight-count` label
+  - `_apply_spotlight_classes()` private helper (two-pass: collect matching node cyto IDs,
+    then assign classes; `None` = clear mode; non-spotlight classes preserved)
+- [x] Update `collaboration_network/callbacks/__init__.py` to import `spotlight`
+- [x] New unit tests in `tests/test_collab_spotlight.py` (13 tests):
+  - Node match → `spotlight-match`; non-match → `spotlight-dim`
+  - Edge both endpoints match → `spotlight-match`; partial/none → `spotlight-dim`
+  - Clear mode strips all `spotlight-*` classes; preserves non-spotlight classes
+  - Stale `spotlight-dim` replaced by `spotlight-match` when node now matches
 
 **Manual regression check:** Type a person name in spotlight; matching nodes highlighted
 (amber border); non-matching nodes and edges dimmed; count label updates;
