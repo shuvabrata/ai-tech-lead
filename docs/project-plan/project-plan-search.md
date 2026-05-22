@@ -397,15 +397,17 @@ Phase C is broken into four sub-phases aligned with the four user-facing workflo
 C1 is the largest and is itself broken into four sequential steps (C1a–C1d). C2, C3,
 and C4 are independently deliverable once C1 is live.
 
+**Status (2026-05-22):** C1 ✅ C2 ✅ C3 ✅ C4 ⏸ blocked
+
 #### C1 — Standalone search page with Graph-from-Search
 
 The primary search surface. Full-featured with advanced filter options. Each result
 card includes a **"View in Graph"** button that navigates to the graph page with
 the node and its immediate neighbours pre-loaded.
 
-**C1a — Route, nav link, and static layout**
+**C1a — Route, nav link, and static layout** ✅ Complete (2026-05-22)
 
-- [ ] Create `src/app/dash_app/pages/search.py` with `get_layout()` returning:
+- [x] Create `src/app/dash_app/pages/search.py` with `get_layout()` returning:
   - Search bar (`dbc.Input`, id=`search-q-input`, placeholder "Search entities…") with
     submit button (id=`search-submit-btn`); Enter handled via `n_submit`
   - Collapsible advanced filters row: `entity_type` dropdown, `source` dropdown,
@@ -417,29 +419,29 @@ the node and its immediate neighbours pre-loaded.
     `search-last-query-params` (dict)
   - `dcc.Location` id=`search-url` for reading `?q=` on page load
   - Design: Executive Dashboard tokens from `styles.py`; no ad-hoc inline values
-- [ ] Add `/app/search` branch to `display_page` routing callback in `layout.py`
-- [ ] Add "Search" `NavLink` to the sidebar (`fas fa-search` icon,
+- [x] Add `/app/search` branch to `display_page` routing callback in `layout.py`
+- [x] Add "Search" `NavLink` to the sidebar (`fas fa-search` icon,
   `executive-nav-link` pattern)
 
-**C1b — Search execution and result cards**
+**C1b — Search execution and result cards** ✅ Complete (2026-05-22)
 
-- [ ] Add callback `[Input("search-submit-btn", "n_clicks"), Input("search-q-input", "n_submit")]`
+- [x] Add callback `[Input("search-submit-btn", "n_clicks"), Input("search-q-input", "n_submit")]`
   → builds query params from filter controls → calls `GET /api/v1/search` (sync `httpx`
   inside the Dash callback) → renders result cards; updates `search-last-query-params`;
   resets `search-current-page` to 1; updates results count
-- [ ] Result card: `entity_type` badge (colour-coded by source), `source` badge,
+- [x] Result card: `entity_type` badge (colour-coded by source), `source` badge,
   `wba_id` monospace, `url` hyperlink, `event_time` (formatted via `UI_DATETIME_FORMAT`),
   `highlight` snippet (`dangerously_allow_html=True` for `<em>` rendering),
   **"View in Graph" button** linking to `/app/graph?node_id=<wba_id>`
-- [ ] Inline alert when ES is disabled or request fails
+- [x] Inline alert when ES is disabled or request fails
 
-**C1c — Pagination**
+**C1c — Pagination** ✅ Complete (2026-05-22)
 
-- [ ] Callback on Prev/Next clicks → reads `search-last-query-params` +
+- [x] Callback on Prev/Next clicks → reads `search-last-query-params` +
   `search-current-page` → calls API with updated `page` → re-renders results;
   disables Prev on page 1, disables Next when `page * page_size >= total`
 
-**C1d — Graph-from-Search: graph page URL parameter handler**
+**C1d — Graph-from-Search: graph page URL parameter handler** ✅ Complete (2026-05-22)
 
 > **Note — supported URL parameters to implement:**
 > The graph page currently supports `?catalog=<id>` and `?view=<graph|tabular>` (deep-linking
@@ -448,44 +450,57 @@ the node and its immediate neighbours pre-loaded.
 > - `?node_id=<wba_id>` — expand a specific node and load its immediate neighbours (primary use case from Search results)
 > - `?cypher=<encoded_cypher>` — pre-fill the query console with a URL-encoded Cypher string and optionally auto-execute it
 
-- [ ] Add `dcc.Location` id=`graph-url` to the graph page layout (if not already present; the global `url` component already carries `pathname` but a page-scoped location is needed for `search` params)
-- [ ] Add callback in `src/app/dash_app/pages/graph/callbacks/navigation.py`:
+- [x] Add `dcc.Location` id=`graph-url` to the graph page layout (if not already present; the global `url` component already carries `pathname` but a page-scoped location is needed for `search` params)
+- [x] Add callback in `src/app/dash_app/pages/graph/callbacks/navigation.py`:
   `Input("url", "search")` → parse `?node_id=<wba_id>` → auto-execute a
   node-expansion API call (`GET /api/v1/graph/expand`) for the target node →
   load the node + its immediate neighbours into the Cytoscape canvas;
   no-op when `node_id` param is absent
-- [ ] Same callback also handles `?cypher=<encoded>`: URL-decode the value, pre-fill
+- [x] Same callback also handles `?cypher=<encoded>`: URL-decode the value, pre-fill
   `graph-query-input`, and auto-execute the query (same path as clicking Run); no-op
   when `cypher` param is absent
-- [ ] Follow the existing `parse_catalog_deep_link()` pattern in `catalog.py` — add a
+- [x] Follow the existing `parse_catalog_deep_link()` pattern in `catalog.py` — add a
   `parse_node_deep_link(search)` helper that returns `(node_id, cypher)`
-- [ ] The `wba_id` maps directly to the Neo4j node `id` property — no extra lookup needed
+- [x] The `wba_id` maps directly to the Neo4j node `id` property — no extra lookup needed
 
-#### C2 — Global search bar in top navbar
+#### C2 — Global search bar in top navbar ✅ Complete (2026-05-22)
 
 Always-visible quick search. No advanced filters — just the query box.
 
-- [ ] Add `dbc.Input` (id=`global-search-input`, size=`sm`, placeholder "Quick search…")
+- [x] Add `dbc.Input` (id=`global-search-input`, size=`sm`, placeholder "Quick search…")
   to the top navbar row in `layout.py`, between the toggle button and the right-side
   controls
-- [ ] Add callback on `n_submit` → navigates to `/app/search?q=<value>` via
+- [x] Add callback on `n_submit` → navigates to `/app/search?q=<value>` via
   `dcc.Location` and clears the input
-- [ ] Add callback in `search.py` on `Input("search-url", "search")` → parses `?q=`
+- [x] Add callback in `search.py` on `Input("search-url", "search")` → parses `?q=`
   parameter → pre-fills `search-q-input` and auto-fires the search
 
-#### C3 — Graph filter panel node highlight (client-side)
+**Post-implementation additions:**
+- Input cleared after navigation; sun/moon icon toggle replaces text theme selector;
+  `test_layout_callback_registration.py` (6 tests) guards Output declarations on key
+  layout callbacks
 
-Filters nodes already rendered in the current graph — no ES call, no API round-trip.
+#### C3 — Graph node spotlight search ✅ Complete (2026-05-22)
 
-- [ ] Add `dbc.Input` (id=`graph-node-filter-input`, placeholder "Filter nodes…")
-  to the graph filter panel in `src/app/dash_app/pages/graph/layout.py`
-- [ ] Add callback in `src/app/dash_app/pages/graph/callbacks/filtering.py`:
-  `Input("graph-node-filter-input", "value")` + `State("cytoscape-graph", "elements")`
-  → dims non-matching nodes and their incident edges via the Cytoscape stylesheet;
-  clears dimming when input is empty
-- [ ] Reset the filter input to empty when a new graph is loaded
+> **Design revised from original spec.** Original plan called for a client-side label
+> match in the filter panel with no API call. After a design session, the approach was
+> changed: ES-backed spotlight using the same search engine as C1/C2, placed in the
+> graph controls bar (not the filter panel), matching via `wba_id` ↔ `businessId`.
 
-#### C4 — AI Agent Elasticsearch chain
+- [x] Add `dbc.Input` (id=`graph-spotlight-input`, placeholder "Search nodes…") to the
+  graph controls bar in `layout.py`; inline count label (`graph-spotlight-count`);
+  `dcc.Store(id="spotlight-debounced-store", storage_type="memory")`
+- [x] Create `src/app/dash_app/pages/graph/callbacks/spotlight.py`:
+  clientside Promise debounce (400 ms, min 3 chars) → `spotlight-debounced-store`;
+  server callback calls `search_service.search()` directly (no HTTP) → applies
+  `spotlight-match` / `spotlight-dim` classes; count label shows `"N of M nodes match"`
+- [x] Add spotlight Cytoscape stylesheet rules to `styles.py` (amber border `#F59E0B`,
+  opacity transitions, highest specificity after community-colour rules)
+
+#### C4 — AI Agent Elasticsearch chain ⏸ Pending (blocked)
+
+> **Status:** Blocked on chat completion / streaming pipeline issues. Will resume once
+> the underlying chat stream is stable.
 
 Integrates ES search into the AI chat augmentation pipeline so the agent can ground
 its answers with real entity data from Elasticsearch.
@@ -502,9 +517,9 @@ its answers with real entity data from Elasticsearch.
 
 ### Phase D — Tests
 
-- [ ] `tests/test_elasticsearch_sink.py` (unit) — mock ES client; verify: flat document shape (no nested sub-objects), all envelope fields present at top level, `relationship_ids` is a list of WBA key strings, `_id` equals `wba_id`, ES failure logs warning and does not raise
-- [ ] `tests/test_create_es_indexes.py` (unit) — assert mapping structure: dual-mapping on free-text fields, standard analyser on `key`/`login`/`email`, correct types for categorical/temporal/numeric fields, `MANAGED_INDEXES` covers all `SUPPORTED_ENTITY_TYPES`
-- [ ] `tests/test_es_index_coverage.py` (integration, elasticsearch) — **regression guard**: verifies every entity type in `SUPPORTED_ENTITY_TYPES` from `models.py` has a corresponding index in a live ES instance. Catches the case where a new `*Attributes` model is added to `models.py` but `create_es_indexes.py` is not updated.
+- [x] `tests/test_elasticsearch_sink.py` (unit) — mock ES client; verify: flat document shape (no nested sub-objects), all envelope fields present at top level, `relationship_ids` is a list of WBA key strings, `_id` equals `wba_id`, exception propagation from `index_signal()` (non-fatal wrapping is at consumer level in `main.py`)
+- [x] `tests/test_create_es_indexes.py` (unit) — assert mapping structure: dual-mapping on free-text fields, standard analyser on `key`/`login`/`email`, correct types for categorical/temporal/numeric fields, `MANAGED_INDEXES` covers all `SUPPORTED_ENTITY_TYPES`
+- [x] `tests/test_es_index_coverage.py` (unit + integration/elasticsearch) — **regression guard**: schema coverage check (unit, no live ES) asserts every `SUPPORTED_ENTITY_TYPES` entry appears in `MANAGED_INDEXES`; index existence check (integration/elasticsearch) connects to live ES and asserts each `{source}_{entity_type_lower}_index` exists; `wba_all` alias coverage also verified
 
   **How it works:**
   - `create_es_indexes.py` must export a `MANAGED_INDEXES: list[tuple[str, str]]` constant — the authoritative list of `(source, entity_type)` pairs managed by the script.
