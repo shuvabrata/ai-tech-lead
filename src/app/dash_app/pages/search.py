@@ -14,6 +14,8 @@ from datetime import datetime
 from urllib.parse import quote
 
 from dash import callback, ctx, dcc, html, no_update, Input, Output, State
+from dash.exceptions import PreventUpdate
+from urllib.parse import parse_qs, unquote
 import dash_bootstrap_components as dbc
 
 from app.common.timezone import to_app_timezone
@@ -623,6 +625,7 @@ def get_layout() -> html.Div:
             # Hidden state stores
             dcc.Store(id="search-current-page", storage_type="session", data=1),
             dcc.Store(id="search-last-query-params", storage_type="session", data={}),
+            dcc.Store(id="search-url-q-store", storage_type="memory", data=None),
 
             html.Div(
                 [
@@ -741,6 +744,28 @@ def get_layout() -> html.Div:
 # ===========================================================================
 # C1b — Callbacks: filters toggle + search execution
 # ===========================================================================
+
+
+@callback(
+    Output("search-url-q-store", "data"),
+    Input("url", "search"),
+    prevent_initial_call=False,
+)
+def _populate_url_q_store(search: str | None) -> str | None:
+    """Write the ?q= value from the URL into the memory store.
+
+    Fires on every url.search change and on page mount (prevent_initial_call=False).
+    The store fires AFTER the page layout is mounted, so execute_search can
+    safely read from search page components when triggered by this store.
+    """
+    if not search:
+        raise PreventUpdate
+    qs = parse_qs(search.lstrip("?"))
+    terms = qs.get("q", [])
+    q = unquote(terms[0]).strip() if terms else None
+    if not q:
+        raise PreventUpdate
+    return q
 
 # Shared output spec — used by execute_search, paginate_search, and
 # restore_search_on_navigate so allow_duplicate is needed on the latter two.
@@ -873,6 +898,7 @@ def toggle_filters_panel(_n_clicks: int | None, is_open: bool) -> tuple:
     Input("search-submit-btn", "n_clicks"),
     Input("search-q-input", "n_submit"),
     Input("search-full-toggle", "value"),
+    Input("search-url-q-store", "data"),
     State("search-q-input", "value"),
     State("search-entity-type", "value"),
     State("search-source", "value"),
@@ -887,6 +913,7 @@ def execute_search(
     _n_clicks: int | None,
     _n_submit: int | None,
     full: bool,
+    url_q: str | None,
     q: str | None,
     entity_type: str | None,
     source: str | None,
@@ -898,6 +925,12 @@ def execute_search(
 ) -> tuple:
     """Fire a search request and render result cards."""
     triggered_id = ctx.triggered_id
+
+    # When arriving via the global navbar search bar (?q=), use the URL term.
+    if triggered_id == "search-url-q-store":
+        if not url_q:
+            raise PreventUpdate
+        q = url_q
 
     # When the full-attributes toggle fires before any search has been run,
     # there are no prior results to re-fetch — do nothing.

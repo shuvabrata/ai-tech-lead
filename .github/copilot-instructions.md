@@ -143,6 +143,7 @@ Feature flags: `GITHUB_MCP_ENABLED`, `ATLASSIAN_MCP_ENABLED`
 - **Error Handling**: Raise appropriate exceptions with clear messages
 - **Python Code Style**: All Python code you generate must be PEP 8 compliant. 
 - **Python 3.6+ Conventions**: Always use modern Python 3.6+ conventions. Specifically, use f-strings (f'...') for variable interpolation instead of % formatting or .format().
+- **PylintC0411:wrong-import-order**: Follow the correct import order as per Pylint guidelines. Avoid PylintC0411:wrong-import-order warning.
 
 ### UI Alert Design Standards
 - **Placement**: Render alerts in a dedicated feedback region near the top of the active section; use sticky containers for long scrollable sections.
