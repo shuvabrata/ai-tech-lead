@@ -38,6 +38,7 @@ from .filtering import (
     apply_relationship_filters
 )
 from .analytics_mode import toggle_query_panel_for_analytics_mode
+from .spotlight import update_spotlight
 
 __all__ = [
     # Query callbacks
