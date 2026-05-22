@@ -1,9 +1,26 @@
 """Collaboration Network navigation callbacks — fit, fullwidth toggle, layout reset."""
 
-from dash import Input, Output, State, callback, clientside_callback
+from dash import Input, Output, callback, clientside_callback
 
-from app.dash_app.components.common import toggle_details_panel
+from app.dash_app.components.common import register_fullwidth_callback, toggle_details_panel
 from ..layout import _COLLABORATION_LAYOUT
+
+register_fullwidth_callback("collab")
+
+
+def toggle_collab_fullwidth(n_clicks: int, is_fullwidth: bool) -> tuple:
+    """Toggle fullwidth mode for the collaboration network page.
+
+    Args:
+        n_clicks: Number of times the button has been clicked.
+        is_fullwidth: Current fullwidth state.
+
+    Returns:
+        (new_state, viz_width, panel_style) tuple.
+    """
+    new_state = not is_fullwidth
+    viz_width, panel_style = toggle_details_panel(new_state)
+    return new_state, viz_width, panel_style
 
 
 # Clientside callback — fit graph to viewport when Fit button is clicked
@@ -23,21 +40,6 @@ clientside_callback(
     Input("collab-fit-btn", "n_clicks"),
     prevent_initial_call=True,
 )
-
-
-@callback(
-    [Output("collab-fullwidth-state", "data"),
-     Output("collab-viz-col", "width"),
-     Output("collab-details-col", "style")],
-    Input("collab-fullwidth-btn", "n_clicks"),
-    State("collab-fullwidth-state", "data"),
-    prevent_initial_call=True,
-)
-def toggle_collab_fullwidth(_n_clicks, is_fullwidth):
-    """Toggle between full-width canvas and normal view with the details/filter panel."""
-    new_state = not is_fullwidth
-    viz_width, panel_style = toggle_details_panel(new_state)
-    return new_state, viz_width, panel_style
 
 
 @callback(

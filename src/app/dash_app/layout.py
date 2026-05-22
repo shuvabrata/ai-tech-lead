@@ -129,8 +129,8 @@ def create_dash_app():
                 className="sidebar-col",
                 style=SIDEBAR_COL_STYLE
             ),
-            dbc.Col(content, id="content-col", width=True)
-        ], className="g-0"),
+            dbc.Col(content, id="content-col", width=True, style={"minWidth": 0})
+        ], className="g-0 flex-nowrap"),
     ], fluid=True, id="app-shell", className="app-shell theme-executive-light")
 
     # Callbacks for page routing
