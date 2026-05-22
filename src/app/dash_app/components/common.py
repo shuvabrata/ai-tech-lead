@@ -234,6 +234,43 @@ def toggle_details_panel(is_fullwidth: bool) -> tuple:
     return 8, {}
 
 
+def register_fullwidth_callback(id_prefix: str) -> None:
+    """Register the full-width toggle callback for a visualization page.
+
+    Eliminates boilerplate duplication across pages that share the standard
+    controls-bar / viz-col / details-col layout pattern.  Any page whose
+    component IDs follow the ``{id_prefix}-*`` naming convention can call
+    this once during module import instead of writing its own callback.
+
+    Component IDs expected:
+        ``{id_prefix}-fullwidth-btn``   — the toggle button
+        ``{id_prefix}-fullwidth-state`` — dcc.Store holding bool state
+        ``{id_prefix}-viz-col``         — Bootstrap Col for the canvas
+        ``{id_prefix}-details-col``     — Bootstrap Col for the right panel
+
+    Args:
+        id_prefix: Page-specific prefix, e.g. ``"graph"`` or ``"collab"``.
+    """
+    from dash import Input, Output, State, callback  # pylint: disable=import-outside-toplevel
+
+    @callback(
+        [
+            Output(f"{id_prefix}-fullwidth-state", "data"),
+            Output(f"{id_prefix}-viz-col", "width"),
+            Output(f"{id_prefix}-details-col", "style"),
+            Output(f"{id_prefix}-fullwidth-btn", "children"),
+        ],
+        Input(f"{id_prefix}-fullwidth-btn", "n_clicks"),
+        State(f"{id_prefix}-fullwidth-state", "data"),
+        prevent_initial_call=True,
+    )
+    def _toggle_fullwidth(_n_clicks: int, is_fullwidth: bool) -> tuple:
+        new_state = not is_fullwidth
+        viz_width, panel_style = toggle_details_panel(new_state)
+        btn_label = "Exit" if new_state else "Full"
+        return new_state, viz_width, panel_style, btn_label
+
+
 _CONTROLS_BUTTON_STYLE = {
     "fontFamily": FONT_SANS,
     "fontSize": "11px",
