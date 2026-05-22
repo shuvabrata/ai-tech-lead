@@ -82,5 +82,7 @@ WHERE total_collaboration_score >= $min_pair_score
       AND NOT p2.name ENDS WITH '[bot]'
     )
   )
-RETURN p1.name AS person1, p2.name AS person2, total_collaboration_score
+RETURN p1.name AS person1, p1.id AS person1_wba_id, p1 {.*} AS person1_props,
+       p2.name AS person2, p2.id AS person2_wba_id, p2 {.*} AS person2_props,
+       total_collaboration_score
 ORDER BY total_collaboration_score DESC

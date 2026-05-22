@@ -11,6 +11,8 @@ import dash_cytoscape as cyto
 from .styles import CYTOSCAPE_STYLESHEET
 from .components import create_expansion_modal, create_context_menu
 
+from app.dash_app.components.common import create_controls_bar
+
 from app.dash_app.styles import (
     FONT_SANS,
     FONT_WEIGHT_SEMIBOLD,
@@ -40,109 +42,7 @@ def create_graph_controls():
     Returns:
         dbc.Row containing layout selector and control buttons
     """
-    return dbc.Row([
-        dbc.Col([
-            html.Label(
-                "Layout:",
-                style={
-                    "fontFamily": FONT_SANS,
-                    "fontSize": "11px",
-                    "fontWeight": FONT_WEIGHT_SEMIBOLD,
-                    "color": COLOR_GRAY_DARK,
-                    "marginRight": SPACING_XXSMALL,
-                    "textTransform": "uppercase",
-                    "letterSpacing": "0.3px"
-                }
-            ),
-            dbc.Select(
-                id="graph-layout-selector",
-                options=[
-                    {"label": "Manual Stable (preset)", "value": "preset"},
-                    {"label": "Force-Directed (cose)", "value": "cose"},
-                    {"label": "Circle", "value": "circle"},
-                    {"label": "Grid", "value": "grid"},
-                    {"label": "Hierarchical (breadthfirst)", "value": "breadthfirst"},
-                    {"label": "Concentric", "value": "concentric"}
-                ],
-                value="cose",
-                style={
-                    "fontFamily": FONT_SANS,
-                    "width": "200px",
-                    "display": "inline-block",
-                    "fontSize": "12px",
-                    "border": f"1px solid {COLOR_GRAY_LIGHTER}",
-                    "borderRadius": "2px"
-                },
-                size="sm"
-            )
-        ], width="auto"),
-        dbc.Col([
-            html.Div([
-                dbc.Input(
-                    id="graph-spotlight-input",
-                    type="text",
-                    placeholder="Search nodes…",
-                    size="sm",
-                    debounce=False,
-                    className="graph-spotlight-input",
-                ),
-                html.Small(
-                    id="graph-spotlight-count",
-                    className="graph-spotlight-count-label",
-                    children="",
-                ),
-            ], className="d-flex align-items-center gap-2 justify-content-center"),
-        ], width=True),
-        dbc.Col([
-            dbc.ButtonGroup([
-                dbc.Button(
-                    "Fit",
-                    id="graph-fit-btn",
-                    outline=True,
-                    color="secondary",
-                    size="sm",
-                    style={
-                        "fontFamily": FONT_SANS,
-                        "fontSize": "11px",
-                        "padding": "4px 12px",
-                        "borderRadius": "2px",
-                        "borderColor": COLOR_GRAY_LIGHTER,
-                        "color": COLOR_GRAY_DARK
-                    }
-                ),
-                dbc.Button(
-                    "Reset",
-                    id="graph-reset-btn",
-                    outline=True,
-                    color="secondary",
-                    size="sm",
-                    style={
-                        "fontFamily": FONT_SANS,
-                        "fontSize": "11px",
-                        "padding": "4px 12px",
-                        "borderRadius": "2px",
-                        "borderColor": COLOR_GRAY_LIGHTER,
-                        "color": COLOR_GRAY_DARK
-                    }
-                ),
-                dbc.Button(
-                    "Full",
-                    id="graph-fullwidth-btn",
-                    outline=True,
-                    color="secondary",
-                    size="sm",
-                    style={
-                        "fontFamily": FONT_SANS,
-                        "fontSize": "11px",
-                        "padding": "4px 12px",
-                        "borderRadius": "2px",
-                        "borderColor": COLOR_GRAY_LIGHTER,
-                        "color": COLOR_GRAY_DARK
-                    }
-                )
-            ], size="sm")
-        ], width="auto")
-    ], className="mb-2", align="center")
+    return create_controls_bar("graph")
 
 
 def create_graph_container():
@@ -155,8 +55,6 @@ def create_graph_container():
         id="graph-cytoscape-container",
         style={"display": "none"},  # Hidden initially, then maintains consistent size after first query
         children=[
-            create_graph_controls(),
-            
             cyto.Cytoscape(
                 id="graph-cytoscape",
                 elements=[],
@@ -435,46 +333,47 @@ def create_results_section():
         html.Div containing the complete results section
     """
     return html.Div([
-        dcc.Loading(
-            id="graph-loading",
-            type="circle",
-            color=GRAPH_LOADING_COLOR,
-            children=[
-                dbc.Row([
-                    # Graph visualization area
-                    dbc.Col([
+        dbc.Row([
+            # Left col: controls bar + graph canvas (with loading indicator)
+            dbc.Col([
+                create_graph_controls(),
+                dcc.Loading(
+                    id="graph-loading",
+                    type="circle",
+                    color=GRAPH_LOADING_COLOR,
+                    children=[
                         create_graph_container(),
                         create_table_container(),
                         create_empty_state()
-                    ], id="graph-viz-col", width=8, style={"paddingRight": "24px"}),
-                    
-                    # Right sidebar: Filters + Details panel
-                    dbc.Col([
-                        create_filter_panel(),
-                        html.Div(
-                            id="graph-details-panel",
-                            style={
-                                **GRAPH_DETAILS_PANEL_STYLE,
-                                "border": "none",
-                                "boxShadow": "none",
-                                "padding": "0",
-                                "backgroundColor": "transparent"
-                            },
-                            children=[
-                                html.Div([
-                                    html.I(className="fas fa-info-circle fa-lg mb-2", style=GRAPH_DETAILS_PANEL_ICON_STYLE),
-                                    html.P(
-                                        "Execute a query to see the graph",
-                                        className="mb-0",
-                                        style={"fontSize": "12px", "color": "var(--color-text-secondary)"}
-                                    )
-                                ], className="text-center", style={"marginTop": "100px"})
-                            ]
-                        )
-                    ], id="graph-details-col", width=4, style={"borderLeft": f"1px solid {COLOR_GRAY_LIGHTER}", "paddingLeft": "24px"})
-                ], className="g-0")
-            ]
-        )
+                    ]
+                )
+            ], id="graph-viz-col", width=8, style={"paddingRight": "24px"}),
+
+            # Right col: filter panel + details panel (top-aligned with controls bar)
+            dbc.Col([
+                create_filter_panel(),
+                html.Div(
+                    id="graph-details-panel",
+                    style={
+                        **GRAPH_DETAILS_PANEL_STYLE,
+                        "border": "none",
+                        "boxShadow": "none",
+                        "padding": "0",
+                        "backgroundColor": "transparent"
+                    },
+                    children=[
+                        html.Div([
+                            html.I(className="fas fa-info-circle fa-lg mb-2", style=GRAPH_DETAILS_PANEL_ICON_STYLE),
+                            html.P(
+                                "Execute a query to see the graph",
+                                className="mb-0",
+                                style={"fontSize": "12px", "color": "var(--color-text-secondary)"}
+                            )
+                        ], className="text-center", style={"marginTop": "100px"})
+                    ]
+                )
+            ], id="graph-details-col", width=4, style={"borderLeft": f"1px solid {COLOR_GRAY_LIGHTER}", "paddingLeft": "24px"})
+        ], className="g-0")
     ], className="mb-2")
 
 

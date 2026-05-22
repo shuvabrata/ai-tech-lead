@@ -28,17 +28,30 @@ pytestmark = pytest.mark.unit
 # Fixtures
 # ---------------------------------------------------------------------------
 
+def _rec(p1: str, p2: str, score: float) -> dict:
+    """Build a minimal collaboration record in the new pipeline format."""
+    return {
+        "person1": p1,
+        "person1_wba_id": f"github::Person::{p1}",
+        "person1_props": {"id": f"github::Person::{p1}", "name": p1},
+        "person2": p2,
+        "person2_wba_id": f"github::Person::{p2}",
+        "person2_props": {"id": f"github::Person::{p2}", "name": p2},
+        "total_collaboration_score": score,
+    }
+
+
 SIMPLE_RECORDS = [
-    {"person1": "alice", "person2": "bob", "total_collaboration_score": 10},
-    {"person1": "alice", "person2": "carol", "total_collaboration_score": 5},
-    {"person1": "bob", "person2": "carol", "total_collaboration_score": 8},
-    {"person1": "dave", "person2": "eve", "total_collaboration_score": 12},
-    {"person1": "dave", "person2": "frank", "total_collaboration_score": 7},
+    _rec("alice", "bob", 10),
+    _rec("alice", "carol", 5),
+    _rec("bob", "carol", 8),
+    _rec("dave", "eve", 12),
+    _rec("dave", "frank", 7),
 ]
 
 DUPLICATE_PAIR_RECORDS = [
-    {"person1": "alice", "person2": "bob", "total_collaboration_score": 10},
-    {"person1": "alice", "person2": "bob", "total_collaboration_score": 5},  # same pair twice
+    _rec("alice", "bob", 10),
+    _rec("alice", "bob", 5),  # same pair twice
 ]
 
 
@@ -54,13 +67,13 @@ class TestBuildGraph:
 
     def test_edge_weight_set(self):
         g = build_graph(SIMPLE_RECORDS)
-        assert g["alice"]["bob"]["weight"] == 10
-        assert g["dave"]["eve"]["weight"] == 12
+        assert g["github::Person::alice"]["github::Person::bob"]["weight"] == 10
+        assert g["github::Person::dave"]["github::Person::eve"]["weight"] == 12
 
     def test_duplicate_pair_accumulates_weight(self):
         g = build_graph(DUPLICATE_PAIR_RECORDS)
         assert g.number_of_edges() == 1
-        assert g["alice"]["bob"]["weight"] == 15  # 10 + 5
+        assert g["github::Person::alice"]["github::Person::bob"]["weight"] == 15  # 10 + 5
 
     def test_empty_records_returns_empty_graph(self):
         g = build_graph([])
@@ -113,15 +126,15 @@ class TestDetectCommunities:
         """Dense clique pair should produce exactly 2 communities."""
         records = [
             # Clique 1
-            {"person1": "a", "person2": "b", "total_collaboration_score": 100},
-            {"person1": "a", "person2": "c", "total_collaboration_score": 100},
-            {"person1": "b", "person2": "c", "total_collaboration_score": 100},
+            _rec("a", "b", 100),
+            _rec("a", "c", 100),
+            _rec("b", "c", 100),
             # Clique 2
-            {"person1": "x", "person2": "y", "total_collaboration_score": 100},
-            {"person1": "x", "person2": "z", "total_collaboration_score": 100},
-            {"person1": "y", "person2": "z", "total_collaboration_score": 100},
+            _rec("x", "y", 100),
+            _rec("x", "z", 100),
+            _rec("y", "z", 100),
             # Weak bridge
-            {"person1": "c", "person2": "x", "total_collaboration_score": 1},
+            _rec("c", "x", 1),
         ]
         g = build_graph(records)
         partition = detect_communities(g)
@@ -143,7 +156,7 @@ class TestComputeHubScores:
         g = build_graph(SIMPLE_RECORDS)
         hub_scores = compute_hub_scores(g)
         # alice connects to bob (10) and carol (5) → weighted degree = 15
-        assert hub_scores["alice"] == 15
+        assert hub_scores["github::Person::alice"] == 15
 
     def test_scores_are_non_negative(self):
         g = build_graph(SIMPLE_RECORDS)
@@ -166,22 +179,22 @@ class TestFilterTopEdgesPerNode:
 
     def test_keeps_strongest_edge_per_node(self):
         records = [
-            {"person1": "alice", "person2": "bob", "total_collaboration_score": 10},
-            {"person1": "alice", "person2": "carol", "total_collaboration_score": 3},
-            {"person1": "alice", "person2": "dave", "total_collaboration_score": 1},
+            _rec("alice", "bob", 10),
+            _rec("alice", "carol", 3),
+            _rec("alice", "dave", 1),
         ]
         g = build_graph(records)
         filtered = filter_top_edges_per_node(g, top_n=1)
 
-        assert filtered.has_edge("alice", "bob")
+        assert filtered.has_edge("github::Person::alice", "github::Person::bob")
         assert filtered.number_of_edges() >= 1
 
     def test_ensure_min_connection_keeps_all_connected_nodes(self):
         records = [
-            {"person1": "a", "person2": "b", "total_collaboration_score": 10},
-            {"person1": "a", "person2": "c", "total_collaboration_score": 9},
-            {"person1": "a", "person2": "d", "total_collaboration_score": 8},
-            {"person1": "b", "person2": "c", "total_collaboration_score": 1},
+            _rec("a", "b", 10),
+            _rec("a", "c", 9),
+            _rec("a", "d", 8),
+            _rec("b", "c", 1),
         ]
         g = build_graph(records)
         filtered = filter_top_edges_per_node(g, top_n=1, ensure_min_connection=True)
@@ -251,13 +264,13 @@ class TestToCytoscapeElements:
 
     def test_display_label_truncated_at_12_chars(self):
         long_name_records = [
-            {"person1": "averylongusername", "person2": "bob", "total_collaboration_score": 5}
+            _rec("averylongusername", "bob", 5)
         ]
         g = build_graph(long_name_records)
         partition = detect_communities(g)
         hub_scores = compute_hub_scores(g)
         elements = to_cytoscape_elements(g, partition, hub_scores)
-        node = next(e for e in elements if e["data"].get("id") == "averylongusername")
+        node = next(e for e in elements if e["data"].get("id") == "github::Person::averylongusername")
         assert node["data"]["displayLabel"] == "averylonguse…"
 
     def test_display_label_not_truncated_when_short(self):
@@ -265,8 +278,26 @@ class TestToCytoscapeElements:
         partition = detect_communities(g)
         hub_scores = compute_hub_scores(g)
         elements = to_cytoscape_elements(g, partition, hub_scores)
-        node = next(e for e in elements if e["data"].get("id") == "alice")
+        node = next(e for e in elements if e["data"].get("id") == "github::Person::alice")
         assert node["data"]["displayLabel"] == "alice"
+
+    def test_node_data_has_wba_id(self):
+        node = next(e for e in self.elements if "source" not in e["data"])
+        data = node["data"]
+        assert "wba_id" in data
+        assert data["wba_id"] == data["id"]
+        assert data["wba_id"].startswith("github::Person::")
+
+    def test_node_label_is_display_name_not_wba_id(self):
+        node = next(e for e in self.elements if e["data"].get("id") == "github::Person::alice")
+        assert node["data"]["label"] == "alice"
+        assert node["data"]["displayLabel"] == "alice"
+
+    def test_node_extra_props_in_element_data(self):
+        node = next(e for e in self.elements if e["data"].get("id") == "github::Person::alice")
+        data = node["data"]
+        # Neo4j properties from person1_props should be surfaced
+        assert data.get("name") == "alice"
 
 
 # ---------------------------------------------------------------------------
