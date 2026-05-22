@@ -576,18 +576,17 @@ collaboration_network/
 
 **Manual regression check:** All 17 checks passed (2026-05-22).
 
-##### C5-P3 — Collab page package restructure
+##### C5-P3 — Collab page package restructure ✅ Complete (2026-05-22)
 
-- [ ] Convert `collaboration_network.py` → `collaboration_network/` package
-- [ ] Move layout builder and private helpers to `collaboration_network/layout.py`
-- [ ] Move 7 existing callbacks verbatim to `collaboration_network/callbacks/filter.py`
-- [ ] Create `collaboration_network/callbacks/__init__.py` (imports `filter`)
-- [ ] Create `collaboration_network/__init__.py` (re-exports `get_layout`; imports `callbacks`)
-- [ ] Update `tests/test_collaboration_network_page.py`: change import to
-  `from app.dash_app.pages.collaboration_network.layout import ...` for private helpers
+- [x] Convert `collaboration_network.py` → `collaboration_network/` package
+- [x] Move layout builder and private helpers to `collaboration_network/layout.py`
+- [x] Move 7 existing callbacks verbatim to `collaboration_network/callbacks/filter.py`
+- [x] Create `collaboration_network/callbacks/__init__.py` (imports `filter`)
+- [x] Create `collaboration_network/__init__.py` (re-exports `get_layout`; imports `callbacks`)
+- [x] Update `tests/test_collaboration_network_page.py`: changed import to
+  `from app.dash_app.pages.collaboration_network.layout import ...`
 
-**Manual regression check:** Load collab page. Identical appearance and behaviour.
-Run `pytest -m unit tests -q` — no regression.
+**Manual regression check:** Pending (deploy and verify collab page loads identically).
 
 ##### C5-P4 — Collab UI: controls bar + properties panel
 
