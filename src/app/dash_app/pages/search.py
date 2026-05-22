@@ -11,6 +11,7 @@ import os
 import re
 import requests
 from datetime import datetime
+from urllib.parse import quote
 
 from dash import callback, ctx, dcc, html, no_update, Input, Output, State
 import dash_bootstrap_components as dbc
@@ -206,6 +207,15 @@ def _build_attributes_table(attributes: dict) -> html.Table:
     return html.Table(html.Tbody(rows), style=DETAILS_TABLE_STYLE)
 
 
+def _build_node_cypher(wba_id: str) -> str:
+    """Build a Cypher query that loads a node and its immediate neighbours."""
+    return (
+        f"MATCH (n {{id: '{wba_id}'}}) "
+        f"OPTIONAL MATCH (n)-[r]-(m) "
+        f"RETURN n, r, m LIMIT 50"
+    )
+
+
 def _parse_highlight(highlight: str) -> list:
     """Split a highlight string with <em> tags into a list of Dash components.
 
@@ -294,7 +304,7 @@ def _build_result_card(result: dict, full: bool) -> html.Div:
             ),
             dbc.Button(
                 ["View in Graph ", html.I(className="fas fa-project-diagram ms-1")],
-                href=f"/app/graph?node_id={wba_id}",
+                href=f"/app/graph?cypher={quote(_build_node_cypher(wba_id))}",
                 color="primary",
                 outline=True,
                 size="sm",
@@ -731,6 +741,108 @@ def get_layout() -> html.Div:
 # ===========================================================================
 # C1b — Callbacks: filters toggle + search execution
 # ===========================================================================
+
+# Shared output spec — used by execute_search, paginate_search, and
+# restore_search_on_navigate so allow_duplicate is needed on the latter two.
+_SEARCH_OUTPUTS = [
+    Output("search-results-container", "children"),
+    Output("search-results-count", "children"),
+    Output("search-results-header", "style"),
+    Output("search-pagination-row", "style"),
+    Output("search-page-indicator", "children"),
+    Output("search-next-btn", "disabled"),
+    Output("search-prev-btn", "disabled"),
+    Output("search-current-page", "data"),
+    Output("search-last-query-params", "data"),
+]
+
+
+@callback(
+    Output("search-results-container", "children", allow_duplicate=True),
+    Output("search-results-count", "children", allow_duplicate=True),
+    Output("search-results-header", "style", allow_duplicate=True),
+    Output("search-pagination-row", "style", allow_duplicate=True),
+    Output("search-page-indicator", "children", allow_duplicate=True),
+    Output("search-next-btn", "disabled", allow_duplicate=True),
+    Output("search-prev-btn", "disabled", allow_duplicate=True),
+    Output("search-q-input", "value"),
+    Input("search-last-query-params", "data"),
+    State("search-current-page", "data"),
+    State("search-full-toggle", "value"),
+    prevent_initial_call="initial_duplicate",
+)
+def restore_search_on_navigate(
+    last_query_params: dict | None,
+    current_page: int | None,
+    full: bool,
+) -> tuple:
+    """Re-execute the last search when the session store is restored on page load.
+
+    Triggered by the session store restoring its value from sessionStorage when
+    the search page mounts. Does not update the stores (no circular feedback).
+    """
+    _empty_header = {**_RESULTS_HEADER_STYLE, "display": "none"}
+    _empty_pagination = {**_PAGINATION_STYLE, "display": "none"}
+    _no_restore = (
+        no_update, no_update, no_update, no_update,
+        no_update, no_update, no_update, no_update,
+    )
+
+    if not last_query_params:
+        return _no_restore
+
+    page = int(current_page or 1)
+    params = dict(last_query_params)
+    params["page"] = page
+    params["full"] = "true" if full else "false"
+    params.setdefault("page_size", 20)
+
+    try:
+        response = requests.get(
+            f"{_get_api_base_url()}/api/v1/search",
+            params=params,
+            timeout=settings.HTTP_REQUEST_TIMEOUT,
+        )
+        response.raise_for_status()
+        data = response.json()
+    except Exception as exc:
+        logger.warning(f"Search restore failed: {exc}")
+        return _no_restore
+
+    total: int = data.get("total", 0)
+    results: list = data.get("results", [])
+    page = data.get("page", page)
+    page_size: int = data.get("page_size", 20)
+    total_pages = max(1, math.ceil(total / page_size))
+
+    if results:
+        content = html.Div([_build_result_card(r, bool(full)) for r in results])
+    else:
+        content = html.Div(
+            [
+                html.Div(html.I(className="fas fa-search-minus"), style=PLACEHOLDER_ICON_STYLE),
+                html.Div("No results found.", style=PLACEHOLDER_MESSAGE_STYLE),
+            ],
+            style={"paddingTop": SPACING_LARGE, "paddingBottom": SPACING_LARGE},
+        )
+
+    count_text = f"{total:,} result{'s' if total != 1 else ''}"
+    has_prev = page > 1
+    has_next = page < total_pages
+    show_pagination = total > page_size
+    restored_q = last_query_params.get("q", "")
+
+    return (
+        content,
+        count_text,
+        _RESULTS_HEADER_STYLE,
+        _PAGINATION_STYLE if show_pagination else _empty_pagination,
+        f"Page {page} of {total_pages}",
+        not has_next,
+        not has_prev,
+        restored_q,
+    )
+
 
 @callback(
     Output("search-filters-collapse", "is_open"),
