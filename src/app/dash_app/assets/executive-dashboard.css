@@ -559,6 +559,54 @@ input::placeholder {
 /* Override Bootstrap MATERIA theme's cyan primary colour on the navbar.
    Also set text colour explicitly so dark-mode inherits the correct
    light charcoal instead of Bootstrap's dark default. */
+/* ============================================================================= */
+/* Graph Page — Spotlight Search (C3) */
+/* ============================================================================= */
+
+.graph-spotlight-input,
+.graph-spotlight-input.form-control {
+    width: 160px;
+    height: 30px;
+    font-size: 12px;
+    background-color: var(--color-background-light);
+    border: 1px solid var(--color-border);
+    color: var(--color-charcoal);
+    border-radius: 2px;
+    padding: 3px 8px;
+}
+
+.graph-spotlight-input::placeholder {
+    color: var(--color-text-secondary);
+    font-style: italic;
+}
+
+.graph-spotlight-input:focus,
+.graph-spotlight-input.form-control:focus {
+    border-color: var(--color-navy);
+    box-shadow: 0 0 0 2px var(--color-focus-ring) !important;
+    background-color: var(--color-background-white) !important;
+    outline: none;
+}
+
+.graph-spotlight-count-label {
+    font-size: 10px;
+    color: var(--color-text-secondary);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+/* Dark theme overrides */
+.theme-executive-dark .graph-spotlight-input,
+.theme-executive-dark .graph-spotlight-input.form-control {
+    background-color: var(--color-background-light) !important;
+    border-color: var(--color-border) !important;
+    color: var(--color-charcoal) !important;
+}
+
+/* ============================================================================= */
+/* Navigation - Top Bar */
+/* ============================================================================= */
+
 .executive-topbar {
     background-color: var(--color-background-white) !important;
     border-bottom: 1px solid var(--color-border) !important;
