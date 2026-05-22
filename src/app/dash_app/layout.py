@@ -2,6 +2,8 @@ import dash
 import dash_bootstrap_components as dbc
 from dash import dcc, html
 from dash.dependencies import Input, Output, State
+from dash.exceptions import PreventUpdate
+from urllib.parse import quote
 
 from app.dash_app.pages import analytics, chat, collaboration_network, connectors, graph, people, progress, search, settings
 from .styles import (
@@ -66,6 +68,28 @@ def create_dash_app():
                         style=NAVBAR_BRAND_STYLE
                     )
                 ], width="auto", className="d-flex align-items-center"),
+                dbc.Col(
+                    dbc.InputGroup(
+                        [
+                            dbc.Input(
+                                id="global-search-input",
+                                type="text",
+                                placeholder="Search people, issues, repos…",
+                                debounce=False,
+                                n_submit=0,
+                                className="global-search-input",
+                            ),
+                            dbc.Button(
+                                html.I(className="fas fa-search"),
+                                id="global-search-btn",
+                                n_clicks=0,
+                                className="global-search-btn",
+                            ),
+                        ],
+                        className="global-search-group",
+                    ),
+                    className="d-flex align-items-center justify-content-center px-3",
+                ),
                 dbc.Col(
                     dbc.Nav(
                         [
@@ -220,6 +244,20 @@ def create_dash_app():
             sidebar_class = "sidebar-col"
         
         return sidebar_style, sidebar_class
+
+    @app.callback(
+        Output("url", "pathname"),
+        Output("url", "search"),
+        Input("global-search-btn", "n_clicks"),
+        Input("global-search-input", "n_submit"),
+        State("global-search-input", "value"),
+        prevent_initial_call=True,
+    )
+    def navigate_global_search(_btn_clicks, _n_submit, query: str | None):
+        """Navigate to the search page with the query term in the URL."""
+        if not query or not query.strip():
+            raise PreventUpdate
+        return "/app/search", f"?q={quote(query.strip())}"
 
     @app.callback(
         Output("theme-store", "data"),
