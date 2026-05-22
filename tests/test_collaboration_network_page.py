@@ -9,7 +9,7 @@ Run with: pytest tests/test_collaboration_network_page.py -v
 
 import pytest
 
-from app.dash_app.pages.collaboration_network import (
+from app.dash_app.pages.collaboration_network.layout import (
     _append_class,
     _compute_collab_filtered,
     _get_communities,
