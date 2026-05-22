@@ -85,7 +85,7 @@ class TestGraphRouterEndpoints:
             # Verify node structure if results exist
             if data["nodes"]:
                 node = data["nodes"][0]
-                assert "businessId" in node
+                assert "wba_id" in node
                 assert "elementId" in node
                 assert "labels" in node
                 assert "properties" in node

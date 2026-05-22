@@ -36,7 +36,7 @@ class TestGraphService:
         # If there are results, verify structure
         if response.nodes:
             node = response.nodes[0]
-            assert isinstance(node.businessId, str)
+            assert isinstance(node.wba_id, str)
             assert isinstance(node.elementId, str)
             assert isinstance(node.labels, list)
             assert isinstance(node.properties, dict)

@@ -485,7 +485,7 @@ Always-visible quick search. No advanced filters — just the query box.
 > **Design revised from original spec.** Original plan called for a client-side label
 > match in the filter panel with no API call. After a design session, the approach was
 > changed: ES-backed spotlight using the same search engine as C1/C2, placed in the
-> graph controls bar (not the filter panel), matching via `wba_id` ↔ `businessId`.
+> graph controls bar (not the filter panel), matching via `wba_id` on both sides (renamed from the former `businessId`).
 
 - [x] Add `dbc.Input` (id=`graph-spotlight-input`, placeholder "Search nodes…") to the
   graph controls bar in `layout.py`; inline count label (`graph-spotlight-count`);
