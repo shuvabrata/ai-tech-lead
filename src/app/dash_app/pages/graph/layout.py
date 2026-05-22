@@ -77,6 +77,23 @@ def create_graph_controls():
             )
         ], width="auto"),
         dbc.Col([
+            html.Div([
+                dbc.Input(
+                    id="graph-spotlight-input",
+                    type="text",
+                    placeholder="Search nodes…",
+                    size="sm",
+                    debounce=False,
+                    className="graph-spotlight-input",
+                ),
+                html.Small(
+                    id="graph-spotlight-count",
+                    className="graph-spotlight-count-label",
+                    children="",
+                ),
+            ], className="d-flex align-items-center gap-2 justify-content-center"),
+        ], width=True),
+        dbc.Col([
             dbc.ButtonGroup([
                 dbc.Button(
                     "Fit",
@@ -124,7 +141,7 @@ def create_graph_controls():
                     }
                 )
             ], size="sm")
-        ], width="auto", className="ms-auto")
+        ], width="auto")
     ], className="mb-2", align="center")
 
 
@@ -732,6 +749,10 @@ def create_stores():
         # during expansion and keep "no active filtering" behavior intuitive.
         dcc.Store(id="node-type-available-store", data=[]),
         dcc.Store(id="relationship-type-available-store", data=[]),
+
+        # --- C3: Node Spotlight ---
+        # Debounced spotlight query value (memory — resets on page nav)
+        dcc.Store(id="spotlight-debounced-store", storage_type="memory", data=None),
     ]
 
 
