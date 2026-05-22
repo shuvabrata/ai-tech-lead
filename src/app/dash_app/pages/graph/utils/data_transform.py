@@ -45,14 +45,14 @@ def neo4j_to_cytoscape(graph_response):
         compact_label = _compact_node_label(display_name)
 
         # Neo4j element id is used as Cytoscape node id so edges (which reference element_id) connect correctly.
-        # The business id is stored separately as 'businessId' for display.
+        # The wba_id is stored separately for spotlight matching and display in the properties panel.
         neo4j_element_id = node['elementId']
-        business_id = node['businessId']
+        wba_id = node['wba_id']
 
         cyto_node_data = {
             **node.get('properties', {}),
             'id': neo4j_element_id,   # Must match edge source/target (Neo4j element_id)
-            'businessId': business_id,  # Business id for display in properties panel
+            'wba_id': wba_id,  # Canonical WBA node identifier for display and spotlight matching
             'label': display_name,
             'displayLabel': compact_label,
             'nodeType': node_label,

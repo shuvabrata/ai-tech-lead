@@ -248,11 +248,11 @@ def _transform_node(neo4j_node: Node) -> GraphNode:
     # Serialize properties to handle Neo4j-specific types (DateTime, Date, etc.)
     serialized_props = {k: _make_serializable(v) for k, v in dict(neo4j_node).items()}
 
-    # Use the 'id' property from Neo4j data as the business id, fall back to element_id
-    business_id = serialized_props.get("id") or neo4j_node.element_id
+    # Use the 'id' property from Neo4j data as the wba_id, fall back to element_id
+    wba_id = serialized_props.get("id") or neo4j_node.element_id
 
     return GraphNode(
-        businessId=business_id,
+        wba_id=wba_id,
         elementId=neo4j_node.element_id,
         labels=list(neo4j_node.labels),
         properties=serialized_props
