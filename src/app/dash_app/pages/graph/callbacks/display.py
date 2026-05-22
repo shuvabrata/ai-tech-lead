@@ -25,26 +25,11 @@ from app.dash_app.styles import (
     COLOR_TEXT_MUTED,
     FONT_SIZE_XTINY
 )
-from app.dash_app.components.common import build_element_properties_content
+from app.dash_app.components.common import build_element_properties_content, register_fullwidth_callback
 from ..styles import build_cytoscape_stylesheet
-from ..utils import toggle_details_panel, create_node_legend, is_node_element
+from ..utils import create_node_legend, is_node_element
 
-
-@callback(
-    [
-        Output("graph-fullwidth-state", "data"),
-        Output("graph-viz-col", "width"),
-        Output("graph-details-col", "style")
-    ],
-    Input("graph-fullwidth-btn", "n_clicks"),
-    State("graph-fullwidth-state", "data"),
-    prevent_initial_call=True
-)
-def toggle_fullwidth(_n_clicks, is_fullwidth):
-    """Toggle between full-width graph and normal view with details panel"""
-    new_state = not is_fullwidth
-    viz_width, panel_style = toggle_details_panel(new_state)
-    return new_state, viz_width, panel_style
+register_fullwidth_callback("graph")
 
 
 @callback(

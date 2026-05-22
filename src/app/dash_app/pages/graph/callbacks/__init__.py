@@ -14,7 +14,7 @@ from .catalog import (
     sync_catalog_parameter_values,
     load_catalog_query_into_console,
 )
-from .display import toggle_fullwidth, display_properties, update_layout
+from .display import display_properties, update_layout
 from .expansion import (
     execute_doubleclick_expansion,
     open_expansion_modal,
@@ -53,7 +53,6 @@ __all__ = [
     'sync_catalog_parameter_values',
     'load_catalog_query_into_console',
     # Display callbacks
-    'toggle_fullwidth',
     'display_properties',
     'update_layout',
     # Expansion callbacks
