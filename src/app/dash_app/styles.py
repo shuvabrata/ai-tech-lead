@@ -248,24 +248,6 @@ COLOR_DESTRUCTIVE = "var(--color-destructive)"
 COLOR_WARNING_DARK = "var(--color-warning-dark)"
 COLOR_SUCCESS_DARK = "var(--color-success-dark)"
 
-# Graph palette tokens (Cytoscape)
-COLOR_GRAPH_NODE_DEFAULT = "var(--color-graph-node-default)"
-COLOR_GRAPH_NODE_DEFAULT_BORDER = "var(--color-graph-node-default-border)"
-COLOR_GRAPH_NODE_PROJECT = "var(--color-graph-node-project)"
-COLOR_GRAPH_NODE_PROJECT_BORDER = "var(--color-graph-node-project-border)"
-COLOR_GRAPH_NODE_PERSON = "var(--color-graph-node-person)"
-COLOR_GRAPH_NODE_PERSON_BORDER = "var(--color-graph-node-person-border)"
-COLOR_GRAPH_NODE_BRANCH = "var(--color-graph-node-branch)"
-COLOR_GRAPH_NODE_BRANCH_BORDER = "var(--color-graph-node-branch-border)"
-COLOR_GRAPH_NODE_EPIC = "var(--color-graph-node-epic)"
-COLOR_GRAPH_NODE_EPIC_BORDER = "var(--color-graph-node-epic-border)"
-COLOR_GRAPH_NODE_ISSUE = "var(--color-graph-node-issue)"
-COLOR_GRAPH_NODE_ISSUE_BORDER = "var(--color-graph-node-issue-border)"
-COLOR_GRAPH_NODE_REPOSITORY = "var(--color-graph-node-repository)"
-COLOR_GRAPH_NODE_REPOSITORY_BORDER = "var(--color-graph-node-repository-border)"
-COLOR_GRAPH_EDGE_DEFAULT = "var(--color-graph-edge-default)"
-COLOR_GRAPH_SELECTION = "var(--color-graph-selection)"
-
 # =============================================================================
 # SPACING
 # =============================================================================
