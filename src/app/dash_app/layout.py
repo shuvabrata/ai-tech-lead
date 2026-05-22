@@ -12,7 +12,6 @@ from .styles import (
     TOPBAR_STYLE,
     TOPBAR_CONTAINER_STYLE,
     TOGGLE_BUTTON_STYLE,
-    DROPDOWN_MENU_STYLE,
     SIDEBAR_COL_STYLE
 )
 
@@ -69,58 +68,42 @@ def create_dash_app():
                     )
                 ], width="auto", className="d-flex align-items-center"),
                 dbc.Col(
-                    dbc.InputGroup(
+                    html.Div(
                         [
-                            dbc.Input(
-                                id="global-search-input",
-                                type="text",
-                                placeholder="Search people, issues, repos…",
-                                debounce=False,
-                                n_submit=0,
-                                className="global-search-input",
+                            dbc.InputGroup(
+                                [
+                                    dbc.Input(
+                                        id="global-search-input",
+                                        type="text",
+                                        placeholder="Search people, issues, repos…",
+                                        debounce=False,
+                                        n_submit=0,
+                                        className="global-search-input",
+                                    ),
+                                    dbc.Button(
+                                        html.I(className="fas fa-search"),
+                                        id="global-search-btn",
+                                        n_clicks=0,
+                                        className="global-search-btn",
+                                    ),
+                                ],
+                                className="global-search-group",
                             ),
                             dbc.Button(
-                                html.I(className="fas fa-search"),
-                                id="global-search-btn",
+                                html.I(id="theme-icon", className="fas fa-moon"),
+                                id="theme-toggle-btn",
+                                color="light",
+                                outline=True,
+                                size="sm",
+                                className="theme-toggle-btn ms-2",
+                                title="Switch theme",
                                 n_clicks=0,
-                                className="global-search-btn",
                             ),
                         ],
-                        className="global-search-group",
-                    ),
-                    className="d-flex align-items-center justify-content-center px-3",
-                ),
-                dbc.Col(
-                    dbc.Nav(
-                        [
-                            dbc.Select(
-                                id="theme-selector",
-                                options=[
-                                    {"label": "Executive Light", "value": "executive-light"},
-                                    {"label": "Executive Dark", "value": "executive-dark"},
-                                ],
-                                value="executive-light",
-                                size="sm",
-                                className="theme-selector me-2",
-                                style={"minWidth": "180px", "fontSize": "12px"}
-                            ),
-                            dbc.DropdownMenu(
-                                label="Switch Project",
-                                children=[
-                                    dbc.DropdownMenuItem("Project Alpha", id="proj-alpha"),
-                                    dbc.DropdownMenuItem("Project Beta", id="proj-beta"),
-                                ],
-                                nav=True,
-                                in_navbar=True,
-                                size="sm",
-                                style=DROPDOWN_MENU_STYLE
-                            ),
-                        ],
-                        className="justify-content-end flex-nowrap",
-                        style={"padding": "0"}
+                        className="d-flex align-items-center",
                     ),
                     width=True,
-                    className="d-flex justify-content-end align-items-center"
+                    className="d-flex align-items-center justify-content-end pe-1",
                 ),
             ], className="w-100 flex-nowrap g-0 align-items-center justify-content-between", style={"margin": "0"}),
             fluid=True,
@@ -248,6 +231,7 @@ def create_dash_app():
     @app.callback(
         Output("url", "pathname"),
         Output("url", "search"),
+        Output("global-search-input", "value"),
         Input("global-search-btn", "n_clicks"),
         Input("global-search-input", "n_submit"),
         State("global-search-input", "value"),
@@ -257,23 +241,30 @@ def create_dash_app():
         """Navigate to the search page with the query term in the URL."""
         if not query or not query.strip():
             raise PreventUpdate
-        return "/app/search", f"?q={quote(query.strip())}"
+        return "/app/search", f"?q={quote(query.strip())}", ""
 
     @app.callback(
         Output("theme-store", "data"),
-        Input("theme-selector", "value"),
-        prevent_initial_call=True
+        Input("theme-toggle-btn", "n_clicks"),
+        State("theme-store", "data"),
+        prevent_initial_call=True,
     )
-    def persist_theme(theme_name):
-        return theme_name or "executive-light"
+    def persist_theme(_n_clicks, current_theme: str | None):
+        """Toggle between light and dark theme on each button click."""
+        return "executive-dark" if (current_theme or "executive-light") == "executive-light" else "executive-light"
 
     @app.callback(
         Output("app-shell", "className"),
-        Input("theme-store", "data")
+        Output("theme-icon", "className"),
+        Input("theme-store", "data"),
     )
-    def apply_theme_class(theme_name):
+    def apply_theme(theme_name: str | None):
+        """Apply the theme CSS class and update the toggle icon."""
         active_theme = theme_name or "executive-light"
-        return f"app-shell theme-{active_theme}"
+        # Show moon when in light mode (click → go dark)
+        # Show sun when in dark mode (click → go light)
+        icon = "fas fa-sun" if active_theme == "executive-dark" else "fas fa-moon"
+        return f"app-shell theme-{active_theme}", icon
 
     # No custom CSS or sidebar collapse for now; Bootstrap handles layout and theme
 
