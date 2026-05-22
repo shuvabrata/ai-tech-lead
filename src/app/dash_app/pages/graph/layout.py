@@ -11,6 +11,8 @@ import dash_cytoscape as cyto
 from .styles import CYTOSCAPE_STYLESHEET
 from .components import create_expansion_modal, create_context_menu
 
+from app.dash_app.components.common import create_controls_bar
+
 from app.dash_app.styles import (
     FONT_SANS,
     FONT_WEIGHT_SEMIBOLD,
@@ -40,109 +42,7 @@ def create_graph_controls():
     Returns:
         dbc.Row containing layout selector and control buttons
     """
-    return dbc.Row([
-        dbc.Col([
-            html.Label(
-                "Layout:",
-                style={
-                    "fontFamily": FONT_SANS,
-                    "fontSize": "11px",
-                    "fontWeight": FONT_WEIGHT_SEMIBOLD,
-                    "color": COLOR_GRAY_DARK,
-                    "marginRight": SPACING_XXSMALL,
-                    "textTransform": "uppercase",
-                    "letterSpacing": "0.3px"
-                }
-            ),
-            dbc.Select(
-                id="graph-layout-selector",
-                options=[
-                    {"label": "Manual Stable (preset)", "value": "preset"},
-                    {"label": "Force-Directed (cose)", "value": "cose"},
-                    {"label": "Circle", "value": "circle"},
-                    {"label": "Grid", "value": "grid"},
-                    {"label": "Hierarchical (breadthfirst)", "value": "breadthfirst"},
-                    {"label": "Concentric", "value": "concentric"}
-                ],
-                value="cose",
-                style={
-                    "fontFamily": FONT_SANS,
-                    "width": "200px",
-                    "display": "inline-block",
-                    "fontSize": "12px",
-                    "border": f"1px solid {COLOR_GRAY_LIGHTER}",
-                    "borderRadius": "2px"
-                },
-                size="sm"
-            )
-        ], width="auto"),
-        dbc.Col([
-            html.Div([
-                dbc.Input(
-                    id="graph-spotlight-input",
-                    type="text",
-                    placeholder="Search nodes…",
-                    size="sm",
-                    debounce=False,
-                    className="graph-spotlight-input",
-                ),
-                html.Small(
-                    id="graph-spotlight-count",
-                    className="graph-spotlight-count-label",
-                    children="",
-                ),
-            ], className="d-flex align-items-center gap-2 justify-content-center"),
-        ], width=True),
-        dbc.Col([
-            dbc.ButtonGroup([
-                dbc.Button(
-                    "Fit",
-                    id="graph-fit-btn",
-                    outline=True,
-                    color="secondary",
-                    size="sm",
-                    style={
-                        "fontFamily": FONT_SANS,
-                        "fontSize": "11px",
-                        "padding": "4px 12px",
-                        "borderRadius": "2px",
-                        "borderColor": COLOR_GRAY_LIGHTER,
-                        "color": COLOR_GRAY_DARK
-                    }
-                ),
-                dbc.Button(
-                    "Reset",
-                    id="graph-reset-btn",
-                    outline=True,
-                    color="secondary",
-                    size="sm",
-                    style={
-                        "fontFamily": FONT_SANS,
-                        "fontSize": "11px",
-                        "padding": "4px 12px",
-                        "borderRadius": "2px",
-                        "borderColor": COLOR_GRAY_LIGHTER,
-                        "color": COLOR_GRAY_DARK
-                    }
-                ),
-                dbc.Button(
-                    "Full",
-                    id="graph-fullwidth-btn",
-                    outline=True,
-                    color="secondary",
-                    size="sm",
-                    style={
-                        "fontFamily": FONT_SANS,
-                        "fontSize": "11px",
-                        "padding": "4px 12px",
-                        "borderRadius": "2px",
-                        "borderColor": COLOR_GRAY_LIGHTER,
-                        "color": COLOR_GRAY_DARK
-                    }
-                )
-            ], size="sm")
-        ], width="auto")
-    ], className="mb-2", align="center")
+    return create_controls_bar("graph")
 
 
 def create_graph_container():

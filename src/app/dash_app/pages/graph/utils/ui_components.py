@@ -7,7 +7,7 @@ These are pure functions that return Dash components.
 import dash_bootstrap_components as dbc
 from dash import html
 
-from app.dash_app.components.common import create_alert
+from app.dash_app.components.common import create_alert, toggle_details_panel  # noqa: F401
 from app.dash_app.styles import (
     ALERT_TEXT_STYLE,
     ALERT_HINT_STYLE,
@@ -35,21 +35,6 @@ from app.dash_app.styles import (
     FONT_WEIGHT_SEMIBOLD
 )
 from ..styles import get_node_type_styles
-
-
-def toggle_details_panel(is_fullwidth):
-    """Helper function to calculate column widths based on panel state
-    
-    Args:
-        is_fullwidth (bool): Whether the graph is in fullwidth mode
-        
-    Returns:
-        tuple: (graph_width, panel_style_dict)
-    """
-    if is_fullwidth:
-        return 12, {"display": "none"}  # Full width graph, hide panel
-    else:
-        return 8, {}  # Normal width, show panel
 
 
 def create_error_alert(message, alert_type='danger', hint=None, heading="Query Execution Failed", doc_link=None):
