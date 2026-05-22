@@ -2,7 +2,7 @@
 
 Live spotlight search: debounce the input (400 ms, min 3 chars), call the
 ES search API via the service layer, intersect results with the loaded graph
-nodes via businessId ↔ wba_id, then apply spotlight-match / spotlight-dim
+nodes via wba_id, then apply spotlight-match / spotlight-dim
 CSS classes to all Cytoscape elements.
 """
 
@@ -54,7 +54,7 @@ def _apply_spotlight_classes(elements, match_wba_ids):
     if match_wba_ids is not None:
         for elem in (elements or []):
             data = elem.get("data", {})
-            if is_node_data(data) and data.get("businessId", "") in match_wba_ids:
+            if is_node_data(data) and data.get("wba_id", "") in match_wba_ids:
                 matching_cyto_ids.add(data.get("id", ""))
 
     modified = []
@@ -66,7 +66,7 @@ def _apply_spotlight_classes(elements, match_wba_ids):
 
         if match_wba_ids is not None:
             if is_node_data(data):
-                if data.get("businessId", "") in match_wba_ids:
+                if data.get("wba_id", "") in match_wba_ids:
                     classes.add("spotlight-match")
                 else:
                     classes.add("spotlight-dim")
@@ -120,7 +120,7 @@ def update_spotlight(query: str | None, elements: list | None):
         1
         for elem in elements
         if is_node_data(elem.get("data", {}))
-        and elem["data"].get("businessId", "") in match_wba_ids
+        and elem["data"].get("wba_id", "") in match_wba_ids
     )
 
     updated = _apply_spotlight_classes(elements, match_wba_ids)
