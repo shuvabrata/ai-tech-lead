@@ -29,24 +29,40 @@ LOUVAIN_RANDOM_STATE = 42
 def build_graph(records: List[Dict[str, Any]]) -> nx.Graph:
     """Build a weighted, undirected NetworkX graph from collaboration query records.
 
+    Each node uses the person's wba_id as its key. All Neo4j properties returned by
+    the query (person1_props / person2_props) are stored as node attributes, along
+    with a 'display_name' attribute mapped from the person's name field.
+
     Args:
-        records: List of dicts, each with keys 'person1', 'person2',
+        records: List of dicts, each with keys 'person1', 'person1_wba_id',
+                 'person1_props', 'person2', 'person2_wba_id', 'person2_props',
                  and 'total_collaboration_score'.
 
     Returns:
-        An undirected NetworkX graph where each edge carries a 'weight' attribute
-        equal to the collaboration score.
+        An undirected NetworkX graph where node keys are wba_ids and each edge
+        carries a 'weight' attribute equal to the collaboration score.
     """
     g = nx.Graph()
     for record in records:
-        p1 = record["person1"]
-        p2 = record["person2"]
+        p1_id = record["person1_wba_id"]
+        p2_id = record["person2_wba_id"]
         score = record["total_collaboration_score"]
-        if g.has_edge(p1, p2):
+
+        if p1_id not in g:
+            p1_attrs = dict(record.get("person1_props") or {})
+            p1_attrs["display_name"] = record["person1"]
+            g.add_node(p1_id, **p1_attrs)
+
+        if p2_id not in g:
+            p2_attrs = dict(record.get("person2_props") or {})
+            p2_attrs["display_name"] = record["person2"]
+            g.add_node(p2_id, **p2_attrs)
+
+        if g.has_edge(p1_id, p2_id):
             # Accumulate score if the pair somehow appears twice
-            g[p1][p2]["weight"] += score
+            g[p1_id][p2_id]["weight"] += score
         else:
-            g.add_edge(p1, p2, weight=score)
+            g.add_edge(p1_id, p2_id, weight=score)
     return g
 
 
@@ -154,15 +170,16 @@ def to_cytoscape_elements(
     """Convert a NetworkX graph with community data into Cytoscape element dicts.
 
     Produces the list format expected by dash-cytoscape's 'elements' prop:
-      - Each node carries: id, label, nodeType, community (raw ID), hub_score
+      - Each node carries: id (wba_id), wba_id, label (display name), all Neo4j
+        properties from node attributes, nodeType, community (raw ID), hub_score
       - Each node gets a class string 'community-N' where N is the raw ID clamped
         to [0, MAX_COMMUNITY_STYLES - 1] for stylesheet lookup
       - Each edge carries: source, target, weight (maps to line thickness in stylesheet)
 
     Args:
-        g: Undirected weighted NetworkX graph.
-        partition: Dict mapping node name -> raw community ID (from detect_communities).
-        hub_scores: Dict mapping node name -> weighted degree (from compute_hub_scores).
+        g: Undirected weighted NetworkX graph (node keys are wba_ids).
+        partition: Dict mapping wba_id -> raw community ID (from detect_communities).
+        hub_scores: Dict mapping wba_id -> weighted degree (from compute_hub_scores).
 
     Returns:
         List of Cytoscape element dicts (nodes first, then edges).
@@ -191,13 +208,20 @@ def to_cytoscape_elements(
         return _NODE_SIZE_MIN + (log_scores[node] - ls_min) / ls_range * (_NODE_SIZE_MAX - _NODE_SIZE_MIN)
 
     for node in g.nodes():
+        node_attrs = g.nodes[node]
+        display_name = node_attrs.get("display_name", node)
         community_id = partition.get(node, 0)
         style_id = community_id % MAX_COMMUNITY_STYLES
+        # Spread all Neo4j properties into element data; override Cytoscape-internal
+        # and computed fields explicitly. Exclude 'display_name' — surfaced as 'label'.
+        extra_props = {k: v for k, v in node_attrs.items() if k != "display_name"}
         element = {
             "data": {
-                "id": node,
-                "label": node,
-                "displayLabel": node[:12] + "\u2026" if len(node) > 12 else node,
+                **extra_props,
+                "id": node,           # wba_id (Cytoscape element id)
+                "wba_id": node,       # explicit for spotlight compatibility
+                "label": display_name,
+                "displayLabel": display_name[:12] + "\u2026" if len(display_name) > 12 else display_name,
                 "nodeType": "Person",
                 "community": community_id,
                 "hub_score": hub_scores.get(node, 0.0),

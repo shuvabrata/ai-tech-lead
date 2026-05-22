@@ -397,7 +397,7 @@ Phase C is broken into four sub-phases aligned with the four user-facing workflo
 C1 is the largest and is itself broken into four sequential steps (C1a–C1d). C2, C3,
 and C4 are independently deliverable once C1 is live.
 
-**Status (2026-05-22):** C1 ✅ C2 ✅ C3 ✅ C4 ⏸ blocked
+**Status (2026-05-22):** C1 ✅ C2 ✅ C3 ✅ C4 ⏸ blocked C5 ✅
 
 #### C1 — Standalone search page with Graph-from-Search
 
@@ -496,6 +496,138 @@ Always-visible quick search. No advanced filters — just the query box.
   `spotlight-match` / `spotlight-dim` classes; count label shows `"N of M nodes match"`
 - [x] Add spotlight Cytoscape stylesheet rules to `styles.py` (amber border `#F59E0B`,
   opacity transitions, highest specificity after community-colour rules)
+
+#### C5 — Collaboration Network Controls & Properties Panel ✅ Complete (2026-05-22)
+
+Adds the same graph-page chrome (controls bar, properties panel, fullwidth/fit/reset) to the
+Analytics → Open Visualization page, with maximal code reuse and visual consistency with the
+graph page (Executive Dashboard tokens, shared factory functions).
+
+**Design decisions:**
+- Canvas `width=8`, right column `width=4` — filter panel (collapsible) at top, properties
+  panel below; Full button hides the entire right column (same behaviour as graph page)
+- Layout selector: **`disabled=True`** (grayed out) — collab always uses preset
+  community positions
+- "Expand Node" button: **`disabled=True`** (grayed out) — collab graph is pre-computed;
+  all nodes already loaded
+- Edge click shows properties in the same panel as node click (same as graph page)
+- Default panel state: simple placeholder ("Select a node or edge to view its properties")
+  — no legend (collab has only one node type; community legend already in filter panel)
+- Edge enrichment (per-signal score breakdown): **deferred** — only `weight` shown initially
+- Spotlight: ES-backed, same as graph page; requires pipeline change (C5-P1) first
+
+**Pipeline change (Option B):** `wba_id` becomes the Cytoscape node `id`; `p1.name` becomes
+`label`; all `p1.*` Neo4j properties are threaded through `build_graph()` →
+`to_cytoscape_elements()`. This is a breaking change to the algorithm, delivered as its own
+isolated phase before any UI work.
+
+**Shared components (new additions to `src/app/dash_app/components/common.py`):**
+- `create_controls_bar(id_prefix: str, *, layout_enabled: bool = True) -> html.Div`
+  — 3-col row: layout `dbc.Select` (disabled when `layout_enabled=False`), spotlight
+  `dbc.Input` + count badge, Fit/Reset/Full `ButtonGroup`
+- `build_element_properties_content(data: dict, *, expand_node_enabled: bool = True) -> html.Div`
+  — renders node or edge properties table; Expand Node button rendered `disabled=True`
+  when `expand_node_enabled=False`
+- `toggle_details_panel(is_fullwidth: bool) -> tuple[int, dict]`
+  — **moved** from `src/app/dash_app/pages/graph/utils/ui_components.py`
+
+**Collab page restructure:** `collaboration_network.py` (single file) →
+`collaboration_network/` package mirroring the graph page structure:
+```
+collaboration_network/
+    __init__.py              ← re-exports get_layout(); imports callbacks
+    layout.py                ← layout builder, private helpers
+    callbacks/
+        __init__.py          ← imports all callback modules
+        filter.py            ← 7 existing callbacks (load, filters, community, etc.)
+        display.py           ← NEW: properties panel (selectedNodeData + tapEdgeData)
+        navigation.py        ← NEW: fullwidth toggle, layout update, fit clientside
+        spotlight.py         ← NEW: debounce + ES spotlight
+```
+
+**Implementation phases:**
+
+##### C5-P1 — Pipeline: wba_id as node key + all person properties ✅ Complete (2026-05-22)
+
+- [ ] Modify `src/app/analytics/collaboration/queries/collaboration_score.cypher`:
+  add `p1.id AS person1_wba_id, p2.id AS person2_wba_id` to the final `RETURN`
+- [ ] Update `build_graph()` in `algorithm.py`: use `wba_id` as the NetworkX node key;
+  store display name as a node attribute
+- [ ] Update `to_cytoscape_elements()` in `algorithm.py`: node `"id"` = `wba_id`;
+  `"label"` = display name; all `p1.*` properties surfaced in element data
+- [ ] Update `tests/test_collaboration_algorithm.py`: fix all tests that reference nodes
+  by name key; add assertions that `wba_id` is present and all `p1.*` properties appear
+  in element data
+
+**Manual regression check:** Load Analytics → Open Visualization. Graph renders identically
+(nodes, edges, community colours, filters work). No console errors.
+
+##### C5-P2 — Shared components extraction + graph page refactor ✅ Complete (2026-05-22)
+
+- [x] Add `create_controls_bar()` to `src/app/dash_app/components/common.py`
+- [x] Add `build_element_properties_content()` to `src/app/dash_app/components/common.py`
+- [x] **Move** `toggle_details_panel()` from `graph/utils/ui_components.py` to
+  `components/common.py`; re-exported from `ui_components` so existing import chain is preserved
+- [x] Refactor `src/app/dash_app/pages/graph/layout.py` to call `create_controls_bar("graph")`
+- [x] Refactor `src/app/dash_app/pages/graph/callbacks/display.py` to call
+  `build_element_properties_content(data, expand_node_enabled=True)`
+- [x] New unit tests in `tests/test_shared_graph_components.py` (25 tests)
+- [x] Updated `tests/test_graph_display_callbacks.py` to import helpers from new location
+
+**Manual regression check:** All 17 checks passed (2026-05-22).
+
+##### C5-P3 — Collab page package restructure ✅ Complete (2026-05-22)
+
+- [x] Convert `collaboration_network.py` → `collaboration_network/` package
+- [x] Move layout builder and private helpers to `collaboration_network/layout.py`
+- [x] Move 7 existing callbacks verbatim to `collaboration_network/callbacks/filter.py`
+- [x] Create `collaboration_network/callbacks/__init__.py` (imports `filter`)
+- [x] Create `collaboration_network/__init__.py` (re-exports `get_layout`; imports `callbacks`)
+- [x] Update `tests/test_collaboration_network_page.py`: changed import to
+  `from app.dash_app.pages.collaboration_network.layout import ...`
+
+**Manual regression check:** All 19 checks passed (2026-05-22).
+
+##### C5-P4 — Collab UI: controls bar + properties panel ✅ Complete (2026-05-22)
+
+- [x] Add to `collaboration_network/layout.py`:
+  - `collab-fullwidth-state` store (`dcc.Store`)
+  - `collab-spotlight-debounced-store` store (`dcc.Store`)
+  - Controls bar above canvas: `create_controls_bar("collab", layout_enabled=False)`
+  - Changed layout from `width=9/3` to `width=8/4` with `id="collab-viz-col"` / `id="collab-details-col"`
+  - Added `collab-details-panel` below filter panel with placeholder initial content
+- [x] Created `collaboration_network/callbacks/navigation.py`:
+  - Clientside fit: `collab-fit-btn` → `cy.fit()` on `collab-cytoscape`
+  - `toggle_collab_fullwidth()` using `toggle_details_panel()`
+  - `reset_collab_layout()` with `allow_duplicate=True`
+- [x] Created `collaboration_network/callbacks/display.py`:
+  - `display_collab_properties()` using `build_element_properties_content(data, expand_node_enabled=False)`
+- [x] Updated `collaboration_network/callbacks/__init__.py` to import `navigation`, `display`
+- [x] New unit tests in `tests/test_collab_network_controls.py` (13 tests)
+
+**Manual regression check:** All 19 checks passed (2026-05-22).
+Fit button fits graph; Reset button resets layout; filter panel still works.
+
+##### C5-P5 — Collab spotlight ✅ Complete (2026-05-22)
+
+- [x] Create `collaboration_network/callbacks/spotlight.py`:
+  - Clientside debounce (400 ms, `window._collabSpotlightTimer`):
+    `collab-spotlight-input.value` → `collab-spotlight-debounced-store`
+  - Server callback: `collab-spotlight-debounced-store` + `State(collab-cytoscape.elements)` →
+    calls `search_service.search()` → applies `spotlight-match` / `spotlight-dim`
+    classes on `collab-cytoscape.elements` (`allow_duplicate=True`); updates `collab-spotlight-count` label
+  - `_apply_spotlight_classes()` private helper (two-pass: collect matching node cyto IDs,
+    then assign classes; `None` = clear mode; non-spotlight classes preserved)
+- [x] Update `collaboration_network/callbacks/__init__.py` to import `spotlight`
+- [x] New unit tests in `tests/test_collab_spotlight.py` (13 tests):
+  - Node match → `spotlight-match`; non-match → `spotlight-dim`
+  - Edge both endpoints match → `spotlight-match`; partial/none → `spotlight-dim`
+  - Clear mode strips all `spotlight-*` classes; preserves non-spotlight classes
+  - Stale `spotlight-dim` replaced by `spotlight-match` when node now matches
+
+**Manual regression check:** Type a person name in spotlight; matching nodes highlighted
+(amber border); non-matching nodes and edges dimmed; count label updates;
+clearing input restores all nodes; existing filter still applies on top of spotlight.
 
 #### C4 — AI Agent Elasticsearch chain ⏸ Pending (blocked)
 
