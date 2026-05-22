@@ -705,6 +705,10 @@ def create_stores():
         
         # Store for debouncing: tracks last expansion time per node
         dcc.Store(id="expansion-debounce-store", data={}),
+
+        # Cypher auto-execute store: set by toggle_query_collapse when a
+        # ?cypher= URL param is present; triggers execute_query automatically.
+        dcc.Store(id="cypher-autoexec-store", storage_type="memory", data=None),
         
         # --- Phase 1.1d: Right-Click Context Menu Communication Channel ---
         # Store for right-clicked node data: {node_id, x, y, timestamp}
