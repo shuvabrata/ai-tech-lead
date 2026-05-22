@@ -547,7 +547,7 @@ collaboration_network/
 
 **Implementation phases:**
 
-##### C5-P1 — Pipeline: wba_id as node key + all person properties
+##### C5-P1 — Pipeline: wba_id as node key + all person properties ✅ Complete (2026-05-22)
 
 - [ ] Modify `src/app/analytics/collaboration/queries/collaboration_score.cypher`:
   add `p1.id AS person1_wba_id, p2.id AS person2_wba_id` to the final `RETURN`
