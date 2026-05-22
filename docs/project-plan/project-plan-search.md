@@ -586,36 +586,26 @@ collaboration_network/
 - [x] Update `tests/test_collaboration_network_page.py`: changed import to
   `from app.dash_app.pages.collaboration_network.layout import ...`
 
-**Manual regression check:** Pending (deploy and verify collab page loads identically).
+**Manual regression check:** All 19 checks passed (2026-05-22).
 
-##### C5-P4 — Collab UI: controls bar + properties panel
+##### C5-P4 — Collab UI: controls bar + properties panel ✅ Complete (2026-05-22)
 
-- [ ] Add to `collaboration_network/layout.py`:
+- [x] Add to `collaboration_network/layout.py`:
   - `collab-fullwidth-state` store (`dcc.Store`)
   - `collab-spotlight-debounced-store` store (`dcc.Store`)
   - Controls bar above canvas: `create_controls_bar("collab", layout_enabled=False)`
-  - Change layout from `width=9/3` to `width=8/4`
-  - Add properties panel below filter panel using `build_element_properties_content`
-    placeholder as initial content
-- [ ] Create `collaboration_network/callbacks/navigation.py`:
+  - Changed layout from `width=9/3` to `width=8/4` with `id="collab-viz-col"` / `id="collab-details-col"`
+  - Added `collab-details-panel` below filter panel with placeholder initial content
+- [x] Created `collaboration_network/callbacks/navigation.py`:
   - Clientside fit: `collab-fit-btn` → `cy.fit()` on `collab-cytoscape`
-  - `toggle_collab_fullwidth()`: `collab-fullwidth-btn` → `collab-fullwidth-state`,
-    `collab-viz-col.width`, `collab-details-col.style` (using `toggle_details_panel()`)
-  - `update_collab_layout()`: `collab-reset-btn` → reset layout (layout selector
-    is disabled so only reset is active)
-- [ ] Create `collaboration_network/callbacks/display.py`:
-  - `display_collab_properties()`: `collab-cytoscape.selectedNodeData` +
-    `collab-cytoscape.tapEdgeData` → `collab-details-panel.children`;
-    calls `build_element_properties_content(data, expand_node_enabled=False)`;
-    default state: simple placeholder
-- [ ] Update `collaboration_network/callbacks/__init__.py` to import `navigation`, `display`
-- [ ] New unit tests in `tests/test_collab_network_controls.py`:
-  - `display_collab_properties` callback (node selected, edge selected, nothing selected)
-  - `toggle_collab_fullwidth` callback (fullwidth on/off)
+  - `toggle_collab_fullwidth()` using `toggle_details_panel()`
+  - `reset_collab_layout()` with `allow_duplicate=True`
+- [x] Created `collaboration_network/callbacks/display.py`:
+  - `display_collab_properties()` using `build_element_properties_content(data, expand_node_enabled=False)`
+- [x] Updated `collaboration_network/callbacks/__init__.py` to import `navigation`, `display`
+- [x] New unit tests in `tests/test_collab_network_controls.py` (13 tests)
 
-**Manual regression check:** Controls bar visible above canvas; layout selector grayed out;
-clicking a node shows properties; clicking an edge shows edge properties (weight, COLLABORATES);
-clicking background clears properties (shows placeholder); Full button hides right column;
+**Manual regression check:** Pending (deploy and verify).
 Fit button fits graph; Reset button resets layout; filter panel still works.
 
 ##### C5-P5 — Collab spotlight

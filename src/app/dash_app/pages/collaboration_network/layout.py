@@ -11,12 +11,13 @@ import dash_bootstrap_components as dbc
 import dash_cytoscape as cyto
 from dash import dcc, html
 
-from app.dash_app.components.common import create_alert
+from app.dash_app.components.common import create_alert, create_controls_bar
 from app.dash_app.pages.graph.styles import CYTOSCAPE_STYLESHEET
 from app.dash_app.styles import (
     COLOR_GRAY_DARK,
     COLOR_GRAY_LIGHTER,
     FONT_SIZE_SMALL,
+    FONT_SIZE_XSMALL,
     FONT_WEIGHT_SEMIBOLD,
 )
 
@@ -174,6 +175,8 @@ def get_layout() -> html.Div:
             # Stores
             dcc.Store(id="collab-elements-store", data=[]),
             dcc.Store(id="collab-community-available-store", data=[]),
+            dcc.Store(id="collab-fullwidth-state", data=False),
+            dcc.Store(id="collab-spotlight-debounced-store", data=""),
 
             # Top bar: back link + live stats banner
             html.Div(
@@ -191,16 +194,17 @@ def get_layout() -> html.Div:
                 style={"padding": "8px 0"},
             ),
 
-            # Main 2-column row: canvas (left) + filter panel (right)
+            # Main 2-column row: canvas (left) + filter + properties (right)
             dbc.Row([
                 dbc.Col([
+                    create_controls_bar("collab", layout_enabled=False),
                     cyto.Cytoscape(
                         id="collab-cytoscape",
                         elements=[],
                         layout=_COLLABORATION_LAYOUT,
                         style={
                             "width": "100%",
-                            "height": "calc(100vh - 160px)",
+                            "height": "calc(100vh - 200px)",
                             "border": f"1px solid {COLOR_GRAY_LIGHTER}",
                             "borderRadius": "2px",
                         },
@@ -222,11 +226,20 @@ def get_layout() -> html.Div:
                             "fontSize": FONT_SIZE_SMALL,
                         },
                     ),
-                ], width=9, style={"paddingRight": "16px"}),
+                ], id="collab-viz-col", width=8, style={"paddingRight": "16px"}),
 
                 dbc.Col([
                     _create_filter_panel(),
-                ], width=3, style={"borderLeft": f"1px solid {COLOR_GRAY_LIGHTER}", "paddingLeft": "16px"}),
+                    html.Hr(style={"margin": "16px 0", "borderColor": COLOR_GRAY_LIGHTER}),
+                    html.Div(
+                        id="collab-details-panel",
+                        children=html.P(
+                            "Select a node or edge to see its properties.",
+                            className="text-muted text-center",
+                            style={"fontSize": FONT_SIZE_XSMALL, "padding": "16px 0"},
+                        ),
+                    ),
+                ], id="collab-details-col", width=4, style={"borderLeft": f"1px solid {COLOR_GRAY_LIGHTER}", "paddingLeft": "16px"}),
             ], className="g-0"),
 
             # Hidden Output target for the clientside render callback.
