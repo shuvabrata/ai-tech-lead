@@ -5,9 +5,9 @@ Callbacks for query validation and execution.
 
 import time
 import requests
-from urllib.parse import parse_qs
-from dash import ctx, html, Input, Output, State, callback
-from dash.exceptions import MissingCallbackContextException
+from urllib.parse import parse_qs, unquote
+from dash import ctx, html, Input, Output, State, callback, no_update
+from dash.exceptions import MissingCallbackContextException, PreventUpdate
 
 from app.settings import settings
 from common.logger import logger
@@ -33,6 +33,8 @@ TIMEOUT_SECONDS = settings.HTTP_REQUEST_TIMEOUT
 @callback(
     Output("query-panel-collapse", "is_open"),
     Output("query-collapse-icon", "className"),
+    Output("graph-query-input", "value"),
+    Output("cypher-autoexec-store", "data"),
     Input("toggle-query-collapse-btn", "n_clicks"),
     Input("url", "search"),
     State("query-panel-collapse", "is_open"),
@@ -45,21 +47,29 @@ def toggle_query_collapse(n_clicks, search, is_open):
     except MissingCallbackContextException:
         triggered_id = None
 
-    # On initial load or URL change, check if there's a catalog deep link
+    # On initial load or URL change, check for deep links
     if triggered_id == "url" or triggered_id is None:
         params = parse_qs((search or "").lstrip("?"))
+
+        # ?cypher= deep-link: pre-fill the query console, open it, and set
+        # the autoexec store so execute_query fires after layout is ready.
+        raw_cypher = params.get("cypher", [None])[0]
+        if raw_cypher:
+            cypher = unquote(raw_cypher)
+            return True, "fas fa-chevron-down me-2", cypher, cypher
+
         if params.get("catalog", [None])[0]:
             # Auto-close query console if deep-linking to a catalog query
-            return False, "fas fa-chevron-right me-2"
+            return False, "fas fa-chevron-right me-2", no_update, no_update
 
     # On button click, toggle the state
     if triggered_id == "toggle-query-collapse-btn" and n_clicks:
         new_is_open = not is_open
         icon_class = "fas fa-chevron-down me-2" if new_is_open else "fas fa-chevron-right me-2"
-        return new_is_open, icon_class
+        return new_is_open, icon_class, no_update, no_update
 
     # Fallback to current state
-    return is_open, "fas fa-chevron-down me-2" if is_open else "fas fa-chevron-right me-2"
+    return is_open, "fas fa-chevron-down me-2" if is_open else "fas fa-chevron-right me-2", no_update, no_update
 
 
 @callback(
@@ -126,7 +136,8 @@ def validate_query(query_text):
     Output("weight-threshold-slider", "value", allow_duplicate=True),
     Output("top-n-toggle", "value", allow_duplicate=True)],
     [Input("graph-execute-btn", "n_clicks"),
-     Input("catalog-run-btn", "n_clicks")],
+     Input("catalog-run-btn", "n_clicks"),
+     Input("cypher-autoexec-store", "data")],
     [State("graph-query-input", "value"),
      State("selected-catalog-query-store", "data"),
      State("catalog-parameters-store", "data"),
@@ -136,6 +147,7 @@ def validate_query(query_text):
 def execute_query(
     _raw_clicks,
     _catalog_clicks,
+    store_cypher,
     query_text,
     selected_catalog_query,
     catalog_parameters,
@@ -201,6 +213,13 @@ def execute_query(
         triggered_id = ctx.triggered_id or "graph-execute-btn"
     except MissingCallbackContextException:
         triggered_id = "graph-execute-btn"
+
+    # ?cypher= deep-link: the store was set by toggle_query_collapse after
+    # the layout was rendered — safe to execute now.
+    if triggered_id == "cypher-autoexec-store":
+        if not store_cypher:
+            raise PreventUpdate
+        query_text = store_cypher
 
     if triggered_id == "catalog-run-btn":
         selected_catalog_query = selected_catalog_query or {}

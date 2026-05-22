@@ -11,6 +11,7 @@ import os
 import re
 import requests
 from datetime import datetime
+from urllib.parse import quote
 
 from dash import callback, ctx, dcc, html, no_update, Input, Output, State
 import dash_bootstrap_components as dbc
@@ -206,6 +207,15 @@ def _build_attributes_table(attributes: dict) -> html.Table:
     return html.Table(html.Tbody(rows), style=DETAILS_TABLE_STYLE)
 
 
+def _build_node_cypher(wba_id: str) -> str:
+    """Build a Cypher query that loads a node and its immediate neighbours."""
+    return (
+        f"MATCH (n {{id: '{wba_id}'}}) "
+        f"OPTIONAL MATCH (n)-[r]-(m) "
+        f"RETURN n, r, m LIMIT 50"
+    )
+
+
 def _parse_highlight(highlight: str) -> list:
     """Split a highlight string with <em> tags into a list of Dash components.
 
@@ -294,7 +304,7 @@ def _build_result_card(result: dict, full: bool) -> html.Div:
             ),
             dbc.Button(
                 ["View in Graph ", html.I(className="fas fa-project-diagram ms-1")],
-                href=f"/app/graph?node_id={wba_id}",
+                href=f"/app/graph?cypher={quote(_build_node_cypher(wba_id))}",
                 color="primary",
                 outline=True,
                 size="sm",
