@@ -562,20 +562,19 @@ collaboration_network/
 **Manual regression check:** Load Analytics → Open Visualization. Graph renders identically
 (nodes, edges, community colours, filters work). No console errors.
 
-##### C5-P2 — Shared components extraction + graph page refactor
+##### C5-P2 — Shared components extraction + graph page refactor ✅ Complete (2026-05-22)
 
-- [ ] Add `create_controls_bar()` to `src/app/dash_app/components/common.py`
-- [ ] Add `build_element_properties_content()` to `src/app/dash_app/components/common.py`
-- [ ] **Move** `toggle_details_panel()` from `graph/utils/ui_components.py` to
-  `components/common.py`; update import in `graph/callbacks/display.py`
-- [ ] Refactor `src/app/dash_app/pages/graph/layout.py` to call `create_controls_bar("graph")`
-- [ ] Refactor `src/app/dash_app/pages/graph/callbacks/display.py` to call
+- [x] Add `create_controls_bar()` to `src/app/dash_app/components/common.py`
+- [x] Add `build_element_properties_content()` to `src/app/dash_app/components/common.py`
+- [x] **Move** `toggle_details_panel()` from `graph/utils/ui_components.py` to
+  `components/common.py`; re-exported from `ui_components` so existing import chain is preserved
+- [x] Refactor `src/app/dash_app/pages/graph/layout.py` to call `create_controls_bar("graph")`
+- [x] Refactor `src/app/dash_app/pages/graph/callbacks/display.py` to call
   `build_element_properties_content(data, expand_node_enabled=True)`
-- [ ] New unit tests for `create_controls_bar` and `build_element_properties_content`
-  in `tests/test_shared_graph_components.py`
+- [x] New unit tests in `tests/test_shared_graph_components.py` (25 tests)
+- [x] Updated `tests/test_graph_display_callbacks.py` to import helpers from new location
 
-**Manual regression check:** Navigate to graph page. Controls bar, spotlight, properties
-panel, Fit/Reset/Full all behave identically to before.
+**Manual regression check:** All 17 checks passed (2026-05-22).
 
 ##### C5-P3 — Collab page package restructure
 
