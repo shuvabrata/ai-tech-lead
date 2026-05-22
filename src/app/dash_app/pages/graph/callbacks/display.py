@@ -51,10 +51,10 @@ def toggle_fullwidth(_n_clicks, is_fullwidth):
     Output("graph-details-panel", "children"),
     [Input("graph-cytoscape", "selectedNodeData"),
      Input("graph-cytoscape", "selectedEdgeData"),
-    Input("graph-cytoscape", "elements"),
-    Input("theme-store", "data")]
+     Input("theme-store", "data")],
+    State("graph-cytoscape", "elements"),
 )
-def display_properties(selected_nodes, selected_edges, elements, theme_name):
+def display_properties(selected_nodes, selected_edges, theme_name, elements):
     """Display detailed properties of selected node or edge"""
     # Extract unique node types from current graph elements
     node_types = set()
