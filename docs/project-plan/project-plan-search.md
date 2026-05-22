@@ -605,7 +605,7 @@ collaboration_network/
 - [x] Updated `collaboration_network/callbacks/__init__.py` to import `navigation`, `display`
 - [x] New unit tests in `tests/test_collab_network_controls.py` (13 tests)
 
-**Manual regression check:** Pending (deploy and verify).
+**Manual regression check:** All 19 checks passed (2026-05-22).
 Fit button fits graph; Reset button resets layout; filter panel still works.
 
 ##### C5-P5 — Collab spotlight
