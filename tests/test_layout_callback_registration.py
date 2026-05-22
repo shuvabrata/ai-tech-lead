@@ -78,18 +78,24 @@ def test_persist_theme_output_registered(registered_outputs):
     )
 
 
-def test_apply_theme_class_output_registered(registered_outputs):
-    """apply_theme_class must output to app-shell.className.
+def test_apply_theme_output_registered(registered_outputs):
+    """apply_theme must output to app-shell.className.
 
-    ``apply_theme_class`` reads the ``theme-store`` value and applies the
-    matching CSS class (``theme-executive-light`` / ``theme-executive-dark``)
-    to the top-level ``app-shell`` container.  Without this Output the class
-    is never toggled and the dark-mode CSS variables are never activated.
+    ``apply_theme`` reads the ``theme-store`` value and applies the matching
+    CSS class (``theme-executive-light`` / ``theme-executive-dark``) to the
+    top-level ``app-shell`` container.  Without this Output the theme CSS
+    variables are never activated regardless of the toggle button state.
+    It also outputs to ``theme-icon.className`` to swap the sun/moon icon.
     """
     assert _has_output(registered_outputs, "app-shell", "className"), (
-        "apply_theme_class is missing Output('app-shell', 'className'). "
+        "apply_theme is missing Output('app-shell', 'className'). "
         "The theme CSS class will never be applied — "
-        "check the @app.callback decorator of apply_theme_class in layout.py."
+        "check the @app.callback decorator of apply_theme in layout.py."
+    )
+    assert _has_output(registered_outputs, "theme-icon", "className"), (
+        "apply_theme is missing Output('theme-icon', 'className'). "
+        "The sun/moon icon will never update when the theme changes — "
+        "check the @app.callback decorator of apply_theme in layout.py."
     )
 
 
@@ -123,6 +129,20 @@ def test_navigate_global_search_search_param_registered(registered_outputs):
         "navigate_global_search is missing Output('url', 'search'). "
         "The navbar search will navigate to /app/search but the query term "
         "will not be passed — check the @app.callback decorator in layout.py."
+    )
+
+
+def test_navigate_global_search_clears_input_registered(registered_outputs):
+    """navigate_global_search must output to global-search-input.value.
+
+    After navigating to the search page, the navbar input must be cleared so
+    the query does not persist across subsequent page navigations.  Without
+    this Output the search term stays visible in the navbar indefinitely.
+    """
+    assert _has_output(registered_outputs, "global-search-input", "value"), (
+        "navigate_global_search is missing Output('global-search-input', 'value'). "
+        "The navbar search input will not clear after submission — "
+        "check the @app.callback decorator of navigate_global_search in layout.py."
     )
 
 
