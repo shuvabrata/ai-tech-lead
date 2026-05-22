@@ -2,10 +2,25 @@
 
 from dash import Input, Output, callback, clientside_callback
 
-from app.dash_app.components.common import register_fullwidth_callback
+from app.dash_app.components.common import register_fullwidth_callback, toggle_details_panel
 from ..layout import _COLLABORATION_LAYOUT
 
 register_fullwidth_callback("collab")
+
+
+def toggle_collab_fullwidth(n_clicks: int, is_fullwidth: bool) -> tuple:
+    """Toggle fullwidth mode for the collaboration network page.
+
+    Args:
+        n_clicks: Number of times the button has been clicked.
+        is_fullwidth: Current fullwidth state.
+
+    Returns:
+        (new_state, viz_width, panel_style) tuple.
+    """
+    new_state = not is_fullwidth
+    viz_width, panel_style = toggle_details_panel(new_state)
+    return new_state, viz_width, panel_style
 
 
 # Clientside callback — fit graph to viewport when Fit button is clicked
