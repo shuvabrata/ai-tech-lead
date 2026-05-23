@@ -46,6 +46,7 @@ from connectors.neo4j_db.models import (
     merge_person,
     merge_project,
     merge_pull_request,
+    merge_relationship,
     merge_repository,
     merge_sprint,
     merge_team,
@@ -299,6 +300,10 @@ def _handle_person(
                     email=email or "",
                     last_updated_at=datetime.now(timezone.utc).isoformat(),
                 )
+                if signal.relationships:
+                    db_rels = _to_db_relationships(session, signal.relationships, person_id, "Person")
+                    for rel in db_rels:
+                        merge_relationship(session, rel)
             return person_id
 
         elif signal.source == "jira":
@@ -324,6 +329,10 @@ def _handle_person(
                     email=email or "",
                     last_updated_at=datetime.now(timezone.utc).isoformat(),
                 )
+                if signal.relationships:
+                    db_rels = _to_db_relationships(session, signal.relationships, person_id, "Person")
+                    for rel in db_rels:
+                        merge_relationship(session, rel)
             return person_id
 
     # Fallback: no PersonCache — original behaviour, no cross-provider dedup.
