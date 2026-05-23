@@ -75,7 +75,7 @@ graph TD
     Custom --> Base
 ```
 
-> **Design Decision — LangChain:** LangChain was deliberately chosen as the integration layer for the Neo4j chain (`GraphCypherQAChain`) to leverage its automatic schema introspection, Cypher generation, and result formatting pipeline. However, this introduced a hard coupling to the OpenAI provider and LangChain's own model client, which conflicted with the provider-agnostic design goal above. A provider-native pipeline was subsequently added (controlled by `FF_NEO4J_USE_PROVIDER_PIPELINE`) to decouple the Neo4j chain from LangChain and support any provider. Both paths remain active pending full validation of the provider-native path.
+> **Design Decision — LangChain:** LangChain is the out-of-the-box integration layer for the Neo4j chain, using `GraphCypherQAChain` for automatic schema introspection, Cypher generation, and result formatting. It requires the OpenAI provider and is the default path. For deployments where OpenAI cannot be used, the provider-native pipeline (`FF_NEO4J_USE_PROVIDER_PIPELINE=true`) provides an equivalent flow that works with any configured provider.
 
 ---
 
@@ -226,7 +226,7 @@ The agent exposes its full processing pipeline to the client as a Server-Sent Ev
 ### Persistence & History
 
 - **Persist chat history to the database** — the current in-memory store is lost on restart; sessions cannot be resumed.
-- **Multi-turn MCP context** — MCP tool results are discarded after each turn; the LLM loses tool context in follow-up messages.
+- **Multi-turn MCP context** — MCP tool results are discarded after each turn; the LLM loses tool context in follow-up messages. Example: Turn 1 asks "What PRs is Alice working on?" — the MCP chain calls `github__list_pull_requests` and the LLM responds with three PRs. Turn 2 asks "Tell me more about the rate limiting one" — without retained tool context the MCP chain must re-fetch from GitHub from scratch instead of drilling into already-retrieved data.
 
 ### UX Enhancements
 
@@ -236,6 +236,5 @@ The agent exposes its full processing pipeline to the client as a Server-Sent Ev
 ### Architecture
 
 - **Parallel chain execution** — the Neo4j and MCP chains are independent and currently run sequentially; running them concurrently would reduce augmentation latency by roughly half.
-- **Complete the provider-native Neo4j migration** — validate the `FF_NEO4J_USE_PROVIDER_PIPELINE` path fully, then retire the LangChain dependency and remove the feature flag.
 - **Adaptive Cypher query generation** — the current pipeline generates one Cypher query per request; the first attempt may not retrieve the right data. A retry or refinement mechanism (e.g. inspect empty or unexpected results and re-prompt the LLM with that feedback to generate a corrected query) would improve answer quality for complex or ambiguous questions.
 - **Observability** — add structured per-request tracing (which chains fired, Cypher queries generated, MCP tools called) to aid debugging and performance analysis.
