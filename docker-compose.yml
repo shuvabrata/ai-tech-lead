@@ -35,6 +35,7 @@ services:
       # Override DATABASE_URL to use 'postgres' service name instead of 'localhost'
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       LLM_PROVIDER: ${LLM_PROVIDER}
+      CUSTOM_LLM_MODEL: ${CUSTOM_LLM_MODEL}
       LLM_MODEL: ${LLM_MODEL}
       # Backward compatibility aliases (app uses LLM_MODEL)
       OPENAI_MODEL: ${OPENAI_MODEL}
