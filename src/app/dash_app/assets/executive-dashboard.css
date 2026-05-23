@@ -325,13 +325,13 @@ input::placeholder {
     outline: none;
 }
 
-#send-button:hover {
+.chat-submit-btn:hover {
     background-color: var(--color-navy-dark) !important;
     transform: translateY(-1px);
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
-#send-button:active {
+.chat-submit-btn:active {
     transform: translateY(0);
 }
 
