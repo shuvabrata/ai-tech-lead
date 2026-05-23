@@ -31,7 +31,6 @@ from app.dash_app.styles import (
     SPACING_SMALL,
     SPACING_MEDIUM,
     SPACING_LARGE,
-    BUTTON_PRIMARY_STYLE
 )
 
 TIMEOUT_SECONDS = settings.HTTP_REQUEST_TIMEOUT
@@ -116,11 +115,10 @@ def get_layout():
                         dbc.Button(
                             "Submit",
                             id="send-button",
-                            className="w-100",
-                            style={
-                                **BUTTON_PRIMARY_STYLE,
-                                "height": "68px"
-                            }
+                            color="primary",
+                            size="sm",
+                            style={"borderRadius": "2px", "height": "68px"},
+                            className="chat-submit-btn w-100"
                         )
                     ], width=2)
                 ], className="g-3"),
