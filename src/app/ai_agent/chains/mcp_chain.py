@@ -55,7 +55,7 @@ def _enabled_backends() -> list[str]:
     return backends
 
 
-def _check_mcp_relevance(user_message: str, provider: Any) -> bool:
+def _check_mcp_relevance(user_message: str, provider: Any, conversation_history: list[dict] | None = None) -> bool:
     """Use the configured provider to decide if MCP tools are likely useful."""
     backends = _enabled_backends()
     if not backends:
@@ -69,11 +69,20 @@ def _check_mcp_relevance(user_message: str, provider: Any) -> bool:
 
     criteria_text = "\n".join(criteria)
 
+    history_block = ""
+    if conversation_history:
+        lines = ["## Conversation History (most recent last)"]
+        for msg in conversation_history:
+            role = msg.get("role", "unknown").capitalize()
+            content = msg.get("content", "")
+            lines.append(f"{role}: {content}")
+        history_block = "\n".join(lines) + "\n\n"
+
     relevance_prompt = f"""Determine whether this question requires MCP context from enabled backends.
 
 Enabled MCP backends: {", ".join(backends)}
 
-Question: {user_message}
+{history_block}Question: {user_message}
 
 Respond with only YES or NO.
 Use YES only if the user asks about any of the following:
@@ -91,6 +100,7 @@ Use YES only if the user asks about any of the following:
 async def augment_message_with_mcp_stream(
     user_message: str,
     provider: Any,
+    conversation_history: list[dict] | None = None,
 ) -> AsyncIterator[dict]:
     """Async generator that augments a message with MCP context and yields thinking chunks.
 
@@ -108,6 +118,7 @@ async def augment_message_with_mcp_stream(
     Args:
         user_message: The user's original message.
         provider: LLM provider instance used for tool selection and relevance checks.
+        conversation_history: Optional list of prior turn dicts for context resolution.
 
     Yields:
         dict: SSE-compatible event dictionaries.
@@ -136,7 +147,7 @@ async def augment_message_with_mcp_stream(
     yield {"type": "thinking_chunk", "content": f"Checking if query needs MCP tools ({', '.join(backends)})..."}
     try:
         is_relevant = await asyncio.wait_for(
-            asyncio.to_thread(_check_mcp_relevance, user_message, provider),
+            asyncio.to_thread(_check_mcp_relevance, user_message, provider, conversation_history),
             timeout=20.0,
         )
     except asyncio.TimeoutError:
@@ -188,6 +199,15 @@ async def augment_message_with_mcp_stream(
 
     # ── Step 3: tool selection and execution loop ─────────────────────────────
     max_iterations = max(1, settings.MAX_MCP_ITERATIONS)
+    # Seed the messages list with conversation history so the LLM picks tools
+    # with full conversational context (resolves pronouns and prior references).
+    history_seed: list[dict[str, Any]] = []
+    if conversation_history:
+        for msg in conversation_history:
+            role = msg.get("role", "")
+            content = msg.get("content", "")
+            if role in ("user", "assistant") and content:
+                history_seed.append({"role": role, "content": content})
     messages: list[dict[str, Any]] = [
         {
             "role": "system",
@@ -196,6 +216,7 @@ async def augment_message_with_mcp_stream(
                 "Only call tools that are necessary for the user request."
             ),
         },
+        *history_seed,
         {"role": "user", "content": user_message},
     ]
     collected_results: list[dict[str, Any]] = []

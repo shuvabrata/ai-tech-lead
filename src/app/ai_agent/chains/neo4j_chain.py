@@ -83,7 +83,27 @@ def _build_schema_snapshot(graph):
     return getattr(graph, "schema", "")
 
 
-def _query_neo4j_with_provider_pipeline(user_message, provider, graph):
+def _format_history_block(conversation_history: list[dict] | None) -> str:
+    """Format conversation history as a readable block for LLM prompts.
+
+    Args:
+        conversation_history: List of prior {role, content} dicts (system excluded).
+
+    Returns:
+        Formatted string block, or empty string when history is absent.
+    """
+    if not conversation_history:
+        return ""
+    lines = ["## Conversation History (most recent last)"]
+    for msg in conversation_history:
+        role = msg.get("role", "unknown").capitalize()
+        content = msg.get("content", "")
+        lines.append(f"{role}: {content}")
+    lines.append("")  # blank line separator before current question
+    return "\n".join(lines) + "\n"
+
+
+def _query_neo4j_with_provider_pipeline(user_message, provider, graph, conversation_history=None):
     """Provider-native Neo4j query flow (feature-flagged).
 
     Flow:
@@ -93,6 +113,7 @@ def _query_neo4j_with_provider_pipeline(user_message, provider, graph):
     4. Ask provider to format results in natural language
     """
     schema_snapshot = _build_schema_snapshot(graph)
+    history_block = _format_history_block(conversation_history)
 
     cypher_generation_prompt = f"""You are a Neo4j expert. Generate one read-only Cypher query.
 
@@ -102,7 +123,7 @@ def _query_neo4j_with_provider_pipeline(user_message, provider, graph):
 ## Domain Context & Guidelines
 {NEO4J_SCHEMA_PROMPT}
 
-## User Question
+{history_block}## User Question
 {user_message}
 
 Rules:
@@ -152,7 +173,7 @@ Rules:
     ), cypher_query
 
 
-def check_neo4j_relevance(user_message, provider=None):
+def check_neo4j_relevance(user_message, provider=None, conversation_history=None):
     """Check if user message is relevant to Neo4j graph database query.
     
     Uses LLM to determine if the query relates to enterprise software
@@ -161,6 +182,7 @@ def check_neo4j_relevance(user_message, provider=None):
     Args:
         user_message: The user's question/message
         provider: Optional LLM provider instance. If None, uses default OpenAI.
+        conversation_history: Optional list of prior turn dicts for context resolution.
         
     Returns:
         Boolean indicating if the message is relevant to Neo4j data
@@ -169,6 +191,8 @@ def check_neo4j_relevance(user_message, provider=None):
     if provider is None:
         from app.ai_agent.providers import get_provider
         provider = get_provider()
+
+    history_block = _format_history_block(conversation_history)
         
     relevance_prompt = f"""Analyze if this question relates to enterprise software development data including:
 - People, teams, organizational structure
@@ -177,7 +201,7 @@ def check_neo4j_relevance(user_message, provider=None):
 - Code files and their relationships
 - Work assignments and traceability
 
-Question: {user_message}
+{history_block}Question: {user_message}
 
 Respond with only 'YES' if relevant to the above domains, or 'NO' if not."""
     
@@ -220,7 +244,9 @@ def query_neo4j_with_chain(user_message, provider=None, _meta_out=None):
     try:
         if settings.FF_NEO4J_USE_PROVIDER_PIPELINE:
             logger.info("Using feature-flagged provider-native Neo4j pipeline")
-            result, cypher_query = _query_neo4j_with_provider_pipeline(user_message, provider, graph)
+            result, cypher_query = _query_neo4j_with_provider_pipeline(
+                user_message, provider, graph, conversation_history=_meta_out.get("conversation_history") if _meta_out else None
+            )
             if _meta_out is not None and cypher_query:
                 _meta_out["neo4j_query"] = cypher_query
             return result
@@ -299,7 +325,7 @@ Cypher Query:"""
         return None
 
 
-def augment_message_with_neo4j(user_message, provider=None, _meta_out=None):
+def augment_message_with_neo4j(user_message, provider=None, _meta_out=None, conversation_history=None):
     """Augment user message with Neo4j data if relevant.
     
     This is the main entry point for Neo4j integration. It:
@@ -310,6 +336,8 @@ def augment_message_with_neo4j(user_message, provider=None, _meta_out=None):
     Args:
         user_message: The user's original message
         provider: Optional LLM provider instance. If None, uses default OpenAI.
+        _meta_out: Optional mutable dict populated in-place with query metadata.
+        conversation_history: Optional list of prior turn dicts for context resolution.
         
     Returns:
         Augmented message with Neo4j data, or original message if not relevant
@@ -323,13 +351,16 @@ def augment_message_with_neo4j(user_message, provider=None, _meta_out=None):
         return user_message
     
     # Check if query is relevant
-    if not check_neo4j_relevance(user_message, provider):
+    if not check_neo4j_relevance(user_message, provider, conversation_history=conversation_history):
         logger.info("User message not relevant to Neo4j data")
         return user_message
     
     logger.info("User message is relevant to Neo4j")
     
-    # Query Neo4j using chain mode
+    # Query Neo4j using chain mode; carry conversation_history in meta_out for
+    # the provider-native pipeline to pick up.
+    if _meta_out is not None and conversation_history is not None:
+        _meta_out["conversation_history"] = conversation_history
     context_data = query_neo4j_with_chain(user_message, provider, _meta_out=_meta_out)
     
     if context_data:
@@ -349,6 +380,7 @@ Please respond with this information in a natural, conversational way."""
 async def augment_message_with_neo4j_stream(
     user_message: str,
     provider=None,
+    conversation_history: list[dict] | None = None,
 ) -> AsyncIterator[dict]:
     """Async generator that augments a message with Neo4j context and yields thinking chunks.
 
@@ -363,6 +395,7 @@ async def augment_message_with_neo4j_stream(
     Args:
         user_message: The user's original message.
         provider: Optional LLM provider instance.
+        conversation_history: Optional list of prior turn dicts for context resolution.
 
     Yields:
         dict: SSE-compatible event dictionaries.
@@ -371,7 +404,13 @@ async def augment_message_with_neo4j_stream(
     meta_out: dict = {}
     try:
         result = await asyncio.wait_for(
-            asyncio.to_thread(augment_message_with_neo4j, user_message, provider=provider, _meta_out=meta_out),
+            asyncio.to_thread(
+                augment_message_with_neo4j,
+                user_message,
+                provider=provider,
+                _meta_out=meta_out,
+                conversation_history=conversation_history,
+            ),
             timeout=60.0,
         )
     except asyncio.TimeoutError:

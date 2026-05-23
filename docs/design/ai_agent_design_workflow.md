@@ -16,6 +16,7 @@ graph TB
         Agent["ai_agent.py<br/>Session Store / stream_chat()"]
         Orchestrator["chains/chains.py<br/>Augmentation Orchestrator"]
         NChain["chains/neo4j_chain.py<br/>Neo4j Chain"]
+        ESChain["chains/elasticsearch_chain.py<br/>Elasticsearch Chain"]
         MChain["chains/mcp_chain.py<br/>MCP Chain"]
         Factory["providers/factory.py<br/>get_provider()"]
         OAI["providers/openai<br/>OpenAIProvider"]
@@ -27,6 +28,7 @@ graph TB
 
     subgraph External["External Systems"]
         Neo4j[("Neo4j")]
+        ES[("Elasticsearch")]
         LLMAPI["LLM API<br/>(OpenAI / Custom)"]
         GitHubMCPSrv["GitHub MCP Server"]
         AtlassianMCPSrv["Atlassian MCP Server"]
@@ -35,9 +37,12 @@ graph TB
     Agent --> Orchestrator
     Agent --> Factory
     Orchestrator --> NChain
+    Orchestrator --> ESChain
     Orchestrator --> MChain
     NChain --> Factory
     NChain --> Neo4j
+    ESChain --> Factory
+    ESChain --> ES
     MChain --> Factory
     MChain --> Executor
     Factory --> OAI
@@ -55,6 +60,7 @@ graph TB
 | `ai_agent.py` | Session lifecycle, streaming phases, token pruning |
 | `chains/chains.py` | Fan-out to active chains; composes context envelopes into one prompt block |
 | `chains/neo4j_chain.py` | Graph database augmentation via Cypher query generation and execution |
+| `chains/elasticsearch_chain.py` | Entity search and discovery augmentation via structured ES queries |
 | `chains/mcp_chain.py` | External tool augmentation via MCP protocol (multi-iteration tool loop) |
 | `providers/factory.py` | Singleton LLM provider factory; OpenAI is supported out of the box; a custom provider extension point is available for users who want to use a different LLM |
 | `mcp_integration/tool_executor.py` | Namespace-based routing of tool calls to the correct MCP backend |
@@ -87,17 +93,19 @@ Before a message reaches the LLM, `augment_message_stream()` in `chains.py` fans
 graph LR
     Input["User Message"] --> Orchestrator["augment_message_stream()<br/>chains.py"]
     Orchestrator -->|"NEO4J_ENABLED=true"| NChain["Neo4j Chain"]
+    Orchestrator -->|"ELASTICSEARCH_ENABLED=true"| ESChain["Elasticsearch Chain"]
     Orchestrator -->|"backends enabled"| MChain["MCP Chain"]
     NChain -->|"context envelope"| Compose["_compose_multi_source_message()"]
+    ESChain -->|"context envelope"| Compose
     MChain -->|"context envelope"| Compose
     Compose --> Output["Augmented Message to LLM"]
 ```
 
-Chains run **sequentially**. If neither chain applies, the original message is passed to the LLM unchanged.
+Chains run **sequentially** in the order: Neo4j → Elasticsearch → MCP. If no chain applies, the original message is passed to the LLM unchanged.
 
 ### Relevance Gate Pattern
 
-Both chains open with an inexpensive yes/no LLM call to decide whether the message warrants augmentation. This avoids injecting irrelevant context on every turn at the cost of one extra LLM round-trip per active chain.
+Each chain opens with an inexpensive yes/no LLM call to decide whether the message warrants augmentation. This avoids injecting irrelevant context on every turn at the cost of one extra LLM round-trip per active chain.
 
 ```mermaid
 flowchart LR
@@ -122,6 +130,32 @@ flowchart TD
     Neo4j --> Envelope([Envelope: Neo4j context])
 ```
 
+### Elasticsearch Chain
+
+Fires for **search and discovery** intent — find, list, filter, or look up entities by keyword, name, identifier, status, priority, or date range. It does **not** fire for graph traversal or relationship queries; those are handled by Neo4j.
+
+Two LLM calls are made per request, consistent with the Neo4j and MCP pattern:
+1. **Relevance gate** — a cheap focused YES/NO call (no schema context) decides whether to proceed.
+2. **Query generation** — the full `es_prompt.md` schema prompt plus conversation history produces a validated `SearchRequest` JSON object. If the LLM cannot build a valid query, the chain returns silently with `applied=False`. **There is no raw-message fallback.**
+
+The generated `SearchRequest` is executed via the existing `service.search()` function with `full=True` to retrieve all indexed attributes. Results are formatted into a numbered list with entity type, source, event time, URL, and truncated attribute values (200-char limit).
+
+```mermaid
+flowchart TD
+    Start([User Message]) --> Gate{Relevance Gate}
+    Gate -->|Not relevant| Skip([Envelope: not applied])
+    Gate -->|Relevant| QueryGen["Query Generation LLM call<br/>(es_prompt.md schema + history)"]
+    QueryGen -->|Invalid JSON or relevant=false| Skip
+    QueryGen -->|Valid SearchRequest| ES["service.search()<br/>(Elasticsearch)"]
+    ES --> Format["Format results into<br/>numbered context block"]
+    Format --> Envelope([Envelope: ES context])
+```
+
+**Configuration:**
+- `ELASTICSEARCH_ENABLED` — feature flag (default `false`)
+- `ES_CHAIN_MAX_RESULTS` — max hits included in the context block (default `5`)
+- `AUGMENTATION_HISTORY_TURNS` — prior turns passed to both LLM calls for reference resolution (shared with all chains)
+
 ### MCP Chain
 
 Discovers tools from enabled backends (GitHub, Atlassian) and runs a multi-iteration tool-selection and execution loop capped at `MAX_MCP_ITERATIONS`. See [MCP Orchestration Detail](#mcp-orchestration-detail) for the full loop.
@@ -137,9 +171,11 @@ sequenceDiagram
     participant Agent as ai_agent.py
     participant Chains as chains.py
     participant NChain as Neo4j Chain
+    participant ESChain as ES Chain
     participant MChain as MCP Chain
     participant Provider as LLM Provider
     participant Neo4j as Neo4j DB
+    participant ES as Elasticsearch
     participant MCP as MCP Servers
 
     UI->>API: POST /api/v1/chats (SSE stream)
@@ -156,10 +192,21 @@ sequenceDiagram
     Neo4j-->>NChain: results
     NChain-->>Chains: context envelope
 
+    Note over Chains,ES: Elasticsearch Chain (if ELASTICSEARCH_ENABLED)
+    Chains->>ESChain: augment_message_with_es_stream()
+    ESChain->>Provider: Relevance Gate
+    ESChain-->>UI: thinking_chunk (progress)
+    ESChain->>Provider: Query generation (es_prompt.md)
+    ESChain-->>UI: thinking_chunk (progress)
+    ESChain->>ES: service.search(SearchRequest)
+    ES-->>ESChain: results
+    ESChain-->>Chains: context envelope
+
     Note over Chains,MCP: MCP Chain (if backends enabled)
     Chains->>MChain: augment_message_with_mcp_stream()
     MChain->>Provider: Relevance Gate
     MChain-->>UI: thinking_chunk (progress)
+
     loop up to MAX_MCP_ITERATIONS
         MChain->>Provider: select tools
         MChain->>MCP: execute tool calls

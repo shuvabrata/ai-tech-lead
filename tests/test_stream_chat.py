@@ -222,7 +222,7 @@ class TestStreamChatEventSequence:
         """thinking_chunk events from augment_message_stream are forwarded to the SSE stream."""
         session_id, ai_agent_mod = _session
 
-        async def _augment_with_thinking(user_message, provider=None):
+        async def _augment_with_thinking(user_message, provider=None, conversation_history=None):
             yield {"type": "thinking_chunk", "content": "Checking graph..."}
             yield {"type": "thinking_end"}
             yield {"type": "augmented_message", "content": user_message}

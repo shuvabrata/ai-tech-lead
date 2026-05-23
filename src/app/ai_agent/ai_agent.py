@@ -24,6 +24,7 @@ from dotenv import load_dotenv
 from common.logger import logger, LogContext
 from app.ai_agent.providers import get_provider
 from app.ai_agent.chains import augment_message_stream
+from app.settings import settings
 
 # In-memory session store: {session_id: [messages]}
 _chat_sessions = {}
@@ -264,7 +265,16 @@ async def stream_chat(
             final_augmented_message = user_message
             chain_sources: list = []
             try:
-                async for event in augment_message_stream(user_message, provider=_provider):
+                # Slice the last AUGMENTATION_HISTORY_TURNS turns (excl. system msg)
+                # and pass to all chains for pronoun/entity reference resolution.
+                raw_history = _chat_sessions.get(session_id, [])
+                non_system = [m for m in raw_history if m["role"] != "system"]
+                history_window = non_system[-(settings.AUGMENTATION_HISTORY_TURNS * 2):]
+                async for event in augment_message_stream(
+                    user_message,
+                    provider=_provider,
+                    conversation_history=history_window or None,
+                ):
                     if event["type"] == "augmented_message":
                         final_augmented_message = event["content"]
                         chain_sources = event.get("sources_used", [])
