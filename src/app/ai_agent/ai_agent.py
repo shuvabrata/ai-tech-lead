@@ -56,8 +56,9 @@ except ValueError as e:
     print(f"Error initializing LLM provider: {e}")
     sys.exit(1)
 
-# Load model name from environment or use provider's default
-LLM_MODEL = os.getenv("LLM_MODEL") or _provider.default_model
+# Use the provider's resolved default model (e.g. CUSTOM_LLM_MODEL for custom provider,
+# LLM_MODEL for OpenAI). Avoids cross-provider env var contamination.
+LLM_MODEL = _provider.default_model
 
 # Load max tokens from environment or use default
 MAX_TOKENS = int(os.getenv("MAX_TOKENS", "16000"))
