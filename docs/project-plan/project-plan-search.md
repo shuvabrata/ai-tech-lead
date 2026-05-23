@@ -629,23 +629,29 @@ Fit button fits graph; Reset button resets layout; filter panel still works.
 (amber border); non-matching nodes and edges dimmed; count label updates;
 clearing input restores all nodes; existing filter still applies on top of spotlight.
 
-#### C4 — AI Agent Elasticsearch chain ⏸ Pending (blocked)
+#### C4 — AI Agent Elasticsearch chain ✅ Complete (2026-05-23)
 
-> **Status:** Blocked on chat completion / streaming pipeline issues. Will resume once
-> the underlying chat stream is stable.
+> **Completed as part of [Elasticsearch Augmentation Chain project plan](completed/project-plan-elasticsearch-augmentation-chain.md).**
+> The implementation scope expanded significantly from the original spec: two LLM calls
+> (relevance gate + structured query generation via `es_prompt.md`) instead of a raw
+> message pass-through; conversation history threading into all three chains; and
+> `ES_CHAIN_MAX_RESULTS` (not `ELASTICSEARCH_SEARCH_CHAIN_MAX_RESULTS`) as the setting name.
 
 Integrates ES search into the AI chat augmentation pipeline so the agent can ground
 its answers with real entity data from Elasticsearch.
 
-- [ ] Create `src/app/ai_agent/chains/elasticsearch_chain.py`:
-  - Async generator following the existing chain contract
-  - Passes the user message directly as `q` to `GET /api/v1/search` with `full=true`,
-    capped at a small result set (configurable via `ELASTICSEARCH_SEARCH_CHAIN_MAX_RESULTS`)
-  - Yields `{"source": "elasticsearch", "context": "<formatted entity summary>"}` envelope
-  - Returns immediately (empty envelope) when `ELASTICSEARCH_ENABLED=false`
-- [ ] Register in `chains.py` `augment_message_stream()` guarded by
-  `settings.ELASTICSEARCH_ENABLED`, alongside the existing Neo4j and MCP chains
-- [ ] Add `ELASTICSEARCH_SEARCH_CHAIN_MAX_RESULTS: int = 5` to `settings.py`
+- [x] Create `src/app/ai_agent/chains/elasticsearch_chain.py`:
+  - Relevance gate (cheap YES/NO LLM call) + structured query generation (full `es_prompt.md` schema prompt)
+  - Generates a validated `SearchRequest` JSON — never falls back to raw message as query
+  - Calls `service.search()` with `full=True`; formats top-N results as a bounded context block
+  - Returns `applied=False` silently on any failure path
+  - Returns immediately (`applied=False`) when `ELASTICSEARCH_ENABLED=false`
+- [x] Register in `chains.py` `augment_message_stream()` guarded by
+  `settings.ELASTICSEARCH_ENABLED`, between the Neo4j and MCP blocks
+- [x] Add `ES_CHAIN_MAX_RESULTS: int = 5` and `AUGMENTATION_HISTORY_TURNS: int = 5` to `settings.py`
+- [x] Wire `conversation_history` into all three chains (Neo4j, ES, MCP) for pronoun/reference resolution across turns
+- [x] Create `src/app/ai_agent/es_prompt.md` — static curated schema prompt (entity registry, field mappings, relevance criteria, `SearchRequest` JSON schema)
+- [x] Create `tests/test_elasticsearch_chain.py` (41 unit tests) and `tests/test_augmentation_history.py` (14 unit tests)
 
 ### Phase D — Tests
 
