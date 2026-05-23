@@ -339,6 +339,11 @@ clientside_callback(
                 const key = e.key.toLowerCase();
                 const timestamp = Date.now();
                 
+                // Ignore any combination with Ctrl/Meta/Alt — let the browser handle those
+                if (e.ctrlKey || e.metaKey || e.altKey) {
+                    return;
+                }
+                
                 // E key: Expand selected node
                 if (key === 'e') {
                     e.preventDefault();
