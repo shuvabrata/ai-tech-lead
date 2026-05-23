@@ -482,8 +482,9 @@ def render_messages(messages):
                             }
                         ),
                         html.Div([
-                            html.Div(
+                            dcc.Markdown(
                                 content,
+                                className="chat-markdown",
                                 style={
                                     "fontFamily": FONT_SANS,
                                     "backgroundColor": COLOR_BACKGROUND_WHITE,
@@ -491,10 +492,8 @@ def render_messages(messages):
                                     "padding": f"{SPACING_SMALL} 20px",
                                     "borderRadius": "2px",
                                     "wordWrap": "break-word",
-                                    "whiteSpace": "pre-wrap",
                                     "fontSize": FONT_SIZE_LARGE,
                                     "lineHeight": "1.8",
-                                    "display": "inline-block",
                                     "borderLeft": f"2px solid {COLOR_BORDER}"
                                 }
                             ),
@@ -546,21 +545,30 @@ def render_messages(messages):
                         ),
                         html.Div([
                             html.Div(
-                                "Assistant is thinking…",
-                                id=f"think-body-{client_id}",
+                                [
+                                    html.Span(
+                                        "Assistant is thinking",
+                                        id=f"think-body-{client_id}",
+                                        style={
+                                            "fontFamily": FONT_SANS,
+                                            "color": COLOR_TEXT_MUTED,
+                                            "fontSize": FONT_SIZE_LARGE,
+                                            "fontStyle": "italic",
+                                            "marginRight": "10px",
+                                        }
+                                    ),
+                                    html.Span(className="thinking-dot"),
+                                    html.Span(className="thinking-dot"),
+                                    html.Span(className="thinking-dot"),
+                                ],
+                                className="thinking-dots",
                                 style={
-                                    "fontFamily": FONT_SANS,
                                     "backgroundColor": COLOR_BACKGROUND_WHITE,
-                                    "color": COLOR_TEXT_MUTED,
                                     "padding": f"{SPACING_SMALL} 20px",
                                     "borderRadius": "2px",
-                                    "wordWrap": "break-word",
-                                    "whiteSpace": "pre-wrap",
-                                    "fontSize": FONT_SIZE_LARGE,
-                                    "lineHeight": "1.8",
-                                    "display": "inline-block",
+                                    "display": "inline-flex",
+                                    "alignItems": "center",
                                     "borderLeft": f"2px solid {COLOR_BORDER}",
-                                    "fontStyle": "italic"
                                 }
                             ),
                             html.Div(
@@ -590,6 +598,7 @@ def render_messages(messages):
             )
             rendered.append(html.Div(
                 id=f"msg-{client_id}",
+                className="chat-markdown",
                 style={
                     "fontFamily": FONT_SANS,
                     "color": COLOR_TEXT_DARK,
