@@ -315,36 +315,36 @@ The existing Neo4j single-envelope special case is preserved unchanged.
 ## 6. Implementation Checklist
 
 ### Phase 1 — Settings & signature
-- [ ] Add `AUGMENTATION_HISTORY_TURNS: int = 5` to `src/app/settings.py`
-- [ ] Add `ES_CHAIN_MAX_RESULTS: int = 5` to `src/app/settings.py`
-- [ ] Update `augment_message_stream()` signature in `chains.py` to accept `conversation_history: list[dict] | None = None`
-- [ ] Compute history slice in `stream_chat()` in `ai_agent.py`; pass to `augment_message_stream`
+- [x] Add `AUGMENTATION_HISTORY_TURNS: int = 5` to `src/app/settings.py`
+- [x] Add `ES_CHAIN_MAX_RESULTS: int = 5` to `src/app/settings.py`
+- [x] Update `augment_message_stream()` signature in `chains.py` to accept `conversation_history: list[dict] | None = None`
+- [x] Compute history slice in `stream_chat()` in `ai_agent.py`; pass to `augment_message_stream`
 
 ### Phase 2 — History wiring into Neo4j and MCP (parallel with Phase 1)
-- [ ] Add `conversation_history=None` param to `check_neo4j_relevance()` and prepend history to relevance prompt
-- [ ] Add `conversation_history=None` param to `_query_neo4j_with_provider_pipeline()` and prepend history to Cypher generation prompt
-- [ ] Add `conversation_history=None` param to `augment_message_with_neo4j_stream()` and thread through
-- [ ] Add `conversation_history=None` param to `_check_mcp_relevance()` and prepend history to relevance prompt
-- [ ] Add `conversation_history=None` param to `augment_message_with_mcp_stream()`; seed tool-selection `messages` list with history turns
-- [ ] Update `chains.py` to pass `conversation_history=conversation_history` to both existing chain calls
+- [x] Add `conversation_history=None` param to `check_neo4j_relevance()` and prepend history to relevance prompt
+- [x] Add `conversation_history=None` param to `_query_neo4j_with_provider_pipeline()` and prepend history to Cypher generation prompt
+- [x] Add `conversation_history=None` param to `augment_message_with_neo4j_stream()` and thread through
+- [x] Add `conversation_history=None` param to `_check_mcp_relevance()` and prepend history to relevance prompt
+- [x] Add `conversation_history=None` param to `augment_message_with_mcp_stream()`; seed tool-selection `messages` list with history turns
+- [x] Update `chains.py` to pass `conversation_history=conversation_history` to both existing chain calls
 
 ### Phase 3 — ES schema prompt file (parallel with Phases 1 and 2)
-- [ ] Create `src/app/ai_agent/es_prompt.md` with full entity registry, searchable fields, categorical values, `SearchRequest` schema, relevance criteria, and history resolution instruction
+- [x] Create `src/app/ai_agent/es_prompt.md` with full entity registry, searchable fields, categorical values, `SearchRequest` schema, relevance criteria, and history resolution instruction
 
 ### Phase 4 — ES chain implementation (depends on Phases 1 and 3)
-- [ ] Create `src/app/ai_agent/chains/elasticsearch_chain.py`
-- [ ] Implement `load_es_prompt()` and `_format_history()`
-- [ ] Implement `check_es_relevance()` with YES/NO gate prompt and exception fallback
-- [ ] Implement `generate_search_request()` with JSON parsing, schema validation, DEBUG logging, and no-fallback constraint
-- [ ] Implement `_format_results()` with `full=True` attributes, 200-char truncation, highlight inclusion
-- [ ] Implement `augment_message_with_es_stream()` following the four-step flow above
+- [x] Create `src/app/ai_agent/chains/elasticsearch_chain.py`
+- [x] Implement `load_es_prompt()` and `_format_history()`
+- [x] Implement `check_es_relevance()` with YES/NO gate prompt and exception fallback
+- [x] Implement `generate_search_request()` with JSON parsing, schema validation, DEBUG logging, and no-fallback constraint
+- [x] Implement `_format_results()` with `full=True` attributes, 200-char truncation, highlight inclusion
+- [x] Implement `augment_message_with_es_stream()` following the four-step flow above
 
 ### Phase 5 — chains.py integration (depends on Phase 4)
-- [ ] Import `augment_message_with_es_stream` in `chains.py`
-- [ ] Insert ES block between Neo4j and MCP blocks with `ELASTICSEARCH_ENABLED` guard
+- [x] Import `augment_message_with_es_stream` in `chains.py`
+- [x] Insert ES block between Neo4j and MCP blocks with `ELASTICSEARCH_ENABLED` guard
 
 ### Phase 6 — Tests
-- [ ] Create `tests/test_elasticsearch_chain.py` with:
+- [x] Create `tests/test_elasticsearch_chain.py` with:
   - Unit: `check_es_relevance` — returns `True` for search queries, `False` for traversal queries (mock provider)
   - Unit: `generate_search_request` — returns valid `SearchRequest` for clear search query
   - Unit: `generate_search_request` — returns `None` for `{"relevant": false}` output
