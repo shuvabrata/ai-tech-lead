@@ -30,6 +30,11 @@ license: Complete terms in LICENSE.txt
 - Body/UI: Inter (sans-serif)
 - Navigation: Uppercase, letter-spacing 0.8px-1.5px
 
+**Collapsible Sections (Dashboard Convention)**:
+- Use text-only disclosure headers for collapsible panels (no boxed border chrome).
+- Reuse shared collapse styles/classes rather than inline per-page button borders/backgrounds.
+- Keep interaction affordance minimal: chevron + subtle text-color hover changes.
+
 ---
 
 This skill guides creation of distinctive, production-grade frontend interfaces that avoid generic "AI slop" aesthetics. Implement real working code with exceptional attention to aesthetic details and creative choices.

@@ -154,6 +154,12 @@ Feature flags: `GITHUB_MCP_ENABLED`, `ATLASSIAN_MCP_ENABLED`
 - **Reusable Helpers**: Use shared alert builder functions for icon + message + dismiss patterns.
 - **Auto-Dismiss**: Only for transient success notifications; keep error alerts persistent.
 
+### Collapsible Header Design Standards
+- **Text-Only Disclosure**: Use text-only collapsible headers (no boxed rectangle/border chrome) for section toggles like Query Console, Query Catalog, and Filters.
+- **Shared Class**: Use the reusable `collapse-toggle-subtle` class from `src/app/dash_app/assets/executive-dashboard.css` rather than page-specific inline border/background styles.
+- **Affordance**: Keep chevron icons as the primary interaction cue; hover should subtly adjust text color only.
+- **Consistency**: Apply the same collapse-toggle pattern across Graph, Collaboration Network, Search, and future pages unless a page has a strong UX reason to diverge.
+
 ### Testing
 Tests are in `tests/`. Markers are defined in `pytest.ini`: `unit`, `integration`, `server`, `neo4j`, `rabbitmq`.
 

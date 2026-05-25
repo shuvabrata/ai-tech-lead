@@ -85,18 +85,7 @@ def create_filter_panel():
                 "Filters"
             ],
             id="toggle-filter-collapse-btn",
-            className="w-100 text-start graph-filter-toggle-btn",
-            style={
-                "fontSize": "13px",
-                "fontWeight": "600",
-                "color": COLOR_GRAY_DARK,
-                "border": "none",
-                "borderBottom": f"1px solid {COLOR_GRAY_LIGHTER}",
-                "borderRadius": "0",
-                "backgroundColor": "transparent",
-                "padding": "8px 0px",
-                "marginBottom": "16px"
-            }
+            className="w-100 text-start mb-3 graph-filter-toggle-btn collapse-toggle-subtle",
         ),
         
         # Collapsible filter content
@@ -394,16 +383,7 @@ def create_query_input_section():
                 "Query Console"
             ],
             id="toggle-query-collapse-btn",
-            className="w-100 text-start mb-2",
-            style={
-                "fontSize": "14px",
-                "fontWeight": "600",
-                "color": COLOR_GRAY_DARK,
-                "border": f"1px solid {COLOR_GRAY_LIGHTER}",
-                "borderRadius": "2px",
-                "backgroundColor": "var(--color-background-white)",
-                "padding": "10px 12px"
-            }
+            className="w-100 text-start mb-2 collapse-toggle-subtle",
         ),
         dbc.Collapse(
             id="query-panel-collapse",
@@ -459,16 +439,7 @@ def create_catalog_section():
                 "Query Catalog"
             ],
             id="toggle-catalog-collapse-btn",
-            className="w-100 text-start mb-2",
-            style={
-                "fontSize": "14px",
-                "fontWeight": "600",
-                "color": COLOR_GRAY_DARK,
-                "border": f"1px solid {COLOR_GRAY_LIGHTER}",
-                "borderRadius": "2px",
-                "backgroundColor": "var(--color-background-white)",
-                "padding": "10px 12px"
-            }
+            className="w-100 text-start mb-2 collapse-toggle-subtle",
         ),
         dbc.Collapse(
             id="catalog-panel-collapse",
