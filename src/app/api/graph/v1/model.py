@@ -1,0 +1,311 @@
+"""Pydantic models for Graph API v1 - Cypher query execution and graph data."""
+
+from typing import Any, Dict, List, Literal, Optional
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+
+from app.settings import settings
+
+
+class GraphExecuteRequest(BaseModel):
+    """Unified request model for raw and catalog-backed graph execution."""
+
+    source: Literal["raw", "catalog"] = Field(
+        default="raw",
+        description="Whether to execute a raw Cypher query or a catalog query",
+    )
+    query: Optional[str] = Field(
+        default=None,
+        min_length=1,
+        max_length=10000,
+        description="Cypher query to execute when source is raw",
+        examples=["MATCH (n) RETURN n LIMIT 25"],
+    )
+    catalog_id: Optional[str] = Field(
+        default=None,
+        min_length=1,
+        description="Stable catalog id to execute when source is catalog",
+        examples=["github/top_contributors"],
+    )
+    view: Literal["auto", "graph", "tabular"] = Field(
+        default="auto",
+        description="Requested result view. Catalog queries require graph or tabular.",
+    )
+    parameters: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Neo4j query parameters",
+    )
+
+    @model_validator(mode="after")
+    def validate_source_contract(self) -> "GraphExecuteRequest":
+        """Validate source-specific required fields."""
+        if self.query is not None:
+            self.query = self.query.strip()
+        if self.catalog_id is not None:
+            self.catalog_id = self.catalog_id.strip()
+
+        if self.source == "raw" and not self.query:
+            raise ValueError("source='raw' requires query")
+
+        if self.source == "catalog" and not self.catalog_id:
+            raise ValueError("source='catalog' requires catalog_id")
+
+        return self
+
+
+class GraphNode(BaseModel):
+    """Model representing a Neo4j node."""
+
+    wba_id: str = Field(..., description="Canonical WBA node identifier (e.g. 'github::Person::alice'). Stable cross-provider key; used for display and ES spotlight matching.")
+    elementId: str = Field(..., description="Neo4j internal element id (e.g. '4:uuid:0'). Used for edge endpoint matching and deduplication.")
+    labels: List[str] = Field(default_factory=list, description="Node labels/types")
+    properties: Dict[str, Any] = Field(default_factory=dict, description="Node properties")
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "wba_id": "github::Person::person-123",
+                "elementId": "4:bf6c0c31-7d78-4217-8270-cd857482b2ef:0",
+                "labels": ["Person", "Employee"],
+                "properties": {"name": "John Doe", "email": "john@example.com"}
+            }
+        }
+    )
+
+
+class GraphRelationship(BaseModel):
+    """Model representing a Neo4j relationship/edge."""
+    
+    id: str = Field(..., description="Unique identifier for the relationship")
+    type: str = Field(..., description="Relationship type")
+    startNode: str = Field(..., description="ID of the source node")
+    endNode: str = Field(..., description="ID of the target node")
+    properties: Dict[str, Any] = Field(default_factory=dict, description="Relationship properties")
+    
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "id": "456",
+                "type": "WORKS_ON",
+                "startNode": "123",
+                "endNode": "789",
+                "properties": {"role": "Developer", "since": "2024-01-01"}
+            }
+        }
+    )
+
+
+class GraphResponse(BaseModel):
+    """Response model for graph query execution."""
+    
+    nodes: List[GraphNode] = Field(
+        default_factory=list,
+        description="List of nodes returned by the query"
+    )
+    relationships: List[GraphRelationship] = Field(
+        default_factory=list,
+        description="List of relationships returned by the query"
+    )
+    rawResults: List[Dict[str, Any]] = Field(
+        default_factory=list,
+        description="Raw query results (for non-graph queries)"
+    )
+    isGraph: bool = Field(
+        ...,
+        description="True if results contain nodes/relationships, False for tabular data"
+    )
+    resultCount: Optional[int] = Field(
+        None,
+        description="Total number of results returned"
+    )
+    
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "nodes": [
+                    {
+                        "id": "123",
+                        "labels": ["Person"],
+                        "properties": {"name": "Alice"}
+                    }
+                ],
+                "relationships": [
+                    {
+                        "id": "456",
+                        "type": "KNOWS",
+                        "startNode": "123",
+                        "endNode": "789",
+                        "properties": {}
+                    }
+                ],
+                "rawResults": [],
+                "isGraph": True,
+                "resultCount": 2
+            }
+        }
+    )
+
+
+class GraphErrorResponse(BaseModel):
+    """Error response model for graph query failures."""
+    
+    error: str = Field(..., description="Error message")
+    detail: Optional[str] = Field(None, description="Detailed error information")
+    query: Optional[str] = Field(None, description="The query that caused the error")
+    
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "error": "Query validation failed",
+                "detail": "Write operations are not allowed. Query contains CREATE statement.",
+                "query": "CREATE (n:Test) RETURN n"
+            }
+        }
+    )
+
+
+class NodeExpansionRequest(BaseModel):
+    """Request model for expanding a node to show connected neighbors."""
+    
+    node_id: str = Field(
+        ...,
+        description="ID of the node to expand"
+    )
+    direction: str = Field(
+        default="both",
+        description="Direction of relationships to follow: 'incoming', 'outgoing', or 'both'",
+        examples=["both", "incoming", "outgoing"]
+    )
+    relationship_types: Optional[List[str]] = Field(
+        default=None,
+        description="Filter by specific relationship types. If None, all types are included."
+    )
+    limit: int = Field(
+        default=settings.GRAPH_UI_MAX_NODES_TO_EXPAND,
+        ge=1,
+        le=500,
+        description="Maximum number of connected nodes to return (pagination)"
+    )
+    offset: int = Field(
+        default=0,
+        ge=0,
+        description="Offset for pagination (skip first N results)"
+    )
+    exclude_node_ids: Optional[List[str]] = Field(
+        default=None,
+        description="List of node IDs to exclude from results (already loaded nodes)"
+    )
+    
+    @field_validator('direction')
+    @classmethod
+    def validate_direction(cls, v: str) -> str:
+        """Ensure direction is one of the valid values."""
+        valid_directions = ["incoming", "outgoing", "both"]
+        if v.lower() not in valid_directions:
+            raise ValueError(f"Direction must be one of {valid_directions}, got '{v}'")
+        return v.lower()
+    
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "node_id": "123",
+                "direction": "both",
+                "relationship_types": ["WORKS_ON", "KNOWS"],
+                "limit": 50,
+                "offset": 0,
+                "exclude_node_ids": ["456", "789"]
+            }
+        }
+    )
+
+
+class CollaborationNetworkResponse(BaseModel):
+    """Response model for the collaboration network endpoint.
+
+    Instead of raw Neo4j nodes/relationships, this returns Cytoscape-ready
+    element dicts (produced by the community detection pipeline) plus
+    summary statistics useful for the UI banner.
+    """
+
+    elements: List[Dict[str, Any]] = Field(
+        default_factory=list,
+        description="Cytoscape element dicts (nodes + edges) with community and hub_score attributes",
+    )
+    num_people: int = Field(..., description="Number of Person nodes in the network")
+    num_pairs: int = Field(..., description="Number of collaboration edges")
+    num_communities: int = Field(..., description="Number of Louvain communities detected")
+    modularity: float = Field(..., description="Louvain modularity score (0-1, >0.3 is meaningful)")
+    config: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Applied collaboration configuration (layers, weights, filters)",
+    )
+
+
+class PaginationMeta(BaseModel):
+    """Pagination metadata for expansion results."""
+    
+    total: int = Field(..., description="Total number of connected nodes (before pagination)")
+    limit: int = Field(..., description="Number of results per page")
+    offset: int = Field(..., description="Current offset")
+    has_more: bool = Field(..., description="Whether there are more results available")
+    
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "total": 150,
+                "limit": 50,
+                "offset": 0,
+                "has_more": True
+            }
+        }
+    )
+
+
+class NodeExpansionResponse(BaseModel):
+    """Response model for node expansion."""
+    
+    nodes: List[GraphNode] = Field(
+        default_factory=list,
+        description="List of newly discovered nodes"
+    )
+    relationships: List[GraphRelationship] = Field(
+        default_factory=list,
+        description="List of relationships connecting to the expanded node"
+    )
+    expanded_node_id: str = Field(
+        ...,
+        description="ID of the node that was expanded"
+    )
+    pagination: PaginationMeta = Field(
+        ...,
+        description="Pagination metadata"
+    )
+    
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "nodes": [
+                    {
+                        "id": "789",
+                        "labels": ["Project"],
+                        "properties": {"name": "AI Platform"}
+                    }
+                ],
+                "relationships": [
+                    {
+                        "id": "456",
+                        "type": "WORKS_ON",
+                        "startNode": "123",
+                        "endNode": "789",
+                        "properties": {"role": "Developer"}
+                    }
+                ],
+                "expanded_node_id": "123",
+                "pagination": {
+                    "total": 5,
+                    "limit": 50,
+                    "offset": 0,
+                    "has_more": False
+                }
+            }
+        }
+    )

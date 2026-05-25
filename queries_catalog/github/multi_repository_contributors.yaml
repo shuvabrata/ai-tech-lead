@@ -1,5 +1,9 @@
 name: Multi-Repository Contributors
 description: People working across multiple repos.
+summary: "People working across multiple repos."
+default_view: tabular
+owner: github-analytics
+status: active
 queries:
   tabular: |-
     MATCH (p:Person)-[c:COLLABORATOR]-(r:Repository)
@@ -7,6 +11,7 @@ queries:
         WHERE size(repos) > 1
         RETURN p.name, p.title, perm, repos, size(repos) as repo_count
         ORDER BY repo_count DESC
+        LIMIT 10
   graph: |-
     MATCH p1=(p:Person)-[c:COLLABORATOR]-(r:Repository)
         RETURN p1

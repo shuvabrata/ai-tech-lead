@@ -1,10 +1,15 @@
 name: Teams and Members
 description: View all teams and their members.
+summary: "View all teams and their members."
+default_view: graph
+owner: identity-analytics
+status: active
 queries:
   tabular: |-
     MATCH (t:Team)-[:MEMBER_OF]-(p:Person)
         RETURN t.name, collect(p.name) as members
         ORDER BY t.name
+        LIMIT 10
   graph: |-
     MATCH p1=(t:Team)-[:MEMBER_OF]-(p:Person)
         RETURN p1

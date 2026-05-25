@@ -1,0 +1,40 @@
+from typing import AsyncIterator
+
+from app.ai_agent.ai_agent import new_chat, end_chat, stream_chat, get_streaming_metrics, _chat_sessions
+from .model import ChatCreate, ChatSession, ChatDeleteResponse, ChatSessionStatus
+
+
+def create_chat_session(chat: ChatCreate) -> ChatSession:
+    """Create a new chat session"""
+    session_id = new_chat(system_prompt=chat.system_prompt)
+    return ChatSession(session_id=session_id)
+
+
+
+def delete_chat_session(session_id: str) -> ChatDeleteResponse:
+    """End and delete a chat session"""
+    end_chat(session_id)
+    return ChatDeleteResponse(session_id=session_id, deleted=True)
+
+
+def get_chat_session_status(session_id: str) -> ChatSessionStatus:
+    """Check if a chat session exists and return its status"""
+    exists = session_id in _chat_sessions
+    message_count = len(_chat_sessions.get(session_id, [])) if exists else None
+
+    return ChatSessionStatus(
+        session_id=session_id,
+        exists=exists,
+        message_count=message_count
+    )
+
+
+async def stream_chat_response(session_id: str, user_message: str) -> AsyncIterator[str]:
+    """Async generator that proxies stream_chat for use in StreamingResponse."""
+    async for chunk in stream_chat(session_id=session_id, user_message=user_message):
+        yield chunk
+
+
+def get_stream_metrics() -> dict:
+    """Return a copy of the current streaming metrics."""
+    return get_streaming_metrics()

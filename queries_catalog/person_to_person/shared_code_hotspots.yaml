@@ -1,12 +1,22 @@
 name: Shared Code Hotspots
 description: Find files (hotspots) that both developers have modified.
+summary: Compare two people by the files they have both changed.
+default_view: tabular
 parameters:
 - name: person1_id
   env_var: PERSON1_ID
   required: true
+  label: First person
+  type: person_id
+  placeholder: "e.g. github::Person::alice or jira::Person::557058:abc"
+  description: "WBA canonical Person ID. Format: github::Person::<login> or jira::Person::<account_id>"
 - name: person2_id
   env_var: PERSON2_ID
   required: true
+  label: Second person
+  type: person_id
+  placeholder: "e.g. github::Person::alice or jira::Person::557058:abc"
+  description: "WBA canonical Person ID. Format: github::Person::<login> or jira::Person::<account_id>"
 queries:
   tabular: |-
     MATCH (p1:Person {id: $person1_id}), (p2:Person {id: $person2_id})
@@ -26,3 +36,5 @@ tags:
 - test
 - table
 - graph
+owner: graph-team
+status: active

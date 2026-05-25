@@ -1,12 +1,22 @@
 name: Shared Repositories
 description: Find repositories both developers collaborate on.
+summary: Compare two people by the repositories where they both collaborate.
+default_view: tabular
 parameters:
 - name: person1_id
   env_var: PERSON1_ID
   required: true
+  label: First person
+  type: person_id
+  placeholder: "e.g. github::Person::alice or jira::Person::557058:abc"
+  description: "WBA canonical Person ID. Format: github::Person::<login> or jira::Person::<account_id>"
 - name: person2_id
   env_var: PERSON2_ID
   required: true
+  label: Second person
+  type: person_id
+  placeholder: "e.g. github::Person::alice or jira::Person::557058:abc"
+  description: "WBA canonical Person ID. Format: github::Person::<login> or jira::Person::<account_id>"
 queries:
   tabular: |-
     MATCH (p1:Person {id: $person1_id})-[c1:COLLABORATOR]-(r:Repository)-[c2:COLLABORATOR]-(p2:Person {id: $person2_id})
@@ -14,6 +24,7 @@ queries:
            c1.permission as person1_permission,
            c2.permission as person2_permission
     ORDER BY repository
+        LIMIT 10
   graph: |-
     MATCH (p1:Person {id: $person1_id}), (p2:Person {id: $person2_id})
     MATCH path = (p1)-[c1:COLLABORATOR]-(r:Repository)-[c2:COLLABORATOR]-(p2)
@@ -23,3 +34,5 @@ tags:
 - test
 - table
 - graph
+owner: graph-team
+status: active

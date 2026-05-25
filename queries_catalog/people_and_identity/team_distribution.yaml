@@ -1,10 +1,15 @@
 name: Team Distribution
 description: View team sizes.
+summary: "View team sizes."
+default_view: graph
+owner: identity-analytics
+status: active
 queries:
   tabular: |-
     MATCH (t:Team)-[:MEMBER_OF]-(p:Person)
         RETURN t.name as team, count(p) as team_size
         ORDER BY team_size DESC
+        LIMIT 10
   graph: |-
     MATCH p1=(t:Team)-[:MEMBER_OF]-(p:Person)
         RETURN p1

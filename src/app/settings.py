@@ -1,0 +1,73 @@
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
+from pydantic import AliasChoices, Field, field_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+class Settings(BaseSettings):
+    # PostgreSQL configuration
+    DATABASE_URL: str
+    
+    # Neo4j configuration
+    NEO4J_URI: str = "bolt://localhost:7687"
+    NEO4J_USERNAME: str = "neo4j"
+    NEO4J_PASSWORD: str = ""
+    NEO4J_ENABLED: bool = False
+    FF_NEO4J_USE_PROVIDER_PIPELINE: bool = False
+
+    # RabbitMQ configuration
+    RABBITMQ_URL: str = "amqp://guest:guest@localhost:5672/"
+
+    # Elasticsearch configuration
+    ELASTICSEARCH_ENABLED: bool = False
+    ELASTICSEARCH_URL: str = "http://localhost:9200"
+    ELASTIC_PASSWORD: str = ""
+
+    # Augmentation chain configuration
+    AUGMENTATION_HISTORY_TURNS: int = 5  # prior turns passed to all chains for context resolution
+    ES_CHAIN_MAX_RESULTS: int = 5  # max ES hits included in the LLM context block
+
+    # MCP configuration
+    GITHUB_MCP_ENABLED: bool = False
+    ATLASSIAN_MCP_ENABLED: bool = False
+    MAX_MCP_ITERATIONS: int = 3
+    GITHUB_MCP_TOKEN: str = ""
+    ATLASSIAN_MCP_TOKEN: str = ""
+    GITHUB_MCP_SERVER_URL: str = "http://github-mcp:8082/mcp"
+    ATLASSIAN_MCP_SERVER_URL: str = "https://mcp.atlassian.com/v1/mcp"
+    
+    # LLM configuration (provider-agnostic)
+    LLM_MODEL: str = "gpt-5"
+    OPENAI_API_KEY: str = ""
+
+    # Connector encryption
+    CONNECTOR_ENCRYPTION_KEY: str = ""
+    
+    # HTTP request timeout configuration (in seconds)
+    HTTP_REQUEST_TIMEOUT: int = 60
+    
+    # Neo4j query timeout (should be less than HTTP_REQUEST_TIMEOUT to allow overhead)
+    NEO4J_QUERY_TIMEOUT: int = 10
+    
+    # Graph UI configuration
+    GRAPH_UI_MAX_NODES_TO_EXPAND: int = 20
+    GRAPH_UI_MAX_NODE_LABEL_CHARS: int = 10
+    
+    # UI Configuration
+    TIMEZONE: str = Field(default="UTC", validation_alias=AliasChoices("TIMEZONE", "TZ"))
+    UI_DATETIME_FORMAT: str = "%b %d, %Y %I:%M %p"
+
+    @field_validator("TIMEZONE")
+    @classmethod
+    def validate_timezone(cls, value: str) -> str:
+        try:
+            ZoneInfo(value)
+        except ZoneInfoNotFoundError as exc:
+            raise ValueError(f"Invalid timezone: {value}") from exc
+        return value
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        extra="ignore",
+    )
+
+settings = Settings()

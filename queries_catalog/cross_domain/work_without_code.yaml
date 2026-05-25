@@ -1,5 +1,9 @@
 name: Work Without Code
 description: Issues marked Done but no code commits - Data Quality check.
+summary: "Issues marked Done but no code commits - Data Quality check."
+default_view: tabular
+owner: data-platform
+status: active
 queries:
   tabular: |-
     MATCH (i:Issue {status: 'Done'})

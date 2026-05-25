@@ -1,5 +1,9 @@
 name: Issue to Code Linkage
 description: Issues linked to actual code commits.
+summary: "Issues linked to actual code commits."
+default_view: tabular
+owner: data-platform
+status: active
 queries:
   tabular: |-
     MATCH (i:Issue)<-[:REFERENCES]-(c:Commit)

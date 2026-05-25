@@ -1,13 +1,23 @@
 name: Shortest Path Through Code
 description: Find the shortest connection between two people based purely on code
   artifacts.
+summary: Trace the shortest code-only connection between two people.
+default_view: graph
 parameters:
 - name: person1_id
   env_var: PERSON1_ID
   required: true
+  label: First person
+  type: person_id
+  placeholder: "e.g. github::Person::alice or jira::Person::557058:abc"
+  description: "WBA canonical Person ID. Format: github::Person::<login> or jira::Person::<account_id>"
 - name: person2_id
   env_var: PERSON2_ID
   required: true
+  label: Second person
+  type: person_id
+  placeholder: "e.g. github::Person::alice or jira::Person::557058:abc"
+  description: "WBA canonical Person ID. Format: github::Person::<login> or jira::Person::<account_id>"
 queries:
   tabular: |-
     MATCH (p1:Person {id: $person1_id}), (p2:Person {id: $person2_id})
@@ -17,6 +27,7 @@ queries:
            length(path) as degrees_of_separation,
            [n IN nodes(path) | coalesce(n.name, n.key, n.title, n.path, n.sha, labels(n)[0])] as connection_path,
            [r IN relationships(path) | type(r)] as relationship_types
+        LIMIT 10
   graph: |-
     MATCH (p1:Person {id: $person1_id}), (p2:Person {id: $person2_id})
     MATCH path = shortestPath((p1)-[:AUTHORED_BY|REVIEWED_BY|CREATED_BY|COLLABORATOR|MODIFIES|INCLUDES*..10]-(p2))
@@ -26,3 +37,5 @@ tags:
 - test
 - table
 - graph
+owner: graph-team
+status: active

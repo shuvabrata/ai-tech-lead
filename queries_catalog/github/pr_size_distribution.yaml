@@ -1,5 +1,9 @@
 name: PR Size Distribution
 description: PR size distribution by commit count.
+summary: "PR size distribution by commit count."
+default_view: tabular
+owner: github-analytics
+status: active
 queries:
   tabular: |-
     MATCH (pr:PullRequest)
@@ -11,6 +15,7 @@ queries:
              END as size_category
         RETURN size_category, count(pr) as pr_count
         ORDER BY pr_count DESC
+        LIMIT 10
   graph: |-
     MATCH p1=(pr:PullRequest)
         RETURN p1

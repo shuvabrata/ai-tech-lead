@@ -1,5 +1,9 @@
 name: Team Workload Overview
 description: Team workload across GitHub and Jira.
+summary: "Team workload across GitHub and Jira."
+default_view: graph
+owner: data-platform
+status: active
 queries:
   tabular: |-
     MATCH (t:Team)-[:MEMBER_OF]-(p:Person)
@@ -10,6 +14,7 @@ queries:
                count(DISTINCT i) as assigned_issues,
                count(DISTINCT c) as commits
         ORDER BY assigned_issues DESC
+        LIMIT 10
   graph: |-
     MATCH p1=(t:Team)-[:MEMBER_OF]-(p:Person)
         OPTIONAL MATCH p2=(p)-[:ASSIGNED_TO]-(i:Issue)

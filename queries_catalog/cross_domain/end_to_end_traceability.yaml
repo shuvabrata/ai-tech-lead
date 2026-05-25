@@ -1,6 +1,10 @@
 name: End-to-End Traceability
 description: "Complete Initiative \u2192 Epic \u2192 Issue \u2192 Commit \u2192 PR\
   \ chain."
+summary: "Complete Initiative \u2192 Epic \u2192 Issue \u2192 Commit \u2192 PR chain."
+default_view: tabular
+owner: data-platform
+status: active
 queries:
   tabular: |-
     MATCH (init:Initiative)<-[:PART_OF]-(e:Epic)<-[:PART_OF]-(i:Issue)

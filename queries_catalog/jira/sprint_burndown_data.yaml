@@ -1,5 +1,9 @@
 name: Sprint Burndown Data
 description: Sprint progress and burndown metrics.
+summary: "Sprint progress and burndown metrics."
+default_view: tabular
+owner: jira-analytics
+status: active
 queries:
   tabular: |-
     MATCH (s:Sprint)<-[:IN_SPRINT]-(i:Issue)
@@ -8,6 +12,7 @@ queries:
                sum(CASE WHEN i.status = 'Done' THEN i.story_points ELSE 0 END) as completed_points,
                count(i) as issue_count
         ORDER BY s.name
+        LIMIT 10
   graph: |-
     MATCH p1=(s:Sprint)<-[:IN_SPRINT]-(i:Issue)
         RETURN p1

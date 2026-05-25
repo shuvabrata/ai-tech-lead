@@ -1,10 +1,15 @@
 name: Initiative Timeline
 description: Initiative timeline by start date.
+summary: "Initiative timeline by start date."
+default_view: tabular
+owner: jira-analytics
+status: active
 queries:
   tabular: |-
     MATCH (i:Initiative)
         RETURN i.summary, i.start_date, i.due_date, i.priority
         ORDER BY i.start_date
+        LIMIT 10
   graph: |-
     MATCH p1=(i:Initiative)
         RETURN p1
