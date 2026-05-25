@@ -387,14 +387,38 @@ input::placeholder {
     transform: translateY(0);
 }
 
+.collapse-toggle-subtle,
+.collapse-toggle-subtle.btn {
+    background-color: transparent !important;
+    color: var(--color-charcoal-medium) !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    font-size: 13px !important;
+    font-weight: 500 !important;
+    letter-spacing: 0.2px;
+    padding: 6px 0 !important;
+}
+
+.collapse-toggle-subtle:hover,
+.collapse-toggle-subtle.btn:hover {
+    background-color: transparent !important;
+    color: var(--color-charcoal) !important;
+}
+
+.collapse-toggle-subtle:focus,
+.collapse-toggle-subtle.btn:focus {
+    box-shadow: none !important;
+}
+
 .graph-filter-toggle-btn {
-    background-color: var(--color-background-white) !important;
+    background-color: transparent !important;
     color: var(--color-charcoal-medium) !important;
     border-color: var(--color-border) !important;
 }
 
 .graph-filter-toggle-btn:hover {
-    background-color: var(--color-surface-active) !important;
+    background-color: transparent !important;
     color: var(--color-charcoal) !important;
 }
 

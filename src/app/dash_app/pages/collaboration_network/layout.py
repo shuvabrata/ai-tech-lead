@@ -50,18 +50,7 @@ def _create_filter_panel() -> html.Div:
         dbc.Button(
             [html.I(id="collab-filter-collapse-icon", className="fas fa-chevron-right me-2"), "Filters"],
             id="collab-filter-toggle-btn",
-            className="w-100 text-start graph-filter-toggle-btn",
-            style={
-                "fontSize": "13px",
-                "fontWeight": "600",
-                "color": COLOR_GRAY_DARK,
-                "border": "none",
-                "borderBottom": f"1px solid {COLOR_GRAY_LIGHTER}",
-                "borderRadius": "0",
-                "backgroundColor": "transparent",
-                "padding": "8px 0px",
-                "marginBottom": "16px",
-            },
+            className="w-100 text-start mb-3 graph-filter-toggle-btn collapse-toggle-subtle",
         ),
         dbc.Collapse(
             id="collab-filter-panel-collapse",

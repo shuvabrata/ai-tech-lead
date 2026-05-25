@@ -686,6 +686,7 @@ def get_layout() -> html.Div:
                             id="search-filters-toggle-btn",
                             color="link",
                             size="sm",
+                            className="collapse-toggle-subtle",
                             style={
                                 "fontFamily": FONT_SANS,
                                 "fontSize": FONT_SIZE_XSMALL,
