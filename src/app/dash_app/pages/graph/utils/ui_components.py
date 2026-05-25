@@ -119,7 +119,7 @@ def create_table_display(raw_results, result_count=None):
                     html.Td(str(row.get(col, ""))) for col in columns
                 ]) for row in raw_results
             ])
-        ], bordered=True, striped=True, hover=True, responsive=True, className="mb-0")
+        ], bordered=True, striped=True, hover=True, responsive=True, className="mb-0 graph-results-table")
         
         return html.Div(table)
     else:
