@@ -1,0 +1,21 @@
+name: Orphaned Issues
+description: Issues not linked to any epic - Data Quality check.
+summary: "Issues not linked to any epic - Data Quality check."
+default_view: tabular
+owner: jira-analytics
+status: active
+queries:
+  tabular: |-
+    MATCH (i:Issue)
+        WHERE NOT (i)-[:PART_OF]->(:Epic)
+        RETURN i.key, i.type, i.summary, i.status
+        LIMIT 10
+  graph: |-
+    MATCH p1=(i:Issue)
+        WHERE NOT (i)-[:PART_OF]->(:Epic)
+        RETURN p1
+        LIMIT 100
+tags:
+- test
+- table
+- graph

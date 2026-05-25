@@ -1,0 +1,26 @@
+name: Cross-Team Reviews
+description: Cross-team code review collaboration.
+summary: "Cross-team code review collaboration."
+default_view: graph
+owner: github-analytics
+status: active
+queries:
+  tabular: |-
+    MATCH (pr:PullRequest)-[:CREATED_BY]->(author:Person)-[:MEMBER_OF]-(author_team:Team)
+        MATCH (pr)-[:REVIEWED_BY]->(reviewer:Person)-[:MEMBER_OF]-(reviewer_team:Team)
+        WHERE author_team <> reviewer_team
+        RETURN author_team.name as author_team,
+               reviewer_team.name as reviewer_team,
+               count(pr) as cross_team_reviews
+        ORDER BY cross_team_reviews DESC
+        LIMIT 10
+  graph: |-
+    MATCH p1=(pr:PullRequest)-[:CREATED_BY]->(author:Person)-[:MEMBER_OF]-(author_team:Team)
+        MATCH p2=(pr)-[:REVIEWED_BY]->(reviewer:Person)-[:MEMBER_OF]-(reviewer_team:Team)
+        WHERE author_team <> reviewer_team
+        RETURN p1, p2
+        LIMIT 100
+tags:
+- test
+- table
+- graph

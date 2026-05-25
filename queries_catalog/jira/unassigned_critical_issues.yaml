@@ -1,0 +1,21 @@
+name: Unassigned Critical Issues
+description: Critical issues without assignees - Data Quality check.
+summary: "Critical issues without assignees - Data Quality check."
+default_view: tabular
+owner: jira-analytics
+status: active
+queries:
+  tabular: |-
+    MATCH (i:Issue)
+        WHERE i.priority = 'Critical' AND NOT exists((i)-[:ASSIGNED_TO]-())
+        RETURN i.key, i.summary, i.status
+        LIMIT 10
+  graph: |-
+    MATCH p1=(i:Issue)
+        WHERE i.priority = 'Critical' AND NOT exists((i)-[:ASSIGNED_TO]-())
+        RETURN p1
+        LIMIT 100
+tags:
+- test
+- table
+- graph

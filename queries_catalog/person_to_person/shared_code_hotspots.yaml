@@ -1,0 +1,40 @@
+name: Shared Code Hotspots
+description: Find files (hotspots) that both developers have modified.
+summary: Compare two people by the files they have both changed.
+default_view: tabular
+parameters:
+- name: person1_id
+  env_var: PERSON1_ID
+  required: true
+  label: First person
+  type: person_id
+  placeholder: "e.g. github::Person::alice or jira::Person::557058:abc"
+  description: "WBA canonical Person ID. Format: github::Person::<login> or jira::Person::<account_id>"
+- name: person2_id
+  env_var: PERSON2_ID
+  required: true
+  label: Second person
+  type: person_id
+  placeholder: "e.g. github::Person::alice or jira::Person::557058:abc"
+  description: "WBA canonical Person ID. Format: github::Person::<login> or jira::Person::<account_id>"
+queries:
+  tabular: |-
+    MATCH (p1:Person {id: $person1_id}), (p2:Person {id: $person2_id})
+    MATCH (p1)-[:AUTHORED_BY]-(c1:Commit)-[:MODIFIES]->(f:File)<-[:MODIFIES]-(c2:Commit)-[:AUTHORED_BY]-(p2)
+    RETURN f.path as shared_file,
+           f.language as language,
+           count(DISTINCT c1) as person1_commits,
+           count(DISTINCT c2) as person2_commits,
+           count(DISTINCT c1) + count(DISTINCT c2) as total_shared_churn
+    ORDER BY total_shared_churn DESC LIMIT 10
+  graph: |-
+    MATCH (p1:Person {id: $person1_id}), (p2:Person {id: $person2_id})
+    MATCH path = (p1)-[:AUTHORED_BY]-(c1:Commit)-[:MODIFIES]->(f:File)<-[:MODIFIES]-(c2:Commit)-[:AUTHORED_BY]-(p2)
+    RETURN path
+    LIMIT 100
+tags:
+- test
+- table
+- graph
+owner: graph-team
+status: active

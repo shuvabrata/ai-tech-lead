@@ -1,0 +1,1 @@
+# ActivitySignal schema models.

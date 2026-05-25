@@ -1,0 +1,37 @@
+name: Shared Teams
+description: Find teams that both people belong to.
+summary: Compare two people by the teams they share.
+default_view: tabular
+parameters:
+- name: person1_id
+  env_var: PERSON1_ID
+  required: true
+  label: First person
+  type: person_id
+  placeholder: "e.g. github::Person::alice or jira::Person::557058:abc"
+  description: "WBA canonical Person ID. Format: github::Person::<login> or jira::Person::<account_id>"
+- name: person2_id
+  env_var: PERSON2_ID
+  required: true
+  label: Second person
+  type: person_id
+  placeholder: "e.g. github::Person::alice or jira::Person::557058:abc"
+  description: "WBA canonical Person ID. Format: github::Person::<login> or jira::Person::<account_id>"
+queries:
+  tabular: |-
+    MATCH (p1:Person {id: $person1_id})-[:MEMBER_OF]-(t:Team)-[:MEMBER_OF]-(p2:Person {id: $person2_id})
+    RETURN p1.name as person1,
+           p2.name as person2,
+           t.name as shared_team
+        LIMIT 10
+  graph: |-
+    MATCH (p1:Person {id: $person1_id}), (p2:Person {id: $person2_id})
+    MATCH path = (p1)-[:MEMBER_OF]-(t:Team)-[:MEMBER_OF]-(p2)
+    RETURN path
+    LIMIT 100
+tags:
+- test
+- table
+- graph
+owner: graph-team
+status: active

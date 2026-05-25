@@ -1,0 +1,20 @@
+name: View All Node Types
+description: Count all nodes by type.
+summary: "Count all nodes by type."
+default_view: tabular
+owner: graph-platform
+status: active
+queries:
+  tabular: |-
+    MATCH (n)
+        RETURN labels(n)[0] as type, count(*) as count
+        ORDER BY count DESC
+        LIMIT 10
+  graph: |-
+    MATCH p1=(n)
+        RETURN p1
+        LIMIT 100
+tags:
+- test
+- table
+- graph

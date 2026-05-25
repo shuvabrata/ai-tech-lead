@@ -23,7 +23,7 @@ services:
   app:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.app
     container_name: wba-ai-app
     restart: unless-stopped
     environment:
@@ -35,6 +35,7 @@ services:
       # Override DATABASE_URL to use 'postgres' service name instead of 'localhost'
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       LLM_PROVIDER: ${LLM_PROVIDER}
+      CUSTOM_LLM_MODEL: ${CUSTOM_LLM_MODEL}
       LLM_MODEL: ${LLM_MODEL}
       # Backward compatibility aliases (app uses LLM_MODEL)
       OPENAI_MODEL: ${OPENAI_MODEL}
@@ -46,7 +47,7 @@ services:
       MAX_TOKENS: ${MAX_TOKENS}
       LOG_FORMAT: ${LOG_FORMAT}
       LOG_LEVEL: ${LOG_LEVEL}
-      LOG_DIR: /app/logs
+      LOG_DIR: /var/log/app
       ENABLE_FILE_LOGGING: "1"
       # Override NEO4J_URI to use 'neo4j' service name instead of 'localhost'
       NEO4J_URI: bolt://neo4j:7687
@@ -54,24 +55,42 @@ services:
       NEO4J_PASSWORD: ${NEO4J_PASSWORD}
       NEO4J_ENABLED: ${NEO4J_ENABLED}
       NEO4J_MODE: ${NEO4J_MODE}
+      #Github MCP server settings
       GITHUB_MCP_ENABLED: ${GITHUB_MCP_ENABLED:-false}
       GITHUB_MCP_TOKEN: ${GITHUB_MCP_TOKEN:-}
-      GITHUB_MCP_SERVER_URL: ${GITHUB_MCP_SERVER_URL:-http://github-mcp:8082/mcp}
+      # In Docker, use service-to-service networking, not localhost.
+      GITHUB_MCP_SERVER_URL: http://github-mcp:8082/mcp
+      # RabbitMQ configuration
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASSWORD:-guest}@rabbitmq:5672/
+      # Elasticsearch configuration
+      ELASTICSEARCH_ENABLED: ${ELASTICSEARCH_ENABLED:-false}
+      ELASTICSEARCH_URL: http://elasticsearch:9200
+      ELASTIC_PASSWORD: ${ELASTIC_PASSWORD:-}
     ports:
       - "8000:8000"
     volumes:
       # Mount .env file (read-only)
       - ./.env:/app/.env:ro
       # Mount logs directory
-      - ./logs:/app/logs
+      - ./logs/app:/var/log/app
     networks:
       - wba-ai-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
     depends_on:
       postgres:
         condition: service_healthy
       neo4j:
-        condition: service_started
+        condition: service_healthy
       github-mcp:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      elasticsearch:
         condition: service_healthy
 
   github-mcp:
@@ -114,40 +133,196 @@ services:
     restart: unless-stopped
     networks:
       - wba-ai-network
+    healthcheck:
+      test: ["CMD", "cypher-shell", "-u", "${NEO4J_USERNAME}", "-p", "${NEO4J_PASSWORD}", "RETURN 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+      
+  rabbitmq:
+    image: rabbitmq:4-management
+    container_name: wba-ai-rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-guest}
+    ports:
+      - "5672:5672"   # AMQP protocol
+      - "15672:15672" # Management UI
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - wba-ai-network
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
-  jira-sync:
-    image: enterprise-graph-jira-sync:latest
-    container_name: enterprise-graph-jira-sync
-    command: python modules/jira/main.py
+  influxdb:
+    image: influxdb:2.7
+    container_name: wba-ai-influxdb
+    restart: unless-stopped
+    environment:
+      - DOCKER_INFLUXDB_INIT_MODE=setup
+      - DOCKER_INFLUXDB_INIT_USERNAME=${INFLUXDB_USERNAME}
+      - DOCKER_INFLUXDB_INIT_PASSWORD=${INFLUXDB_PASSWORD}
+      - DOCKER_INFLUXDB_INIT_ORG=${INFLUXDB_ORG}
+      - DOCKER_INFLUXDB_INIT_BUCKET=${INFLUXDB_BUCKET}
+      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=${INFLUXDB_ADMIN_TOKEN}
+    ports:
+      - "8086:8086"
+    volumes:
+      - influxdb_data:/var/lib/influxdb2
+    networks:
+      - wba-ai-network
+    healthcheck:
+      test: ["CMD", "influx", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:9.3.0
+    container_name: wba-ai-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
+      - xpack.security.enabled=false
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    networks:
+      - wba-ai-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9200/_cluster/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  github-producer:
+    build:
+      context: .
+      dockerfile: Dockerfile.github-producer
+    container_name: wba-ai-github-producer
     env_file:
       - .env
     environment:
-      NEO4J_URI: bolt://neo4j:7687
+      API_SERVER: http://app:8000/
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/postgres
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASSWORD:-guest}@rabbitmq:5672/
       PYTHONPATH: /app
-      LOG_DIR: /var/log/enterprise-graph
+      LOG_DIR: /var/log/github-producer
     volumes:
-      - ./logs:/var/log/enterprise-graph
+      - ./logs/github-producer:/var/log/github-producer
     depends_on:
-      - neo4j
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      app:
+        condition: service_healthy
     restart: "no"  # One-shot execution, run manually via docker compose run
     networks:
       - wba-ai-network
 
-  github-sync:
-    image: enterprise-graph-github-sync:latest
-    container_name: enterprise-graph-github-sync
-    command: python modules/github/main.py
+  jira-producer:
+    build:
+      context: .
+      dockerfile: Dockerfile.jira-producer
+    container_name: wba-ai-jira-producer
     env_file:
       - .env
     environment:
-      NEO4J_URI: bolt://neo4j:7687
+      API_SERVER: http://app:8000/
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/postgres
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASSWORD:-guest}@rabbitmq:5672/
       PYTHONPATH: /app
-      LOG_DIR: /var/log/enterprise-graph
+      LOG_DIR: /var/log/jira-producer
     volumes:
-      - ./logs:/var/log/enterprise-graph
+      - ./logs/jira-producer:/var/log/jira-producer
     depends_on:
-      - neo4j
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      app:
+        condition: service_healthy
     restart: "no"  # One-shot execution, run manually via docker compose run
+    networks:
+      - wba-ai-network
+
+  github-consumer:
+    build:
+      context: .
+      dockerfile: Dockerfile.github-consumer
+    deploy:
+      replicas: ${GITHUB_CONSUMER_REPLICAS:-1}
+    env_file:
+      - .env
+    environment:
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASSWORD:-guest}@rabbitmq:5672/
+      NEO4J_URI: bolt://neo4j:7687
+      NEO4J_USERNAME: ${NEO4J_USERNAME:-neo4j}
+      NEO4J_PASSWORD: ${NEO4J_PASSWORD:-password}
+      LISTEN_QUEUES: github_queue
+      PYTHONPATH: /app
+      LOG_DIR: /var/log/github-consumer
+      # Override ES URL to use service-to-service networking, not localhost.
+      ELASTICSEARCH_ENABLED: ${ELASTICSEARCH_ENABLED:-false}
+      ELASTICSEARCH_URL: http://elasticsearch:9200
+      ELASTIC_PASSWORD: ${ELASTIC_PASSWORD:-}
+    volumes:
+      - ./logs/github-consumer:/var/log/github-consumer
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      neo4j:
+        condition: service_healthy
+      app:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+    restart: unless-stopped  # Long-running consumer; restart on failure
+    networks:
+      - wba-ai-network
+
+  jira-consumer:
+    build:
+      context: .
+      dockerfile: Dockerfile.jira-consumer
+    deploy:
+      replicas: ${JIRA_CONSUMER_REPLICAS:-1}
+    env_file:
+      - .env
+    environment:
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASSWORD:-guest}@rabbitmq:5672/
+      NEO4J_URI: bolt://neo4j:7687
+      NEO4J_USERNAME: ${NEO4J_USERNAME:-neo4j}
+      NEO4J_PASSWORD: ${NEO4J_PASSWORD:-password}
+      LISTEN_QUEUES: jira_queue
+      PYTHONPATH: /app
+      LOG_DIR: /var/log/jira-consumer
+      # Override ES URL to use service-to-service networking, not localhost.
+      ELASTICSEARCH_ENABLED: ${ELASTICSEARCH_ENABLED:-false}
+      ELASTICSEARCH_URL: http://elasticsearch:9200
+      ELASTIC_PASSWORD: ${ELASTIC_PASSWORD:-}
+    volumes:
+      - ./logs/jira-consumer:/var/log/jira-consumer
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      neo4j:
+        condition: service_healthy
+      app:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+    restart: unless-stopped  # Long-running consumer; restart on failure
     networks:
       - wba-ai-network
 
@@ -156,9 +331,11 @@ networks:
     driver: bridge
 
 volumes:
+  influxdb_data:
+  elasticsearch_data:
   pgdata:
-    driver: local
   neo4j_data:
   neo4j_logs:
   neo4j_import:
   neo4j_plugins:
+  rabbitmq_data:

@@ -1,0 +1,5 @@
+atlassian-python-api==4.0.7
+aio-pika
+asyncpg
+pydantic>=2.13.4
+requests

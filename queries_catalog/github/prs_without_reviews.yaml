@@ -1,0 +1,22 @@
+name: PRs Without Reviews
+description: PRs without reviews - Data Quality check.
+summary: "PRs without reviews - Data Quality check."
+default_view: tabular
+owner: github-analytics
+status: active
+queries:
+  tabular: |-
+    MATCH (pr:PullRequest)
+        WHERE NOT (pr)-[:REVIEWED_BY]->()
+        RETURN pr.number, pr.title, pr.state, pr.created_at
+        ORDER BY pr.created_at DESC
+        LIMIT 10
+  graph: |-
+    MATCH p1=(pr:PullRequest)
+        WHERE NOT (pr)-[:REVIEWED_BY]->()
+        RETURN p1
+        LIMIT 100
+tags:
+- test
+- table
+- graph

@@ -30,6 +30,10 @@ The system analyzes project data from various enterprise productivity tools (suc
 
 #### AI chat interface
 ![alt text](images/image-2.png)
+
+#### Interactive collaboration network
+![alt text](images/image-4.png)
+
 ## Technology Stack
 
 * **Backend**: Python, FastAPI, PostgreSQL (asyncpg, SQLAlchemy, Alembic)
@@ -41,5 +45,5 @@ The system analyzes project data from various enterprise productivity tools (suc
 ## Documentation Links
 
 - [User Guide](USER_GUIDE.md)
-- [Developer Quick Start Guide](developer-quick-start.md)
-- [High Level Design](high-level-design.md)
+- [Developer Quick Start Guide](DEVELOPER_QUICK_START.md)
+- [High Level Design](docs/high-level-design.md)

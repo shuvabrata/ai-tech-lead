@@ -1,0 +1,19 @@
+name: Bugs Related to Stories
+description: Bugs linked to specific stories.
+summary: "Bugs linked to specific stories."
+default_view: tabular
+owner: jira-analytics
+status: active
+queries:
+  tabular: |-
+    MATCH (bug:Issue {type: 'Bug'})-[:RELATES_TO]-(story:Issue {type: 'Story'})
+        RETURN bug.key, story.key as story, bug.summary
+        LIMIT 10
+  graph: |-
+    MATCH p1=(bug:Issue {type: 'Bug'})-[:RELATES_TO]-(story:Issue {type: 'Story'})
+        RETURN p1
+        LIMIT 100
+tags:
+- test
+- table
+- graph

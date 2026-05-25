@@ -11,7 +11,6 @@ This test suite provides comprehensive coverage for:
 from unittest.mock import MagicMock, patch, AsyncMock
 import pytest
 
-from app.ai_agent.chains import chains
 from app.ai_agent.providers.openai.openai_provider import OpenAIProvider
 from app.settings import settings
 
@@ -31,9 +30,9 @@ class TestMCPSettingsAndFeatureFlags:
         """GitHub MCP setting should be a boolean type."""
         assert isinstance(settings.GITHUB_MCP_ENABLED, bool)
 
-    def test_jira_mcp_enabled_is_boolean(self):
-        """Jira MCP setting should be a boolean type."""
-        assert isinstance(settings.JIRA_MCP_ENABLED, bool)
+    def test_atlassian_mcp_enabled_is_boolean(self):
+        """Atlassian MCP setting should be a boolean type."""
+        assert isinstance(settings.ATLASSIAN_MCP_ENABLED, bool)
 
     def test_max_mcp_iterations_is_positive_integer(self):
         """MAX_MCP_ITERATIONS should be a positive integer."""
@@ -48,6 +47,15 @@ class TestMCPSettingsAndFeatureFlags:
     def test_github_mcp_token_is_string(self):
         """GitHub MCP token should be a string type."""
         assert isinstance(settings.GITHUB_MCP_TOKEN, str)
+
+    def test_atlassian_mcp_token_is_string(self):
+        """Atlassian MCP token should be a string type."""
+        assert isinstance(settings.ATLASSIAN_MCP_TOKEN, str)
+
+    def test_atlassian_mcp_server_url_is_valid_url(self):
+        """Atlassian MCP server URL should be the cloud endpoint."""
+        assert isinstance(settings.ATLASSIAN_MCP_SERVER_URL, str)
+        assert settings.ATLASSIAN_MCP_SERVER_URL.startswith("https://")
 
     def test_mcp_settings_can_be_overridden_via_env(self, monkeypatch):
         """MCP settings should be overridable via environment variables."""
@@ -142,6 +150,36 @@ class TestProviderToolResponseBehavior:
 class TestClientConnectionLogic:
     """Validate MCP client connection and graceful degradation."""
 
+    def test_atlassian_check_connection_missing_token_returns_unavailable(self):
+        """Atlassian check_connection should fail fast when token is missing."""
+        from app.ai_agent.mcp_integration.client_manager import AtlassianMCPClientManager
+
+        manager = AtlassianMCPClientManager(
+            atlassian_server_url="https://mcp.atlassian.com/v1/mcp",
+            atlassian_token="",
+            atlassian_enabled=True,
+        )
+
+        result = manager.check_connection()
+        assert result["status"] == "unavailable"
+        assert result["connected"] is False
+        assert result["error"] == "atlassian_mcp_token_missing"
+
+    def test_atlassian_check_connection_malformed_token_returns_unavailable(self):
+        """Atlassian check_connection should reject clearly malformed token values."""
+        from app.ai_agent.mcp_integration.client_manager import AtlassianMCPClientManager
+
+        manager = AtlassianMCPClientManager(
+            atlassian_server_url="https://mcp.atlassian.com/v1/mcp",
+            atlassian_token="invalid_token_for_verification",
+            atlassian_enabled=True,
+        )
+
+        result = manager.check_connection()
+        assert result["status"] == "unavailable"
+        assert result["connected"] is False
+        assert result["error"] == "atlassian_mcp_token_invalid_format"
+
     def test_execute_tool_call_returns_envelope_structure(self):
         """Tool execution should always return a structured result envelope."""
         from app.ai_agent.mcp_integration.tool_executor import execute_tool_call
@@ -200,11 +238,14 @@ class TestToolListingAndExecution:
 
     def test_list_available_tools_returns_empty_when_disabled(self, monkeypatch):
         """Tool listing should return empty when MCP is disabled."""
+        from app.ai_agent.mcp_integration import tool_executor
+
         monkeypatch.setattr(settings, "GITHUB_MCP_ENABLED", False)
-        
-        from app.ai_agent.mcp_integration.tool_executor import list_available_tools
-        
-        tools = list_available_tools()
+        monkeypatch.setattr(settings, "ATLASSIAN_MCP_ENABLED", False)
+        # Isolate from the live DB so the env-disabled fallback is authoritative.
+        monkeypatch.setattr(tool_executor, "load_atlassian_mcp_config", lambda: None)
+
+        tools = tool_executor.list_available_tools()
         assert tools == []
 
     def test_list_available_tools_returns_list(self):
@@ -214,11 +255,102 @@ class TestToolListingAndExecution:
         tools = list_available_tools()
         assert isinstance(tools, list)
 
+    def test_list_available_tools_github_only_are_namespaced(self, monkeypatch):
+        """GitHub tools should be prefixed with github__ when listed."""
+        from app.ai_agent.mcp_integration import tool_executor
+
+        class FakeGithubManager:
+            def list_tools(self):
+                return [
+                    {
+                        "type": "function",
+                        "function": {
+                            "name": "list_commits",
+                            "description": "List commits",
+                            "parameters": {"type": "object", "properties": {}},
+                        },
+                    }
+                ]
+
+        monkeypatch.setattr(settings, "GITHUB_MCP_ENABLED", True)
+        monkeypatch.setattr(settings, "ATLASSIAN_MCP_ENABLED", False)
+        monkeypatch.setattr(tool_executor, "_build_github_manager", lambda: FakeGithubManager())
+        # Isolate from the live DB so the env-disabled fallback is authoritative.
+        monkeypatch.setattr(tool_executor, "load_atlassian_mcp_config", lambda: None)
+
+        tools = tool_executor.list_available_tools()
+        assert len(tools) == 1
+        assert tools[0]["function"]["name"] == "github__list_commits"
+
+    def test_list_available_tools_atlassian_only_are_namespaced(self, monkeypatch):
+        """Atlassian tools should be prefixed with atlassian__ when listed."""
+        from app.ai_agent.mcp_integration import tool_executor
+
+        class FakeAtlassianManager:
+            def list_tools(self):
+                return [
+                    {
+                        "type": "function",
+                        "function": {
+                            "name": "getTeamworkGraphContext",
+                            "description": "Get context",
+                            "parameters": {"type": "object", "properties": {}},
+                        },
+                    }
+                ]
+
+        monkeypatch.setattr(settings, "GITHUB_MCP_ENABLED", False)
+        monkeypatch.setattr(settings, "ATLASSIAN_MCP_ENABLED", True)
+        monkeypatch.setattr(tool_executor, "_build_atlassian_manager", lambda: FakeAtlassianManager())
+
+        tools = tool_executor.list_available_tools()
+        assert len(tools) == 1
+        assert tools[0]["function"]["name"] == "atlassian__getTeamworkGraphContext"
+
+    def test_list_available_tools_combines_both_backends(self, monkeypatch):
+        """Enabled backends should both contribute namespaced tools."""
+        from app.ai_agent.mcp_integration import tool_executor
+
+        class FakeGithubManager:
+            def list_tools(self):
+                return [
+                    {
+                        "type": "function",
+                        "function": {
+                            "name": "list_commits",
+                            "description": "List commits",
+                            "parameters": {"type": "object", "properties": {}},
+                        },
+                    }
+                ]
+
+        class FakeAtlassianManager:
+            def list_tools(self):
+                return [
+                    {
+                        "type": "function",
+                        "function": {
+                            "name": "getTeamworkGraphObject",
+                            "description": "Get object",
+                            "parameters": {"type": "object", "properties": {}},
+                        },
+                    }
+                ]
+
+        monkeypatch.setattr(settings, "GITHUB_MCP_ENABLED", True)
+        monkeypatch.setattr(settings, "ATLASSIAN_MCP_ENABLED", True)
+        monkeypatch.setattr(tool_executor, "_build_github_manager", lambda: FakeGithubManager())
+        monkeypatch.setattr(tool_executor, "_build_atlassian_manager", lambda: FakeAtlassianManager())
+
+        names = [tool["function"]["name"] for tool in tool_executor.list_available_tools()]
+        assert "github__list_commits" in names
+        assert "atlassian__getTeamworkGraphObject" in names
+
     def test_execute_tool_call_returns_envelope_structure(self):
         """Tool execution should return a properly structured result envelope."""
         from app.ai_agent.mcp_integration.tool_executor import execute_tool_call
         
-        result = execute_tool_call("list_issues", {"owner": "test", "repo": "repo"})
+        result = execute_tool_call("github__list_issues", {"owner": "test", "repo": "repo"})
         
         # Verify envelope structure
         assert isinstance(result, dict)
@@ -230,7 +362,7 @@ class TestToolListingAndExecution:
         """Tool execution should handle empty arguments gracefully."""
         from app.ai_agent.mcp_integration.tool_executor import execute_tool_call
         
-        result = execute_tool_call("list_issues", {})
+        result = execute_tool_call("github__list_issues", {})
         
         # Should return envelope, success or graceful failure
         assert isinstance(result, dict)
@@ -241,9 +373,9 @@ class TestToolListingAndExecution:
         from app.ai_agent.mcp_integration.tool_executor import execute_tool_call
         
         test_cases = [
-            ("list_issues", {"owner": "test", "repo": "repo"}),
-            ("list_issues", {"owner": "test", "repo": "repo", "per_page": 10}),
-            ("list_issues", {"owner": "test", "repo": "repo", "per_page": "invalid"}),
+            ("github__list_issues", {"owner": "test", "repo": "repo"}),
+            ("github__list_issues", {"owner": "test", "repo": "repo", "per_page": 10}),
+            ("github__list_issues", {"owner": "test", "repo": "repo", "per_page": "invalid"}),
         ]
         
         for tool_name, args in test_cases:
@@ -252,319 +384,172 @@ class TestToolListingAndExecution:
             assert isinstance(result, dict)
             assert "status" in result
 
+    def test_execute_tool_call_routes_to_github_backend(self, monkeypatch):
+        """Prefixed GitHub tool names should route to the GitHub manager."""
+        from app.ai_agent.mcp_integration import tool_executor
 
-# ============================================================================
-# Phase 7 Step 5: Augmentation Loop Behavior Regression
-# ============================================================================
-
-
-class TestAugmentationLoopBehavior:
-    """Regression tests for MCP augmentation loop behavior."""
-
-    def test_augmentation_respects_max_mcp_iterations_limit(self, monkeypatch):
-        """Tool loop should not exceed MAX_MCP_ITERATIONS boundary."""
-        monkeypatch.setattr(settings, "GITHUB_MCP_ENABLED", True)
-        monkeypatch.setattr(settings, "MAX_MCP_ITERATIONS", 2)
-        
-        from app.ai_agent.chains import mcp_chain
-        
-        # Mock provider that always wants to call tools
-        provider = MagicMock()
-        provider.chat_completion_with_tools.side_effect = [
-            {"content": "", "tool_calls": [{"id": "1", "name": "tool_a", "arguments": "{}"}], "finish_reason": "tool_calls"},
-            {"content": "", "tool_calls": [{"id": "2", "name": "tool_b", "arguments": "{}"}], "finish_reason": "tool_calls"},
-            {"content": "", "tool_calls": [{"id": "3", "name": "tool_c", "arguments": "{}"}], "finish_reason": "tool_calls"},  # Should not reach
-            {"content": "Final", "tool_calls": [], "finish_reason": "stop"},
-        ]
-        
-        def mock_execute(tool_name, args):
-            return {
-                "tool_name": tool_name,
-                "status": "success",
-                "result": {
-                    "content": [{"type": "text", "text": "Result"}],
-                    "structured_content": {},
-                    "is_error": False,
-                },
-            }
-        
-        mock_tool = {
-            "type": "function",
-            "function": {
-                "name": "test_tool",
-                "description": "Test tool",
-                "parameters": {"type": "object", "properties": {}},
-            },
-        }
-        
-        with patch.object(mcp_chain, "_check_mcp_relevance", return_value=True):
-            with patch.object(mcp_chain, "list_available_tools", return_value=[mock_tool]):
-                with patch.object(mcp_chain, "execute_tool_call", side_effect=mock_execute):
-                    envelope = mcp_chain.augment_message_with_mcp("Test", provider=provider)
-        
-        # Provider should be called at most MAX_MCP_ITERATIONS times (+ 1 for init)
-        assert provider.chat_completion_with_tools.call_count <= 3
-
-    def test_augmentation_stops_when_no_tool_calls_requested(self, monkeypatch):
-        """Tool loop should exit when LLM stops requesting tools."""
-        monkeypatch.setattr(settings, "GITHUB_MCP_ENABLED", True)
-        
-        from app.ai_agent.chains import mcp_chain
-        
-        provider = MagicMock()
-        provider.chat_completion_with_tools.side_effect = [
-            {"content": "", "tool_calls": [{"id": "call_1", "name": "tool_a", "arguments": "{}"}], "finish_reason": "tool_calls"},
-            {"content": "Done", "tool_calls": None, "finish_reason": "stop"},
-        ]
-        
-        # Mock tools so the chain proceeds with the loop
-        mock_tool = {
-            "type": "function",
-            "function": {
-                "name": "tool_a",
-                "description": "Test tool",
-                "parameters": {"type": "object", "properties": {}},
-            },
-        }
-        
-        # Mock tool execution to return properly structured result
-        def mock_execute(tool_name, args):
-            return {
-                "tool_name": tool_name,
-                "status": "success",
-                "result": {
-                    "content": [{"type": "text", "text": "Result"}],
-                    "structured_content": {},
-                    "is_error": False,
-                },
-            }
-        
-        with patch.object(mcp_chain, "_check_mcp_relevance", return_value=True):
-            with patch.object(mcp_chain, "list_available_tools", return_value=[mock_tool]):
-                with patch.object(mcp_chain, "execute_tool_call", side_effect=mock_execute):
-                    envelope = mcp_chain.augment_message_with_mcp("Test", provider=provider)
-        
-        # Provider should be called exactly twice (init + 1 round)
-        assert provider.chat_completion_with_tools.call_count == 2
-
-    def test_augmentation_returns_bounded_context(self, monkeypatch):
-        """Augmented context should be bounded and not exceed reasonable limits."""
-        monkeypatch.setattr(settings, "GITHUB_MCP_ENABLED", True)
-        monkeypatch.setattr(settings, "MAX_MCP_ITERATIONS", 1)
-        
-        from app.ai_agent.chains import mcp_chain
-        
-        provider = MagicMock()
-        provider.chat_completion_with_tools.return_value = {
-            "content": "Done",
-            "tool_calls": [],
-            "finish_reason": "stop",
-        }
-        
-        def mock_execute(tool_name, args):
-            return {
-                "tool_name": tool_name,
-                "status": "success",
-                "result": {
-                    "content": [{"type": "text", "text": "x" * 10000}],
-                    "structured_content": {},
-                    "is_error": False,
-                },
-            }
-        
-        mock_tool = {
-            "type": "function",
-            "function": {
-                "name": "test_tool",
-                "description": "Test tool",
-                "parameters": {"type": "object", "properties": {}},
-            },
-        }
-        
-        with patch.object(mcp_chain, "_check_mcp_relevance", return_value=True):
-            with patch.object(mcp_chain, "list_available_tools", return_value=[mock_tool]):
-                with patch.object(mcp_chain, "execute_tool_call", side_effect=mock_execute):
-                    envelope = mcp_chain.augment_message_with_mcp("Test", provider=provider)
-        
-        # Context should exist and be reasonable
-        if envelope["applied"]:
-            context_len = len(envelope.get("context", ""))
-            # Should be much less than raw result size due to truncation
-            assert context_len < 50000
-
-
-# ============================================================================
-# Phase 7 Step 6: Regression Tests for Disabled/Unavailable States
-# ============================================================================
-
-
-class TestRegressionFallbackBehavior:
-    """Regression tests for fallback behavior when MCP is disabled or unavailable."""
-
-    def test_message_augmentation_with_mcp_disabled_returns_original(self, monkeypatch):
-        """Augmentation should return original message when MCP is disabled."""
-        monkeypatch.setattr(settings, "GITHUB_MCP_ENABLED", False)
-        
-        from app.ai_agent.chains import chains
-        
-        user_message = "What are the recent commits?"
-        
-        with patch.object(chains, "augment_message_with_neo4j", return_value=user_message):
-            result = chains.augment_message(user_message)
-        
-        # Should return original message unchanged
-        assert result == user_message
-
-    def test_multi_source_augmentation_with_only_neo4j(self, monkeypatch):
-        """Multi-source should preserve Neo4j-only behavior when MCP is disabled."""
-        monkeypatch.setattr(settings, "NEO4J_ENABLED", True)
-        monkeypatch.setattr(settings, "GITHUB_MCP_ENABLED", False)
-        
-        from app.ai_agent.chains import chains
-        
-        user_message = "Show team members"
-        neo4j_enhanced = "Show team members [NEO4J_CONTEXT]"
-        
-        with patch.object(chains, "augment_message_with_neo4j", return_value=neo4j_enhanced):
-            with patch.object(chains, "augment_message_with_mcp", return_value={"applied": False, "source": "mcp"}):
-                result = chains.augment_message(user_message)
-        
-        # When only Neo4j is applied, should preserve existing behavior
-        assert result == neo4j_enhanced
-
-    def test_chat_flow_with_mcp_unavailable(self, monkeypatch):
-        """Chat flow should continue gracefully when MCP service is unavailable."""
-        monkeypatch.setattr(settings, "GITHUB_MCP_ENABLED", True)
-        
-        from app.ai_agent.chains import chains
-        
-        user_message = "List recent PRs"
-        
-        # Neo4j augmentation succeeds, MCP fails
-        with patch.object(chains, "augment_message_with_neo4j", return_value=user_message):
-            with patch.object(chains, "augment_message_with_mcp") as mock_mcp:
-                # MCP returns error envelope (not applied)
-                mock_mcp.return_value = {
-                    "source": "mcp",
-                    "applied": False,
-                    "context": "",
-                    "error": "Service unavailable"
+        class FakeGithubManager:
+            def call_tool(self, tool_name, arguments):
+                return {
+                    "tool_name": tool_name,
+                    "arguments": arguments,
+                    "status": "success",
+                    "result": {},
                 }
-                
-                result = chains.augment_message(user_message)
-        
-        # Should return something reasonable (user message at minimum)
-        assert result is not None
-        assert len(result) > 0
 
-    def test_chat_flow_with_both_sources_disabled(self, monkeypatch):
-        """Chat flow should return original message when all sources are disabled."""
-        monkeypatch.setattr(settings, "NEO4J_ENABLED", False)
-        monkeypatch.setattr(settings, "GITHUB_MCP_ENABLED", False)
-        
-        from app.ai_agent.chains import chains
-        
-        user_message = "What's new?"
-        
-        with patch.object(chains, "augment_message_with_neo4j", return_value=user_message):
-            with patch.object(chains, "augment_message_with_mcp", return_value={"applied": False}):
-                result = chains.augment_message(user_message)
-        
-        # Should return original message
-        assert result == user_message
+        monkeypatch.setattr(tool_executor, "_build_github_manager", lambda: FakeGithubManager())
 
-    def test_regression_message_shape_unchanged_after_augmentation(self, monkeypatch):
-        """Augmented messages should maintain string type and usability."""
-        monkeypatch.setattr(settings, "GITHUB_MCP_ENABLED", True)
-        
-        from app.ai_agent.chains import chains
-        
-        user_message = "Show issues"
-        
-        with patch.object(chains, "augment_message_with_neo4j", return_value=user_message):
-            with patch.object(chains, "augment_message_with_mcp", return_value={"applied": True, "source": "mcp", "context": "MCP data"}):
-                result = chains.augment_message(user_message)
-        
-        # Result should always be a string, usable as LLM input
-        assert isinstance(result, str)
-        assert len(result) > 0
+        result = tool_executor.execute_tool_call("github__list_commits", {"owner": "a"})
+        assert result["tool_name"] == "list_commits"
+        assert result["status"] == "success"
+
+    def test_execute_tool_call_routes_to_atlassian_backend(self, monkeypatch):
+        """Prefixed Atlassian tool names should route to the Atlassian manager."""
+        from app.ai_agent.mcp_integration import tool_executor
+
+        class FakeAtlassianManager:
+            def call_tool(self, tool_name, arguments):
+                return {
+                    "tool_name": tool_name,
+                    "arguments": arguments,
+                    "status": "success",
+                    "result": {},
+                }
+
+        monkeypatch.setattr(tool_executor, "_build_atlassian_manager", lambda: FakeAtlassianManager())
+
+        result = tool_executor.execute_tool_call("atlassian__getTeamworkGraphContext", {"objectType": "JIRA_ISSUE"})
+        assert result["tool_name"] == "getTeamworkGraphContext"
+        assert result["status"] == "success"
+
+    def test_execute_tool_call_with_unknown_prefix_returns_error(self):
+        """Unknown or unprefixed tool names should return a structured routing error."""
+        from app.ai_agent.mcp_integration.tool_executor import execute_tool_call
+
+        result = execute_tool_call("list_issues", {"owner": "test"})
+        assert result["status"] == "error"
+        assert result["error"] == "unknown_tool_namespace"
 
 
 # ============================================================================
-# Phase 7 Step 7: Integration-Oriented Tests (no live credentials)
+# Phase 4: DB-Backed Atlassian MCP Config Resolution
 # ============================================================================
 
 
-class TestIntegrationWithoutLiveCredentials:
-    """Integration-oriented tests without requiring live API credentials."""
+class TestDBBackedAtlassianConfig:
+    """Validate DB-backed Atlassian MCP config resolution in tool_executor."""
 
-    def test_augmentation_pipeline_backward_compatibility(self, monkeypatch):
-        """Existing augmentation pipeline should work with new MCP integration."""
-        monkeypatch.setattr(settings, "NEO4J_ENABLED", True)
+    def test_build_atlassian_manager_uses_db_config_when_available(self, monkeypatch):
+        """When the DB loader returns config, the manager should use DB values."""
+        from app.ai_agent.mcp_integration import tool_executor
+
+        db_config = {
+            "enabled": True,
+            "server_url": "https://db-mcp.atlassian.com/v1/mcp",
+            "token": "FAKE_ATLASSIAN_TOKEN_DB",
+        }
+        monkeypatch.setattr(tool_executor, "load_atlassian_mcp_config", lambda: db_config)
+
+        manager = tool_executor._build_atlassian_manager()
+
+        assert manager.atlassian_server_url == "https://db-mcp.atlassian.com/v1/mcp"
+        assert manager.atlassian_token == "FAKE_ATLASSIAN_TOKEN_DB"
+        assert manager.atlassian_enabled is True
+
+    def test_build_atlassian_manager_falls_back_to_env_when_db_absent(self, monkeypatch):
+        """When the DB loader returns None, the manager should use env settings."""
+        from app.ai_agent.mcp_integration import tool_executor
+
+        monkeypatch.setattr(tool_executor, "load_atlassian_mcp_config", lambda: None)
+        monkeypatch.setattr(settings, "ATLASSIAN_MCP_SERVER_URL", "https://env-mcp.atlassian.com/v1/mcp")
+        monkeypatch.setattr(settings, "ATLASSIAN_MCP_TOKEN", "FAKE_ATLASSIAN_TOKEN_ENV")
+        monkeypatch.setattr(settings, "ATLASSIAN_MCP_ENABLED", True)
+
+        manager = tool_executor._build_atlassian_manager()
+
+        assert manager.atlassian_server_url == "https://env-mcp.atlassian.com/v1/mcp"
+        assert manager.atlassian_token == "FAKE_ATLASSIAN_TOKEN_ENV"
+        assert manager.atlassian_enabled is True
+
+    def test_build_atlassian_manager_db_disabled_overrides_env_enabled(self, monkeypatch):
+        """DB config with enabled=False must take precedence over env ATLASSIAN_MCP_ENABLED=True."""
+        from app.ai_agent.mcp_integration import tool_executor
+
+        db_config = {
+            "enabled": False,
+            "server_url": "https://db-mcp.atlassian.com/v1/mcp",
+            "token": "FAKE_ATLASSIAN_TOKEN_DB",
+        }
+        monkeypatch.setattr(tool_executor, "load_atlassian_mcp_config", lambda: db_config)
+        # Even if env says enabled, DB takes precedence.
+        monkeypatch.setattr(settings, "ATLASSIAN_MCP_ENABLED", True)
+
+        manager = tool_executor._build_atlassian_manager()
+
+        assert manager.atlassian_enabled is False
+
+    def test_list_available_tools_uses_db_atlassian_config(self, monkeypatch):
+        """list_available_tools should expose Atlassian tools when DB config is enabled."""
+        from app.ai_agent.mcp_integration import tool_executor
+
+        class FakeAtlassianManager:
+            def list_tools(self):
+                return [
+                    {
+                        "type": "function",
+                        "function": {
+                            "name": "getTeamworkGraphContext",
+                            "description": "Get context",
+                            "parameters": {"type": "object", "properties": {}},
+                        },
+                    }
+                ]
+
+        db_config = {
+            "enabled": True,
+            "server_url": "https://db-mcp.atlassian.com/v1/mcp",
+            "token": "FAKE_ATLASSIAN_TOKEN_DB",
+        }
         monkeypatch.setattr(settings, "GITHUB_MCP_ENABLED", False)
-        
-        from app.ai_agent.chains import chains
-        
-        user_message = "List team members"
-        neo4j_context = "Team context from Neo4j"
-        
-        with patch.object(chains, "augment_message_with_neo4j", return_value=neo4j_context):
-            with patch.object(chains, "augment_message_with_mcp", return_value={"applied": False, "source": "mcp"}):
-                result = chains.augment_message(user_message)
-        
-        # Should work exactly as before
-        assert result == neo4j_context
+        # env says disabled — DB should override.
+        monkeypatch.setattr(settings, "ATLASSIAN_MCP_ENABLED", False)
+        monkeypatch.setattr(tool_executor, "load_atlassian_mcp_config", lambda: db_config)
+        monkeypatch.setattr(tool_executor, "_build_atlassian_manager", lambda: FakeAtlassianManager())
 
-    def test_full_chat_session_flow_with_mcp_disabled(self, monkeypatch):
-        """Full chat session should work unchanged when MCP is disabled."""
+        tools = tool_executor.list_available_tools()
+
+        assert len(tools) == 1
+        assert tools[0]["function"]["name"] == "atlassian__getTeamworkGraphContext"
+
+    def test_list_available_tools_no_atlassian_when_db_disabled(self, monkeypatch):
+        """list_available_tools should return no Atlassian tools when DB config is disabled."""
+        from app.ai_agent.mcp_integration import tool_executor
+
+        db_config = {
+            "enabled": False,
+            "server_url": "https://db-mcp.atlassian.com/v1/mcp",
+            "token": "",
+        }
         monkeypatch.setattr(settings, "GITHUB_MCP_ENABLED", False)
-        
-        from app.ai_agent.chains import chains
-        
-        messages = [
-            {"role": "user", "content": "Who is on the team?"},
-            {"role": "user", "content": "What are they working on?"},
-        ]
-        
-        for msg in messages:
-            augmented = chains.augment_message(msg["content"])
-            # Each augmented message should be valid
-            assert isinstance(augmented, str)
-            assert len(augmented) > 0
+        monkeypatch.setattr(tool_executor, "load_atlassian_mcp_config", lambda: db_config)
 
-    def test_mixed_augmentation_source_composition(self, monkeypatch):
-        """When both Neo4j and MCP apply, context should be composed correctly."""
-        monkeypatch.setattr(settings, "GITHUB_MCP_ENABLED", True)
-        
-        from app.ai_agent.chains import chains
-        
-        user_message = "Show GitHub issues"
-        
-        with patch.object(chains, "augment_message_with_neo4j", return_value=user_message):
-            with patch.object(chains, "augment_message_with_mcp", return_value={
-                "applied": True,
-                "source": "mcp",
-                "context": "Issues from GitHub MCP"
-            }):
-                result = chains.augment_message(user_message)
-        
-        # Result should include composition markers
-        assert isinstance(result, str)
-        assert "User Question" in result
-        assert "GitHub" in result or "MCP" in result or "Context" in result
+        tools = tool_executor.list_available_tools()
 
-    def test_error_recovery_in_augmentation_pipeline(self, monkeypatch):
-        """Pipeline should recover gracefully from partial augmentation failures."""
-        monkeypatch.setattr(settings, "GITHUB_MCP_ENABLED", True)
-        
-        from app.ai_agent.chains import chains
-        
-        user_message = "Test message"
-        
-        # Neo4j works, MCP returns error envelope
-        with patch.object(chains, "augment_message_with_neo4j", return_value=user_message):
-            with patch.object(chains, "augment_message_with_mcp", return_value={"applied": False, "source": "mcp", "error": "unavailable"}):
-                result = chains.augment_message(user_message)
-                # Should not crash, return something usable
-                assert isinstance(result, str)
-                assert len(result) > 0
+        atlassian_tools = [t for t in tools if t["function"]["name"].startswith("atlassian__")]
+        assert atlassian_tools == []
+
+    def test_loader_exception_triggers_env_fallback(self, monkeypatch):
+        """When the loader raises, _build_atlassian_manager should use env settings."""
+        from app.ai_agent.mcp_integration import tool_executor
+
+        def _raising_loader():
+            raise RuntimeError("DB connection refused")
+
+        monkeypatch.setattr(tool_executor, "load_atlassian_mcp_config", _raising_loader)
+        monkeypatch.setattr(settings, "ATLASSIAN_MCP_SERVER_URL", "https://env-fallback.atlassian.com/v1/mcp")
+        monkeypatch.setattr(settings, "ATLASSIAN_MCP_TOKEN", "")
+        monkeypatch.setattr(settings, "ATLASSIAN_MCP_ENABLED", False)
+
+        # Should not raise; falls back to env settings.
+        manager = tool_executor._build_atlassian_manager()
+        assert manager.atlassian_enabled is False

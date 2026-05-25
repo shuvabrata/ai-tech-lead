@@ -1,0 +1,33 @@
+{
+  "repos": [
+    {
+      "url": "https://github.com/your-org/*",
+      "search_filters": {
+          "props.application-context": "production",
+          "props.division": "your-division",
+          "props.asset-classification": "confidential"
+      },
+      "token": "your-github-token-here",
+      "branch_name_patterns": [
+        "(?:feature|bugfix|hotfix|release)/([A-Z]{2,}-\\d+)",
+        "^([A-Z]{2,}-\\d+)"
+      ],
+      "extraction_sources": [
+        "branch",
+        "commit_message"
+      ]
+    },
+    {
+      "url": "https://github.com/your-org/your-repo",
+      "token": "your-github-token-here",
+      "branch_name_patterns": [
+        "(?:feature|bugfix|hotfix|release)/([A-Z]{2,}-\\d+)",
+        "^([A-Z]{2,}-\\d+)"
+      ],
+      "extraction_sources": [
+        "branch",
+        "commit_message"
+      ]
+    }
+  ]
+}
