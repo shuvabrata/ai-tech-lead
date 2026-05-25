@@ -108,11 +108,12 @@ def determine_catalog_view(
         return current_view
     if requested_view in available_views:
         return requested_view
+    # Product preference: default to Graph whenever it is available.
+    if "graph" in available_views:
+        return "graph"
     default_view = catalog_query.get("default_view")
     if default_view in available_views:
         return default_view
-    if "graph" in available_views:
-        return "graph"
     if available_views:
         return available_views[0]
     return None
@@ -487,9 +488,14 @@ def render_catalog_query_detail(
         )
     )
 
+    available_views = query.get("available_views") or []
+    ordered_views = sorted(
+        available_views,
+        key=lambda view: (0 if view == "graph" else 1 if view == "tabular" else 2, view),
+    )
     view_options = [
         {"label": view.title(), "value": view}
-        for view in (query.get("available_views") or [])
+        for view in ordered_views
     ]
 
     parameter_children = []

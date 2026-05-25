@@ -80,12 +80,12 @@ def test_parse_catalog_deep_link_ignores_invalid_view():
     assert view is None
 
 
-def test_determine_catalog_view_prefers_current_then_requested_then_graph():
+def test_determine_catalog_view_prefers_current_then_requested_then_graph_default():
     catalog_query = {"available_views": ["tabular", "graph"], "default_view": "tabular"}
 
     assert catalog_callbacks.determine_catalog_view(catalog_query, "graph", "tabular") == "tabular"
     assert catalog_callbacks.determine_catalog_view(catalog_query, "graph", None) == "graph"
-    assert catalog_callbacks.determine_catalog_view(catalog_query, None, None) == "tabular"
+    assert catalog_callbacks.determine_catalog_view(catalog_query, None, None) == "graph"
     assert catalog_callbacks.determine_catalog_view({"available_views": ["tabular"]}, None, None) == "tabular"
 
 
@@ -173,7 +173,7 @@ def test_render_catalog_query_detail_uses_rich_metadata_and_default_view():
 
     (
         detail_children,
-        _view_options,
+        view_options,
         selected_view,
         parameter_children,
         run_disabled,
@@ -190,7 +190,9 @@ def test_render_catalog_query_detail_uses_rich_metadata_and_default_view():
     first_parameter_block = parameter_children[0]
     parameter_input = first_parameter_block.children[1]
 
-    assert selected_view == "tabular"
+    assert view_options[0]["value"] == "graph"
+    assert view_options[1]["value"] == "tabular"
+    assert selected_view == "graph"
     assert "Compare two people by direct code review activity." in detail_text
     assert "Owner: graph-team" in detail_text
     assert "Active" in detail_text
