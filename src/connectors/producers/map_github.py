@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import re
 from datetime import datetime
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 
@@ -97,6 +98,7 @@ def map_branch(
     return {
         "id": branch_id,
         "name": branch_name,
+        "repo_name": repo_name,
         "is_default": branch_name == default_branch,
         "is_protected": branch.protected,
         "is_deleted": False,
@@ -261,15 +263,32 @@ def map_commit_files(files: List[Any]) -> List[Dict[str, Any]]:
         files: List of PyGithub File objects from a commit.
 
     Returns:
-        List of dicts with keys: ``filename``, ``additions``, ``deletions``.
+        List of dicts with keys: ``filename``, ``additions``, ``deletions``,
+        ``name``, ``extension``, ``language``, ``is_test``.
     """
+    _EXT_TO_LANG = {
+        ".py": "Python", ".go": "Go", ".yaml": "YAML", ".yml": "YAML",
+        ".ts": "TypeScript", ".tsx": "TypeScript", ".js": "JavaScript", ".jsx": "JavaScript",
+        ".swift": "Swift", ".java": "Java", ".c": "C", ".cpp": "C++", ".h": "C/C++",
+        ".rs": "Rust", ".rb": "Ruby", ".php": "PHP", ".cs": "C#",
+        ".md": "Markdown", ".json": "JSON", ".sh": "Shell", ".css": "CSS",
+        ".html": "HTML", ".xml": "XML", ".sql": "SQL", ".txt": "Text",
+    }
+    _TEST_PATTERNS = ("test", "spec", "__tests__", "tests/", ".test.", ".spec.")
     result = []
     for f in files:
+        filename: str = f.filename
+        path_obj = Path(filename)
+        extension = path_obj.suffix
         result.append(
             {
-                "filename": f.filename,
+                "filename": filename,
                 "additions": f.additions if hasattr(f, "additions") else 0,
                 "deletions": f.deletions if hasattr(f, "deletions") else 0,
+                "name": path_obj.name,
+                "extension": extension,
+                "language": _EXT_TO_LANG.get(extension.lower(), "Unknown"),
+                "is_test": any(p in filename.lower() for p in _TEST_PATTERNS),
             }
         )
     return result
@@ -278,6 +297,13 @@ def map_commit_files(files: List[Any]) -> List[Dict[str, Any]]:
 # ---------------------------------------------------------------------------
 # Pull request
 # ---------------------------------------------------------------------------
+
+# Module-level in-memory cache: login → resolved {login, name, email} dict.
+# Avoids redundant GET /users/{login} API calls when the same GitHub user
+# appears across multiple commits, PRs, or reviews in a single producer run.
+# Thread-safe for CPython: dict reads/writes are GIL-protected; worst-case
+# race is a duplicate fetch on first encounter, which is harmless.
+_user_cache: Dict[str, Dict[str, Any]] = {}
 
 
 def map_pr_user(pr_user: Any) -> Dict[str, Any]:
@@ -310,6 +336,61 @@ def map_pr_user(pr_user: Any) -> Dict[str, Any]:
         "name": name,
         "email": email.lower() if email else None,
     }
+
+
+def fetch_github_user(user_obj: Any) -> Dict[str, Any]:
+    """Canonical user-detail fetcher for any PyGithub user object.
+
+    All person-discovery paths in the producer should go through this
+    function so that login/name/email are extracted consistently.
+
+    Handles two shapes:
+
+    * **NamedUser** (has a ``login`` attribute) — accessing ``.name`` or
+      ``.email`` triggers a blocking ``GET /users/{login}`` API call via
+      PyGithub lazy loading.  **Always call inside** ``asyncio.to_thread()``.
+    * **GitAuthor** (has ``name``/``email``, no ``login``) — reads
+      git-embedded metadata directly; no network call needed.
+
+    Returns:
+        Dict with keys ``login``, ``name``, ``email``.
+        ``email`` is always a lower-cased string, never ``None``.
+    """
+    if user_obj is None:
+        return {"login": "unknown", "name": "Unknown", "email": ""}
+
+    if hasattr(user_obj, "login") and user_obj.login:
+        login = user_obj.login
+
+        # Cache hit — skip the blocking GET /users/{login} entirely.
+        if login in _user_cache:
+            return _user_cache[login]
+
+        try:
+            name = user_obj.name or login
+        except Exception:
+            name = login
+        try:
+            email = (user_obj.email or "").lower()
+        except Exception:
+            email = ""
+
+        result = {"login": login, "name": name, "email": email}
+        _user_cache[login] = result
+        return result
+
+    elif hasattr(user_obj, "name"):
+        # GitAuthor — email is embedded in git commit metadata, no API call needed.
+        # Not cached: the data is already in the object, no savings from caching.
+        name = user_obj.name or "Unknown"
+        email = (getattr(user_obj, "email", "") or "").lower()
+        login = email.split("@")[0] if email else name.lower().replace(" ", "_")
+    else:
+        login = "unknown"
+        name = "Unknown"
+        email = ""
+
+    return {"login": login, "name": name, "email": email}
 
 
 def map_pull_request(
@@ -349,14 +430,14 @@ def map_pull_request(
     if repo_owner:
         url = f"https://github.com/{repo_owner}/{repo_name}/pull/{pr.number}"
 
-    # Pre-compute internal branch IDs for convenience
-    base_branch_id = f"github_branch_{repo_name}_{pr.base.ref.replace('/', '_').replace('-', '_')}"
+    # Pre-compute internal branch IDs for convenience (new format: repo_name::branch_ref)
+    base_branch_id = f"{repo_name}::{pr.base.ref}"
     head_branch_id: Optional[str] = None
     is_external_head = pr.head.repo is None or (
         hasattr(pr.head, "repo") and pr.head.repo is not None and pr.head.repo.id != getattr(pr, "_base_repo_id", None)
     )
     if not is_external_head and pr.head.repo is not None:
-        head_branch_id = f"github_branch_{repo_name}_{pr.head.ref.replace('/', '_').replace('-', '_')}"
+        head_branch_id = f"{repo_name}::{pr.head.ref}"
 
     return {
         "id": pr_id,

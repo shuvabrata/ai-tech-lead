@@ -270,7 +270,7 @@ import requests
 from dotenv import load_dotenv
 
 from app.ai_agent.providers.base import LLMProvider
-from app.common.logger import logger
+from common.logger import logger
 
 
 class CustomProvider(LLMProvider):
@@ -340,7 +340,7 @@ import httpx
 from dotenv import load_dotenv
 
 from app.ai_agent.providers.base import LLMProvider
-from app.common.logger import logger
+from common.logger import logger
 
 
 class CustomProvider(LLMProvider):

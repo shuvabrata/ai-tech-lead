@@ -11,21 +11,24 @@ Tests cover:
 from __future__ import annotations
 
 import asyncio
+import hashlib
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from connectors.producers.github_producer import (
-    _SOURCE,
+from connectors.producers.github.constants import (
     _TEXT_MAX,
-    _truncate,
-    build_branch_signal,
-    build_commit_signal,
-    build_person_signal,
-    build_pull_request_signal,
-    build_repository_signal,
+    _truncate
+)
+
+from connectors.producers.github.build_branch_signal import build_branch_signal
+from connectors.producers.github.build_commit_signal import build_commit_signal
+from connectors.producers.github.build_person_signal import build_person_signal
+from connectors.producers.github.build_pull_request_signal import build_pull_request_signal
+from connectors.producers.github.build_repository_signal import build_repository_signal
+from connectors.producers.github.process_repo_signals import (
     process_repo_signals,
 )
 
@@ -55,6 +58,7 @@ def _branch_data(**overrides: Any) -> Dict[str, Any]:
     data: Dict[str, Any] = {
         "id": "branch_myrepo_main",
         "name": "main",
+        "repo_name": "myrepo",
         "is_default": True,
         "is_protected": False,
         "last_commit_sha": "abc123",
@@ -99,8 +103,8 @@ def _pr_data(**overrides: Any) -> Dict[str, Any]:
         "created_at": "2024-05-01",
         "updated_at": "2024-06-01T10:00:00",
         "merged_at": "2024-06-01",
-        "base_branch_id": "branch_myrepo_main",
-        "head_branch_id": "branch_myrepo_feature",
+        "base_branch_id": "myrepo::main",
+        "head_branch_id": "myrepo::feature",
         "url": "https://github.com/org/myrepo/pull/42",
     }
     data.update(overrides)
@@ -117,19 +121,18 @@ class TestBuildRepositorySignal:
         sig = build_repository_signal(_repo_data())
         assert sig is not None
         assert sig.source == "github"
-        assert sig.external_id == "repo_myrepo"
-        assert sig.routing_key == "github.Repository"
+        assert sig.id == "org/myrepo"
         assert sig.attributes.entity_type == "Repository"  # type: ignore[union-attr]
 
-    def test_missing_mandatory_id_returns_none(self) -> None:
+    def test_missing_mandatory_full_name_returns_none(self) -> None:
         d = _repo_data()
-        del d["id"]
+        del d["full_name"]
         sig = build_repository_signal(d)
         assert sig is None
 
-    def test_missing_updated_at_returns_none(self) -> None:
+    def test_missing_name_returns_none(self) -> None:
         d = _repo_data()
-        del d["updated_at"]
+        del d["name"]
         sig = build_repository_signal(d)
         assert sig is None
 
@@ -150,8 +153,8 @@ class TestBuildBranchSignal:
     def test_valid(self) -> None:
         sig = build_branch_signal(_branch_data(), _repo_data())
         assert sig is not None
-        assert sig.routing_key == "github.Branch"
         assert sig.attributes.entity_type == "Branch"  # type: ignore[union-attr]
+        assert sig.id == "myrepo::main"
 
     def test_relationship_to_repo(self) -> None:
         sig = build_branch_signal(_branch_data(), _repo_data())
@@ -161,7 +164,7 @@ class TestBuildBranchSignal:
         assert rel.type == "BRANCH_OF"
         assert rel.direction is None
         assert rel.target.entity_type == "Repository"
-        assert rel.target.external_id == "repo_myrepo"
+        assert rel.target.id == "org/myrepo"
 
     def test_missing_commit_sha_returns_none(self) -> None:
         d = _branch_data()
@@ -196,18 +199,17 @@ class TestBuildPersonSignal:
     def test_valid(self) -> None:
         sig = build_person_signal(_author_data())
         assert sig is not None
-        assert sig.routing_key == "github.Person"
-        assert sig.external_id == "person_github_devuser"
+        assert sig.id == "devuser"
 
     def test_id_derived_from_login(self) -> None:
         sig = build_person_signal({"login": "alice", "name": "Alice", "email": ""})
         assert sig is not None
-        assert sig.external_id == "person_github_alice"
+        assert sig.id == "alice"
 
     def test_login_fallback_to_name(self) -> None:
         sig = build_person_signal({"name": "Bob", "email": ""})
         assert sig is not None
-        assert "Bob" in sig.external_id
+        assert "Bob" in sig.id
 
     def test_extra_fields_present(self) -> None:
         sig = build_person_signal(_author_data())
@@ -226,8 +228,7 @@ class TestBuildCommitSignal:
     def test_valid(self) -> None:
         sig = build_commit_signal(_commit_data(), _author_data(), _branch_data())
         assert sig is not None
-        assert sig.routing_key == "github.Commit"
-        assert sig.external_id == "commit_abc123"
+        assert sig.id == "abc123"
 
     def test_relationships_authored_by_and_part_of(self) -> None:
         sig = build_commit_signal(_commit_data(), _author_data(), _branch_data())
@@ -261,7 +262,7 @@ class TestBuildCommitSignal:
         assert sig is not None
         authored_by = next(r for r in sig.relationships if r.type == "AUTHORED_BY")
         assert authored_by.target.entity_type == "Person"
-        assert authored_by.target.external_id == "person_github_devuser"
+        assert authored_by.target.id == "devuser"
 
 
 # ---------------------------------------------------------------------------
@@ -273,7 +274,7 @@ class TestBuildPullRequestSignal:
     def test_valid(self) -> None:
         sig = build_pull_request_signal(_pr_data(), _author_data(), [], _repo_data())
         assert sig is not None
-        assert sig.routing_key == "github.PullRequest"
+        assert sig.id == "myrepo::42"
 
     def test_authored_by_relationship(self) -> None:
         sig = build_pull_request_signal(_pr_data(), _author_data(), [], _repo_data())
@@ -288,7 +289,7 @@ class TestBuildPullRequestSignal:
         assert len(targets) == 1
         assert targets[0].direction == "OUT"
         assert targets[0].target.entity_type == "Branch"
-        assert targets[0].target.external_id == "branch_myrepo_main"
+        assert targets[0].target.id == "myrepo::main"
 
     def test_reviewed_by_relationships(self) -> None:
         sig = build_pull_request_signal(
@@ -297,8 +298,8 @@ class TestBuildPullRequestSignal:
         assert sig is not None
         reviews = [r for r in sig.relationships if r.type == "REVIEWED_BY"]
         assert len(reviews) == 2
-        reviewer_ids = {r.target.external_id for r in reviews}
-        assert reviewer_ids == {"person_github_reviewer1", "person_github_reviewer2"}
+        reviewer_ids = {r.target.id for r in reviews}
+        assert reviewer_ids == {"reviewer1", "reviewer2"}
 
     def test_no_base_branch_omits_targets(self) -> None:
         d = _pr_data()
@@ -319,6 +320,13 @@ class TestBuildPullRequestSignal:
         del d["number"]
         sig = build_pull_request_signal(d, _author_data(), [], _repo_data())
         assert sig is None
+
+    def test_missing_mandatory_id_accepted(self) -> None:
+        """id is no longer in PullRequestAttributes; signal should build fine."""
+        d = _pr_data()
+        d.pop("id", None)
+        sig = build_pull_request_signal(d, _author_data(), [], _repo_data())
+        assert sig is not None
 
 
 # ---------------------------------------------------------------------------
@@ -431,6 +439,9 @@ class TestProcessRepoSignals:
         head.repo.name = "myrepo"
         pr.head = head
 
+        # No merged_by to avoid MagicMock cascade in process_single_pr
+        pr.merged_by = None
+
         return pr
 
     @pytest.mark.asyncio
@@ -445,15 +456,15 @@ class TestProcessRepoSignals:
         published: Dict[str, int] = {}
 
         with (
-            patch("connectors.producers.github_producer.fetch_repo_topics", return_value=["ai"]),
-            patch("connectors.producers.github_producer.fetch_branches", return_value=[mock_branch]),
-            patch("connectors.producers.github_producer.fetch_commits", return_value=[mock_commit]),
-            patch("connectors.producers.github_producer.fetch_pull_requests_direct", return_value=[mock_pr]),
-            patch("connectors.producers.github_producer.fetch_pr_reviews", return_value=[]),
-            patch("connectors.producers.github_producer.fetch_pr_commits", return_value=[]),
-            patch("connectors.producers.github_producer.fetch_repo_teams", return_value=[]),
+            patch("connectors.producers.github.process_repo_signals.fetch_repo_topics", return_value=["ai"]),
+            patch("connectors.producers.github.process_branches.fetch_branches", return_value=[mock_branch]),
+            patch("connectors.producers.github.process_commits.fetch_commits", return_value=[mock_commit]),
+            patch("connectors.producers.github.process_prs.fetch_pull_requests_direct", return_value=[mock_pr]),
+            patch("connectors.producers.github.process_single_pr.fetch_pr_reviews", return_value=[]),
+            patch("connectors.producers.github.process_single_pr.fetch_pr_commits", return_value=[]),
+            patch("connectors.producers.github.process_teams.fetch_repo_teams", return_value=[]),
             patch(
-                "connectors.producers.github_producer.resolve_prs_since_date",
+                "connectors.producers.github.process_prs.resolve_prs_since_date",
                 return_value=datetime(2020, 1, 1, tzinfo=timezone.utc),
             ),
         ):
@@ -474,7 +485,7 @@ class TestProcessRepoSignals:
         published: Dict[str, int] = {}
 
         with (
-            patch("connectors.producers.github_producer.fetch_repo_topics", return_value=[]),
+            patch("connectors.producers.github.process_repo_signals.fetch_repo_topics", return_value=[]),
         ):
             await process_repo_signals(publisher, mock_repo, "org", None, published)
 
@@ -494,22 +505,94 @@ class TestProcessRepoSignals:
         published: Dict[str, int] = {}
 
         with (
-            patch("connectors.producers.github_producer.fetch_repo_topics", return_value=[]),
-            patch("connectors.producers.github_producer.fetch_branches", return_value=[mock_branch]),
-            patch("connectors.producers.github_producer.fetch_commits", return_value=[mock_commit]),
-            patch("connectors.producers.github_producer.fetch_pull_requests_direct", return_value=[mock_pr]),
-            patch("connectors.producers.github_producer.fetch_pr_reviews", return_value=[]),
-            patch("connectors.producers.github_producer.fetch_pr_commits", return_value=[]),
+            patch("connectors.producers.github.process_repo_signals.fetch_repo_topics", return_value=[]),
+            patch("connectors.producers.github.process_branches.fetch_branches", return_value=[mock_branch]),
+            patch("connectors.producers.github.process_commits.fetch_commits", return_value=[mock_commit]),
+            patch("connectors.producers.github.process_prs.fetch_pull_requests_direct", return_value=[mock_pr]),
+            patch("connectors.producers.github.process_single_pr.fetch_pr_reviews", return_value=[]),
+            patch("connectors.producers.github.process_single_pr.fetch_pr_commits", return_value=[]),
             patch(
-                "connectors.producers.github_producer.resolve_prs_since_date",
+                "connectors.producers.github.process_prs.resolve_prs_since_date",
                 return_value=datetime(2020, 1, 1, tzinfo=timezone.utc),
             ),
-            patch("connectors.producers.github_producer.fetch_repo_teams", return_value=[]),
+            patch("connectors.producers.github.process_teams.fetch_repo_teams", return_value=[]),
         ):
             await process_repo_signals(publisher, mock_repo, "org", None, published)
 
         # devuser should appear exactly once
         assert published.get("Person", 0) == 1
+
+    @pytest.mark.asyncio
+    async def test_pr_date_cutoff_stops_loop(self) -> None:
+        """A PR older than pr_since must halt the loop; no signal emitted for it."""
+        mock_repo = self._make_mock_repo()
+
+        recent_pr = self._make_mock_pr()   # updated_at 2024-06-01, will be processed
+
+        old_pr = self._make_mock_pr()
+        old_pr.number = 99
+        old_pr.updated_at = datetime(2019, 1, 1, tzinfo=timezone.utc)  # before cutoff
+
+        publisher = AsyncMock()
+        publisher.publish = AsyncMock()
+        published: Dict[str, int] = {}
+
+        with (
+            patch("connectors.producers.github.process_repo_signals.fetch_repo_topics", return_value=[]),
+            patch("connectors.producers.github.process_branches.fetch_branches", return_value=[]),
+            patch("connectors.producers.github.process_commits.fetch_commits", return_value=[]),
+            patch(
+                "connectors.producers.github.process_prs.fetch_pull_requests_direct",
+                return_value=[recent_pr, old_pr],
+            ),
+            patch("connectors.producers.github.process_single_pr.fetch_pr_reviews", return_value=[]),
+            patch("connectors.producers.github.process_single_pr.fetch_pr_commits", return_value=[]),
+            patch(
+                "connectors.producers.github.process_prs.resolve_prs_since_date",
+                return_value=datetime(2020, 1, 1, tzinfo=timezone.utc),
+            ),
+            patch("connectors.producers.github.process_teams.fetch_repo_teams", return_value=[]),
+        ):
+            await process_repo_signals(publisher, mock_repo, "org", None, published)
+
+        # The recent PR should be published; old PR halts the loop before emission
+        assert published.get("PullRequest", 0) == 1
+
+    @pytest.mark.asyncio
+    async def test_seen_commits_not_reemitted_from_pr_loop(self) -> None:
+        """A commit processed in the main loop must not be re-emitted when it also appears in a PR."""
+        mock_repo = self._make_mock_repo()
+        mock_commit = self._make_mock_commit()  # sha = "abc123"
+        mock_pr = self._make_mock_pr()
+
+        publisher = AsyncMock()
+        publisher.publish = AsyncMock()
+        published: Dict[str, int] = {}
+
+        # fetch_pr_commits returns the same commit already processed in the main loop
+        with (
+            patch("connectors.producers.github.process_repo_signals.fetch_repo_topics", return_value=[]),
+            patch("connectors.producers.github.process_branches.fetch_branches", return_value=[]),
+            patch("connectors.producers.github.process_commits.fetch_commits", return_value=[mock_commit]),
+            patch(
+                "connectors.producers.github.process_prs.fetch_pull_requests_direct",
+                return_value=[mock_pr],
+            ),
+            patch("connectors.producers.github.process_single_pr.fetch_pr_reviews", return_value=[]),
+            patch(
+                "connectors.producers.github.process_single_pr.fetch_pr_commits",
+                return_value=[mock_commit],  # same sha as main-loop commit
+            ),
+            patch(
+                "connectors.producers.github.process_prs.resolve_prs_since_date",
+                return_value=datetime(2020, 1, 1, tzinfo=timezone.utc),
+            ),
+            patch("connectors.producers.github.process_teams.fetch_repo_teams", return_value=[]),
+        ):
+            await process_repo_signals(publisher, mock_repo, "org", None, published)
+
+        # Commit must be published exactly once despite appearing in both loops
+        assert published.get("Commit", 0) == 1
 
     @pytest.mark.asyncio
     async def test_team_signal_emitted_with_collaborator_and_member_of(self) -> None:
@@ -520,7 +603,7 @@ class TestProcessRepoSignals:
         mock_member = MagicMock()
         mock_member.login = "teammember"
         mock_member.name = "Team Member"
-
+        mock_member.email = "teammember@example.com"
         mock_team = MagicMock()
         mock_team.name = "Engineering"
         mock_team.slug = "engineering"
@@ -532,11 +615,11 @@ class TestProcessRepoSignals:
         published: Dict[str, int] = {}
 
         with (
-            patch("connectors.producers.github_producer.fetch_repo_topics", return_value=[]),
-            patch("connectors.producers.github_producer.fetch_branches", return_value=[]),
-            patch("connectors.producers.github_producer.fetch_commits", return_value=[]),
-            patch("connectors.producers.github_producer.fetch_pull_requests_direct", return_value=[]),
-            patch("connectors.producers.github_producer.fetch_repo_teams", return_value=[mock_team]),
+            patch("connectors.producers.github.process_repo_signals.fetch_repo_topics", return_value=[]),
+            patch("connectors.producers.github.process_branches.fetch_branches", return_value=[]),
+            patch("connectors.producers.github.process_commits.fetch_commits", return_value=[]),
+            patch("connectors.producers.github.process_prs.fetch_pull_requests_direct", return_value=[]),
+            patch("connectors.producers.github.process_teams.fetch_repo_teams", return_value=[mock_team]),
         ):
             await process_repo_signals(publisher, mock_repo, "org", None, published)
 
@@ -555,7 +638,7 @@ class TestProcessRepoSignals:
         assert collab_rels[0].target.entity_type == "Repository"
 
         # Member Person signal has MEMBER_OF relationship to team
-        person_sigs = [s for s in all_sigs if s.entity_type == "Person" and s.external_id == "person_github_teammember"]
+        person_sigs = [s for s in all_sigs if s.entity_type == "Person" and s.id == "teammember"]
         assert len(person_sigs) == 1
         member_of_rels = [r for r in person_sigs[0].relationships if r.type == "MEMBER_OF"]
         assert len(member_of_rels) == 1
@@ -569,6 +652,7 @@ class TestProcessRepoSignals:
         mock_member = MagicMock()
         mock_member.login = "collab_user"
         mock_member.name = "Collab User"
+        mock_member.email = "collab@example.com"
 
         mock_team = MagicMock()
         mock_team.name = "Ops"
@@ -581,16 +665,16 @@ class TestProcessRepoSignals:
         published: Dict[str, int] = {}
 
         with (
-            patch("connectors.producers.github_producer.fetch_repo_topics", return_value=[]),
-            patch("connectors.producers.github_producer.fetch_branches", return_value=[]),
-            patch("connectors.producers.github_producer.fetch_commits", return_value=[]),
-            patch("connectors.producers.github_producer.fetch_pull_requests_direct", return_value=[]),
-            patch("connectors.producers.github_producer.fetch_repo_teams", return_value=[mock_team]),
+            patch("connectors.producers.github.process_repo_signals.fetch_repo_topics", return_value=[]),
+            patch("connectors.producers.github.process_branches.fetch_branches", return_value=[]),
+            patch("connectors.producers.github.process_commits.fetch_commits", return_value=[]),
+            patch("connectors.producers.github.process_prs.fetch_pull_requests_direct", return_value=[]),
+            patch("connectors.producers.github.process_teams.fetch_repo_teams", return_value=[mock_team]),
         ):
             await process_repo_signals(publisher, mock_repo, "org", None, published)
 
         all_sigs = [call.args[0] for call in publisher.publish.call_args_list]
-        person_sigs = [s for s in all_sigs if s.entity_type == "Person" and s.external_id == "person_github_collab_user"]
+        person_sigs = [s for s in all_sigs if s.entity_type == "Person" and s.id == "collab_user"]
         assert len(person_sigs) == 1
 
         collab_rels = [r for r in person_sigs[0].relationships if r.type == "COLLABORATOR"]
@@ -610,12 +694,12 @@ class TestBuildPullRequestSignalPhaseD:
 
     def test_from_relationship(self) -> None:
         """PR with head_branch_id → FROM relationship present."""
-        sig = build_pull_request_signal(_pr_data(head_branch_id="branch_myrepo_feature"), _author_data(), [], _repo_data())
+        sig = build_pull_request_signal(_pr_data(head_branch_id="myrepo::feature"), _author_data(), [], _repo_data())
         assert sig is not None
         from_rels = [r for r in sig.relationships if r.type == "FROM"]
         assert len(from_rels) == 1
         assert from_rels[0].target.entity_type == "Branch"
-        assert from_rels[0].target.external_id == "branch_myrepo_feature"
+        assert from_rels[0].target.id == "myrepo::feature"
 
     def test_from_relationship_absent_when_no_head_branch(self) -> None:
         d = _pr_data()
@@ -633,8 +717,8 @@ class TestBuildPullRequestSignalPhaseD:
         assert sig is not None
         rr_rels = [r for r in sig.relationships if r.type == "REQUESTED_REVIEWER"]
         assert len(rr_rels) == 2
-        rr_ids = {r.target.external_id for r in rr_rels}
-        assert rr_ids == {"person_github_alice", "person_github_bob"}
+        rr_ids = {r.target.id for r in rr_rels}
+        assert rr_ids == {"alice", "bob"}
 
     def test_requested_reviewer_absent_when_empty(self) -> None:
         sig = build_pull_request_signal(_pr_data(), _author_data(), [], _repo_data(), requested_reviewer_logins=[])
@@ -650,7 +734,7 @@ class TestBuildPullRequestSignalPhaseD:
         merged_rels = [r for r in sig.relationships if r.type == "MERGED_BY"]
         assert len(merged_rels) == 1
         assert merged_rels[0].target.entity_type == "Person"
-        assert merged_rels[0].target.external_id == "person_github_bob"
+        assert merged_rels[0].target.id == "bob"
 
     def test_merged_by_absent_when_open(self) -> None:
         """PR state=open → MERGED_BY not emitted even if merger_login provided."""
@@ -669,8 +753,8 @@ class TestBuildPullRequestSignalPhaseD:
         assert sig is not None
         inc_rels = [r for r in sig.relationships if r.type == "INCLUDES"]
         assert len(inc_rels) == 3
-        inc_ids = {r.target.external_id for r in inc_rels}
-        assert inc_ids == {"github_commit_myrepo_aaa111", "github_commit_myrepo_bbb222", "github_commit_myrepo_ccc333"}
+        inc_ids = {r.target.id for r in inc_rels}
+        assert inc_ids == {"aaa111", "bbb222", "ccc333"}
 
     def test_includes_absent_when_no_shas(self) -> None:
         sig = build_pull_request_signal(_pr_data(), _author_data(), [], _repo_data(), commit_shas=[])
@@ -695,7 +779,7 @@ class TestBuildCommitSignalPhaseD:
         ref_rels = [r for r in sig.relationships if r.type == "REFERENCES"]
         assert len(ref_rels) == 1
         assert ref_rels[0].target.entity_type == "Issue"
-        assert ref_rels[0].target.external_id == "jira_issue_PROJ-42"
+        assert ref_rels[0].target.id == "PROJ-42"
         assert ref_rels[0].target.source == "jira"
 
     def test_multiple_jira_keys_in_message(self) -> None:
@@ -705,8 +789,8 @@ class TestBuildCommitSignalPhaseD:
         assert sig is not None
         ref_rels = [r for r in sig.relationships if r.type == "REFERENCES"]
         assert len(ref_rels) == 2
-        ref_ids = {r.target.external_id for r in ref_rels}
-        assert ref_ids == {"jira_issue_PROJ-1", "jira_issue_PROJ-2"}
+        ref_ids = {r.target.id for r in ref_rels}
+        assert ref_ids == {"PROJ-1", "PROJ-2"}
 
     def test_no_jira_key_no_references(self) -> None:
         sig = build_commit_signal(
@@ -714,3 +798,74 @@ class TestBuildCommitSignalPhaseD:
         )
         assert sig is not None
         assert all(r.type != "REFERENCES" for r in sig.relationships)
+
+
+# ---------------------------------------------------------------------------
+# File signal
+# ---------------------------------------------------------------------------
+
+from connectors.producers.github.build_file_signal import build_file_signal
+
+
+def _file_data(**overrides: Any) -> Dict[str, Any]:
+    data: Dict[str, Any] = {
+        "filename": "src/app/main.py",
+        "additions": 3,
+        "deletions": 1,
+        "name": "main.py",
+        "extension": ".py",
+        "language": "Python",
+        "is_test": False,
+    }
+    data.update(overrides)
+    return data
+
+
+class TestBuildFileSignal:
+    def test_happy_path(self) -> None:
+        sig = build_file_signal(_file_data(), _commit_data(), _repo_data(name="myrepo", owner="org"))
+        assert sig is not None
+        assert sig.source == "github"
+        assert sig.id == hashlib.sha256("myrepo::src/app/main.py".encode()).hexdigest()
+        assert sig.entity_type == "File"
+        assert sig.attributes.path == "src/app/main.py"  # type: ignore[union-attr]
+        assert sig.attributes.repo_name == "myrepo"  # type: ignore[union-attr]
+        assert len(sig.relationships) == 1
+
+    def test_relationship_is_modifies_direction_in(self) -> None:
+        sig = build_file_signal(_file_data(), _commit_data(), _repo_data(name="myrepo"))
+        assert sig is not None
+        rel = sig.relationships[0]
+        assert rel.type == "MODIFIES"
+        assert rel.direction == "IN"
+        assert rel.target.entity_type == "Commit"
+        assert rel.target.id == "abc123"
+        assert rel.target.source == "github"
+
+    def test_relationship_properties_carry_additions_deletions(self) -> None:
+        sig = build_file_signal(_file_data(additions=5, deletions=2), _commit_data(), _repo_data(name="myrepo"))
+        assert sig is not None
+        props = sig.relationships[0].properties
+        assert props is not None
+        assert props["additions"] == 5
+        assert props["deletions"] == 2
+
+    def test_returns_none_on_missing_filename(self) -> None:
+        sig = build_file_signal({}, _commit_data(), _repo_data(name="myrepo"))
+        assert sig is None
+
+    def test_returns_none_on_missing_sha(self) -> None:
+        sig = build_file_signal(_file_data(), {"created_at": "2024-06-01T10:00:00"}, _repo_data(name="myrepo"))
+        assert sig is None
+
+    def test_url_generated_when_owner_present(self) -> None:
+        sig = build_file_signal(
+            _file_data(), _commit_data(), {"name": "myrepo", "owner": "org"}
+        )
+        assert sig is not None
+        assert sig.attributes.url == "https://github.com/org/myrepo/blob/abc123/src/app/main.py"  # type: ignore[union-attr]
+
+    def test_url_is_none_when_owner_absent(self) -> None:
+        sig = build_file_signal(_file_data(), _commit_data(), {"name": "myrepo"})
+        assert sig is not None
+        assert sig.attributes.url is None  # type: ignore[union-attr]

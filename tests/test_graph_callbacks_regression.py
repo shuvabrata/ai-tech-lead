@@ -95,6 +95,7 @@ def test_execute_query_repeated_runs_refresh_baseline_and_filters(monkeypatch):
     result_a = query_callbacks.execute_query(
         1,
         None,
+        None,
         "MATCH (n)-[r]->(m) RETURN n, r, m LIMIT 10",
         None,
         {},
@@ -104,6 +105,7 @@ def test_execute_query_repeated_runs_refresh_baseline_and_filters(monkeypatch):
     # Second execute (Query B)
     result_b = query_callbacks.execute_query(
         2,
+        None,
         None,
         "MATCH (n) RETURN n LIMIT 1",
         None,

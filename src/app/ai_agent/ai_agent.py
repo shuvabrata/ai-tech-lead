@@ -21,9 +21,10 @@ from typing import AsyncIterator
 
 from dotenv import load_dotenv
 
-from app.common.logger import logger, LogContext
+from common.logger import logger, LogContext
 from app.ai_agent.providers import get_provider
 from app.ai_agent.chains import augment_message_stream
+from app.settings import settings
 
 # In-memory session store: {session_id: [messages]}
 _chat_sessions = {}
@@ -56,8 +57,9 @@ except ValueError as e:
     print(f"Error initializing LLM provider: {e}")
     sys.exit(1)
 
-# Load model name from environment or use provider's default
-LLM_MODEL = os.getenv("LLM_MODEL") or _provider.default_model
+# Use the provider's resolved default model (e.g. CUSTOM_LLM_MODEL for custom provider,
+# LLM_MODEL for OpenAI). Avoids cross-provider env var contamination.
+LLM_MODEL = _provider.default_model
 
 # Load max tokens from environment or use default
 MAX_TOKENS = int(os.getenv("MAX_TOKENS", "16000"))
@@ -263,7 +265,16 @@ async def stream_chat(
             final_augmented_message = user_message
             chain_sources: list = []
             try:
-                async for event in augment_message_stream(user_message, provider=_provider):
+                # Slice the last AUGMENTATION_HISTORY_TURNS turns (excl. system msg)
+                # and pass to all chains for pronoun/entity reference resolution.
+                raw_history = _chat_sessions.get(session_id, [])
+                non_system = [m for m in raw_history if m["role"] != "system"]
+                history_window = non_system[-(settings.AUGMENTATION_HISTORY_TURNS * 2):]
+                async for event in augment_message_stream(
+                    user_message,
+                    provider=_provider,
+                    conversation_history=history_window or None,
+                ):
                     if event["type"] == "augmented_message":
                         final_augmented_message = event["content"]
                         chain_sources = event.get("sources_used", [])

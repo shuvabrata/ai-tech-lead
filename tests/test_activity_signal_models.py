@@ -22,8 +22,10 @@ from common.activity_signal.models import (
     SUPPORTED_RELATIONSHIP_TYPES,
     BranchAttributes,
     CommitAttributes,
+    EpicAttributes,
     InitiativeAttributes,
     IssueAttributes,
+    ProjectAttributes,
     PullRequestAttributes,
     SprintAttributes,
 )
@@ -37,18 +39,21 @@ from common.activity_signal.models import (
 @pytest.mark.unit
 def test_branch_attributes_last_commit_sha_round_trips() -> None:
     attrs = BranchAttributes(
-        name="main",
+        repo_name="myrepo",
+        branch_name="main",
         last_commit_sha="abc123def456",
     )
     d = attrs.model_dump()
     assert d["last_commit_sha"] == "abc123def456"
-    assert d["name"] == "main"
+    assert d["repo_name"] == "myrepo"
+    assert d["branch_name"] == "main"
 
 
 @pytest.mark.unit
 def test_branch_attributes_optional_new_fields() -> None:
     attrs = BranchAttributes(
-        name="feat/x",
+        repo_name="myrepo",
+        branch_name="feat/x",
         last_commit_sha="sha1",
         last_commit_timestamp="2026-05-01T10:00:00",
         is_protected=True,
@@ -65,11 +70,10 @@ def test_branch_attributes_optional_new_fields() -> None:
 @pytest.mark.unit
 def test_branch_attributes_old_commit_sha_not_accepted_as_canonical() -> None:
     """commit_sha is not a declared field; it should NOT populate last_commit_sha."""
-    # With extra='allow', commit_sha lands in extra fields — last_commit_sha must
-    # be provided separately or the model should raise (missing required field).
+    # With extra='forbid', unknown fields raise ValidationError.
     with pytest.raises((ValidationError, TypeError)):
         # omit last_commit_sha entirely — required field missing
-        BranchAttributes(name="main")  # type: ignore[call-arg]
+        BranchAttributes(repo_name="myrepo", branch_name="main")  # type: ignore[call-arg]
 
 
 # ---------------------------------------------------------------------------
@@ -109,8 +113,8 @@ def test_commit_attributes_committed_date_raises() -> None:
 @pytest.mark.unit
 def test_pull_request_attributes_all_new_optional_fields() -> None:
     attrs = PullRequestAttributes(
-        id="pr_1",
-        number=42,
+        repo_name="org/myrepo",
+        pull_request_number=42,
         title="Add feature",
         state="open",
         created_at="2026-01-01T00:00:00",
@@ -130,6 +134,8 @@ def test_pull_request_attributes_all_new_optional_fields() -> None:
         mergeable_state="clean",
     )
     d = attrs.model_dump()
+    assert d["repo_name"] == "org/myrepo"
+    assert d["pull_request_number"] == 42
     assert d["updated_at"] == "2026-02-01T00:00:00"
     assert d["merged_at"] == "2026-02-15T12:00:00"
     assert d["closed_at"] == "2026-02-15T13:00:00"
@@ -148,8 +154,8 @@ def test_pull_request_attributes_all_new_optional_fields() -> None:
 @pytest.mark.unit
 def test_pull_request_attributes_optional_fields_default_none() -> None:
     attrs = PullRequestAttributes(
-        id="pr_2",
-        number=1,
+        repo_name="org/myrepo",
+        pull_request_number=1,
         title="Minimal PR",
         state="open",
         created_at="2026-01-01",
@@ -163,6 +169,56 @@ def test_pull_request_attributes_optional_fields_default_none() -> None:
 
 
 # ---------------------------------------------------------------------------
+# Phase 8 — ProjectAttributes
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+def test_project_attributes_round_trips() -> None:
+    attrs = ProjectAttributes(
+        project_id="10001",
+        project_key="PLAT",
+        project_name="Platform",
+        status="Active",
+        project_type="software",
+        url="https://jira.example.com/projects/PLAT",
+    )
+    d = attrs.model_dump()
+    assert d["project_id"] == "10001"
+    assert d["project_key"] == "PLAT"
+    assert d["project_name"] == "Platform"
+    assert d["status"] == "Active"
+    assert d["project_type"] == "software"
+    assert "entity_type" not in d
+
+
+@pytest.mark.unit
+def test_project_attributes_optional_fields_default_none() -> None:
+    attrs = ProjectAttributes(
+        project_id="10002",
+        project_key="AB",
+        project_name="App Broker",
+    )
+    d = attrs.model_dump()
+    assert d["status"] is None
+    assert d["project_type"] is None
+    assert d["url"] is None
+    assert d["custom"] is None
+
+
+@pytest.mark.unit
+def test_project_attributes_old_fields_rejected() -> None:
+    """Old fields id, key, name must raise ValidationError with extra='forbid'."""
+    with pytest.raises(ValidationError):
+        ProjectAttributes(  # type: ignore[call-arg]
+            project_id="10001",
+            project_key="PLAT",
+            project_name="Platform",
+            id="jira_project_10001",  # old field
+        )
+
+
+# ---------------------------------------------------------------------------
 # B4 — IssueAttributes
 # ---------------------------------------------------------------------------
 
@@ -170,7 +226,6 @@ def test_pull_request_attributes_optional_fields_default_none() -> None:
 @pytest.mark.unit
 def test_issue_attributes_type_and_created_at_round_trip() -> None:
     attrs = IssueAttributes(
-        id="issue_jira_1",
         key="PLAT-1",
         summary="Implement feature",
         priority="High",
@@ -192,7 +247,6 @@ def test_issue_attributes_old_issue_type_not_canonical() -> None:
     """issue_type is not declared; omitting ``type`` must raise."""
     with pytest.raises((ValidationError, TypeError)):
         IssueAttributes(
-            id="issue_1",
             key="X-1",
             summary="s",
             priority="High",
@@ -207,7 +261,6 @@ def test_issue_attributes_old_created_not_canonical() -> None:
     """created is not declared; omitting ``created_at`` must raise."""
     with pytest.raises((ValidationError, TypeError)):
         IssueAttributes(
-            id="issue_1",
             key="X-1",
             summary="s",
             priority="High",
@@ -217,6 +270,21 @@ def test_issue_attributes_old_created_not_canonical() -> None:
         )  # type: ignore[call-arg]
 
 
+@pytest.mark.unit
+def test_issue_attributes_old_id_rejected() -> None:
+    """``id`` is no longer a declared field; extra="forbid" must reject it."""
+    with pytest.raises(Exception):
+        IssueAttributes(
+            id="issue_jira_PLAT1",
+            key="PLAT-1",
+            summary="s",
+            priority="High",
+            status="Open",
+            type="Bug",
+            created_at="2026-01-01",
+        )
+
+
 # ---------------------------------------------------------------------------
 # B5 — SprintAttributes
 # ---------------------------------------------------------------------------
@@ -224,7 +292,7 @@ def test_issue_attributes_old_created_not_canonical() -> None:
 
 @pytest.mark.unit
 def test_sprint_attributes_has_status_field() -> None:
-    attrs = SprintAttributes(id="sprint_1", name="Sprint 1", status="active")
+    attrs = SprintAttributes(name="Sprint 1", status="active")
     d = attrs.model_dump()
     assert d["status"] == "active"
     assert "state" not in d
@@ -240,6 +308,50 @@ def test_sprint_attributes_no_state_field_declared() -> None:
     assert "status" in declared_fields
 
 
+@pytest.mark.unit
+def test_sprint_attributes_old_id_rejected() -> None:
+    """``id`` is no longer a declared field; it is rejected with extra="forbid"."""
+    with pytest.raises(Exception):
+        SprintAttributes(id="sprint_jira_1", name="Sprint 1", status="active")
+
+
+# ---------------------------------------------------------------------------
+# Phase 10 — EpicAttributes
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+def test_epic_attributes_round_trips() -> None:
+    attrs = EpicAttributes(
+        key="PLAT-42",
+        summary="Platform migration",
+        priority="High",
+        status="In Progress",
+        created_at="2026-01-01",
+        updated_at="2026-02-01",
+        start_date="2026-01-01",
+        due_date="2026-06-30",
+        url="https://jira.example.com/browse/PLAT-42",
+    )
+    d = attrs.model_dump()
+    assert d["key"] == "PLAT-42"
+    assert d["due_date"] == "2026-06-30"
+    assert "entity_type" not in d
+
+
+@pytest.mark.unit
+def test_epic_attributes_old_id_rejected() -> None:
+    with pytest.raises(ValidationError):
+        EpicAttributes(  # type: ignore[call-arg]
+            key="PLAT-1",
+            summary="s",
+            priority="High",
+            status="Open",
+            created_at="2026-01-01",
+            id="jira_epic_12345",
+        )
+
+
 # ---------------------------------------------------------------------------
 # B6 — InitiativeAttributes
 # ---------------------------------------------------------------------------
@@ -248,22 +360,22 @@ def test_sprint_attributes_no_state_field_declared() -> None:
 @pytest.mark.unit
 def test_initiative_attributes_project_id_round_trips() -> None:
     attrs = InitiativeAttributes(
-        id="initiative_jira_1",
         key="INIT-1",
         summary="Big initiative",
         priority="High",
         status="In Progress",
         created_at="2026-01-01",
-        project_id="project_jira_myproject",
+        project_id="CPI",
     )
     d = attrs.model_dump()
-    assert d["project_id"] == "project_jira_myproject"
+    assert d["key"] == "INIT-1"
+    assert d["project_id"] == "CPI"
+    assert "entity_type" not in d
 
 
 @pytest.mark.unit
 def test_initiative_attributes_project_id_defaults_none() -> None:
     attrs = InitiativeAttributes(
-        id="initiative_jira_2",
         key="INIT-2",
         summary="Another initiative",
         priority="Medium",
@@ -272,6 +384,7 @@ def test_initiative_attributes_project_id_defaults_none() -> None:
     )
     d = attrs.model_dump()
     assert d["project_id"] is None
+    assert "entity_type" not in d
 
 
 # ---------------------------------------------------------------------------

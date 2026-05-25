@@ -130,7 +130,7 @@ def _create_collaboration_controls() -> html.Div:
                         dbc.Button(
                             "Open Visualization",
                             id="collab-open-btn",
-                            href="/app/graph?mode=collaboration_network",
+                            href="/app/collaboration",
                             color="primary",
                             size="sm",
                         ),
@@ -363,7 +363,6 @@ def build_collaboration_href(
         config = CollaborationNetworkConfig()
 
     params = {
-        "mode": "collaboration_network",
         "layers": ",".join(config.enabled_layers),
         "lookback_days": config.lookback_days,
         "min_pair_score": config.min_pair_score,
@@ -380,7 +379,7 @@ def build_collaboration_href(
         "w_epic_overlap": config.weights["epic_overlap"],
     }
 
-    href = f"/app/graph?{urlencode(params)}"
+    href = f"/app/collaboration?{urlencode(params)}"
     return href, f"URL: {href}"
 
 

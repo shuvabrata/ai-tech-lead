@@ -21,11 +21,13 @@ from neo4j import Session
 
 from common.activity_signal.models import ActivitySignal
 from common.activity_signal.models import Relationship as SignalRelationship
+from common.activity_signal.wba_node_id import wba_format, wba_node_id
 from connectors.commons.person_cache import PersonCache
 from connectors.neo4j_db.models import (
     Branch,
     Commit,
     Epic,
+    File,
     Initiative,
     Issue,
     Person,
@@ -38,11 +40,13 @@ from connectors.neo4j_db.models import (
     merge_branch,
     merge_commit,
     merge_epic,
+    merge_file,
     merge_initiative,
     merge_issue,
     merge_person,
     merge_project,
     merge_pull_request,
+    merge_relationship,
     merge_repository,
     merge_sprint,
     merge_team,
@@ -72,6 +76,7 @@ def _label(entity_type: str) -> str:
 
 
 def _to_db_relationships(
+    session: Session,
     signal_rels: List[SignalRelationship],
     from_id: str,
     from_type: str,
@@ -83,21 +88,57 @@ def _to_db_relationships(
     - ``"IN"``             → swap from/to so the stored edge is
       ``(target)-[:REL]->(from)``, i.e. ``(to)-[:REL]->(from)`` after swap.
 
-    Relationships without ``target.external_id`` are skipped with a warning.
+    Target node resolution priority:
+    1. ``entity_type == "Person"`` and ``target.email`` set → look up by email.
+    2. ``target.url`` set → look up node by url.
+    3. ``target.id`` set → ``{source}::{entity_type}::{id}`` canonical key.
+
+    Relationships with no resolvable target identifier are skipped with a warning.
     """
     result: List[DbRelationship] = []
     for rel in signal_rels:
         target = rel.target
-        if not target.external_id:
+
+        if not (target.id or target.email or target.url):
             logger.warning(
-                "Skipping relationship %s from %s/%s: target has no external_id",
+                "Skipping relationship %s from %s/%s: target has no identifier",
                 rel.type,
                 from_type,
                 from_id,
             )
             continue
 
-        to_id = target.external_id
+        # Resolve to_id using priority order
+        to_id: Optional[str] = None
+
+        if target.entity_type == "Person" and target.email:
+            row = session.run(
+                "MATCH (p:Person) WHERE p.email = $email RETURN p.id AS id LIMIT 1",
+                email=target.email,
+            ).single()
+            if row:
+                to_id = row["id"]
+
+        if to_id is None and target.url:
+            row = session.run(
+                "MATCH (n) WHERE n.url = $url RETURN n.id AS id LIMIT 1",
+                url=target.url,
+            ).single()
+            if row:
+                to_id = row["id"]
+
+        if to_id is None and target.source and target.entity_type and target.id:
+            to_id = wba_format(target.source, target.entity_type, target.id)
+
+        if to_id is None:
+            logger.warning(
+                "Skipping relationship %s from %s/%s: target identifier could not be resolved",
+                rel.type,
+                from_type,
+                from_id,
+            )
+            continue
+
         to_type = _label(target.entity_type) if target.entity_type else "Node"
 
         if rel.direction == "IN":
@@ -108,6 +149,7 @@ def _to_db_relationships(
                 to_id=from_id,
                 from_type=to_type,
                 to_type=from_type,
+                properties=rel.properties or {},
             )
         else:
             # None or "OUT" → (from)-[:REL]->(to)
@@ -117,6 +159,7 @@ def _to_db_relationships(
                 to_id=to_id,
                 from_type=from_type,
                 to_type=to_type,
+                properties=rel.properties or {},
             )
         result.append(db_rel)
     return result
@@ -128,26 +171,27 @@ def _to_db_relationships(
 
 
 def _handle_repository(session: Session, signal: ActivitySignal) -> None:
-    attrs = signal.extra_attributes()
+    attrs = signal.attributes.model_dump()  # type: ignore[union-attr]
+    node_id = wba_node_id(signal)
     repo = Repository(
-        id=signal.external_id,
-        name=attrs.get("name", ""),
-        full_name=attrs.get("full_name", ""),
+        id=node_id,
+        name=signal.id,
         url=attrs.get("url", ""),
         language=attrs.get("language", ""),
         is_private=attrs.get("is_private", False),
         topics=attrs.get("topics") or [],
         created_at=attrs.get("created_at", ""),
     )
-    db_rels = _to_db_relationships(signal.relationships, signal.external_id, "Repository")
+    db_rels = _to_db_relationships(session, signal.relationships, node_id, "Repository")
     merge_repository(session, repo, relationships=db_rels)
 
 
 def _handle_branch(session: Session, signal: ActivitySignal) -> None:
-    attrs = signal.extra_attributes()
+    attrs = signal.attributes.model_dump()
+    node_id = wba_node_id(signal)
     branch = Branch(
-        id=signal.external_id,
-        name=attrs.get("name", ""),
+        id=node_id,
+        name=attrs.get("branch_name", ""),
         is_default=attrs.get("is_default", False),
         is_protected=attrs.get("is_protected", False),
         is_deleted=attrs.get("is_deleted", False),
@@ -156,14 +200,15 @@ def _handle_branch(session: Session, signal: ActivitySignal) -> None:
         last_commit_timestamp=attrs.get("last_commit_timestamp", ""),
         url=attrs.get("url"),
     )
-    db_rels = _to_db_relationships(signal.relationships, signal.external_id, "Branch")
+    db_rels = _to_db_relationships(session, signal.relationships, node_id, "Branch")
     merge_branch(session, branch, relationships=db_rels)
 
 
 def _handle_commit(session: Session, signal: ActivitySignal) -> None:
-    attrs = signal.extra_attributes()
+    attrs = signal.attributes.model_dump()
+    node_id = wba_node_id(signal)
     commit = Commit(
-        id=signal.external_id,
+        id=node_id,
         sha=attrs.get("sha", ""),
         message=attrs.get("message", ""),
         created_at=attrs.get("created_at", ""),
@@ -172,15 +217,16 @@ def _handle_commit(session: Session, signal: ActivitySignal) -> None:
         files_changed=attrs.get("files_changed", 0),
         url=attrs.get("url"),
     )
-    db_rels = _to_db_relationships(signal.relationships, signal.external_id, "Commit")
+    db_rels = _to_db_relationships(session, signal.relationships, node_id, "Commit")
     merge_commit(session, commit, relationships=db_rels)
 
 
 def _handle_pull_request(session: Session, signal: ActivitySignal) -> None:
-    attrs = signal.extra_attributes()
+    attrs = signal.attributes.model_dump()
+    node_id = wba_node_id(signal)
     pr = PullRequest(
-        id=signal.external_id,
-        number=attrs.get("number", 0),
+        id=node_id,
+        number=attrs.get("pull_request_number", 0),
         title=attrs.get("title", ""),
         state=attrs.get("state", ""),
         created_at=attrs.get("created_at", ""),
@@ -199,7 +245,7 @@ def _handle_pull_request(session: Session, signal: ActivitySignal) -> None:
         mergeable_state=attrs.get("mergeable_state", ""),
         url=attrs.get("url"),
     )
-    db_rels = _to_db_relationships(signal.relationships, signal.external_id, "PullRequest")
+    db_rels = _to_db_relationships(session, signal.relationships, node_id, "PullRequest")
     merge_pull_request(session, pr, relationships=db_rels)
 
 
@@ -207,14 +253,33 @@ def _handle_person(
     session: Session,
     signal: ActivitySignal,
     person_cache: Optional[PersonCache] = None,
-) -> None:
-    attrs = signal.extra_attributes()
+) -> Optional[str]:
+    """Write a Person signal to Neo4j and return the canonical wba_id that was stored.
+
+    Cross-provider deduplication
+    ----------------------------
+    When a Person arrives from a second provider (e.g. ``jira::Person::abc123``)
+    and the identity resolver finds an existing node from a prior provider
+    (e.g. ``github::Person::alice``) with the same email address, Neo4j reuses
+    the existing node — ``jira::Person::abc123`` is **never created**.  The
+    existing node is enriched additively via ``merge_person`` (null / missing
+    fields are filled in; non-empty fields are overwritten by the richer value).
+    See ``connectors/commons/identity_resolver.py :: get_or_create_person``.
+
+    The returned canonical wba_id reflects what actually exists in Neo4j.  When
+    deduplication occurred the returned id differs from ``wba_node_id(signal)``;
+    callers (e.g. the Elasticsearch sink) must use the returned id — **not** the
+    signal's own wba_id — to avoid creating stale documents pointing to nodes
+    that do not exist in Neo4j.
+    """
+    attrs = signal.attributes.model_dump()  # type: ignore[union-attr]
 
     if person_cache is not None:
         if signal.source == "github":
             login = attrs.get("login", "")
-            name = attrs.get("name") or login
-            email = attrs.get("email")
+            name = attrs.get("full_name") or login
+            raw_email = attrs.get("email")
+            email = raw_email.lower() if raw_email else None
             url = attrs.get("url")
 
             person_id, _ = person_cache.get_or_create_person(
@@ -226,7 +291,7 @@ def _handle_person(
                 url=url,
             )
             if person_id:
-                identity_id = f"identity_github_{login}"
+                identity_id = wba_format("github", "IdentityMapping", login)
                 person_cache.queue_identity_mapping(
                     person_id=person_id,
                     identity_id=identity_id,
@@ -235,12 +300,17 @@ def _handle_person(
                     email=email or "",
                     last_updated_at=datetime.now(timezone.utc).isoformat(),
                 )
-            return
+                if signal.relationships:
+                    db_rels = _to_db_relationships(session, signal.relationships, person_id, "Person")
+                    for rel in db_rels:
+                        merge_relationship(session, rel)
+            return person_id
 
         elif signal.source == "jira":
             account_id = attrs.get("account_id", "")
-            name = attrs.get("name", "")
-            email = attrs.get("email")
+            name = attrs.get("full_name", "")
+            raw_email = attrs.get("email")
+            email = raw_email.lower() if raw_email else None
 
             person_id, _ = person_cache.get_or_create_person(
                 session,
@@ -250,7 +320,7 @@ def _handle_person(
                 external_id=account_id,
             )
             if person_id:
-                identity_id = f"identity_jira_{account_id}"
+                identity_id = wba_format("jira", "IdentityMapping", account_id)
                 person_cache.queue_identity_mapping(
                     person_id=person_id,
                     identity_id=identity_id,
@@ -259,50 +329,58 @@ def _handle_person(
                     email=email or "",
                     last_updated_at=datetime.now(timezone.utc).isoformat(),
                 )
-            return
+                if signal.relationships:
+                    db_rels = _to_db_relationships(session, signal.relationships, person_id, "Person")
+                    for rel in db_rels:
+                        merge_relationship(session, rel)
+            return person_id
 
-    # Fallback: no PersonCache — original behaviour
+    # Fallback: no PersonCache — original behaviour, no cross-provider dedup.
+    raw_email = attrs.get("email")
+    node_id = wba_node_id(signal)
     person = Person(
-        id=signal.external_id,
-        name=attrs.get("name"),
-        email=attrs.get("email"),
+        id=node_id,
+        name=attrs.get("full_name"),
+        email=raw_email.lower() if raw_email else None,
         url=attrs.get("url"),
     )
-    db_rels = _to_db_relationships(signal.relationships, signal.external_id, "Person")
+    db_rels = _to_db_relationships(session, signal.relationships, node_id, "Person")
     merge_person(session, person, relationships=db_rels)
+    return node_id
 
 
 def _handle_team(session: Session, signal: ActivitySignal) -> None:
-    attrs = signal.extra_attributes()
+    attrs = signal.attributes.model_dump()
+    node_id = wba_node_id(signal)
     team = Team(
-        id=signal.external_id,
+        id=node_id,
         name=attrs.get("name"),
         source=signal.source,
         created_at=attrs.get("created_at"),
         url=attrs.get("url"),
     )
-    db_rels = _to_db_relationships(signal.relationships, signal.external_id, "Team")
+    db_rels = _to_db_relationships(session, signal.relationships, node_id, "Team")
     merge_team(session, team, relationships=db_rels)
 
 
 def _handle_project(session: Session, signal: ActivitySignal) -> None:
-    attrs = signal.extra_attributes()
+    attrs = signal.attributes.model_dump()
     project = Project(
-        id=signal.external_id,
-        key=attrs.get("key", ""),
-        name=attrs.get("name", ""),
+        id=wba_node_id(signal),
+        key=attrs.get("project_key", ""),
+        name=attrs.get("project_name", ""),
         status=attrs.get("status"),
         project_type=attrs.get("project_type"),
         url=attrs.get("url"),
     )
-    db_rels = _to_db_relationships(signal.relationships, signal.external_id, "Project")
+    db_rels = _to_db_relationships(session, signal.relationships, wba_node_id(signal), "Project")
     merge_project(session, project, relationships=db_rels)
 
 
 def _handle_initiative(session: Session, signal: ActivitySignal) -> None:
-    attrs = signal.extra_attributes()
+    attrs = signal.attributes.model_dump()
     initiative = Initiative(
-        id=signal.external_id,
+        id=wba_node_id(signal),
         key=attrs.get("key", ""),
         summary=attrs.get("summary", ""),
         priority=attrs.get("priority", ""),
@@ -315,14 +393,14 @@ def _handle_initiative(session: Session, signal: ActivitySignal) -> None:
         url=attrs.get("url"),
         _last_synced_at=datetime.now(timezone.utc).isoformat(),
     )
-    db_rels = _to_db_relationships(signal.relationships, signal.external_id, "Initiative")
+    db_rels = _to_db_relationships(session, signal.relationships, wba_node_id(signal), "Initiative")
     merge_initiative(session, initiative, relationships=db_rels)
 
 
 def _handle_epic(session: Session, signal: ActivitySignal) -> None:
-    attrs = signal.extra_attributes()
+    attrs = signal.attributes.model_dump()
     epic = Epic(
-        id=signal.external_id,
+        id=wba_node_id(signal),
         key=attrs.get("key", ""),
         summary=attrs.get("summary", ""),
         priority=attrs.get("priority", ""),
@@ -334,30 +412,29 @@ def _handle_epic(session: Session, signal: ActivitySignal) -> None:
         url=attrs.get("url"),
         _last_synced_at=datetime.now(timezone.utc).isoformat(),
     )
-    db_rels = _to_db_relationships(signal.relationships, signal.external_id, "Epic")
+    db_rels = _to_db_relationships(session, signal.relationships, wba_node_id(signal), "Epic")
     merge_epic(session, epic, relationships=db_rels)
 
 
 def _handle_sprint(session: Session, signal: ActivitySignal) -> None:
-    attrs = signal.extra_attributes()
+    attrs = signal.attributes.model_dump()
     sprint = Sprint(
-        id=signal.external_id,
+        id=wba_node_id(signal),
         name=attrs.get("name", ""),
-        goal=attrs.get("goal", ""),
-        start_date=attrs.get("start_date", ""),
-        end_date=attrs.get("end_date", ""),
-        # SprintAttributes: status is the canonical field
+        goal=attrs.get("goal") or "",
+        start_date=attrs.get("start_date") or "",
+        end_date=attrs.get("end_date") or "",
         status=attrs.get("status", ""),
         url=attrs.get("url"),
     )
-    db_rels = _to_db_relationships(signal.relationships, signal.external_id, "Sprint")
+    db_rels = _to_db_relationships(session, signal.relationships, wba_node_id(signal), "Sprint")
     merge_sprint(session, sprint, relationships=db_rels)
 
 
 def _handle_issue(session: Session, signal: ActivitySignal) -> None:
-    attrs = signal.extra_attributes()
+    attrs = signal.attributes.model_dump()
     issue = Issue(
-        id=signal.external_id,
+        id=wba_node_id(signal),
         key=attrs.get("key", ""),
         type=attrs.get("type", ""),
         summary=attrs.get("summary", ""),
@@ -369,8 +446,26 @@ def _handle_issue(session: Session, signal: ActivitySignal) -> None:
         url=attrs.get("url"),
         _last_synced_at=datetime.now(timezone.utc).isoformat(),
     )
-    db_rels = _to_db_relationships(signal.relationships, signal.external_id, "Issue")
+    db_rels = _to_db_relationships(session, signal.relationships, wba_node_id(signal), "Issue")
     merge_issue(session, issue, relationships=db_rels)
+
+
+def _handle_file(session: Session, signal: ActivitySignal) -> None:
+    attrs = signal.attributes.model_dump()
+    node_id = wba_node_id(signal)
+    file_node = File(
+        id=node_id,
+        path=attrs.get("path", ""),
+        repo_name=attrs.get("repo_name", ""),
+        name=attrs.get("name"),
+        extension=attrs.get("extension"),
+        language=attrs.get("language"),
+        is_test=attrs.get("is_test"),
+        last_updated_at=attrs.get("last_updated_at"),
+        url=attrs.get("url"),
+    )
+    db_rels = _to_db_relationships(session, signal.relationships, node_id, "File")
+    merge_file(session, file_node, relationships=db_rels)
 
 
 # ---------------------------------------------------------------------------
@@ -389,6 +484,7 @@ _HANDLERS: dict[str, Callable[[Session, ActivitySignal], None]] = {
     "Epic": _handle_epic,
     "Sprint": _handle_sprint,
     "Issue": _handle_issue,
+    "File": _handle_file,
 }
 
 
@@ -401,8 +497,8 @@ def upsert_signal(
     session: Session,
     signal: ActivitySignal,
     person_cache: Optional[PersonCache] = None,
-) -> None:
-    """Upsert an ActivitySignal into Neo4j using the canonical merge_* functions.
+) -> str:
+    """Upsert an ActivitySignal into Neo4j and return the canonical wba_id stored.
 
     Dispatches to the correct entity-type handler which builds the appropriate
     ``neo4j_db`` dataclass and calls the corresponding ``merge_*`` function,
@@ -413,6 +509,15 @@ def upsert_signal(
     identity resolution and IdentityMapping creation, and
     ``flush_identity_mappings`` is called after every signal.
 
+    Return value — canonical wba_id
+    --------------------------------
+    The returned string is the ``id`` property of the Neo4j node that was
+    actually written.  For most entity types this equals ``wba_node_id(signal)``.
+    For Person signals with cross-provider deduplication (see ``_handle_person``),
+    the returned id may differ from the signal's own wba_id — callers must use
+    this value when writing to downstream stores (e.g. Elasticsearch) to avoid
+    creating documents under wba_ids that do not exist in Neo4j.
+
     Args:
         session:      An active synchronous Neo4j ``Session``.
         signal:       A fully validated ``ActivitySignal`` with ``ingestion_time``
@@ -422,9 +527,12 @@ def upsert_signal(
                       cache for identity resolution.
     """
     entity_type = signal.entity_type
+    canonical_wba_id: str = wba_node_id(signal)
 
     if entity_type == "Person":
-        _handle_person(session, signal, person_cache=person_cache)
+        resolved_id = _handle_person(session, signal, person_cache=person_cache)
+        if resolved_id:
+            canonical_wba_id = resolved_id
     else:
         handler = _HANDLERS.get(entity_type)
         if handler is None:
@@ -433,18 +541,20 @@ def upsert_signal(
                 entity_type,
                 signal.signal_id,
             )
-            return
+            return canonical_wba_id
         handler(session, signal)
 
     if person_cache is not None:
         person_cache.flush_identity_mappings(session)
 
     logger.info(
-        "Upserted signal_id=%s entity_type=%s id=%s",
+        "Upserted signal_id=%s entity_type=%s id=%s canonical_wba_id=%s",
         signal.signal_id,
         entity_type,
-        signal.external_id,
+        signal.id,
+        canonical_wba_id,
     )
+    return canonical_wba_id
 
 
 

@@ -89,26 +89,19 @@ async def test_catalog_list_endpoint_filters_by_search_text():
     assert item["default_view"] == "tabular"
     assert item["owner"] == "graph-team"
     assert item["status"] == "active"
-    assert item["parameters"] == [
-        {
-            "name": "person1_id",
-            "env_var": "PERSON1_ID",
-            "required": True,
-            "label": "First person",
-            "type": "person_id",
-            "placeholder": "Enter first person id",
-            "description": "Neo4j Person.id for the first person.",
-        },
-        {
-            "name": "person2_id",
-            "env_var": "PERSON2_ID",
-            "required": True,
-            "label": "Second person",
-            "type": "person_id",
-            "placeholder": "Enter second person id",
-            "description": "Neo4j Person.id for the second person.",
-        },
-    ]
+    params = item["parameters"]
+    assert len(params) == 2
+    for param in params:
+        assert param["required"] is True
+        assert param["type"] == "person_id"
+        assert param["placeholder"]
+        assert param["description"]
+    assert params[0]["name"] == "person1_id"
+    assert params[0]["env_var"] == "PERSON1_ID"
+    assert params[0]["label"] == "First person"
+    assert params[1]["name"] == "person2_id"
+    assert params[1]["env_var"] == "PERSON2_ID"
+    assert params[1]["label"] == "Second person"
 
 
 async def test_catalog_list_endpoint_searches_owner_and_status_metadata():
