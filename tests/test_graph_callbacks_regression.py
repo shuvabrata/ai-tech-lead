@@ -115,11 +115,11 @@ def test_execute_query_repeated_runs_refresh_baseline_and_filters(monkeypatch):
 
     # Output indices from execute_query callback contract
     ELEMENTS = 1
-    UNFILTERED_STORE = 13
-    NODE_FILTER = 14
-    REL_FILTER = 15
-    WEIGHT_FILTER = 16
-    TOP_N_FILTER = 17
+    UNFILTERED_STORE = 15
+    NODE_FILTER = 16
+    REL_FILTER = 17
+    WEIGHT_FILTER = 18
+    TOP_N_FILTER = 19
 
     # Baseline and rendered elements should match each run
     assert result_a[ELEMENTS] == cyto_a

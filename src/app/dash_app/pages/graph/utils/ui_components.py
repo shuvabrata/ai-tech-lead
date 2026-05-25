@@ -94,16 +94,17 @@ def create_error_alert(message, alert_type='danger', hint=None, heading="Query E
     ])
 
 
-def create_table_display(raw_results, result_count):
-    """Create a table display for tabular query results
-    
+def create_table_display(raw_results, result_count=None):
+    """Create table-only content for tabular query results.
+
     Args:
         raw_results (list): List of result dictionaries
-        result_count (int): Total number of results
-    
+        result_count (int | None): Deprecated and ignored; kept for compatibility
+
     Returns:
-        html.Div: Table display component with success alert
+        html.Div: Table content without status alerts
     """
+    _ = result_count
     if raw_results and len(raw_results) > 0:
         # Get column names from first result
         columns = list(raw_results[0].keys()) if raw_results else []
@@ -120,19 +121,12 @@ def create_table_display(raw_results, result_count):
             ])
         ], bordered=True, striped=True, hover=True, responsive=True, className="mb-0")
         
-        return html.Div([
-            create_alert([
-                html.I(className="fas fa-check-circle me-2"),
-                f"Query executed successfully! Retrieved {result_count} result(s)."
-            ], color="success", class_name="mb-3"),
-            table
-        ])
+        return html.Div(table)
     else:
-        # Empty results
-        return create_alert([
-            html.I(className="fas fa-info-circle me-2"),
-            "Query executed successfully but returned no results."
-        ], color="info")
+        return html.Div(
+            "Query executed successfully but returned no rows.",
+            style={"fontSize": "12px", "color": COLOR_TEXT_SECONDARY, "padding": "8px 0"}
+        )
 
 
 def create_graph_success_alert(node_count, rel_count):

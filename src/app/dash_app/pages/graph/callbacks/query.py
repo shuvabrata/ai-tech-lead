@@ -120,6 +120,8 @@ def validate_query(query_text):
     [Output("graph-data-store", "data"),
      Output("graph-cytoscape", "elements"),
      Output("graph-cytoscape-container", "style"),
+    Output("graph-status-strip", "children"),
+    Output("graph-status-strip", "style"),
      Output("graph-table-container", "children"),
      Output("graph-table-container", "style"),
      Output("graph-results-container", "children"),
@@ -158,8 +160,8 @@ def execute_query(
     empty_elements = []
     hide_style = {"display": "none"}
     show_style = {"display": "block"}
-    # Keep graph container style consistent - don't change size
-    graph_container_style = {"display": "block"}
+    graph_visible_style = {"display": "block"}
+    graph_hidden_style = {"display": "none"}
     default_container_style = {"minHeight": "400px", "padding": "20px"}
     panel_visible_style = GRAPH_DETAILS_PANEL_STYLE
     default_filters = ([], [], 0, "all")
@@ -167,6 +169,9 @@ def execute_query(
     def build_response(
         graph_data,
         elements,
+        graph_container_style,
+        status_children,
+        status_style,
         table_children,
         table_style,
         results_children,
@@ -181,6 +186,8 @@ def execute_query(
             graph_data,
             elements,
             graph_container_style,
+            status_children,
+            status_style,
             table_children,
             table_style,
             results_children,
@@ -199,6 +206,9 @@ def execute_query(
         return build_response(
             None,
             empty_elements,
+            graph_hidden_style,
+            None,
+            hide_style,
             None,
             hide_style,
             error_display,
@@ -334,8 +344,11 @@ def execute_query(
             return build_response(
                 data,
                 cyto_elements,
+                graph_visible_style,
                 success_alert,
                 show_style,
+                None,
+                hide_style,
                 None,
                 hide_style,
                 panel_visible_style,  # Show details panel for graph results
@@ -347,12 +360,19 @@ def execute_query(
             # Tabular results - create table
             raw_results = data.get("rawResults", [])
             table_display = create_table_display(raw_results, result_count)
+            tabular_success_alert = create_alert([
+                html.I(className="fas fa-check-circle me-2"),
+                f"Query executed successfully! Retrieved {result_count} result(s)."
+            ], color="success", class_name="mb-0")
             performance_metrics = create_performance_metrics(result_count, 0, execution_time_ms, is_graph=False)
             
             # Show table, hide graph and default, hide details panel
             return build_response(
                 data,
                 empty_elements,
+                graph_hidden_style,
+                tabular_success_alert,
+                show_style,
                 table_display,
                 show_style,
                 None,
