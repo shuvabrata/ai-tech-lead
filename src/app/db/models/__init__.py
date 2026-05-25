@@ -1,5 +1,6 @@
 from app.db.models.project import Project
 from app.db.models.connector import Connector
+from app.db.models.producer_sync_state import ProducerSyncState
 from app.db.models.connector_configs import (
     ConfluenceConfig,
     EmailConfig,

@@ -8,7 +8,7 @@ from dash import html, Input, Output, State, callback, clientside_callback, call
 from dash.exceptions import PreventUpdate
 
 from app.settings import settings
-from app.common.logger import logger
+from common.logger import logger
 from app.dash_app.components.common import create_alert
 from ..utils import (
     execute_expansion_and_merge,

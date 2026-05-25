@@ -245,6 +245,40 @@ def build_cytoscape_stylesheet(theme_name: str = ACTIVE_THEME):
             }
             for i, (fill, border) in enumerate(COMMUNITY_COLORS)
         ],
+        # --- C3: Node Spotlight (comes last — highest specificity) ---
+        {
+            'selector': 'node.spotlight-dim',
+            'style': {
+                'opacity': 0.12,
+                'z-index': 1,
+            }
+        },
+        {
+            'selector': 'node.spotlight-match',
+            'style': {
+                'border-width': '3px',
+                'border-color': '#F59E0B',
+                'opacity': 1.0,
+                'z-index': 9997,
+                'transition-property': 'opacity border-width border-color',
+                'transition-duration': '0.35s',
+                'transition-timing-function': 'ease-out',
+            }
+        },
+        {
+            'selector': 'edge.spotlight-dim',
+            'style': {
+                'opacity': 0.06,
+                'z-index': 1,
+            }
+        },
+        {
+            'selector': 'edge.spotlight-match',
+            'style': {
+                'opacity': 0.8,
+                'z-index': 9996,
+            }
+        },
     ]
 
 

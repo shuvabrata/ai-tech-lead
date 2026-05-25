@@ -73,7 +73,7 @@ async def augment_message_stream(user_message, provider) -> AsyncIterator[dict]:
 
 ### Phase 1: Core AI & Provider Streaming capabilities ✅ COMPLETED
 - **Logging and Metrics for Streaming:**
-  - Instrument the `stream_chat` generator and all streaming-related code paths with logging for stream start, end, disconnects, errors, and durations using the centralized logger (`app.common.logger`).
+  - Instrument the `stream_chat` generator and all streaming-related code paths with logging for stream start, end, disconnects, errors, and durations using the centralized logger (`common.logger`).
   - Log key metadata: session ID, user agent (if available), event types, and error details.
   - Add metrics counters/timers for stream starts, completions, errors, disconnects, and average duration (consider Prometheus or a simple in-memory/exported stats approach).
   - Ensure logs are structured and easily filterable for troubleshooting and monitoring.

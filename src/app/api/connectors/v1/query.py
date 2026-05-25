@@ -1,4 +1,4 @@
-from app.common.logger import logger
+from common.logger import logger
 from typing import Any, Dict, List, Optional, Type
 
 from sqlalchemy import delete, select

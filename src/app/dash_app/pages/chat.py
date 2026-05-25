@@ -31,8 +31,6 @@ from app.dash_app.styles import (
     SPACING_SMALL,
     SPACING_MEDIUM,
     SPACING_LARGE,
-    CARD_CONTAINER_STYLE,
-    BUTTON_PRIMARY_STYLE
 )
 
 TIMEOUT_SECONDS = settings.HTTP_REQUEST_TIMEOUT
@@ -52,14 +50,11 @@ def get_layout():
                 id="chat-messages",
                 className="chat-messages-container",
                 style={
-                    "height": "580px",
+                    "height": "calc(100vh - 220px)",
                     "overflowY": "auto",
                     "marginBottom": SPACING_MEDIUM,
-                    "padding": SPACING_LARGE,
-                    "backgroundColor": COLOR_BACKGROUND_WHITE,
-                    "borderRadius": "2px",
-                    "border": f"1px solid {COLOR_GRAY_LIGHTER}",
-                    "boxShadow": "0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.02)"
+                    "padding": f"0 {SPACING_LARGE} {SPACING_LARGE} {SPACING_LARGE}",
+                    "backgroundColor": "transparent"
                 },
                 children=[
                     html.Div([
@@ -120,11 +115,10 @@ def get_layout():
                         dbc.Button(
                             "Submit",
                             id="send-button",
-                            className="w-100",
-                            style={
-                                **BUTTON_PRIMARY_STYLE,
-                                "height": "68px"
-                            }
+                            color="primary",
+                            size="sm",
+                            style={"borderRadius": "2px", "height": "68px"},
+                            className="chat-submit-btn w-100"
                         )
                     ], width=2)
                 ], className="g-3"),
@@ -149,7 +143,7 @@ def get_layout():
                 color=COLOR_NAVY,
                 children=html.Div(id="loading-output")
             )
-        ], style=CARD_CONTAINER_STYLE)
+        ], className="h-100 d-flex flex-column")
     ])
 
 
@@ -488,8 +482,9 @@ def render_messages(messages):
                             }
                         ),
                         html.Div([
-                            html.Div(
+                            dcc.Markdown(
                                 content,
+                                className="chat-markdown",
                                 style={
                                     "fontFamily": FONT_SANS,
                                     "backgroundColor": COLOR_BACKGROUND_WHITE,
@@ -497,10 +492,8 @@ def render_messages(messages):
                                     "padding": f"{SPACING_SMALL} 20px",
                                     "borderRadius": "2px",
                                     "wordWrap": "break-word",
-                                    "whiteSpace": "pre-wrap",
                                     "fontSize": FONT_SIZE_LARGE,
                                     "lineHeight": "1.8",
-                                    "display": "inline-block",
                                     "borderLeft": f"2px solid {COLOR_BORDER}"
                                 }
                             ),
@@ -552,21 +545,30 @@ def render_messages(messages):
                         ),
                         html.Div([
                             html.Div(
-                                "Assistant is thinking…",
-                                id=f"think-body-{client_id}",
+                                [
+                                    html.Span(
+                                        "Assistant is thinking",
+                                        id=f"think-body-{client_id}",
+                                        style={
+                                            "fontFamily": FONT_SANS,
+                                            "color": COLOR_TEXT_MUTED,
+                                            "fontSize": FONT_SIZE_LARGE,
+                                            "fontStyle": "italic",
+                                            "marginRight": "10px",
+                                        }
+                                    ),
+                                    html.Span(className="thinking-dot"),
+                                    html.Span(className="thinking-dot"),
+                                    html.Span(className="thinking-dot"),
+                                ],
+                                className="thinking-dots",
                                 style={
-                                    "fontFamily": FONT_SANS,
                                     "backgroundColor": COLOR_BACKGROUND_WHITE,
-                                    "color": COLOR_TEXT_MUTED,
                                     "padding": f"{SPACING_SMALL} 20px",
                                     "borderRadius": "2px",
-                                    "wordWrap": "break-word",
-                                    "whiteSpace": "pre-wrap",
-                                    "fontSize": FONT_SIZE_LARGE,
-                                    "lineHeight": "1.8",
-                                    "display": "inline-block",
+                                    "display": "inline-flex",
+                                    "alignItems": "center",
                                     "borderLeft": f"2px solid {COLOR_BORDER}",
-                                    "fontStyle": "italic"
                                 }
                             ),
                             html.Div(
@@ -596,6 +598,7 @@ def render_messages(messages):
             )
             rendered.append(html.Div(
                 id=f"msg-{client_id}",
+                className="chat-markdown",
                 style={
                     "fontFamily": FONT_SANS,
                     "color": COLOR_TEXT_DARK,
