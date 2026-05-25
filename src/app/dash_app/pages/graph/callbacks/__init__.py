@@ -4,7 +4,7 @@ Imports all graph page callbacks to register them with Dash.
 """
 
 # Import all callbacks to register them
-from .query import validate_query, execute_query
+from .query import validate_query, execute_query, toggle_query_collapse
 from .catalog import (
     load_query_catalog,
     populate_namespace_filter,
@@ -14,7 +14,7 @@ from .catalog import (
     sync_catalog_parameter_values,
     load_catalog_query_into_console,
 )
-from .display import toggle_fullwidth, display_properties, update_layout
+from .display import display_properties, update_layout
 from .expansion import (
     execute_doubleclick_expansion,
     open_expansion_modal,
@@ -38,12 +38,13 @@ from .filtering import (
     apply_relationship_filters
 )
 from .analytics_mode import toggle_query_panel_for_analytics_mode
-from .collaboration import load_collaboration_network
+from .spotlight import update_spotlight
 
 __all__ = [
     # Query callbacks
     'validate_query',
     'execute_query',
+    'toggle_query_collapse',
     'load_query_catalog',
     'populate_namespace_filter',
     'sync_selected_catalog_query',
@@ -52,7 +53,6 @@ __all__ = [
     'sync_catalog_parameter_values',
     'load_catalog_query_into_console',
     # Display callbacks
-    'toggle_fullwidth',
     'display_properties',
     'update_layout',
     # Expansion callbacks
@@ -76,6 +76,4 @@ __all__ = [
     'clear_all_filters',
     'apply_relationship_filters',
     'toggle_query_panel_for_analytics_mode',
-    # Collaboration network
-    'load_collaboration_network',
 ]

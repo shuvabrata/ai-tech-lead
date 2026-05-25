@@ -9,6 +9,11 @@
 !requirements.app.txt
 !requirements.github-sync.txt
 !requirements.jira-sync.txt
+!requirements.github-producer.txt
+!requirements.jira-producer.txt
+!requirements.jira-consumer.txt
+!requirements.github-consumer.txt
+
 
 
 # Exclude Python cache and compiled files

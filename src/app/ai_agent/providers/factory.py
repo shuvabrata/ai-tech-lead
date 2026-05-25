@@ -11,7 +11,7 @@ from dotenv import load_dotenv
 
 from app.ai_agent.providers.base import LLMProvider
 from app.ai_agent.providers.openai import OpenAIProvider
-from app.common.logger import logger
+from common.logger import logger
 
 # Load environment variables
 load_dotenv()

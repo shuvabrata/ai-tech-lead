@@ -14,40 +14,32 @@ from app.dash_app.styles import (
     DETAILS_MUTED_TEXT_STYLE,
     DETAILS_SEPARATOR_STYLE,
     DETAILS_SUBHEADING_STYLE,
+    DETAILS_PANEL_HEADER_STYLE,
+    DETAILS_PANEL_SUBTYPE_STYLE,
+    DETAILS_TABLE_STYLE,
+    DETAILS_TABLE_KEY_STYLE,
+    DETAILS_TABLE_VALUE_STYLE,
+    DETAILS_TABLE_VALUE_MONO_STYLE,
     FONT_SIZE_XSMALL,
     COLOR_NAVY,
     COLOR_TEXT_MUTED,
     FONT_SIZE_XTINY
 )
+from app.dash_app.components.common import build_element_properties_content, register_fullwidth_callback
 from ..styles import build_cytoscape_stylesheet
-from ..utils import toggle_details_panel, build_property_items, create_node_legend, is_node_element
+from ..utils import create_node_legend, is_node_element
 
-
-@callback(
-    [
-        Output("graph-fullwidth-state", "data"),
-        Output("graph-viz-col", "width"),
-        Output("graph-details-col", "style")
-    ],
-    Input("graph-fullwidth-btn", "n_clicks"),
-    State("graph-fullwidth-state", "data"),
-    prevent_initial_call=True
-)
-def toggle_fullwidth(_n_clicks, is_fullwidth):
-    """Toggle between full-width graph and normal view with details panel"""
-    new_state = not is_fullwidth
-    viz_width, panel_style = toggle_details_panel(new_state)
-    return new_state, viz_width, panel_style
+register_fullwidth_callback("graph")
 
 
 @callback(
     Output("graph-details-panel", "children"),
     [Input("graph-cytoscape", "selectedNodeData"),
      Input("graph-cytoscape", "selectedEdgeData"),
-    Input("graph-cytoscape", "elements"),
-    Input("theme-store", "data")]
+     Input("theme-store", "data")],
+    State("graph-cytoscape", "elements"),
 )
-def display_properties(selected_nodes, selected_edges, elements, theme_name):
+def display_properties(selected_nodes, selected_edges, theme_name, elements):
     """Display detailed properties of selected node or edge"""
     # Extract unique node types from current graph elements
     node_types = set()
@@ -64,124 +56,12 @@ def display_properties(selected_nodes, selected_edges, elements, theme_name):
     
     # Node was selected (selectedNodeData returns a list)
     if selected_nodes and len(selected_nodes) > 0:
-        node_data = selected_nodes[0]  # Get first selected node
-        # Build property table excluding internal Cytoscape fields
-        exclude_keys = {'id', 'label', 'displayLabel', 'nodeType'}
-        properties = {k: v for k, v in node_data.items() if k not in exclude_keys and v is not None}
-        
-        # Header
-        header = html.Div([
-            html.H6([
-                html.I(className="fas fa-circle me-2", style={"color": COLOR_NAVY, "fontSize": FONT_SIZE_XTINY}),
-                "Node Details"
-            ], className="mb-3", style=DETAILS_HEADING_STYLE),
-        ])
-        
-        # Basic info
-        basic_info = [
-            html.Div([
-                html.Strong("Type: ", style=DETAILS_LABEL_STYLE),
-                html.Span(node_data.get('nodeType', 'Unknown'), 
-                         style=DETAILS_VALUE_STYLE)
-            ], className="mb-2"),
-            html.Div([
-                html.Strong("Label: ", style=DETAILS_LABEL_STYLE),
-                html.Span(node_data.get('label', 'N/A'), 
-                         style=DETAILS_VALUE_STYLE)
-            ], className="mb-2"),
-            html.Div([
-                html.Strong("ID: ", style=DETAILS_LABEL_STYLE),
-                html.Code(str(node_data.get('id', 'N/A')), 
-                         style=DETAILS_CODE_STYLE)
-            ], className="mb-3"),
-            html.Hr(style=DETAILS_SEPARATOR_STYLE)
-        ]
-        
-        # Properties section
-        if properties:
-            properties_section = [
-                html.H6("Properties", style=DETAILS_SUBHEADING_STYLE),
-                html.Div(build_property_items(properties))
-            ]
-        else:
-            properties_section = [
-                html.P("No additional properties", className="text-muted", style=DETAILS_MUTED_TEXT_STYLE)
-            ]
-        
-        # Phase 1.1b: Add Expand Node button
-        expand_button = html.Div([
-            html.Hr(style={"margin": "16px 0"}),
-            dbc.Button(
-                [html.I(className="fas fa-project-diagram me-2"), "Expand Node"],
-                id="expand-node-btn",
-                color="primary",
-                size="sm",
-                outline=True,
-                className="w-100",
-                style={"fontSize": FONT_SIZE_XSMALL}
-            ),
-            html.Small(
-                "Load connected neighbors",
-                className="text-muted d-block text-center mt-1",
-                style={"fontSize": FONT_SIZE_XTINY}
-            )
-        ], className="mt-3")
-        
-        return html.Div([header] + basic_info + properties_section + [expand_button])
-    
+        return build_element_properties_content(selected_nodes[0], expand_node_enabled=True)
+
     # Edge was selected (selectedEdgeData returns a list)
-    elif selected_edges and len(selected_edges) > 0:
-        edge_data = selected_edges[0]  # Get first selected edge
-        # Build property table excluding internal Cytoscape fields
-        exclude_keys = {'id', 'source', 'target', 'label', 'relType'}
-        properties = {k: v for k, v in edge_data.items() if k not in exclude_keys and v is not None}
-        
-        # Header
-        header = html.Div([
-            html.H6([
-                html.I(className="fas fa-arrow-right me-2", style={"color": COLOR_TEXT_MUTED, "fontSize": FONT_SIZE_XSMALL}),
-                "Relationship Details"
-            ], className="mb-3", style=DETAILS_HEADING_STYLE),
-        ])
-        
-        # Basic info
-        basic_info = [
-            html.Div([
-                html.Strong("Type: ", style=DETAILS_LABEL_STYLE),
-                html.Span(edge_data.get('relType', edge_data.get('label', 'Unknown')), 
-                         style=DETAILS_VALUE_STYLE)
-            ], className="mb-2"),
-            html.Div([
-                html.Strong("From: ", style=DETAILS_LABEL_STYLE),
-                html.Code(str(edge_data.get('source', 'N/A')), 
-                         style=DETAILS_CODE_STYLE)
-            ], className="mb-2"),
-            html.Div([
-                html.Strong("To: ", style=DETAILS_LABEL_STYLE),
-                html.Code(str(edge_data.get('target', 'N/A')), 
-                         style=DETAILS_CODE_STYLE)
-            ], className="mb-2"),
-            html.Div([
-                html.Strong("ID: ", style=DETAILS_LABEL_STYLE),
-                html.Code(str(edge_data.get('id', 'N/A')), 
-                         style=DETAILS_CODE_STYLE)
-            ], className="mb-3"),
-            html.Hr(style=DETAILS_SEPARATOR_STYLE)
-        ]
-        
-        # Properties section
-        if properties:
-            properties_section = [
-                html.H6("Properties", style=DETAILS_SUBHEADING_STYLE),
-                html.Div(build_property_items(properties))
-            ]
-        else:
-            properties_section = [
-                html.P("No additional properties", className="text-muted", style=DETAILS_MUTED_TEXT_STYLE)
-            ]
-        
-        return html.Div([header] + basic_info + properties_section)
-    
+    if selected_edges and len(selected_edges) > 0:
+        return build_element_properties_content(selected_edges[0], expand_node_enabled=True)
+
     # Nothing selected - show legend
     return legend_state
 
@@ -195,13 +75,12 @@ def display_properties(selected_nodes, selected_edges, elements, theme_name):
 )
 def update_layout(layout_name, reset_clicks, current_layout):
     """Update the Cytoscape graph layout algorithm or trigger layout reset"""
-    
     # Determine which input triggered the callback
     if not callback_context.triggered:
         return current_layout
     
     trigger_id = callback_context.triggered[0]['prop_id'].split('.')[0]
-    
+
     # Layout selector changed
     if trigger_id == 'graph-layout-selector':
         if layout_name == 'preset':

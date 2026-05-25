@@ -14,6 +14,18 @@ class Settings(BaseSettings):
     NEO4J_ENABLED: bool = False
     FF_NEO4J_USE_PROVIDER_PIPELINE: bool = False
 
+    # RabbitMQ configuration
+    RABBITMQ_URL: str = "amqp://guest:guest@localhost:5672/"
+
+    # Elasticsearch configuration
+    ELASTICSEARCH_ENABLED: bool = False
+    ELASTICSEARCH_URL: str = "http://localhost:9200"
+    ELASTIC_PASSWORD: str = ""
+
+    # Augmentation chain configuration
+    AUGMENTATION_HISTORY_TURNS: int = 5  # prior turns passed to all chains for context resolution
+    ES_CHAIN_MAX_RESULTS: int = 5  # max ES hits included in the LLM context block
+
     # MCP configuration
     GITHUB_MCP_ENABLED: bool = False
     ATLASSIAN_MCP_ENABLED: bool = False

@@ -10,7 +10,7 @@ from datetime import datetime
 
 import requests
 
-from app.common.logger import logger
+from common.logger import logger
 from .data_transform import neo4j_to_cytoscape
 from .element_types import is_edge_element, is_node_element
 
@@ -120,7 +120,7 @@ def execute_expansion_and_merge(
     # Preserve visible node positions (only when the captured map is valid) and
     # place newly added nodes near the expansion anchor.
     current_node_positions = current_node_positions or {}
-    new_node_ids = {node["id"] for node in new_nodes if "id" in node}
+    new_node_ids = {node["elementId"] for node in new_nodes if "elementId" in node}
 
     position_items = [
         (node_key, pos)
@@ -172,7 +172,7 @@ def execute_expansion_and_merge(
         elif node_id_value in radial_positions:
             elem["position"] = radial_positions[node_id_value]
 
-    new_node_ids = [node["id"] for node in new_nodes]
+    new_node_ids = [node["elementId"] for node in new_nodes]
     updated_loaded_ids = list(set((loaded_node_ids or []) + new_node_ids))
 
     updated_expanded = expanded_nodes.copy() if expanded_nodes else {}

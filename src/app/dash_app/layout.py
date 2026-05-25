@@ -2,15 +2,16 @@ import dash
 import dash_bootstrap_components as dbc
 from dash import dcc, html
 from dash.dependencies import Input, Output, State
+from dash.exceptions import PreventUpdate
+from urllib.parse import quote
 
-from app.dash_app.pages import analytics, chat, people, progress, settings, graph, connectors
+from app.dash_app.pages import analytics, chat, collaboration_network, connectors, graph, people, progress, search, settings
 from .styles import (
     SIDEBAR_STYLE,
     NAVBAR_BRAND_STYLE,
     TOPBAR_STYLE,
     TOPBAR_CONTAINER_STYLE,
     TOGGLE_BUTTON_STYLE,
-    DROPDOWN_MENU_STYLE,
     SIDEBAR_COL_STYLE
 )
 
@@ -32,18 +33,19 @@ def create_dash_app():
     # Sidebar using Bootstrap Nav - Executive Dashboard style
     sidebar = dbc.Nav(
         [
-            dbc.NavLink("Chat", href="/app/chat", active="exact", id="nav-genai", className="executive-nav-link"),
-            dbc.NavLink("People", href="/app/people", active="exact", id="nav-people", className="executive-nav-link"),
-            dbc.NavLink("Progress", href="/app/progress", active="exact", id="nav-progress", className="executive-nav-link"),
-            dbc.NavLink("Graph", href="/app/graph", active="exact", id="nav-graph", className="executive-nav-link"),
-            dbc.NavLink("Analytics", href="/app/analytics", active="exact", id="nav-analytics", className="executive-nav-link"),
-            dbc.NavLink("Connectors", href="/app/connectors", active="exact", id="nav-connectors", className="executive-nav-link"),
-            dbc.NavLink("Settings", href="/app/settings", active="exact", id="nav-settings", className="executive-nav-link"),
+            dbc.NavLink([html.I(className="fas fa-comment-dots fa-fw me-2", title="Chat"), html.Span("Chat", className="sidebar-text")], href="/app/chat", active="exact", id="nav-genai", className="executive-nav-link d-flex align-items-center text-nowrap"),
+            dbc.NavLink([html.I(className="fas fa-search fa-fw me-2", title="Search"), html.Span("Search", className="sidebar-text")], href="/app/search", active="exact", id="nav-search", className="executive-nav-link d-flex align-items-center text-nowrap"),
+            dbc.NavLink([html.I(className="fas fa-users fa-fw me-2", title="People"), html.Span("People", className="sidebar-text")], href="/app/people", active="exact", id="nav-people", className="executive-nav-link d-flex align-items-center text-nowrap"),
+            dbc.NavLink([html.I(className="fas fa-chart-line fa-fw me-2", title="Progress"), html.Span("Progress", className="sidebar-text")], href="/app/progress", active="exact", id="nav-progress", className="executive-nav-link d-flex align-items-center text-nowrap"),
+            dbc.NavLink([html.I(className="fas fa-project-diagram fa-fw me-2", title="Graph"), html.Span("Graph", className="sidebar-text")], href="/app/graph", active="exact", id="nav-graph", className="executive-nav-link d-flex align-items-center text-nowrap"),
+            dbc.NavLink([html.I(className="fas fa-chart-pie fa-fw me-2", title="Analytics"), html.Span("Analytics", className="sidebar-text")], href="/app/analytics", active="exact", id="nav-analytics", className="executive-nav-link d-flex align-items-center text-nowrap"),
+            dbc.NavLink([html.I(className="fas fa-plug fa-fw me-2", title="Connectors"), html.Span("Connectors", className="sidebar-text")], href="/app/connectors", active="exact", id="nav-connectors", className="executive-nav-link d-flex align-items-center text-nowrap"),
+            dbc.NavLink([html.I(className="fas fa-cog fa-fw me-2", title="Settings"), html.Span("Settings", className="sidebar-text")], href="/app/settings", active="exact", id="nav-settings", className="executive-nav-link d-flex align-items-center text-nowrap"),
         ],
         vertical=True,
         pills=False,
         className="vh-100 sidebar executive-sidebar",
-        style=SIDEBAR_STYLE
+        style={**SIDEBAR_STYLE, "overflowX": "hidden"}
     )
 
     # Top menu using Bootstrap Navbar - Executive Dashboard style
@@ -66,36 +68,42 @@ def create_dash_app():
                     )
                 ], width="auto", className="d-flex align-items-center"),
                 dbc.Col(
-                    dbc.Nav(
+                    html.Div(
                         [
-                            dbc.Select(
-                                id="theme-selector",
-                                options=[
-                                    {"label": "Executive Light", "value": "executive-light"},
-                                    {"label": "Executive Dark", "value": "executive-dark"},
+                            dbc.InputGroup(
+                                [
+                                    dbc.Input(
+                                        id="global-search-input",
+                                        type="text",
+                                        placeholder="Search people, issues, repos…",
+                                        debounce=False,
+                                        n_submit=0,
+                                        className="global-search-input",
+                                    ),
+                                    dbc.Button(
+                                        html.I(className="fas fa-search"),
+                                        id="global-search-btn",
+                                        n_clicks=0,
+                                        className="global-search-btn",
+                                    ),
                                 ],
-                                value="executive-light",
-                                size="sm",
-                                className="theme-selector me-2",
-                                style={"minWidth": "180px", "fontSize": "12px"}
+                                className="global-search-group",
                             ),
-                            dbc.DropdownMenu(
-                                label="Switch Project",
-                                children=[
-                                    dbc.DropdownMenuItem("Project Alpha", id="proj-alpha"),
-                                    dbc.DropdownMenuItem("Project Beta", id="proj-beta"),
-                                ],
-                                nav=True,
-                                in_navbar=True,
+                            dbc.Button(
+                                html.I(id="theme-icon", className="fas fa-moon"),
+                                id="theme-toggle-btn",
+                                color="light",
+                                outline=True,
                                 size="sm",
-                                style=DROPDOWN_MENU_STYLE
+                                className="theme-toggle-btn ms-2",
+                                title="Switch theme",
+                                n_clicks=0,
                             ),
                         ],
-                        className="justify-content-end flex-nowrap",
-                        style={"padding": "0"}
+                        className="d-flex align-items-center",
                     ),
                     width=True,
-                    className="d-flex justify-content-end align-items-center"
+                    className="d-flex align-items-center justify-content-end pe-1",
                 ),
             ], className="w-100 flex-nowrap g-0 align-items-center justify-content-between", style={"margin": "0"}),
             fluid=True,
@@ -121,8 +129,8 @@ def create_dash_app():
                 className="sidebar-col",
                 style=SIDEBAR_COL_STYLE
             ),
-            dbc.Col(content, id="content-col", width=True)
-        ], className="g-0"),
+            dbc.Col(content, id="content-col", width=True, style={"minWidth": 0})
+        ], className="g-0 flex-nowrap"),
     ], fluid=True, id="app-shell", className="app-shell theme-executive-light")
 
     # Callbacks for page routing
@@ -133,6 +141,8 @@ def create_dash_app():
     def display_page(pathname):
         if pathname in ("/app/analytics", "/app/analytics/"):
             return analytics.get_layout()
+        if pathname == "/app/collaboration":
+            return collaboration_network.get_layout()
         if pathname == "/app/people":
             return people.get_layout()
         if pathname == "/app/progress":
@@ -146,6 +156,8 @@ def create_dash_app():
             return connectors.get_layout()
         if pathname == "/app/settings":
             return settings.get_layout()
+        if pathname == "/app/search":
+            return search.get_layout()
         if pathname == "/app/chat":
             return chat.get_layout()
         # Default to chat page
@@ -155,7 +167,8 @@ def create_dash_app():
     @app.callback(
         [
             Output("sidebar-collapsed", "data"),
-            Output("sidebar-col", "style")
+            Output("sidebar-col", "style"),
+            Output("sidebar-col", "className")
         ],
         Input("sidebar-toggle", "n_clicks"),
         State("sidebar-collapsed", "data"),
@@ -165,44 +178,93 @@ def create_dash_app():
         # Toggle the state
         new_state = not is_collapsed
         
+        base_style = {**SIDEBAR_COL_STYLE, "transition": "min-width 0.2s ease, max-width 0.2s ease"}
+        
         # Adjust visibility based on sidebar state
         if new_state:  # Sidebar collapsed
-            sidebar_style = {"display": "none"}
+            sidebar_style = {
+                **base_style,
+                "minWidth": "60px",
+                "maxWidth": "60px",
+                "overflowX": "hidden"
+            }
+            sidebar_class = "sidebar-col collapsed"
         else:  # Sidebar open
-            sidebar_style = SIDEBAR_COL_STYLE
+            sidebar_style = {
+                **base_style,
+                "overflowX": "hidden"
+            }
+            sidebar_class = "sidebar-col"
         
-        return new_state, sidebar_style
+        return new_state, sidebar_style, sidebar_class
 
     # Initialize sidebar state from localStorage
     @app.callback(
-        Output("sidebar-col", "style", allow_duplicate=True),
+        [
+            Output("sidebar-col", "style", allow_duplicate=True),
+            Output("sidebar-col", "className", allow_duplicate=True)
+        ],
         Input("sidebar-collapsed", "data"),
         prevent_initial_call='initial_duplicate'
     )
     def init_sidebar_state(is_collapsed):
+        base_style = {**SIDEBAR_COL_STYLE, "transition": "min-width 0.2s ease, max-width 0.2s ease"}
+        
         # Apply stored state on page load
         if is_collapsed:  # Sidebar collapsed
-            sidebar_style = {"display": "none"}
+            sidebar_style = {
+                **base_style,
+                "minWidth": "60px",
+                "maxWidth": "60px",
+                "overflowX": "hidden"
+            }
+            sidebar_class = "sidebar-col collapsed"
         else:  # Sidebar open
-            sidebar_style = SIDEBAR_COL_STYLE
+            sidebar_style = {
+                **base_style,
+                "overflowX": "hidden"
+            }
+            sidebar_class = "sidebar-col"
         
-        return sidebar_style
+        return sidebar_style, sidebar_class
+
+    @app.callback(
+        Output("url", "pathname"),
+        Output("url", "search"),
+        Output("global-search-input", "value"),
+        Input("global-search-btn", "n_clicks"),
+        Input("global-search-input", "n_submit"),
+        State("global-search-input", "value"),
+        prevent_initial_call=True,
+    )
+    def navigate_global_search(_btn_clicks, _n_submit, query: str | None):
+        """Navigate to the search page with the query term in the URL."""
+        if not query or not query.strip():
+            raise PreventUpdate
+        return "/app/search", f"?q={quote(query.strip())}", ""
 
     @app.callback(
         Output("theme-store", "data"),
-        Input("theme-selector", "value"),
-        prevent_initial_call=True
+        Input("theme-toggle-btn", "n_clicks"),
+        State("theme-store", "data"),
+        prevent_initial_call=True,
     )
-    def persist_theme(theme_name):
-        return theme_name or "executive-light"
+    def persist_theme(_n_clicks, current_theme: str | None):
+        """Toggle between light and dark theme on each button click."""
+        return "executive-dark" if (current_theme or "executive-light") == "executive-light" else "executive-light"
 
     @app.callback(
         Output("app-shell", "className"),
-        Input("theme-store", "data")
+        Output("theme-icon", "className"),
+        Input("theme-store", "data"),
     )
-    def apply_theme_class(theme_name):
+    def apply_theme(theme_name: str | None):
+        """Apply the theme CSS class and update the toggle icon."""
         active_theme = theme_name or "executive-light"
-        return f"app-shell theme-{active_theme}"
+        # Show moon when in light mode (click → go dark)
+        # Show sun when in dark mode (click → go light)
+        icon = "fas fa-sun" if active_theme == "executive-dark" else "fas fa-moon"
+        return f"app-shell theme-{active_theme}", icon
 
     # No custom CSS or sidebar collapse for now; Bootstrap handles layout and theme
 

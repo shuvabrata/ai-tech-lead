@@ -2,8 +2,9 @@ from __future__ import annotations
 
 from typing import AsyncIterator
 
-from app.ai_agent.chains.neo4j_chain import augment_message_with_neo4j, augment_message_with_neo4j_stream
+from app.ai_agent.chains.neo4j_chain import augment_message_with_neo4j_stream
 from app.ai_agent.chains.mcp_chain import augment_message_with_mcp_stream
+from app.ai_agent.chains.elasticsearch_chain import augment_message_with_es_stream
 from app.settings import settings
 
 
@@ -36,6 +37,7 @@ def _compose_multi_source_message(user_message, envelopes):
 async def augment_message_stream(
     user_message: str,
     provider=None,
+    conversation_history: list[dict] | None = None,
 ) -> AsyncIterator[dict]:
     """Async generator that augments a user message and yields thinking chunks.
 
@@ -54,6 +56,9 @@ async def augment_message_stream(
     Args:
         user_message: The user's original message.
         provider: Optional LLM provider instance.
+        conversation_history: Optional list of prior {role, content} turn dicts
+            (system messages excluded) used by all chains for pronoun and entity
+            reference resolution across turns.
 
     Yields:
         dict: SSE-compatible event dictionaries.
@@ -63,7 +68,9 @@ async def augment_message_stream(
     sources_used: list[dict] = []
 
     if settings.NEO4J_ENABLED:
-        async for event in augment_message_with_neo4j_stream(user_message, provider=provider):
+        async for event in augment_message_with_neo4j_stream(
+            user_message, provider=provider, conversation_history=conversation_history
+        ):
             if event["type"] == "augmented_message":
                 neo4j_augmented_message = event["content"]
                 if neo4j_augmented_message != user_message:
@@ -80,7 +87,28 @@ async def augment_message_stream(
             else:
                 yield event
 
-    async for event in augment_message_with_mcp_stream(user_message, provider=provider):
+    if settings.ELASTICSEARCH_ENABLED:
+        async for event in augment_message_with_es_stream(
+            user_message, provider=provider, conversation_history=conversation_history
+        ):
+            if event["type"] == "augmented_message":
+                es_content = event["content"]
+                if isinstance(es_content, dict) and es_content.get("applied"):
+                    envelopes.append(es_content)
+                    sources_used.append({
+                        "type": "elasticsearch",
+                        "applied": True,
+                        "query": es_content.get("query"),
+                        "total_hits": es_content.get("total_hits"),
+                    })
+                else:
+                    sources_used.append({"type": "elasticsearch", "applied": False})
+            else:
+                yield event
+
+    async for event in augment_message_with_mcp_stream(
+        user_message, provider=provider, conversation_history=conversation_history
+    ):
         if event["type"] == "augmented_message":
             mcp_envelope = event["content"]
             if isinstance(mcp_envelope, dict) and mcp_envelope.get("applied"):
