@@ -337,6 +337,10 @@ def create_results_section():
             # Left col: controls bar + graph canvas (with loading indicator)
             dbc.Col([
                 create_graph_controls(),
+                html.Div(
+                    id="graph-status-strip",
+                    style={"display": "none", "marginBottom": "8px"}
+                ),
                 dcc.Loading(
                     id="graph-loading",
                     type="circle",
