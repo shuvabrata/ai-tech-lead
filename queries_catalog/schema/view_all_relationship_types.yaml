@@ -11,9 +11,7 @@ queries:
         ORDER BY count DESC
         LIMIT 10
   graph: |-
-    MATCH p1=()-[r]->()
-        RETURN p1
-        LIMIT 100
+    CALL db.schema.visualization()
 tags:
 - test
 - table
