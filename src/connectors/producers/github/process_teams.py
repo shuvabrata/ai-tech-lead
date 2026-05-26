@@ -28,8 +28,8 @@ async def process_teams(
     """Fetch teams for *repo* and publish Team and Person signals.
 
     Emits a Team signal with a COLLABORATOR relationship for each team,
-    then emits Person signals with MEMBER_OF and COLLABORATOR relationships
-    for each team member. Teams exceeding MAX_TEAM_SIZE are skipped entirely.
+    then emits Person signals with MEMBER_OF relationships for each team
+    member. Teams exceeding MAX_TEAM_SIZE are skipped entirely.
     """
     max_team_size = int(os.environ.get("MAX_TEAM_SIZE", "100"))
     logger.info("Fetching teams for '%s'...", full_name)
@@ -78,7 +78,7 @@ async def process_teams(
                     if getattr(m, "login", None)
                 ]
 
-            # Emit Person signals for team members with MEMBER_OF and COLLABORATOR rels
+            # Emit Person signals for team members with MEMBER_OF rels
             try:
                 member_details = await asyncio.to_thread(fetch_member_details)
                 for member_info in member_details:
@@ -92,16 +92,6 @@ async def process_teams(
                                 entity_type="Team",
                                 id=team_slug,
                             ),
-                        ),
-                        Relationship(
-                            type="COLLABORATOR",
-                            direction=None,
-                            target=RelationshipTarget(
-                                source=_SOURCE,
-                                entity_type="Repository",
-                                id=repo_data["full_name"],
-                            ),
-                            properties={"permission": permission} if permission else None,
                         ),
                     ]
                     member_name = member_info["name"]

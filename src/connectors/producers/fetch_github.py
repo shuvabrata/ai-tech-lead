@@ -199,6 +199,28 @@ def fetch_repo_teams(repo: Any) -> List[Any]:
         return []
 
 
+def fetch_repo_collaborators(repo: Any) -> List[Any]:
+    """Fetch user collaborators with access to *repo*.
+
+    Args:
+        repo: PyGithub Repository object.
+
+    Returns:
+        List of collaborator user objects (type == "User"). Returns an empty
+        list on permission/API failures.
+    """
+    try:
+        collaborators = retry_with_backoff(lambda: list(repo.get_collaborators()))
+        return [collab for collab in collaborators if getattr(collab, "type", None) == "User"]
+    except Exception as exc:
+        logger.debug(
+            "fetch_repo_collaborators: could not fetch collaborators for '%s': %s",
+            getattr(repo, "full_name", "?"),
+            exc,
+        )
+        return []
+
+
 def fetch_external_branch_details(head_ref: Any) -> Optional[dict]:
     """Fetch last-commit details for an external (fork) branch.
 

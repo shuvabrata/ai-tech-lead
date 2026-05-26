@@ -12,6 +12,7 @@ from common.messaging.rabbitmq import RabbitMQPublisher
 from connectors.producers.fetch_github import fetch_repo_topics
 from connectors.producers.github.build_repository_signal import build_repository_signal
 from connectors.producers.github.process_branches import process_branches
+from connectors.producers.github.process_collaborators import process_collaborators
 from connectors.producers.github.process_teams import process_teams
 from connectors.producers.map_github import map_repo
 from connectors.producers.github.process_prs import process_prs
@@ -75,6 +76,16 @@ async def process_repo_signals(
         seen_commits=seen_commits,
         published_persons=published_persons,
         pub_callback=_pub,
+    )
+
+    # Direct collaborators — emit Person signals with COLLABORATOR relationship
+    await process_collaborators(
+        repo=repo,
+        repo_data=repo_data,
+        full_name=full_name,
+        published=published,
+        pub_callback=_pub,
+        build_person_signal_fn=build_person_signal,
     )
 
     # Teams — emit Team signals with COLLABORATOR rel; emit MEMBER_OF on Person signals
