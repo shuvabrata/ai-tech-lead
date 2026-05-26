@@ -145,6 +145,83 @@ def build_cytoscape_stylesheet(theme_name: str = ACTIVE_THEME):
             }
         },
         {
+            'selector': 'node[nodeType = "Team"]',
+            'style': {
+                'shape': 'pentagon',
+                'background-color': tokens["graph.node.team"],
+                'border-color': tokens["graph.node.team.border"],
+                'color': typed_node_label_color,
+                'width': '62px',
+                'height': '62px'
+            }
+        },
+        {
+            'selector': 'node[nodeType = "IdentityMapping"]',
+            'style': {
+                'shape': 'tag',
+                'background-color': tokens["graph.node.identity_mapping"],
+                'border-color': tokens["graph.node.identity_mapping.border"],
+                'color': typed_node_label_color,
+                'width': '60px',
+                'height': '60px'
+            }
+        },
+        {
+            'selector': 'node[nodeType = "Initiative"]',
+            'style': {
+                'shape': 'round-hexagon',
+                'background-color': tokens["graph.node.initiative"],
+                'border-color': tokens["graph.node.initiative.border"],
+                'color': typed_node_label_color,
+                'width': '64px',
+                'height': '64px'
+            }
+        },
+        {
+            'selector': 'node[nodeType = "Sprint"]',
+            'style': {
+                'shape': 'vee',
+                'background-color': tokens["graph.node.sprint"],
+                'border-color': tokens["graph.node.sprint.border"],
+                'color': typed_node_label_color,
+                'width': '58px',
+                'height': '58px'
+            }
+        },
+        {
+            'selector': 'node[nodeType = "Commit"]',
+            'style': {
+                'shape': 'rhomboid',
+                'background-color': tokens["graph.node.commit"],
+                'border-color': tokens["graph.node.commit.border"],
+                'color': typed_node_label_color,
+                'width': '60px',
+                'height': '60px'
+            }
+        },
+        {
+            'selector': 'node[nodeType = "File"]',
+            'style': {
+                'shape': 'barrel',
+                'background-color': tokens["graph.node.file"],
+                'border-color': tokens["graph.node.file.border"],
+                'color': typed_node_label_color,
+                'width': '58px',
+                'height': '58px'
+            }
+        },
+        {
+            'selector': 'node[nodeType = "PullRequest"]',
+            'style': {
+                'shape': 'star',
+                'background-color': tokens["graph.node.pull_request"],
+                'border-color': tokens["graph.node.pull_request.border"],
+                'color': typed_node_label_color,
+                'width': '66px',
+                'height': '66px'
+            }
+        },
+        {
             'selector': 'edge',
             'style': {
                 'width': 2,
