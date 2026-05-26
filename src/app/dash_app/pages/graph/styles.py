@@ -16,6 +16,13 @@ from app.dash_app.styles import (
 )
 
 # 20 distinct, accessible fill/border colour pairs for community detection.
+#
+# Palette management note:
+# - In use for entity node styles: Person, Project, Branch, Epic, Issue, Repository
+# - Reserved for future entity node styles: Team, IdentityMapping, Initiative,
+#   Sprint, Commit, File, PullRequest
+# - Extension rule: prefer assigning an explicit nodeType shape + color pair for
+#   new entity types instead of leaving them on the default fallback style.
 COMMUNITY_COLORS = [
     ("#3B82F6", "#2563EB"),   #  0 – blue          (cool)
     ("#EF4444", "#DC2626"),   #  1 – red            (warm)
@@ -62,7 +69,7 @@ def build_cytoscape_stylesheet(theme_name: str = ACTIVE_THEME):
                 'font-size': FONT_SIZE_TINY,
                 'font-weight': FONT_WEIGHT_MEDIUM,
                 'width': '60px',
-                'height': '60px',
+                'height': '50px',
                 'border-width': '0px',
                 'border-color': tokens["graph.node.default.border"],
                 'text-wrap': 'wrap',
@@ -77,9 +84,11 @@ def build_cytoscape_stylesheet(theme_name: str = ACTIVE_THEME):
                 'border-color': tokens["graph.node.project.border"],
                 'color': typed_node_label_color,
                 'width': '70px',
-                'height': '70px'
+                'height': '35px'
             }
         },
+        # Explicit nodeType mappings are kept intentionally complete for core
+        # domain entities so they do not rely on default fallback styling.
         {
             'selector': 'node[nodeType = "Person"]',
             'style': {
@@ -87,8 +96,8 @@ def build_cytoscape_stylesheet(theme_name: str = ACTIVE_THEME):
                 'background-color': tokens["graph.node.person"],
                 'border-color': tokens["graph.node.person.border"],
                 'color': typed_node_label_color,
-                'width': '65px',
-                'height': '65px'
+                'width': '66px',
+                'height': '56px'
             }
         },
         {
@@ -98,8 +107,8 @@ def build_cytoscape_stylesheet(theme_name: str = ACTIVE_THEME):
                 'background-color': tokens["graph.node.branch"],
                 'border-color': tokens["graph.node.branch.border"],
                 'color': typed_node_label_color,
-                'width': '55px',
-                'height': '55px'
+                'width': '58px',
+                'height': '50px'
             }
         },
         {
@@ -109,8 +118,8 @@ def build_cytoscape_stylesheet(theme_name: str = ACTIVE_THEME):
                 'background-color': tokens["graph.node.epic"],
                 'border-color': tokens["graph.node.epic.border"],
                 'color': typed_node_label_color,
-                'width': '65px',
-                'height': '65px'
+                'width': '66px',
+                'height': '56px'
             }
         },
         {
@@ -120,8 +129,8 @@ def build_cytoscape_stylesheet(theme_name: str = ACTIVE_THEME):
                 'background-color': tokens["graph.node.issue"],
                 'border-color': tokens["graph.node.issue.border"],
                 'color': typed_node_label_color,
-                'width': '55px',
-                'height': '55px'
+                'width': '58px',
+                'height': '50px'
             }
         },
         {
@@ -131,8 +140,85 @@ def build_cytoscape_stylesheet(theme_name: str = ACTIVE_THEME):
                 'background-color': tokens["graph.node.repository"],
                 'border-color': tokens["graph.node.repository.border"],
                 'color': typed_node_label_color,
-                'width': '65px',
-                'height': '65px'
+                'width': '68px',
+                'height': '34px'
+            }
+        },
+        {
+            'selector': 'node[nodeType = "Team"]',
+            'style': {
+                'shape': 'pentagon',
+                'background-color': tokens["graph.node.team"],
+                'border-color': tokens["graph.node.team.border"],
+                'color': typed_node_label_color,
+                'width': '64px',
+                'height': '54px'
+            }
+        },
+        {
+            'selector': 'node[nodeType = "IdentityMapping"]',
+            'style': {
+                'shape': 'tag',
+                'background-color': tokens["graph.node.identity_mapping"],
+                'border-color': tokens["graph.node.identity_mapping.border"],
+                'color': typed_node_label_color,
+                'width': '62px',
+                'height': '50px'
+            }
+        },
+        {
+            'selector': 'node[nodeType = "Initiative"]',
+            'style': {
+                'shape': 'round-hexagon',
+                'background-color': tokens["graph.node.initiative"],
+                'border-color': tokens["graph.node.initiative.border"],
+                'color': typed_node_label_color,
+                'width': '66px',
+                'height': '54px'
+            }
+        },
+        {
+            'selector': 'node[nodeType = "Sprint"]',
+            'style': {
+                'shape': 'vee',
+                'background-color': tokens["graph.node.sprint"],
+                'border-color': tokens["graph.node.sprint.border"],
+                'color': typed_node_label_color,
+                'width': '60px',
+                'height': '48px'
+            }
+        },
+        {
+            'selector': 'node[nodeType = "Commit"]',
+            'style': {
+                'shape': 'rhomboid',
+                'background-color': tokens["graph.node.commit"],
+                'border-color': tokens["graph.node.commit.border"],
+                'color': typed_node_label_color,
+                'width': '62px',
+                'height': '50px'
+            }
+        },
+        {
+            'selector': 'node[nodeType = "File"]',
+            'style': {
+                'shape': 'barrel',
+                'background-color': tokens["graph.node.file"],
+                'border-color': tokens["graph.node.file.border"],
+                'color': typed_node_label_color,
+                'width': '64px',
+                'height': '32px'
+            }
+        },
+        {
+            'selector': 'node[nodeType = "PullRequest"]',
+            'style': {
+                'shape': 'star',
+                'background-color': tokens["graph.node.pull_request"],
+                'border-color': tokens["graph.node.pull_request.border"],
+                'color': typed_node_label_color,
+                'width': '66px',
+                'height': '33px'
             }
         },
         {
@@ -178,12 +264,12 @@ def build_cytoscape_stylesheet(theme_name: str = ACTIVE_THEME):
         },
         {
             # Dynamic node size: overrides fixed nodeType sizes when a caller
-            # has pre-computed _render_size_px (= BASE_NODE_SIZES[type] * _node_size).
+            # has pre-computed width and height render values from _node_size.
             # Absent on generic graph nodes -> fixed nodeType selectors remain in effect.
-            'selector': 'node[_render_size_px]',
+            'selector': 'node[_render_width_px]',
             'style': {
-                'width': 'data(_render_size_px)',
-                'height': 'data(_render_size_px)',
+                'width': 'data(_render_width_px)',
+                'height': 'data(_render_height_px)',
             }
         },
         {

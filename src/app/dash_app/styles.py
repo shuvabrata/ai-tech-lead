@@ -94,8 +94,11 @@ THEME_TOKENS = {
 
         # Graph palette tokens (Cytoscape)
         # Vivid colours shared with COMMUNITY_COLORS for visual consistency.
-        # Semantic mapping: person=blue, project=amber, issue=red,
-        # epic=violet, repository=emerald, branch=teal.
+        # Semantic mapping:
+        # person=blue, project=amber, issue=red, epic=violet,
+        # repository=emerald, branch=teal, team=lime,
+        # identity_mapping=cyan, initiative=indigo, sprint=orange,
+        # commit=pink, file=fuchsia, pull_request=yellow.
         "graph.node.default": "#B8B8B8",
         "graph.node.default.border": "#9E9E9E",
         "graph.node.label": "#f4f7fb",  # white — readable on all vivid fills
@@ -111,6 +114,20 @@ THEME_TOKENS = {
         "graph.node.issue.border": "#DC2626",
         "graph.node.repository": "#10B981",
         "graph.node.repository.border": "#059669",
+        "graph.node.team": "#84CC16",
+        "graph.node.team.border": "#65A30D",
+        "graph.node.identity_mapping": "#06B6D4",
+        "graph.node.identity_mapping.border": "#0891B2",
+        "graph.node.initiative": "#6366F1",
+        "graph.node.initiative.border": "#4F46E5",
+        "graph.node.sprint": "#F97316",
+        "graph.node.sprint.border": "#EA580C",
+        "graph.node.commit": "#EC4899",
+        "graph.node.commit.border": "#DB2777",
+        "graph.node.file": "#D946EF",
+        "graph.node.file.border": "#C026D3",
+        "graph.node.pull_request": "#EAB308",
+        "graph.node.pull_request.border": "#CA8A04",
         "graph.edge.default": "#C0C0C0",
         "graph.selection": "#424242",
     },
@@ -179,6 +196,20 @@ THEME_TOKENS = {
         "graph.node.issue.border": "#DC2626",
         "graph.node.repository": "#10B981",
         "graph.node.repository.border": "#059669",
+        "graph.node.team": "#84CC16",
+        "graph.node.team.border": "#65A30D",
+        "graph.node.identity_mapping": "#06B6D4",
+        "graph.node.identity_mapping.border": "#0891B2",
+        "graph.node.initiative": "#6366F1",
+        "graph.node.initiative.border": "#4F46E5",
+        "graph.node.sprint": "#F97316",
+        "graph.node.sprint.border": "#EA580C",
+        "graph.node.commit": "#EC4899",
+        "graph.node.commit.border": "#DB2777",
+        "graph.node.file": "#D946EF",
+        "graph.node.file.border": "#C026D3",
+        "graph.node.pull_request": "#EAB308",
+        "graph.node.pull_request.border": "#CA8A04",
         "graph.edge.default": "#8c9aab",
         "graph.selection": "#d5deea",
     }

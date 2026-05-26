@@ -326,7 +326,14 @@ def get_shape_css(shape):
         "verticalAlign": "middle"
     }
     
-    # Define clip-path for different shapes
+    # Define clip-path for different shapes.
+    # Keep this map aligned with Cytoscape node shapes used in
+    # app.dash_app.pages.graph.styles so legend glyphs match graph nodes.
+    #
+    # Current legend-supported shapes:
+    # ellipse, circle, rectangle, round-rectangle, triangle,
+    # diamond, hexagon, round-hexagon, octagon, pentagon,
+    # tag, vee, rhomboid, barrel, star.
     shape_styles = {
         'ellipse': {'borderRadius': '50%'},
         'circle': {'borderRadius': '50%'},
@@ -335,8 +342,14 @@ def get_shape_css(shape):
         'triangle': {'clipPath': 'polygon(50% 0%, 0% 100%, 100% 100%)'},
         'diamond': {'clipPath': 'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)', 'transform': 'rotate(0deg)'},
         'hexagon': {'clipPath': 'polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%)'},
+        'round-hexagon': {'clipPath': 'polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%)', 'borderRadius': '3px'},
         'octagon': {'clipPath': 'polygon(30% 0%, 70% 0%, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0% 70%, 0% 30%)'},
         'pentagon': {'clipPath': 'polygon(50% 0%, 100% 38%, 82% 100%, 18% 100%, 0% 38%)'},
+        'tag': {'clipPath': 'polygon(0% 0%, 82% 0%, 100% 50%, 82% 100%, 0% 100%)'},
+        'vee': {'clipPath': 'polygon(0% 0%, 32% 0%, 50% 36%, 68% 0%, 100% 0%, 50% 100%)'},
+        'rhomboid': {'clipPath': 'polygon(20% 0%, 100% 0%, 80% 100%, 0% 100%)'},
+        'barrel': {'clipPath': 'polygon(8% 0%, 92% 0%, 100% 50%, 92% 100%, 8% 100%, 0% 50%)'},
+        'star': {'clipPath': 'polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%)'},
     }
     
     # Merge base style with shape-specific style
