@@ -16,6 +16,13 @@ from app.dash_app.styles import (
 )
 
 # 20 distinct, accessible fill/border colour pairs for community detection.
+#
+# Palette management note:
+# - In use for entity node styles: Person, Project, Branch, Epic, Issue, Repository
+# - Reserved for future entity node styles: Team, IdentityMapping, Initiative,
+#   Sprint, Commit, File, PullRequest
+# - Extension rule: prefer assigning an explicit nodeType shape + color pair for
+#   new entity types instead of leaving them on the default fallback style.
 COMMUNITY_COLORS = [
     ("#3B82F6", "#2563EB"),   #  0 – blue          (cool)
     ("#EF4444", "#DC2626"),   #  1 – red            (warm)
@@ -80,6 +87,8 @@ def build_cytoscape_stylesheet(theme_name: str = ACTIVE_THEME):
                 'height': '70px'
             }
         },
+        # Explicit nodeType mappings are kept intentionally complete for core
+        # domain entities so they do not rely on default fallback styling.
         {
             'selector': 'node[nodeType = "Person"]',
             'style': {

@@ -326,7 +326,16 @@ def get_shape_css(shape):
         "verticalAlign": "middle"
     }
     
-    # Define clip-path for different shapes
+    # Define clip-path for different shapes.
+    # Keep this map aligned with Cytoscape node shapes used in
+    # app.dash_app.pages.graph.styles so legend glyphs match graph nodes.
+    #
+    # Current legend-supported shapes:
+    # ellipse, circle, rectangle, round-rectangle, triangle,
+    # diamond, hexagon, octagon, pentagon.
+    #
+    # Candidate future shapes (if introduced in Cytoscape selectors):
+    # tag, round-hexagon, vee, rhomboid, barrel, star.
     shape_styles = {
         'ellipse': {'borderRadius': '50%'},
         'circle': {'borderRadius': '50%'},
