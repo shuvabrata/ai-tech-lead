@@ -2,6 +2,7 @@
 Query executor with metrics collection.
 """
 
+import re
 import time
 from typing import List, Dict, Any
 from neo4j import Session
@@ -91,13 +92,27 @@ class QueryExecutor:
         return result
     
     def _add_limit_if_missing(self, query: str, limit: int = 10) -> str:
-        """Add LIMIT clause to query if not already present."""
+        """Add LIMIT clause to query if not already present.
+
+        Standalone procedure calls (for example ``CALL db.schema.visualization()``)
+        cannot be followed directly by LIMIT, so we leave them untouched.
+        """
         query_upper = query.upper()
-        if 'LIMIT' not in query_upper:
+        if 'LIMIT' not in query_upper and not self._is_standalone_call_query(query):
             # Add LIMIT before any trailing semicolon
             query = query.rstrip().rstrip(';')
             return f"{query}\nLIMIT {limit}"
         return query
+
+    def _is_standalone_call_query(self, query: str) -> bool:
+        """Return True when query is a standalone CALL with no RETURN/WITH pipeline."""
+        stripped = query.lstrip()
+        if not re.match(r"(?is)^CALL\b", stripped):
+            return False
+
+        # Cypher requires RETURN/WITH pipeline when applying LIMIT after CALL.
+        has_pipeline = re.search(r"(?is)\b(RETURN|WITH)\b", stripped) is not None
+        return not has_pipeline
     
     def _convert_record_to_dict(self, record) -> Dict[str, Any]:
         """Convert a Neo4j record to a JSON-serializable dictionary."""
