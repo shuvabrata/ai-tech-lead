@@ -1,19 +1,19 @@
 name: Branches by Work Item
-description: Branches linked to specific work item.
-summary: "Branches linked to specific work item."
+description: Branches whose names contain a Jira-style ticket key, matched with regex (?i).*[A-Z][A-Z0-9]+-[0-9]+.*.
+summary: "Find branches linked to work items by matching Jira ticket keys in branch names via regex."
 default_view: tabular
 owner: github-analytics
 status: active
 queries:
   tabular: |-
     MATCH (b:Branch)-[:BRANCH_OF]-(r:Repository)
-        WHERE b.name CONTAINS 'PLAT-1'
+        WHERE b.name =~ '(?i).*[A-Z][A-Z0-9]+-[0-9]+.*'
         RETURN r.name, b.name
         ORDER BY r.name, b.name
-        LIMIT 10
+        LIMIT 100
   graph: |-
     MATCH p1=(b:Branch)-[:BRANCH_OF]-(r:Repository)
-        WHERE b.name CONTAINS 'PLAT-1'
+        WHERE b.name =~ '(?i).*[A-Z][A-Z0-9]+-[0-9]+.*'
         RETURN p1
         LIMIT 100
 tags:

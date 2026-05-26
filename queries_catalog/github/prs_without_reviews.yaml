@@ -10,7 +10,7 @@ queries:
         WHERE NOT (pr)-[:REVIEWED_BY]->()
         RETURN pr.number, pr.title, pr.state, pr.created_at
         ORDER BY pr.created_at DESC
-        LIMIT 10
+        LIMIT 100
   graph: |-
     MATCH p1=(pr:PullRequest)
         WHERE NOT (pr)-[:REVIEWED_BY]->()

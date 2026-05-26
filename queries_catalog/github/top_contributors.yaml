@@ -9,7 +9,7 @@ queries:
     MATCH (p:Person)-[:AUTHORED_BY]-(c:Commit)
         RETURN p.name as name, p.title as title, count(c) as commits
         ORDER BY commits DESC
-        LIMIT 10
+        LIMIT 100
   graph: |-
     MATCH p1=(p:Person)-[:AUTHORED_BY]-(c:Commit)
         RETURN p1

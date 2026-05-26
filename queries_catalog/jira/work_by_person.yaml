@@ -11,7 +11,7 @@ queries:
                count(i) as total_issues,
                sum(i.story_points) as total_points
         ORDER BY total_points DESC
-        LIMIT 10
+        LIMIT 100
   graph: |-
     MATCH p1=(i:Issue)-[:ASSIGNED_TO]-(p:Person)
         RETURN p1

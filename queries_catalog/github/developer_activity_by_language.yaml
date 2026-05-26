@@ -10,7 +10,7 @@ queries:
         RETURN p.name as developer, f.language as language,
                count(DISTINCT c) as commits, count(f) as files_touched
         ORDER BY commits DESC
-        LIMIT 10
+        LIMIT 100
   graph: |-
     MATCH p1=(p:Person)-[:AUTHORED_BY]-(c:Commit)-[:MODIFIES]->(f:File)
         RETURN p1

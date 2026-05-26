@@ -10,7 +10,7 @@ queries:
         RETURN i.key, i.type, i.summary,
                count(c) as commit_count
         ORDER BY commit_count DESC
-        LIMIT 10
+        LIMIT 100
   graph: |-
     MATCH p1=(i:Issue)<-[:REFERENCES]-(c:Commit)
         RETURN p1

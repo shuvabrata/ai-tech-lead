@@ -9,7 +9,7 @@ queries:
     MATCH ()-[r]->()
         RETURN type(r) as relationship, count(*) as count
         ORDER BY count DESC
-        LIMIT 10
+        LIMIT 100
   graph: |-
     CALL db.schema.visualization()
 tags:

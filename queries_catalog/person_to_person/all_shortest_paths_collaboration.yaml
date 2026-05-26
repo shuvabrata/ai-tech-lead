@@ -27,7 +27,7 @@ queries:
            length(path) as degrees_of_separation,
            [n IN nodes(path) | coalesce(n.name, n.key, n.title, n.path, labels(n)[0])] as connection_path,
            [r IN relationships(path) | type(r)] as relationship_types
-    LIMIT 10
+    LIMIT 100
   graph: |-
     MATCH (p1:Person {id: $person1_id}), (p2:Person {id: $person2_id})
     MATCH paths = allShortestPaths((p1)-[*..6]-(p2))

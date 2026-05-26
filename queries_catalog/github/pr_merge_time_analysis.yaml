@@ -12,7 +12,7 @@ queries:
         RETURN avg(merge_duration.days) as avg_days_to_merge,
                min(merge_duration.days) as min_days,
                max(merge_duration.days) as max_days
-        LIMIT 10
+        LIMIT 100
   graph: |-
     MATCH p1=(pr:PullRequest)
         WHERE pr.state = 'merged' AND pr.merged_at IS NOT NULL

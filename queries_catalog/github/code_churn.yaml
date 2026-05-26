@@ -13,7 +13,7 @@ queries:
                sum(m.additions + m.deletions) as total_churn,
                count(c) as num_commits
         ORDER BY total_churn DESC
-        LIMIT 10
+        LIMIT 100
   graph: |-
     MATCH p1=(f:File)<-[m:MODIFIES]-(c:Commit)
         RETURN p1

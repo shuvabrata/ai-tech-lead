@@ -11,7 +11,7 @@ queries:
         WITH p, count(pr) as pending_reviews
         RETURN p.name as reviewer, pending_reviews
         ORDER BY pending_reviews DESC
-        LIMIT 10
+        LIMIT 100
   graph: |-
     MATCH p1=(pr:PullRequest)-[:REQUESTED_REVIEWER]->(p:Person)
         WHERE NOT (pr)-[:REVIEWED_BY]->(p)

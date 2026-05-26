@@ -11,7 +11,7 @@ queries:
         MATCH (i)<-[:REFERENCES]-(c:Commit)<-[:INCLUDES]-(pr:PullRequest)
         RETURN init.key as initiative, e.key as epic, i.key as issue,
                c.sha as commit_sha, pr.number as pr_number
-        LIMIT 10
+        LIMIT 100
   graph: |-
     MATCH p1=(init:Initiative)<-[:PART_OF]-(e:Epic)<-[:PART_OF]-(i:Issue)
         MATCH p2=(i)<-[:REFERENCES]-(c:Commit)<-[:INCLUDES]-(pr:PullRequest)
