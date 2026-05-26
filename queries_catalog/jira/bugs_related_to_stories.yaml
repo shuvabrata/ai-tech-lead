@@ -8,7 +8,7 @@ queries:
   tabular: |-
     MATCH (bug:Issue {type: 'Bug'})-[:RELATES_TO]-(story:Issue {type: 'Story'})
         RETURN bug.key, story.key as story, bug.summary
-        LIMIT 10
+        LIMIT 100
   graph: |-
     MATCH p1=(bug:Issue {type: 'Bug'})-[:RELATES_TO]-(story:Issue {type: 'Story'})
         RETURN p1

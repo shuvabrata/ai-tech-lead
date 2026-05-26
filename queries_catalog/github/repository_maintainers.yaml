@@ -9,7 +9,7 @@ queries:
     MATCH (p:Person)-[c:COLLABORATOR {permission: 'WRITE'}]-(r:Repository)
         RETURN r.name, collect(p.name) as maintainers
         ORDER BY r.name
-        LIMIT 10
+        LIMIT 100
   graph: |-
     MATCH p1=(p:Person)-[c:COLLABORATOR {permission: 'WRITE'}]-(r:Repository)
         RETURN p1

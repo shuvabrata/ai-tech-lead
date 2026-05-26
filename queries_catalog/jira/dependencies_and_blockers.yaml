@@ -9,7 +9,7 @@ queries:
     MATCH (i:Issue)-[:BLOCKS]->(blocked:Issue)
         RETURN i.key, i.summary,
                collect(blocked.key) as blocks_issues
-        LIMIT 10
+        LIMIT 100
   graph: |-
     MATCH p1=(i:Issue)-[:BLOCKS]->(blocked:Issue)
         RETURN p1

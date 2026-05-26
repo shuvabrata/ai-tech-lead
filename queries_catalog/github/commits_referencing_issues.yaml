@@ -9,7 +9,7 @@ queries:
     MATCH (c:Commit)-[:REFERENCES]->(i:Issue)
         RETURN i.key as issue, i.type as type, count(c) as commits
         ORDER BY commits DESC
-        LIMIT 10
+        LIMIT 100
   graph: |-
     MATCH p1=(c:Commit)-[:REFERENCES]->(i:Issue)
         RETURN p1

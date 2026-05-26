@@ -9,7 +9,7 @@ queries:
     MATCH (i:Issue {status: 'Done'})
         WHERE NOT (i)<-[:REFERENCES]-(:Commit)
         RETURN i.key, i.type, i.summary, i.status
-        LIMIT 10
+        LIMIT 100
   graph: |-
     MATCH p1=(i:Issue {status: 'Done'})
         WHERE NOT (i)<-[:REFERENCES]-(:Commit)

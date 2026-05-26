@@ -14,7 +14,7 @@ queries:
                team.name as team,
                i.key as initiative,
                e.status, e.priority
-        LIMIT 10
+        LIMIT 100
   graph: |-
     MATCH p1=(e:Epic)-[:ASSIGNED_TO]-(owner:Person)
         MATCH p2=(e)-[:TEAM]-(team:Team)

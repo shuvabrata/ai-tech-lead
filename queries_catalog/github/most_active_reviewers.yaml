@@ -12,7 +12,7 @@ queries:
                count(pr) as reviews_given,
                sum(CASE WHEN pr.state = 'merged' THEN 1 ELSE 0 END) as reviewed_and_merged
         ORDER BY reviews_given DESC
-        LIMIT 10
+        LIMIT 100
   graph: |-
     MATCH p1=(pr:PullRequest)-[:REVIEWED_BY]->(p:Person)
         RETURN p1

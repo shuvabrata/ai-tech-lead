@@ -10,7 +10,7 @@ queries:
         WHERE b.is_default = true
         RETURN r.name as repo, count(c) as commits
         ORDER BY commits DESC
-        LIMIT 10
+        LIMIT 100
   graph: |-
     MATCH p1=(c:Commit)-[:PART_OF]->(b:Branch)-[:BRANCH_OF]-(r:Repository)
         WHERE b.is_default = true

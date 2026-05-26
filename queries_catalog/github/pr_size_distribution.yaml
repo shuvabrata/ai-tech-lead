@@ -15,7 +15,7 @@ queries:
              END as size_category
         RETURN size_category, count(pr) as pr_count
         ORDER BY pr_count DESC
-        LIMIT 10
+        LIMIT 100
   graph: |-
     MATCH p1=(pr:PullRequest)
         RETURN p1

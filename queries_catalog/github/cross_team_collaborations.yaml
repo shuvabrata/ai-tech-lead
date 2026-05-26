@@ -9,7 +9,7 @@ queries:
     MATCH (t:Team)-[c:COLLABORATOR {permission: 'READ'}]-(r:Repository)
         RETURN r.name, collect(t.name) as read_access_teams
         ORDER BY r.name
-        LIMIT 10
+        LIMIT 100
   graph: |-
     MATCH p1=(t:Team)-[c:COLLABORATOR {permission: 'READ'}]-(r:Repository)
         RETURN p1

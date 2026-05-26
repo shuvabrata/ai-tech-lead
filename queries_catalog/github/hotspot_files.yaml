@@ -9,7 +9,7 @@ queries:
     MATCH (f:File)<-[:MODIFIES]-(c:Commit)
         RETURN f.path as path, f.language as lang, count(c) as modifications
         ORDER BY modifications DESC
-        LIMIT 10
+        LIMIT 100
   graph: |-
     MATCH p1=(f:File)<-[:MODIFIES]-(c:Commit)
         RETURN p1

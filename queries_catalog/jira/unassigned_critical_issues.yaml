@@ -9,7 +9,7 @@ queries:
     MATCH (i:Issue)
         WHERE i.priority = 'Critical' AND NOT exists((i)-[:ASSIGNED_TO]-())
         RETURN i.key, i.summary, i.status
-        LIMIT 10
+        LIMIT 100
   graph: |-
     MATCH p1=(i:Issue)
         WHERE i.priority = 'Critical' AND NOT exists((i)-[:ASSIGNED_TO]-())

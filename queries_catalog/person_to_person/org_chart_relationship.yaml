@@ -29,7 +29,7 @@ queries:
              WHEN path_down IS NOT NULL THEN p2.name + ' reports to ' + p1.name
              ELSE 'No direct reporting line within 5 levels'
            END as reporting_relationship, coalesce(length(path_up), length(path_down), 0) as levels_apart
-        LIMIT 10
+        LIMIT 100
   graph: |-
     MATCH (p1:Person {id: $person1_id}), (p2:Person {id: $person2_id})
     OPTIONAL MATCH path_up = (p1)-[:REPORTS_TO*..5]->(p2)

@@ -16,7 +16,7 @@ queries:
                count(DISTINCT c) as commits,
                count(DISTINCT i) as issues
         ORDER BY commits DESC
-        LIMIT 10
+        LIMIT 100
   graph: |-
     MATCH p1=(p:Person)
         OPTIONAL MATCH p2=(p)<-[:CREATED_BY]-(pr:PullRequest)

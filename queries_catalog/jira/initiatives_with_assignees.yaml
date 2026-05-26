@@ -13,7 +13,7 @@ queries:
                reporter.name as reporter, reporter.title as reporter_title,
                i.status
         ORDER BY i.key
-        LIMIT 10
+        LIMIT 100
   graph: |-
     MATCH p1=(i:Initiative)-[:ASSIGNED_TO]-(assignee:Person),
               (i)-[:REPORTED_BY]-(reporter:Person)

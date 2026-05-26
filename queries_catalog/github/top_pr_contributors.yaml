@@ -14,7 +14,7 @@ queries:
                sum(pr.additions) as total_additions,
                sum(pr.deletions) as total_deletions
         ORDER BY prs_created DESC
-        LIMIT 10
+        LIMIT 100
   graph: |-
     MATCH p1=(pr:PullRequest)-[:CREATED_BY]->(p:Person)
         RETURN p1

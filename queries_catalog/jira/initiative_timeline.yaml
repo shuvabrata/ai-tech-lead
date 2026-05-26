@@ -9,7 +9,7 @@ queries:
     MATCH (i:Initiative)
         RETURN i.summary, i.start_date, i.due_date, i.priority
         ORDER BY i.start_date
-        LIMIT 10
+        LIMIT 100
   graph: |-
     MATCH p1=(i:Initiative)
         RETURN p1
