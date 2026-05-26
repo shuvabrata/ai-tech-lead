@@ -98,7 +98,7 @@ THEME_TOKENS = {
         # person=blue, project=amber, issue=red, epic=violet,
         # repository=emerald, branch=teal, team=lime,
         # identity_mapping=cyan, initiative=indigo, sprint=orange,
-        # commit=pink, file=slate, pull_request=yellow.
+        # commit=pink, file=fuchsia, pull_request=yellow.
         "graph.node.default": "#B8B8B8",
         "graph.node.default.border": "#9E9E9E",
         "graph.node.label": "#f4f7fb",  # white — readable on all vivid fills
@@ -124,8 +124,8 @@ THEME_TOKENS = {
         "graph.node.sprint.border": "#EA580C",
         "graph.node.commit": "#EC4899",
         "graph.node.commit.border": "#DB2777",
-        "graph.node.file": "#64748B",
-        "graph.node.file.border": "#475569",
+        "graph.node.file": "#D946EF",
+        "graph.node.file.border": "#C026D3",
         "graph.node.pull_request": "#EAB308",
         "graph.node.pull_request.border": "#CA8A04",
         "graph.edge.default": "#C0C0C0",
@@ -206,8 +206,8 @@ THEME_TOKENS = {
         "graph.node.sprint.border": "#EA580C",
         "graph.node.commit": "#EC4899",
         "graph.node.commit.border": "#DB2777",
-        "graph.node.file": "#64748B",
-        "graph.node.file.border": "#475569",
+        "graph.node.file": "#D946EF",
+        "graph.node.file.border": "#C026D3",
         "graph.node.pull_request": "#EAB308",
         "graph.node.pull_request.border": "#CA8A04",
         "graph.edge.default": "#8c9aab",
