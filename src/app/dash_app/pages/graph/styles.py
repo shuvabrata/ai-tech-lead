@@ -69,7 +69,7 @@ def build_cytoscape_stylesheet(theme_name: str = ACTIVE_THEME):
                 'font-size': FONT_SIZE_TINY,
                 'font-weight': FONT_WEIGHT_MEDIUM,
                 'width': '60px',
-                'height': '60px',
+                'height': '50px',
                 'border-width': '0px',
                 'border-color': tokens["graph.node.default.border"],
                 'text-wrap': 'wrap',
@@ -84,7 +84,7 @@ def build_cytoscape_stylesheet(theme_name: str = ACTIVE_THEME):
                 'border-color': tokens["graph.node.project.border"],
                 'color': typed_node_label_color,
                 'width': '70px',
-                'height': '70px'
+                'height': '35px'
             }
         },
         # Explicit nodeType mappings are kept intentionally complete for core
@@ -96,8 +96,8 @@ def build_cytoscape_stylesheet(theme_name: str = ACTIVE_THEME):
                 'background-color': tokens["graph.node.person"],
                 'border-color': tokens["graph.node.person.border"],
                 'color': typed_node_label_color,
-                'width': '65px',
-                'height': '65px'
+                'width': '66px',
+                'height': '56px'
             }
         },
         {
@@ -107,8 +107,8 @@ def build_cytoscape_stylesheet(theme_name: str = ACTIVE_THEME):
                 'background-color': tokens["graph.node.branch"],
                 'border-color': tokens["graph.node.branch.border"],
                 'color': typed_node_label_color,
-                'width': '55px',
-                'height': '55px'
+                'width': '58px',
+                'height': '50px'
             }
         },
         {
@@ -118,8 +118,8 @@ def build_cytoscape_stylesheet(theme_name: str = ACTIVE_THEME):
                 'background-color': tokens["graph.node.epic"],
                 'border-color': tokens["graph.node.epic.border"],
                 'color': typed_node_label_color,
-                'width': '65px',
-                'height': '65px'
+                'width': '66px',
+                'height': '56px'
             }
         },
         {
@@ -129,8 +129,8 @@ def build_cytoscape_stylesheet(theme_name: str = ACTIVE_THEME):
                 'background-color': tokens["graph.node.issue"],
                 'border-color': tokens["graph.node.issue.border"],
                 'color': typed_node_label_color,
-                'width': '55px',
-                'height': '55px'
+                'width': '58px',
+                'height': '50px'
             }
         },
         {
@@ -140,8 +140,8 @@ def build_cytoscape_stylesheet(theme_name: str = ACTIVE_THEME):
                 'background-color': tokens["graph.node.repository"],
                 'border-color': tokens["graph.node.repository.border"],
                 'color': typed_node_label_color,
-                'width': '65px',
-                'height': '65px'
+                'width': '68px',
+                'height': '34px'
             }
         },
         {
@@ -151,8 +151,8 @@ def build_cytoscape_stylesheet(theme_name: str = ACTIVE_THEME):
                 'background-color': tokens["graph.node.team"],
                 'border-color': tokens["graph.node.team.border"],
                 'color': typed_node_label_color,
-                'width': '62px',
-                'height': '62px'
+                'width': '64px',
+                'height': '54px'
             }
         },
         {
@@ -162,8 +162,8 @@ def build_cytoscape_stylesheet(theme_name: str = ACTIVE_THEME):
                 'background-color': tokens["graph.node.identity_mapping"],
                 'border-color': tokens["graph.node.identity_mapping.border"],
                 'color': typed_node_label_color,
-                'width': '60px',
-                'height': '60px'
+                'width': '62px',
+                'height': '50px'
             }
         },
         {
@@ -173,8 +173,8 @@ def build_cytoscape_stylesheet(theme_name: str = ACTIVE_THEME):
                 'background-color': tokens["graph.node.initiative"],
                 'border-color': tokens["graph.node.initiative.border"],
                 'color': typed_node_label_color,
-                'width': '64px',
-                'height': '64px'
+                'width': '66px',
+                'height': '54px'
             }
         },
         {
@@ -184,8 +184,8 @@ def build_cytoscape_stylesheet(theme_name: str = ACTIVE_THEME):
                 'background-color': tokens["graph.node.sprint"],
                 'border-color': tokens["graph.node.sprint.border"],
                 'color': typed_node_label_color,
-                'width': '58px',
-                'height': '58px'
+                'width': '60px',
+                'height': '48px'
             }
         },
         {
@@ -195,8 +195,8 @@ def build_cytoscape_stylesheet(theme_name: str = ACTIVE_THEME):
                 'background-color': tokens["graph.node.commit"],
                 'border-color': tokens["graph.node.commit.border"],
                 'color': typed_node_label_color,
-                'width': '60px',
-                'height': '60px'
+                'width': '62px',
+                'height': '50px'
             }
         },
         {
@@ -206,8 +206,8 @@ def build_cytoscape_stylesheet(theme_name: str = ACTIVE_THEME):
                 'background-color': tokens["graph.node.file"],
                 'border-color': tokens["graph.node.file.border"],
                 'color': typed_node_label_color,
-                'width': '58px',
-                'height': '58px'
+                'width': '64px',
+                'height': '32px'
             }
         },
         {
@@ -218,7 +218,7 @@ def build_cytoscape_stylesheet(theme_name: str = ACTIVE_THEME):
                 'border-color': tokens["graph.node.pull_request.border"],
                 'color': typed_node_label_color,
                 'width': '66px',
-                'height': '66px'
+                'height': '33px'
             }
         },
         {
@@ -264,12 +264,12 @@ def build_cytoscape_stylesheet(theme_name: str = ACTIVE_THEME):
         },
         {
             # Dynamic node size: overrides fixed nodeType sizes when a caller
-            # has pre-computed _render_size_px (= BASE_NODE_SIZES[type] * _node_size).
+            # has pre-computed width and height render values from _node_size.
             # Absent on generic graph nodes -> fixed nodeType selectors remain in effect.
-            'selector': 'node[_render_size_px]',
+            'selector': 'node[_render_width_px]',
             'style': {
-                'width': 'data(_render_size_px)',
-                'height': 'data(_render_size_px)',
+                'width': 'data(_render_width_px)',
+                'height': 'data(_render_height_px)',
             }
         },
         {
