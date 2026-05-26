@@ -462,6 +462,7 @@ class TestProcessRepoSignals:
             patch("connectors.producers.github.process_prs.fetch_pull_requests_direct", return_value=[mock_pr]),
             patch("connectors.producers.github.process_single_pr.fetch_pr_reviews", return_value=[]),
             patch("connectors.producers.github.process_single_pr.fetch_pr_commits", return_value=[]),
+            patch("connectors.producers.github.process_collaborators.fetch_repo_collaborators", return_value=[]),
             patch("connectors.producers.github.process_teams.fetch_repo_teams", return_value=[]),
             patch(
                 "connectors.producers.github.process_prs.resolve_prs_since_date",
@@ -515,6 +516,7 @@ class TestProcessRepoSignals:
                 "connectors.producers.github.process_prs.resolve_prs_since_date",
                 return_value=datetime(2020, 1, 1, tzinfo=timezone.utc),
             ),
+            patch("connectors.producers.github.process_collaborators.fetch_repo_collaborators", return_value=[]),
             patch("connectors.producers.github.process_teams.fetch_repo_teams", return_value=[]),
         ):
             await process_repo_signals(publisher, mock_repo, "org", None, published)
@@ -551,6 +553,7 @@ class TestProcessRepoSignals:
                 "connectors.producers.github.process_prs.resolve_prs_since_date",
                 return_value=datetime(2020, 1, 1, tzinfo=timezone.utc),
             ),
+            patch("connectors.producers.github.process_collaborators.fetch_repo_collaborators", return_value=[]),
             patch("connectors.producers.github.process_teams.fetch_repo_teams", return_value=[]),
         ):
             await process_repo_signals(publisher, mock_repo, "org", None, published)
@@ -587,6 +590,7 @@ class TestProcessRepoSignals:
                 "connectors.producers.github.process_prs.resolve_prs_since_date",
                 return_value=datetime(2020, 1, 1, tzinfo=timezone.utc),
             ),
+            patch("connectors.producers.github.process_collaborators.fetch_repo_collaborators", return_value=[]),
             patch("connectors.producers.github.process_teams.fetch_repo_teams", return_value=[]),
         ):
             await process_repo_signals(publisher, mock_repo, "org", None, published)
@@ -619,6 +623,7 @@ class TestProcessRepoSignals:
             patch("connectors.producers.github.process_branches.fetch_branches", return_value=[]),
             patch("connectors.producers.github.process_commits.fetch_commits", return_value=[]),
             patch("connectors.producers.github.process_prs.fetch_pull_requests_direct", return_value=[]),
+            patch("connectors.producers.github.process_collaborators.fetch_repo_collaborators", return_value=[]),
             patch("connectors.producers.github.process_teams.fetch_repo_teams", return_value=[mock_team]),
         ):
             await process_repo_signals(publisher, mock_repo, "org", None, published)
@@ -645,20 +650,19 @@ class TestProcessRepoSignals:
         assert member_of_rels[0].target.entity_type == "Team"
 
     @pytest.mark.asyncio
-    async def test_person_collaborator_signal_has_permission_in_properties(self) -> None:
-        """Person collaborator signal → COLLABORATOR rel has properties dict with permission key."""
+    async def test_direct_collaborator_signal_has_legacy_properties(self) -> None:
+        """Direct repo collaborator emits Person->Repository COLLABORATOR with legacy-style properties."""
         mock_repo = self._make_mock_repo()
 
-        mock_member = MagicMock()
-        mock_member.login = "collab_user"
-        mock_member.name = "Collab User"
-        mock_member.email = "collab@example.com"
-
-        mock_team = MagicMock()
-        mock_team.name = "Ops"
-        mock_team.slug = "ops"
-        mock_team.permission = "admin"
-        mock_team.get_members = MagicMock(return_value=[mock_member])
+        collaborator = MagicMock()
+        collaborator.login = "collab_user"
+        collaborator.name = "Collab User"
+        collaborator.email = "collab@example.com"
+        collaborator.type = "User"
+        collaborator.permissions = MagicMock()
+        collaborator.permissions.admin = True
+        collaborator.permissions.maintain = False
+        collaborator.permissions.push = True
 
         publisher = AsyncMock()
         publisher.publish = AsyncMock()
@@ -669,7 +673,11 @@ class TestProcessRepoSignals:
             patch("connectors.producers.github.process_branches.fetch_branches", return_value=[]),
             patch("connectors.producers.github.process_commits.fetch_commits", return_value=[]),
             patch("connectors.producers.github.process_prs.fetch_pull_requests_direct", return_value=[]),
-            patch("connectors.producers.github.process_teams.fetch_repo_teams", return_value=[mock_team]),
+            patch(
+                "connectors.producers.github.process_collaborators.fetch_repo_collaborators",
+                return_value=[collaborator],
+            ),
+            patch("connectors.producers.github.process_teams.fetch_repo_teams", return_value=[]),
         ):
             await process_repo_signals(publisher, mock_repo, "org", None, published)
 
@@ -681,7 +689,9 @@ class TestProcessRepoSignals:
         assert len(collab_rels) == 1
         assert collab_rels[0].properties is not None
         assert "permission" in collab_rels[0].properties
-        assert collab_rels[0].properties["permission"] == "admin"
+        assert collab_rels[0].properties["permission"] == "WRITE"
+        assert collab_rels[0].properties["role"] == "admin"
+        assert collab_rels[0].properties["granted_at"] == "2023-01-01"
 
 
 # ---------------------------------------------------------------------------

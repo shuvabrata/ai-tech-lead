@@ -179,7 +179,7 @@ class TestProcessTeamsHappyPath:
         assert member_of_rels[0].target.id == "eng"
 
     @pytest.mark.asyncio
-    async def test_person_signal_has_collaborator_rel_with_permission(self) -> None:
+    async def test_person_signal_has_no_collaborator_rel(self) -> None:
         member = _mock_member("carol", "Carol", "carol@example.com")
         team = _mock_team("eng", [member], permission="admin")
 
@@ -190,9 +190,7 @@ class TestProcessTeamsHappyPath:
 
         person_sig = next(s for s in sigs if s.entity_type == "Person")
         collab_rels = [r for r in person_sig.relationships if r.type == "COLLABORATOR"]
-        assert len(collab_rels) == 1
-        assert collab_rels[0].properties is not None
-        assert collab_rels[0].properties["permission"] == "admin"
+        assert len(collab_rels) == 0
 
     @pytest.mark.asyncio
     async def test_multiple_teams_all_published(self) -> None:
