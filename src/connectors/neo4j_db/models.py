@@ -477,66 +477,6 @@ class Repository:
 
 
 @dataclass
-class Branch:
-    """Branch node representing a Git branch.
-    
-    Note: We do not track branch creation timestamp (created_at) because:
-    1. GitHub API does not provide direct access to branch ref creation time
-    2. Finding it requires iterating through ALL commits on the branch (extremely slow)
-    3. For main branches with 10K+ commits, this takes minutes per branch
-    4. last_commit_timestamp is sufficient for identifying stale branches
-    
-    Example:
-        branch = Branch(
-            id="branch_main_repo_api",
-            name="main",
-            is_default=True,
-            is_protected=True,
-            is_deleted=False,
-            is_external=False,
-            last_commit_sha="abc123def",
-            last_commit_timestamp="2026-01-17T10:30:00"
-        )
-        
-        # BRANCH_OF relationship
-        branch_rel = Relationship(
-            type="BRANCH_OF",
-            from_id=branch.id,
-            to_id="repo_api_gateway",
-            from_type="Branch",
-            to_type="Repository"
-        )
-    """
-    id: str
-    name: str
-    is_default: bool
-    is_protected: bool
-    is_deleted: bool
-    is_external: bool           # True if branch is from a fork
-    last_commit_sha: str
-    last_commit_timestamp: str  # ISO format datetime string
-    url: Optional[str] = None   # GitHub URL to view branch in browser
-    
-    def to_neo4j_properties(self) -> Dict[str, Any]:
-        """Convert to Neo4j properties."""
-        return asdict(self)
-    
-    def print_cli(self) -> None:
-        """Print the Branch object in an easy-to-read CLI format."""
-        print(f"\n{'='*60}")
-        print(f"BRANCH: {self.name}")
-        print(f"{'='*60}")
-        print(f"  ID:                   {self.id}")
-        print(f"  Is Default:           {self.is_default}")
-        print(f"  Is Protected:         {self.is_protected}")
-        print(f"  Is Deleted:           {self.is_deleted}")
-        print(f"  Is External:          {self.is_external}")
-        print(f"  Last Commit SHA:      {self.last_commit_sha[:10]}..." if len(self.last_commit_sha) > 10 else f"  Last Commit SHA:      {self.last_commit_sha}")
-        print(f"  Last Commit Time:     {self.last_commit_timestamp}")
-        print(f"{'='*60}\n")
-
-
-@dataclass
 class Commit:
     """Commit node representing a Git commit.
     
@@ -796,7 +736,6 @@ UNDIRECTED_RELATIONSHIPS = {
     "COLLABORATOR",     # Team/Person ↔ Repository
     
     # Layer 6
-    "BRANCH_OF",        # Branch ↔ Repository
     
     # Layer 7
     "AUTHORED_BY",      # Commit ↔ Person
@@ -862,9 +801,6 @@ def create_constraints(session: Session, layers: Optional[List[int]] = None) -> 
         ],
         5: [
             "CREATE CONSTRAINT repository_id IF NOT EXISTS FOR (r:Repository) REQUIRE r.id IS UNIQUE"
-        ],
-        6: [
-            "CREATE CONSTRAINT branch_id IF NOT EXISTS FOR (b:Branch) REQUIRE b.id IS UNIQUE"
         ],
         7: [
             "CREATE CONSTRAINT commit_id IF NOT EXISTS FOR (c:Commit) REQUIRE c.id IS UNIQUE",
@@ -1371,61 +1307,6 @@ def merge_repository(session: Session, repository: Repository, relationships: Op
         query = """
         MERGE (r:Repository {id: $id})
         RETURN r
-        """
-    
-    session.run(query, **props)
-    
-    # Create relationships if provided
-    if relationships:
-        for rel in relationships:
-            merge_relationship(session, rel)
-
-
-# ============================================================================
-# LAYER 6 MERGE FUNCTIONS
-# ============================================================================
-
-def merge_branch(session: Session, branch: Branch, relationships: Optional[List[Relationship]] = None) -> None:
-    """
-    Merge a Branch node into Neo4j.
-    
-    Args:
-        session: Neo4j session
-        branch: Branch dataclass instance
-        relationships: Optional list of relationships to create
-    """
-    props = branch.to_neo4j_properties()
-    
-    # Build SET clause dynamically based on available properties (additive updates only)
-    set_clauses = []
-    if _has_value(props, 'name'):
-        set_clauses.append("b.name = $name")
-    if _has_value(props, 'is_default'):
-        set_clauses.append("b.is_default = $is_default")
-    if _has_value(props, 'is_protected'):
-        set_clauses.append("b.is_protected = $is_protected")
-    if _has_value(props, 'is_external'):
-        set_clauses.append("b.is_external = $is_external")
-    if _has_value(props, 'last_commit_sha'):
-        set_clauses.append("b.last_commit_sha = $last_commit_sha")
-    if _has_value(props, 'last_commit_timestamp'):
-        set_clauses.append("b.last_commit_timestamp = datetime($last_commit_timestamp)")
-    if _has_value(props, 'is_deleted'):
-        set_clauses.append("b.is_deleted = $is_deleted")
-    if _has_value(props, 'url'):
-        set_clauses.append("b.url = $url")
-    
-    # MERGE the Branch node
-    if set_clauses:
-        query = f"""
-        MERGE (b:Branch {{id: $id}})
-        SET {', '.join(set_clauses)}
-        RETURN b
-        """
-    else:
-        query = """
-        MERGE (b:Branch {id: $id})
-        RETURN b
         """
     
     session.run(query, **props)

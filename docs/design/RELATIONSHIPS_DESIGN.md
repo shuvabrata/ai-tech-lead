@@ -49,7 +49,6 @@ These relationships use the **exact same name** and are **stored once** because 
 | `MEMBER_OF` | Team membership | Person ↔ Team |
 | `TEAM` | Team ownership | Epic ↔ Team, Issue ↔ Team |
 | `COLLABORATOR` | Repository access | Person/Team ↔ Repository |
-| `BRANCH_OF` | Branch relationship | Branch ↔ Repository |
 | `REPORTED_BY` | Issue/work reporting | Issue/Initiative ↔ Person |
 | `AUTHORED_BY` | Code authorship | Commit ↔ Person |
 | `MAPS_TO` | Identity mapping | IdentityMapping ↔ Person |
@@ -118,7 +117,7 @@ These relationships exist in only one direction:
 - `COLLABORATOR` - Person/Team ↔ Repository (same name, undirected)
 
 ### Layer 6: Branches
-- `BRANCH_OF` - Branch ↔ Repository (same name, undirected)
+*(Branch nodes are now implicitly created and linked via Commits and PullRequests)*
 
 ### Layer 7: Commits & Files
 - `PART_OF` / `CONTAINS` - Commit ↔ Branch (different names for hierarchy)
@@ -137,10 +136,10 @@ These relationships exist in only one direction:
 
 ## Total Relationships Summary
 
-- **Same-name undirected**: 9 relationship types (stored once)
+- **Same-name undirected**: 8 relationship types (stored once)
 - **Different-name bidirectional**: 13 relationship pairs (26 unique names total)
 - **Unidirectional**: 2 relationship types (stored in one direction only)
-- **Total unique relationship names**: 37 (9 + 26 + 2)
+- **Total unique relationship names**: 36 (8 + 26 + 2)
 
 ## Query Examples
 
@@ -239,8 +238,8 @@ RETURN branch
 
 When using Large Language Models (LLMs) to convert natural language to Cypher:
 
-1. **Reduced vocabulary** - The model only needs to learn 37 relationship names instead of 70+
-2. **Semantic clarity** - Same-name undirected relationships (9 types) work in either direction
+1. **Reduced vocabulary** - The model only needs to learn 36 relationship names instead of 70+
+2. **Semantic clarity** - Same-name undirected relationships (8 types) work in either direction
 3. **Higher accuracy** - Strategic use of shared names reduces mistakes in relationship selection
 4. **Simpler prompts** - Documentation and examples are more concise
 5. **Better generalization** - For symmetric concepts, direction doesn't matter

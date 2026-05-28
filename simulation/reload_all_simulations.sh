@@ -29,7 +29,6 @@ run_layer 2 8 layer2 "Layer 2: Jira Initiatives"
 run_layer 3 8 layer3 "Layer 3: Jira Epics"
 run_layer 4 8 layer4 "Layer 4: Jira Stories & Bugs"
 run_layer 5 8 layer5 "Layer 5: Git Repositories"
-run_layer 6 8 layer6 "Layer 6: Git Branches"
 run_layer 7 8 layer7 "Layer 7: Git Commits & Files"
 run_layer 8 8 layer8 "Layer 8: Pull Requests"
 

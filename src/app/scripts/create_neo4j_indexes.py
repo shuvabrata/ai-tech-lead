@@ -34,7 +34,7 @@ def create_indexes():
         "CREATE INDEX repository_name IF NOT EXISTS FOR (r:Repository) ON (r.name)",
         "CREATE INDEX repository_full_name IF NOT EXISTS FOR (r:Repository) ON (r.full_name)",
         "CREATE INDEX repository_language IF NOT EXISTS FOR (r:Repository) ON (r.language)",
-        "CREATE INDEX branch_name IF NOT EXISTS FOR (b:Branch) ON (b.name)",
+        "CREATE INDEX branch_id IF NOT EXISTS FOR (b:Branch) ON (b.id)",
         "CREATE INDEX file_path IF NOT EXISTS FOR (f:File) ON (f.path)",
         "CREATE INDEX file_name IF NOT EXISTS FOR (f:File) ON (f.name)",
         "CREATE INDEX file_extension IF NOT EXISTS FOR (f:File) ON (f.extension)",
@@ -50,9 +50,6 @@ def create_indexes():
         "CREATE INDEX issue_status IF NOT EXISTS FOR (i:Issue) ON (i.status)",
         "CREATE INDEX issue_type IF NOT EXISTS FOR (i:Issue) ON (i.type)",
         "CREATE INDEX sprint_status IF NOT EXISTS FOR (s:Sprint) ON (s.status)",
-        "CREATE INDEX branch_is_default IF NOT EXISTS FOR (b:Branch) ON (b.is_default)",
-        "CREATE INDEX branch_is_deleted IF NOT EXISTS FOR (b:Branch) ON (b.is_deleted)",
-        "CREATE INDEX branch_is_protected IF NOT EXISTS FOR (b:Branch) ON (b.is_protected)",
         "CREATE INDEX file_is_test IF NOT EXISTS FOR (f:File) ON (f.is_test)",
         "CREATE INDEX pr_mergeable_state IF NOT EXISTS FOR (pr:PullRequest) ON (pr.mergeable_state)",
     ]
@@ -68,8 +65,6 @@ def create_indexes():
         "CREATE INDEX sprint_start_date IF NOT EXISTS FOR (s:Sprint) ON (s.start_date)",
         "CREATE INDEX sprint_end_date IF NOT EXISTS FOR (s:Sprint) ON (s.end_date)",
         "CREATE INDEX repository_created_at IF NOT EXISTS FOR (r:Repository) ON (r.created_at)",
-        "CREATE INDEX branch_last_commit_timestamp IF NOT EXISTS FOR (b:Branch) ON (b.last_commit_timestamp)",
-        "CREATE INDEX branch_created_at IF NOT EXISTS FOR (b:Branch) ON (b.created_at)",
         "CREATE INDEX commit_timestamp IF NOT EXISTS FOR (c:Commit) ON (c.timestamp)",
         "CREATE INDEX file_created_at IF NOT EXISTS FOR (f:File) ON (f.created_at)",
         "CREATE INDEX pr_created_at IF NOT EXISTS FOR (pr:PullRequest) ON (pr.created_at)",
@@ -83,7 +78,6 @@ def create_indexes():
         "CREATE INDEX person_role_seniority IF NOT EXISTS FOR (p:Person) ON (p.role, p.seniority)",
         "CREATE INDEX issue_type_status IF NOT EXISTS FOR (i:Issue) ON (i.type, i.status)",
         "CREATE INDEX issue_status_priority IF NOT EXISTS FOR (i:Issue) ON (i.status, i.priority)",
-        "CREATE INDEX branch_is_default_is_deleted IF NOT EXISTS FOR (b:Branch) ON (b.is_default, b.is_deleted)",
         "CREATE INDEX pr_state_created_at IF NOT EXISTS FOR (pr:PullRequest) ON (pr.state, pr.created_at)",
     ]
     

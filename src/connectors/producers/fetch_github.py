@@ -40,23 +40,6 @@ def fetch_repo_topics(repo: Any) -> List[str]:
 
 
 # ---------------------------------------------------------------------------
-# Branch fetchers
-# ---------------------------------------------------------------------------
-
-
-def fetch_branches(repo: Any) -> List[Any]:
-    """Fetch all branches for a repository.
-
-    Args:
-        repo: PyGithub Repository object.
-
-    Returns:
-        List of PyGithub Branch objects.
-    """
-    return retry_with_backoff(lambda: list(repo.get_branches()))
-
-
-# ---------------------------------------------------------------------------
 # Commit fetchers
 # ---------------------------------------------------------------------------
 
@@ -71,9 +54,18 @@ def fetch_commits(repo: Any, since_date: datetime) -> List[Any]:
     Returns:
         List of PyGithub Commit objects (full pagination resolved).
     """
-    return retry_with_backoff(
-        lambda: list(repo.get_commits(sha=repo.default_branch, since=since_date))
-    )
+    branch_sha = repo.default_branch or "main"
+
+    def _get_commits() -> List[Any]:
+        try:
+            return list(repo.get_commits(sha=branch_sha, since=since_date))
+        except GithubException as exc:
+            if exc.status == 409:
+                logger.info("Repository '%s' is empty, skipping commits.", getattr(repo, "full_name", "?"))
+                return []
+            raise
+
+    return retry_with_backoff(_get_commits)
 
 
 def fetch_commit_files(commit: Any) -> List[Any]:
@@ -219,46 +211,6 @@ def fetch_repo_collaborators(repo: Any) -> List[Any]:
             exc,
         )
         return []
-
-
-def fetch_external_branch_details(head_ref: Any) -> Optional[dict]:
-    """Fetch last-commit details for an external (fork) branch.
-
-    Returns ``None`` when the fork repo has been deleted. Returns a dict with
-    ``sha``, ``timestamp``, and ``is_protected`` when the branch is accessible.
-
-    Args:
-        head_ref: PyGithub ``PullRequestPart`` (``pr.head``).
-
-    Returns:
-        Dict with branch details, or ``None`` if the fork is gone.
-    """
-    if head_ref.repo is None:
-        return None
-
-    fork_repo = head_ref.repo
-    branch_name = head_ref.ref
-
-    try:
-        fork_branch = retry_with_backoff(lambda: fork_repo.get_branch(branch_name))
-        last_commit = fork_branch.commit
-        return {
-            "sha": last_commit.sha,
-            "timestamp": (
-                last_commit.commit.author.date.isoformat()
-                if last_commit.commit.author.date
-                else datetime.now().isoformat()
-            ),
-            "is_protected": fork_branch.protected,
-        }
-    except Exception as exc:  # branch may have been deleted from the fork
-        logger.debug(f"  Could not fetch fork branch '{branch_name}': {exc}")
-        sha = head_ref.sha if hasattr(head_ref, "sha") else "unknown"
-        return {
-            "sha": sha,
-            "timestamp": datetime.now().isoformat(),
-            "is_protected": False,
-        }
 
 
 # ---------------------------------------------------------------------------

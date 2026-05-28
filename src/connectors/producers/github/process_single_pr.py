@@ -145,6 +145,8 @@ async def process_single_pr(pr: Any,
                         await _pub(build_person_signal(pr_a_data))
 
                     # Note: branch_name is set to None because we aren't certain which branch it belongs to here
+                    # After PR is merged, the commit will be associated with the default branch in process_commits, 
+                    # which is sufficient for our use cases and avoids extra API calls to check branch membership.
                     await _pub(build_commit_signal(pr_c_data, pr_a_data, repo_name=repo.name, branch_name=None))
                     seen_commits.add(c_sha)
                 except Exception as inner_exc:
