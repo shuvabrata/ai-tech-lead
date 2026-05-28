@@ -52,7 +52,7 @@ async def process_single_commit(
             seen_commits.add(commit_data.get("sha"))
             logger.debug("Commit %s by '%s' processed", sha_short, login)
 
-            branch_name = repo.default_branch or "main"
+            branch_name = repo.default_branch or "main" # this does not cause a new API call since it's already loaded in the repo object
             await pub_callback(build_commit_signal(commit_data, author_data, repo_name=repo.name, branch_name=branch_name))
 
             # Emit one File signal per file changed in this commit
