@@ -144,8 +144,8 @@ async def process_single_pr(pr: Any,
                         )
                         await _pub(build_person_signal(pr_a_data))
 
-                    # Note: branch_data is set to None because we aren't certain which branch it belongs to here
-                    await _pub(build_commit_signal(pr_c_data, pr_a_data, None))
+                    # Note: branch_name is set to None because we aren't certain which branch it belongs to here
+                    await _pub(build_commit_signal(pr_c_data, pr_a_data, repo_name=repo.name, branch_name=None))
                     seen_commits.add(c_sha)
                 except Exception as inner_exc:
                     logger.warning("Failed to emit PR commit '%s': %s", c_sha, inner_exc)

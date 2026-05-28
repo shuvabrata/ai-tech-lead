@@ -16,7 +16,6 @@ async def process_commits(
     repo_owner: str,
     full_name: str,
     last_synced_at: Optional[datetime],
-    default_branch_data: Optional[Dict[str, Any]],
     published: Dict[str, int],
     pub_callback: Callable[[Optional[ActivitySignal]], Awaitable[None]],
 ) -> tuple[set[str], set[str]]:
@@ -43,7 +42,6 @@ async def process_commits(
                 semaphore=semaphore,
                 repo=repo,
                 repo_owner=repo_owner,
-                default_branch_data=default_branch_data,
                 published_persons=published_persons,
                 seen_commits=seen_commits,
                 pub_callback=pub_callback,

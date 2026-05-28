@@ -28,7 +28,8 @@ from connectors.producers.github.constants import (
 def build_commit_signal(
     commit_data: Dict[str, Any],
     author_data: Dict[str, Any],
-    branch_data: Optional[Dict[str, Any]],
+    repo_name: str,
+    branch_name: Optional[str] = None,
 ) -> Optional[ActivitySignal]:
     """Build an ActivitySignal for a GitHub Commit."""
     try:
@@ -62,7 +63,7 @@ def build_commit_signal(
                 ),
             )
         ]
-        if branch_data:
+        if branch_name:
             rels.append(
                 Relationship(
                     type="PART_OF",
@@ -70,15 +71,15 @@ def build_commit_signal(
                     target=RelationshipTarget(
                         source=_SOURCE,
                         entity_type="Branch",
-                        id=f"{branch_data['repo_name']}::{branch_data['name']}",
+                        id=f"{repo_name}::{branch_name}",
                     ),
                 )
             )  # Commit→Branch: PART_OF is correct (matches neo4j_db handler)
 
         # REFERENCES → Jira issues mentioned in the commit message or branch name
         issue_keys = extract_issue_keys(commit_data.get("message", ""))
-        if branch_data:
-            branch_keys = extract_issue_keys_from_branch(branch_data.get("name", ""))
+        if branch_name:
+            branch_keys = extract_issue_keys_from_branch(branch_name)
             issue_keys = list({*issue_keys, *branch_keys})
         for issue_key in issue_keys:
             rels.append(
@@ -106,4 +107,3 @@ def build_commit_signal(
     except Exception as exc:
         logger.warning("Skipping Commit signal for sha '%s' (validation error): %s", commit_data.get("sha"), exc)
         return None
-
