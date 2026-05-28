@@ -115,7 +115,7 @@ async def process_repo_signals(
     )
 
     # Branches
-    default_branch_data = await process_branches(
+    await process_branches(
         repo=repo,
         repo_owner=repo_owner,
         repo_data=repo_data,
@@ -130,7 +130,6 @@ async def process_repo_signals(
         repo_owner=repo_owner,
         full_name=full_name,
         last_synced_at=last_synced_at,
-        default_branch_data=default_branch_data,
         published=published,
         pub_callback=_pub,
     )

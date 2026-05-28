@@ -17,7 +17,6 @@ async def process_single_commit(
     semaphore: asyncio.Semaphore,
     repo: Any,
     repo_owner: str,
-    default_branch_data: Optional[Dict[str, Any]],
     published_persons: set[str],
     seen_commits: set[str],
     pub_callback: Callable[[Optional[ActivitySignal]], Awaitable[None]],
@@ -53,7 +52,8 @@ async def process_single_commit(
             seen_commits.add(commit_data.get("sha"))
             logger.debug("Commit %s by '%s' processed", sha_short, login)
 
-            await pub_callback(build_commit_signal(commit_data, author_data, default_branch_data))
+            branch_name = repo.default_branch or "main" # this does not cause a new API call since it's already loaded in the repo object
+            await pub_callback(build_commit_signal(commit_data, author_data, repo_name=repo.name, branch_name=branch_name))
 
             # Emit one File signal per file changed in this commit
             repo_data = {"name": repo.name, "owner": repo_owner}
