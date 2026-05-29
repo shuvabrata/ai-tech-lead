@@ -39,7 +39,7 @@ This spec is derived directly from those models — the code is authoritative.
 | `event_time` | `datetime` | ✓ | Timestamp of the event in the source system (updated_at / created_at). |
 | `ingestion_time` | `Optional[datetime]` |  | Timestamp set by the consumer when the message is received. Must be None when emitted by a producer. |
 | `version` | `str` |  | Schema version string. |
-| `attributes` | `ProjectAttributes | InitiativeAttributes | EpicAttributes | SprintAttributes | IssueAttributes | RepositoryAttributes | BranchAttributes | CommitAttributes | PullRequestAttributes | PersonAttributes | TeamAttributes | FileAttributes` | ✓ | Entity-specific attributes.  Discriminated by entity_type. |
+| `attributes` | `ProjectAttributes | InitiativeAttributes | EpicAttributes | SprintAttributes | IssueAttributes | RepositoryAttributes | CommitAttributes | PullRequestAttributes | PersonAttributes | TeamAttributes | FileAttributes` | ✓ | Entity-specific attributes.  Discriminated by entity_type. |
 | `relationships` | `list[Relationship]` |  | Observed relationships for this node at event_time. |
 | `entity_type` | `str` | | Exposes entity_type at the root level of ActivitySignal.
 
@@ -89,7 +89,6 @@ Use `wba_node_id(signal)` from `common.activity_signal.wba_node_id` to compute i
 | Entity | `id` value on signal | WBA canonical key (Neo4j `id` property) |
 |--------|----------------------|-----------------------------------------|
 | GitHub Repository | `org/repo` | `github::Repository::org/repo` |
-| GitHub Branch | `repo::main` | `github::Branch::repo::main` |
 | GitHub Commit | `abc123` (SHA) | `github::Commit::abc123` |
 | GitHub PR | `repo::42` | `github::PullRequest::repo::42` |
 | GitHub Person | `alice` (login) | `github::Person::alice` |
@@ -121,7 +120,6 @@ All `ActivitySignal.attributes` must use one of these types as the discriminator
 | `Sprint` | Jira |
 | `Issue` | Jira |
 | `Repository` | GitHub |
-| `Branch` | GitHub |
 | `Commit` | GitHub |
 | `PullRequest` | GitHub |
 | `Person` | GitHub / Jira |
@@ -321,7 +319,6 @@ The set is fixed; add new types by updating `models.py` and re-running this scri
 | `AUTHORED_BY` |
 | `BELONGS_TO` |
 | `BLOCKS` |
-| `BRANCH_OF` |
 | `COLLABORATES_ON` |
 | `COLLABORATOR` |
 | `CONTAINS` |

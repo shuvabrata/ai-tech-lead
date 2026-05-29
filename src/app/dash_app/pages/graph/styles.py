@@ -196,7 +196,7 @@ def build_cytoscape_stylesheet(theme_name: str = ACTIVE_THEME):
                 'border-color': tokens["graph.node.commit.border"],
                 'color': typed_node_label_color,
                 'width': '62px',
-                'height': '50px'
+                'height': '30px'
             }
         },
         {
@@ -213,7 +213,7 @@ def build_cytoscape_stylesheet(theme_name: str = ACTIVE_THEME):
         {
             'selector': 'node[nodeType = "PullRequest"]',
             'style': {
-                'shape': 'star',
+                'shape': 'ellipse',
                 'background-color': tokens["graph.node.pull_request"],
                 'border-color': tokens["graph.node.pull_request.border"],
                 'color': typed_node_label_color,
