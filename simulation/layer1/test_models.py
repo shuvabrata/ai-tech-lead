@@ -13,7 +13,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from unittest.mock import MagicMock
 sys.modules['neo4j'] = MagicMock()
 
-from models import Person, Team, IdentityMapping, Relationship
+from connectors.neo4j_db.models import Person, Team, IdentityMapping, Relationship
 
 def test_person_creation():
     """Test Person dataclass creation."""
