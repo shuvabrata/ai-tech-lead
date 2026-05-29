@@ -478,7 +478,8 @@ def render_items_list(store: Dict[str, Any] | None):
                 else:
                     header_text = f"{label}: last configured at {updated_at}"
 
-        fields = [k for k in item.keys() if k not in ("id", "connector_id", "created_at", "updated_at")]
+        is_active = item.get("enabled", True)
+        fields = [k for k in item.keys() if k not in ("id", "connector_id", "created_at", "updated_at", "enabled")]
         field_rows = []
         for key in fields:
             value = _format_display_value(item.get(key))
@@ -535,8 +536,17 @@ def render_items_list(store: Dict[str, Any] | None):
                                 size="sm",
                                 color="danger",
                             ),
+                            html.Div(
+                                dbc.Switch(
+                                    id={"type": "config-enabled-switch", "connector_type": connector_type, "config_id": item_id},
+                                    value=is_active,
+                                    label="Active" if is_active else "Disabled",
+                                    className="executive-switch mb-0",
+                                ),
+                                style={"display": "flex", "alignItems": "center", "marginLeft": "auto"}
+                            )
                         ],
-                        style={"marginTop": SPACING_XSMALL},
+                        style={"marginTop": SPACING_XSMALL, "display": "flex", "alignItems": "center"},
                     ),
                 ],
                 style={
@@ -964,3 +974,53 @@ def _empty_items_message(message: str) -> List[Any]:
             },
         )
     ]
+
+
+@callback(
+    [
+        Output("connector-action-feedback", "children", allow_duplicate=True),
+        Output({"type": "config-enabled-switch", "connector_type": MATCH, "config_id": MATCH}, "value"),
+        Output({"type": "config-enabled-switch", "connector_type": MATCH, "config_id": MATCH}, "label"),
+        Output("connector-items-store", "data", allow_duplicate=True),
+    ],
+    Input({"type": "config-enabled-switch", "connector_type": MATCH, "config_id": MATCH}, "value"),
+    State("connector-items-store", "data"),
+    prevent_initial_call=True
+)
+def handle_inline_toggle(new_enabled_state: bool, store: Dict[str, Any] | None):
+    ctx = callback_context
+    if not ctx.triggered:
+        return no_update, no_update, no_update, no_update
+        
+    triggered_id = ctx.triggered_id
+    if not isinstance(triggered_id, dict):
+        return no_update, no_update, no_update, no_update
+
+    connector_type = triggered_id.get("connector_type")
+    config_id = triggered_id.get("config_id")
+    
+    if not store or store.get("status") != "ok":
+        return no_update, not new_enabled_state, "Active" if not new_enabled_state else "Disabled", no_update
+        
+    items = store.get("items", [])
+    item_to_update = next((item for item in items if item.get("id") == config_id), None)
+    
+    if not item_to_update:
+        return create_alert("Configuration not found.", color="danger", class_name="mb-0"), not new_enabled_state, "Active" if not new_enabled_state else "Disabled", no_update
+        
+    payload = {k: v for k, v in item_to_update.items() if k not in ("id", "connector_id", "created_at", "updated_at")}
+    payload["enabled"] = new_enabled_state
+    
+    api_base = _get_api_base_url()
+    try:
+        response = requests.put(
+            f"{api_base}/api/v1/connectors/{connector_type}/configs/{config_id}",
+            json=payload,
+            timeout=TIMEOUT_SECONDS,
+        )
+        response.raise_for_status()
+        return no_update, no_update, "Active" if new_enabled_state else "Disabled", no_update
+        
+    except requests.exceptions.RequestException as exc:
+        error_alert = create_alert(f"Failed to update configuration: {str(exc)}", color="danger", class_name="mb-0")
+        return error_alert, not new_enabled_state, "Active" if not new_enabled_state else "Disabled", no_update

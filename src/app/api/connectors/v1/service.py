@@ -24,13 +24,20 @@ SENSITIVE_FIELDS: Dict[str, Dict[str, str]] = {
 }
 
 REQUEST_FIELDS: Dict[str, List[str]] = {
-    "github": ["url", "access_token", "search_filters", "branch_name_patterns", "extraction_sources"],
-    "jira": ["url", "email", "api_token"],
-    "slack": ["channel_id", "channel_name"],
-    "teams": ["channel_id", "channel_name"],
-    "confluence": ["space_key", "space_name"],
-    "google_docs": ["drive_id", "drive_name"],
-    "sharepoint": ["site_url"],
+    "github": [
+        "url",
+        "access_token",
+        "search_filters",
+        "branch_name_patterns",
+        "extraction_sources",
+        "enabled",
+    ],
+    "jira": ["url", "email", "api_token", "enabled"],
+    "slack": ["channel_id", "channel_name", "enabled"],
+    "teams": ["channel_id", "channel_name", "enabled"],
+    "confluence": ["space_key", "space_name", "enabled"],
+    "google_docs": ["drive_id", "drive_name", "enabled"],
+    "sharepoint": ["site_url", "enabled"],
     "email": [
         "smtp_host",
         "smtp_port",
@@ -39,6 +46,7 @@ REQUEST_FIELDS: Dict[str, List[str]] = {
         "username",
         "use_tls",
         "password",
+        "enabled",
     ],
 }
 
@@ -52,13 +60,14 @@ RESPONSE_FIELDS: Dict[str, List[str]] = {
         "extraction_sources",
         "created_at",
         "updated_at",
+        "enabled",
     ],
-    "jira": ["id", "url", "email", "api_token", "created_at", "updated_at"],
-    "slack": ["id", "channel_id", "channel_name", "created_at", "updated_at"],
-    "teams": ["id", "channel_id", "channel_name", "created_at", "updated_at"],
-    "confluence": ["id", "space_key", "space_name", "created_at", "updated_at"],
-    "google_docs": ["id", "drive_id", "drive_name", "created_at", "updated_at"],
-    "sharepoint": ["id", "site_url", "created_at", "updated_at"],
+    "jira": ["id", "url", "email", "api_token", "created_at", "updated_at", "enabled"],
+    "slack": ["id", "channel_id", "channel_name", "created_at", "updated_at", "enabled"],
+    "teams": ["id", "channel_id", "channel_name", "created_at", "updated_at", "enabled"],
+    "confluence": ["id", "space_key", "space_name", "created_at", "updated_at", "enabled"],
+    "google_docs": ["id", "drive_id", "drive_name", "created_at", "updated_at", "enabled"],
+    "sharepoint": ["id", "site_url", "created_at", "updated_at", "enabled"],
     "email": [
         "id",
         "smtp_host",
@@ -70,6 +79,7 @@ RESPONSE_FIELDS: Dict[str, List[str]] = {
         "password",
         "created_at",
         "updated_at",
+        "enabled",
     ],
 }
 
