@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Awaitable, Callable, Dict, Optional, Set
 
 from common.activity_signal.models import ActivitySignal
@@ -29,9 +29,21 @@ async def process_prs(
 
     for pr in prs_raw:
         try:
-            should_stop = await process_single_pr(
+            pr_updated = getattr(pr, "updated_at", None)
+            logger.debug(f"PR # {pr.number} updated at {pr_updated} (since={pr_since})")
+            if pr_updated and pr_updated.replace(tzinfo=timezone.utc) < pr_since:
+                logger.debug("PR #%s skipped (updated before since=%s)", pr.number, pr_since.date())
+                # Since PRs are processed newest-first, we can stop the entire loop
+                # once we hit a PR older than our cutoff, saving massive API pagination!
+                logger.info(
+                    "Stopping PR fetch loop for '%s' since remaining PRs will be older than %s",
+                    full_name,
+                    pr_since.date(),
+                )
+                break
+
+            await process_single_pr(
                 pr,
-                pr_since,
                 repo=repo,
                 repo_data=repo_data,
                 repo_owner=repo_owner,
@@ -39,8 +51,6 @@ async def process_prs(
                 published_persons=published_persons,
                 _pub=pub_callback,
             )
-            if should_stop:
-                break
         except Exception as exc:
             logger.warning("PR skipped: %s", exc)
 

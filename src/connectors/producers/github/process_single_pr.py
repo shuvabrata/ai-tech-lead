@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Awaitable, Callable
 
 
@@ -24,30 +23,13 @@ from common.logger import logger
 from common.activity_signal.models import ActivitySignal
 
 async def process_single_pr(pr: Any, 
-                            pr_since: datetime,
                             repo: Any,
                             repo_data:Dict[str, Any],
                             repo_owner: str,
                             seen_commits: set[str],
                             published_persons: set[str],
-                            _pub: Callable[[Optional[ActivitySignal]], Awaitable[None]]) -> bool:
-    """Process a single PR and publish its signals.
-
-    Returns True if the PR loop should stop (PR is older than pr_since).
-    """
-    # Filter by date
-    pr_updated = getattr(pr, "updated_at", None)
-    logger.debug(f"PR # {pr.number} updated at {pr_updated} (since={pr_since})")
-    if pr_updated and pr_updated.replace(tzinfo=timezone.utc) < pr_since:
-        logger.debug("PR #%s skipped (updated before since=%s)", pr.number, pr_since.date())
-        # Since PRs are processed newest-first, we can stop the entire loop
-        # once we hit a PR older than our cutoff, saving massive API pagination!
-        logger.info(
-            "Stopping PR fetch loop for '%s' since remaining PRs will be older than %s",
-            repo.full_name,
-            pr_since.date(),
-        )
-        return True
+                            _pub: Callable[[Optional[ActivitySignal]], Awaitable[None]]) -> None:
+    """Process a single PR and publish its signals."""
 
     # fetch_github_user accesses .email and .name on PyGithub NamedUser stubs,
     # which triggers a blocking GET /users/{login} API call per user.
@@ -216,4 +198,3 @@ async def process_single_pr(pr: Any,
         commit_shas=commit_shas,
     )
     await _pub(pr_sig)
-    return False
