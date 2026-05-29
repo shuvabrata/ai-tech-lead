@@ -20,7 +20,6 @@ from pydantic import ValidationError
 
 from common.activity_signal.models import (
     SUPPORTED_RELATIONSHIP_TYPES,
-    BranchAttributes,
     CommitAttributes,
     EpicAttributes,
     InitiativeAttributes,
@@ -29,51 +28,6 @@ from common.activity_signal.models import (
     PullRequestAttributes,
     SprintAttributes,
 )
-
-
-# ---------------------------------------------------------------------------
-# B1 — BranchAttributes
-# ---------------------------------------------------------------------------
-
-
-@pytest.mark.unit
-def test_branch_attributes_last_commit_sha_round_trips() -> None:
-    attrs = BranchAttributes(
-        repo_name="myrepo",
-        branch_name="main",
-        last_commit_sha="abc123def456",
-    )
-    d = attrs.model_dump()
-    assert d["last_commit_sha"] == "abc123def456"
-    assert d["repo_name"] == "myrepo"
-    assert d["branch_name"] == "main"
-
-
-@pytest.mark.unit
-def test_branch_attributes_optional_new_fields() -> None:
-    attrs = BranchAttributes(
-        repo_name="myrepo",
-        branch_name="feat/x",
-        last_commit_sha="sha1",
-        last_commit_timestamp="2026-05-01T10:00:00",
-        is_protected=True,
-        is_deleted=False,
-        is_external=False,
-    )
-    d = attrs.model_dump()
-    assert d["last_commit_timestamp"] == "2026-05-01T10:00:00"
-    assert d["is_protected"] is True
-    assert d["is_deleted"] is False
-    assert d["is_external"] is False
-
-
-@pytest.mark.unit
-def test_branch_attributes_old_commit_sha_not_accepted_as_canonical() -> None:
-    """commit_sha is not a declared field; it should NOT populate last_commit_sha."""
-    # With extra='forbid', unknown fields raise ValidationError.
-    with pytest.raises((ValidationError, TypeError)):
-        # omit last_commit_sha entirely — required field missing
-        BranchAttributes(repo_name="myrepo", branch_name="main")  # type: ignore[call-arg]
 
 
 # ---------------------------------------------------------------------------
@@ -395,7 +349,6 @@ def test_initiative_attributes_project_id_defaults_none() -> None:
 @pytest.mark.unit
 def test_supported_relationship_types_includes_phase_c_types() -> None:
     expected = {
-        "BRANCH_OF",
         "CREATED_BY",
         "REVIEWED_BY",
         "TARGETS",

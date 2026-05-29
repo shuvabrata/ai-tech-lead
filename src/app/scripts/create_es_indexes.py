@@ -38,7 +38,6 @@ from elasticsearch.exceptions import NotFoundError, RequestError
 
 MANAGED_INDEXES: list[tuple[str, str]] = [
     ("github", "Repository"),
-    ("github", "Branch"),
     ("github", "Commit"),
     ("github", "PullRequest"),
     ("github", "Person"),

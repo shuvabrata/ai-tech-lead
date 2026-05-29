@@ -24,11 +24,11 @@ def make_pub_callback(
         if sig:
             await publisher.publish(sig)
             logger.info(
-                "Published signal_id=%s entity_type=%s id=%s",
-                sig.signal_id,
+                "Published entity_type=%s id=%s signal with signal_id=%s ",
                 sig.entity_type,
                 sig.id,
-            )
+                sig.signal_id,
+           )
             published[sig.entity_type] = published.get(sig.entity_type, 0) + 1
 
     return _pub

@@ -1002,24 +1002,24 @@ def handle_inline_toggle(new_enabled_state: bool, store: Dict[str, Any] | None):
     if not store or store.get("status") != "ok":
         return no_update, not new_enabled_state, "Active" if not new_enabled_state else "Disabled", no_update
         
-    items = store.get("items", [])
-    item_to_update = next((item for item in items if item.get("id") == config_id), None)
-    
-    if not item_to_update:
-        return create_alert("Configuration not found.", color="danger", class_name="mb-0"), not new_enabled_state, "Active" if not new_enabled_state else "Disabled", no_update
-        
-    payload = {k: v for k, v in item_to_update.items() if k not in ("id", "connector_id", "created_at", "updated_at")}
-    payload["enabled"] = new_enabled_state
-    
     api_base = _get_api_base_url()
     try:
-        response = requests.put(
-            f"{api_base}/api/v1/connectors/{connector_type}/configs/{config_id}",
-            json=payload,
+        # Dedicated status endpoint for a clean atomic update, avoiding full payload PUT
+        response = requests.patch(
+            f"{api_base}/api/v1/connectors/{connector_type}/configs/{config_id}/status",
+            json={"enabled": new_enabled_state},
             timeout=TIMEOUT_SECONDS,
         )
         response.raise_for_status()
-        return no_update, no_update, "Active" if new_enabled_state else "Disabled", no_update
+        
+        # Update local store efficiently to keep UI in sync
+        updated_store = dict(store)
+        for i, item in enumerate(updated_store.get("items", [])):
+            if item.get("id") == config_id:
+                updated_store["items"][i]["enabled"] = new_enabled_state
+                break
+                
+        return no_update, no_update, "Active" if new_enabled_state else "Disabled", updated_store
         
     except requests.exceptions.RequestException as exc:
         error_alert = create_alert(f"Failed to update configuration: {str(exc)}", color="danger", class_name="mb-0")

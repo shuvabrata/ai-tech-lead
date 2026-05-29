@@ -28,7 +28,6 @@ sys.path.insert(0, str(_REPO_ROOT / "src"))
 
 from common.activity_signal.models import (  # noqa: E402
     ActivitySignal,
-    BranchAttributes,
     CommitAttributes,
     EpicAttributes,
     InitiativeAttributes,
@@ -56,7 +55,6 @@ _ENTITY_ATTRS: list[tuple[str, type]] = [
     ("Sprint", SprintAttributes),
     ("Issue", IssueAttributes),
     ("Repository", RepositoryAttributes),
-    ("Branch", BranchAttributes),
     ("Commit", CommitAttributes),
     ("PullRequest", PullRequestAttributes),
     ("Person", PersonAttributes),
@@ -361,7 +359,6 @@ def _build_spec() -> str:
         "| Entity | `id` value on signal | WBA canonical key (Neo4j `id` property) |",
         "|--------|----------------------|-----------------------------------------|",
         "| GitHub Repository | `org/repo` | `github::Repository::org/repo` |",
-        "| GitHub Branch | `repo::main` | `github::Branch::repo::main` |",
         "| GitHub Commit | `abc123` (SHA) | `github::Commit::abc123` |",
         "| GitHub PR | `repo::42` | `github::PullRequest::repo::42` |",
         "| GitHub Person | `alice` (login) | `github::Person::alice` |",
@@ -397,7 +394,6 @@ def _build_spec() -> str:
         "| `Sprint` | Jira |",
         "| `Issue` | Jira |",
         "| `Repository` | GitHub |",
-        "| `Branch` | GitHub |",
         "| `Commit` | GitHub |",
         "| `PullRequest` | GitHub |",
         "| `Person` | GitHub / Jira |",

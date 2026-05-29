@@ -24,7 +24,6 @@ from common.activity_signal.models import Relationship as SignalRelationship
 from common.activity_signal.wba_node_id import wba_format, wba_node_id
 from connectors.commons.person_cache import PersonCache
 from connectors.neo4j_db.models import (
-    Branch,
     Commit,
     Epic,
     File,
@@ -37,7 +36,6 @@ from connectors.neo4j_db.models import (
     Sprint,
     Team,
     Relationship as DbRelationship,
-    merge_branch,
     merge_commit,
     merge_epic,
     merge_file,
@@ -184,24 +182,6 @@ def _handle_repository(session: Session, signal: ActivitySignal) -> None:
     )
     db_rels = _to_db_relationships(session, signal.relationships, node_id, "Repository")
     merge_repository(session, repo, relationships=db_rels)
-
-
-def _handle_branch(session: Session, signal: ActivitySignal) -> None:
-    attrs = signal.attributes.model_dump()
-    node_id = wba_node_id(signal)
-    branch = Branch(
-        id=node_id,
-        name=attrs.get("branch_name", ""),
-        is_default=attrs.get("is_default", False),
-        is_protected=attrs.get("is_protected", False),
-        is_deleted=attrs.get("is_deleted", False),
-        is_external=attrs.get("is_external", False),
-        last_commit_sha=attrs.get("last_commit_sha", ""),
-        last_commit_timestamp=attrs.get("last_commit_timestamp", ""),
-        url=attrs.get("url"),
-    )
-    db_rels = _to_db_relationships(session, signal.relationships, node_id, "Branch")
-    merge_branch(session, branch, relationships=db_rels)
 
 
 def _handle_commit(session: Session, signal: ActivitySignal) -> None:
@@ -474,7 +454,6 @@ def _handle_file(session: Session, signal: ActivitySignal) -> None:
 
 _HANDLERS: dict[str, Callable[[Session, ActivitySignal], None]] = {
     "Repository": _handle_repository,
-    "Branch": _handle_branch,
     "Commit": _handle_commit,
     "PullRequest": _handle_pull_request,
     # Person is handled directly in upsert_signal to support PersonCache injection
@@ -555,6 +534,3 @@ def upsert_signal(
         canonical_wba_id,
     )
     return canonical_wba_id
-
-
-

@@ -383,6 +383,31 @@ async def save_config_item(
     return row_dict
 
 
+async def update_config_item_status(
+    db: AsyncSession, connector_type: str, item_id: int, enabled: bool
+) -> Dict[str, Any]:
+    _validate_connector_type(connector_type)
+    
+    # Perform an atomic partial update (upsert handles dict unpacking automatically)
+    saved = await query.upsert_config_item(db, connector_type, item_id, {"enabled": enabled})
+    if not saved:
+        raise ValueError("Config item not found")
+
+    # Convert saved row back to response shape
+    encrypted_map = SENSITIVE_FIELDS.get(connector_type, {})
+    response_fields = RESPONSE_FIELDS[connector_type]
+    row_dict: Dict[str, Any] = {"id": saved.id}
+    for field in response_fields:
+        if field == "id":
+            continue
+        encrypted_field = encrypted_map.get(field)
+        if encrypted_field:
+            row_dict[field] = _mask(getattr(saved, encrypted_field))
+        else:
+            row_dict[field] = getattr(saved, field)
+    return row_dict
+
+
 async def delete_config_item(db: AsyncSession, connector_type: str, item_id: int) -> None:
     _validate_connector_type(connector_type)
     deleted = await query.delete_config_item(db, connector_type, item_id)

@@ -9,6 +9,7 @@ from app.db.session import get_async_db
 from . import service
 from .model import (
     ConnectorConfigUpdateRequest,
+    ConfigItemStatusUpdate,
     ConnectorStatus,
     EmailConfigItemRequest,
     GithubConfigItemRequest,
@@ -124,6 +125,19 @@ async def update_config_item(
 ):
     try:
         return await service.save_config_item(db, connector_type, item, item_id=item_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=_status_for_connector_error(exc), detail=str(exc)) from exc
+
+
+@router.patch("/{connector_type}/configs/{item_id}/status", response_model=Dict[str, Any])
+async def update_config_item_status(
+    connector_type: str,
+    item_id: int,
+    payload: ConfigItemStatusUpdate,
+    db: AsyncSession = Depends(get_async_db),
+):
+    try:
+        return await service.update_config_item_status(db, connector_type, item_id, payload.enabled)
     except ValueError as exc:
         raise HTTPException(status_code=_status_for_connector_error(exc), detail=str(exc)) from exc
 

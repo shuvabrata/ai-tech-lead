@@ -237,23 +237,6 @@ The `entity_type` discriminator field is internal and excluded from these tables
 | `updated_at` | `Optional[str]` |  |  |
 | `custom` | `Optional[Dict[str, Any]]` |  |  |
 
-### Branch
-
-*Mandatory attributes for a GitHub Branch node.*
-
-| Field | Type | Required | Notes |
-|-------|------|:--------:|-------|
-| `repo_name` | `str` | ✓ |  |
-| `branch_name` | `str` | ✓ |  |
-| `last_commit_sha` | `str` | ✓ |  |
-| `last_commit_timestamp` | `Optional[str]` |  |  |
-| `is_default` | `Optional[bool]` |  |  |
-| `is_protected` | `Optional[bool]` |  |  |
-| `is_deleted` | `Optional[bool]` |  |  |
-| `is_external` | `Optional[bool]` |  |  |
-| `url` | `Optional[str]` |  |  |
-| `custom` | `Optional[Dict[str, Any]]` |  |  |
-
 ### Commit
 
 *Mandatory attributes for a GitHub Commit node.*

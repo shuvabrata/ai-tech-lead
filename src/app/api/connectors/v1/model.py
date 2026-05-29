@@ -8,6 +8,10 @@ class ConnectorConfigUpdateRequest(BaseModel):
     config: Optional[Dict[str, Any]] = None
 
 
+class ConfigItemStatusUpdate(BaseModel):
+    enabled: bool
+
+
 class GithubConfigItemRequest(BaseModel):
     url: str
     access_token: Optional[str] = None
