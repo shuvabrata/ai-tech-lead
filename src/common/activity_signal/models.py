@@ -60,7 +60,6 @@ SUPPORTED_RELATIONSHIP_TYPES: frozenset[str] = frozenset(
         "AUTHORED_BY",
         "BELONGS_TO",
         "BLOCKS",
-        "BRANCH_OF",
         "COLLABORATES_ON",
         "COLLABORATOR",
         "CONTAINS",
@@ -240,24 +239,6 @@ class RepositoryAttributes(BaseModel):
     custom: Optional[Dict[str, Any]] = None
 
 
-class BranchAttributes(BaseModel):
-    """Mandatory attributes for a GitHub Branch node."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    entity_type: Literal["Branch"] = Field(default="Branch", exclude=True)
-    repo_name: str
-    branch_name: str
-    last_commit_sha: str
-    last_commit_timestamp: Optional[str] = None
-    is_default: Optional[bool] = None
-    is_protected: Optional[bool] = None
-    is_deleted: Optional[bool] = None
-    is_external: Optional[bool] = None
-    url: Optional[str] = None
-    custom: Optional[Dict[str, Any]] = None
-
-
 class CommitAttributes(BaseModel):
     """Mandatory attributes for a GitHub Commit node."""
 
@@ -365,7 +346,6 @@ _AttributesUnion = Union[
     SprintAttributes,
     IssueAttributes,
     RepositoryAttributes,
-    BranchAttributes,
     CommitAttributes,
     PullRequestAttributes,
     PersonAttributes,
@@ -385,7 +365,6 @@ SUPPORTED_ENTITY_TYPES: frozenset[str] = frozenset(
         "Sprint",
         "Issue",
         "Repository",
-        "Branch",
         "Commit",
         "PullRequest",
         "Person",

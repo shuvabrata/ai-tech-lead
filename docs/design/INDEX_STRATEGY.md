@@ -29,7 +29,6 @@ Properties frequently used in WHERE clauses and natural language queries:
 
 Essential for filtering queries:
 - **Work Items**: Initiative.status, Epic.status, Issue (status, type), Sprint.status
-- **Branch**: is_default, is_deleted, is_protected
 - **File**: is_test
 - **Pull Request**: mergeable_state
 
@@ -38,7 +37,7 @@ Essential for filtering queries:
 Critical for timeline queries and trend analysis:
 - **Person**: hire_date
 - **Work Items**: start_date, due_date, created_at (for Initiatives, Epics, Issues, Sprints)
-- **Git**: Repository.created_at, Branch.last_commit_timestamp, Commit.timestamp, File.created_at
+- **Git**: Repository.created_at, Commit.timestamp, File.created_at
 - **Pull Request**: created_at, merged_at, updated_at, closed_at
 
 ### Priority 4: Composite Indexes (Medium) - 5 indexes
@@ -46,7 +45,6 @@ Critical for timeline queries and trend analysis:
 Common multi-property filter patterns:
 - Person: (role, seniority)
 - Issue: (type, status), (status, priority)
-- Branch: (is_default, is_deleted)
 - PullRequest: (state, created_at)
 
 ### Priority 5: Full-Text Search Indexes (Medium) - 5 indexes

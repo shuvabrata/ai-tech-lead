@@ -12,7 +12,6 @@ from common.messaging.rabbitmq import RabbitMQPublisher
 
 from connectors.producers.fetch_github import fetch_repo_topics
 from connectors.producers.github.build_repository_signal import build_repository_signal
-from connectors.producers.github.process_branches import process_branches
 from connectors.producers.github.process_collaborators import process_collaborators
 from connectors.producers.github.process_teams import process_teams
 from connectors.producers.map_github import map_repo
@@ -110,16 +109,6 @@ async def process_repo_signals(
         full_name=full_name,
         repo=repo,
         repo_data=repo_data,
-        published=published,
-        pub_callback=_pub,
-    )
-
-    # Branches
-    await process_branches(
-        repo=repo,
-        repo_owner=repo_owner,
-        repo_data=repo_data,
-        full_name=full_name,
         published=published,
         pub_callback=_pub,
     )

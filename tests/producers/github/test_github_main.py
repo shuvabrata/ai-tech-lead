@@ -36,6 +36,7 @@ def test_load_config_from_server_success(mock_get, monkeypatch):
     expected_config = {
         "repos": [
             {
+                "enabled": True,
                 "url": "https://github.com/test/repo1",
                 "access_token": "token123",
                 "branch_name_patterns": ["main"],

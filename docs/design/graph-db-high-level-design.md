@@ -94,12 +94,11 @@ Relationships:
   - DEPLOYS_TO → Service/Deployment
 
 **Branch**
-See class definition: [Branch](../db/models.py#L425)
+*(Implicitly created stub node)*
 
 Relationships:
-  - BRANCH_OF ↔ Repository (undirected)
-  - HAS_COMMIT → Commit
-  - MERGED_TO → Branch
+  - TARGETED_BY → PullRequest
+  - CONTAINS → Commit
 
 **Commit**
 See class definition: [Commit](../db/models.py#L482)

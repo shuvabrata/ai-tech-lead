@@ -8,42 +8,53 @@ class ConnectorConfigUpdateRequest(BaseModel):
     config: Optional[Dict[str, Any]] = None
 
 
+class ConfigItemStatusUpdate(BaseModel):
+    enabled: bool
+
+
 class GithubConfigItemRequest(BaseModel):
     url: str
     access_token: Optional[str] = None
     search_filters: Optional[Dict[str, str]] = None
     branch_name_patterns: Optional[List[str]] = None
     extraction_sources: Optional[List[str]] = None
+    enabled: bool = True
 
 
 class JiraConfigItemRequest(BaseModel):
     url: str
     email: str
     api_token: Optional[str] = None
+    enabled: bool = True
 
 
 class SlackConfigItemRequest(BaseModel):
     channel_id: str
     channel_name: str
+    enabled: bool = True
 
 
 class TeamsConfigItemRequest(BaseModel):
     channel_id: str
     channel_name: str
+    enabled: bool = True
 
 
 class ConfluenceConfigItemRequest(BaseModel):
     space_key: str
     space_name: str
+    enabled: bool = True
 
 
 class GoogleDocsConfigItemRequest(BaseModel):
     drive_id: str
     drive_name: str
+    enabled: bool = True
 
 
 class SharepointConfigItemRequest(BaseModel):
     site_url: str
+    enabled: bool = True
 
 
 class EmailConfigItemRequest(BaseModel):
@@ -54,6 +65,7 @@ class EmailConfigItemRequest(BaseModel):
     username: str
     use_tls: bool
     password: Optional[str] = None
+    enabled: bool = True
 
 
 class ConnectorStatus(BaseModel):
@@ -77,6 +89,7 @@ class GithubConfigItem(BaseModel):
     extraction_sources: Optional[List[str]] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
+    enabled: bool
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -88,6 +101,7 @@ class JiraConfigItem(BaseModel):
     api_token: Optional[str] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
+    enabled: bool
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -98,6 +112,7 @@ class SlackConfigItem(BaseModel):
     channel_name: str
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
+    enabled: bool
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -108,6 +123,7 @@ class TeamsConfigItem(BaseModel):
     channel_name: str
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
+    enabled: bool
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -118,6 +134,7 @@ class ConfluenceConfigItem(BaseModel):
     space_name: str
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
+    enabled: bool
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -128,6 +145,7 @@ class GoogleDocsConfigItem(BaseModel):
     drive_name: str
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
+    enabled: bool
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -137,6 +155,7 @@ class SharepointConfigItem(BaseModel):
     site_url: str
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
+    enabled: bool
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -152,6 +171,7 @@ class EmailConfigItem(BaseModel):
     password: Optional[str] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
+    enabled: bool
 
     model_config = ConfigDict(from_attributes=True)
 

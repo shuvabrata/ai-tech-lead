@@ -7,7 +7,7 @@ and starts one async consumer task per queue.  All tasks run concurrently via
 Environment variables
 ---------------------
 LISTEN_QUEUES        Comma-separated list of RabbitMQ queue names to consume.
-                     e.g. ``github_repository_queue,github_branch_queue``
+                     e.g. ``github_repository_queue,github_pullrequest_queue``
 RABBITMQ_URL         AMQP connection URL (default: ``amqp://guest:guest@localhost:5672/``)
 NEO4J_URI            Neo4j Bolt URI (default: ``bolt://localhost:7687``)
 NEO4J_USERNAME       Neo4j username (default: ``neo4j``)

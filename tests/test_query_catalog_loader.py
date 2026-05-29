@@ -32,7 +32,7 @@ def test_load_namespaces_from_master_catalog():
 def test_load_catalog_normalizes_all_existing_entries():
     queries = load_catalog(CATALOG_DIR)
 
-    assert len(queries) == 64
+    assert len(queries) == 59
     assert len({query.id for query in queries}) == len(queries)
     assert all(query.available_views for query in queries)
     assert all(query.namespace.name for query in queries)

@@ -530,10 +530,10 @@ async def publish_signals(
         if sig:
             await publisher.publish(sig)
             logger.info(
-                "Published signal_id=%s entity_type=%s id=%s",
-                sig.signal_id,
+                "Published entity_type=%s id=%s signal with signal_id=%s ",
                 sig.entity_type,
                 sig.id,
+                sig.signal_id,
             )
             _inc(sig.entity_type)
 
@@ -735,6 +735,10 @@ async def main_async() -> None:
 
     async with RabbitMQPublisher(rabbitmq_url) as publisher:
         for account in accounts:
+            if not account.get("enabled", True):
+                logger.info("Skipping disabled configuration for url: %s", account.get("url", "unknown"))
+                continue
+
             jira_base_url: str = account.get("url", "").rstrip("/")
             if not jira_base_url:
                 logger.warning("Skipping account with missing url")

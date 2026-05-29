@@ -25,8 +25,8 @@ async def test_catalog_list_endpoint_returns_normalized_catalog():
     assert response.status_code == 200
     data = response.json()
 
-    assert data["count"] == 64
-    assert len(data["items"]) == 64
+    assert data["count"] == 59
+    assert len(data["items"]) == 59
 
     first_item = data["items"][0]
     assert first_item["id"] == "schema/view_all_node_types"
@@ -69,7 +69,7 @@ async def test_catalog_list_endpoint_filters_by_namespace_directory_or_display_n
     assert response.status_code == 200
     data = response.json()
 
-    assert data["count"] == 25
+    assert data["count"] == 20
     assert all(item["namespace"]["directory"] == "github" for item in data["items"])
 
 
@@ -121,7 +121,7 @@ async def test_catalog_list_endpoint_searches_namespace_owner_and_status_metadat
     assert response.status_code == 200
     data = response.json()
 
-    assert data["count"] == 25
+    assert data["count"] == 20
     assert all(item["namespace"]["directory"] == "github" for item in data["items"])
     assert all(item["owner"] == "github-analytics" for item in data["items"])
 
@@ -132,7 +132,7 @@ async def test_catalog_list_endpoint_filters_by_view():
     assert response.status_code == 200
     data = response.json()
 
-    assert data["count"] == 64
+    assert data["count"] == 59
     assert all("graph" in item["available_views"] for item in data["items"])
 
 

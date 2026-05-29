@@ -360,13 +360,8 @@ ORDER BY repository
 #### Branch Properties
 ```yaml
 Properties:
-  - id: string (unique)
+  - id: string (unique, format: repo_name::branch_name)
   - name: string (branch name)
-  - is_default: boolean (main/master branch)
-  - is_protected: boolean (branch protection rules)
-  - is_deleted: boolean (merged and deleted)
-  - last_commit_sha: string (most recent commit)
-  - last_commit_timestamp: timestamp
 ```
 
 **Note on Branch Creation Time**: We do NOT track `created_at` for branches because:

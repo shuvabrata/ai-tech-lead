@@ -22,7 +22,7 @@ import os
 from typing import Any, Dict, List
 from datetime import datetime, timezone
 
-from github import Github  # type: ignore[import-untyped]
+from github import Github, Auth  # type: ignore[import-untyped]
 
 from common.logger import logger
 from common.messaging.rabbitmq import RabbitMQPublisher
@@ -61,13 +61,18 @@ async def main_async() -> None:
 
     async with RabbitMQPublisher(rabbitmq_url) as publisher:
         for repo_cfg in repos_cfg:
+            if not repo_cfg.get("enabled", True):
+                logger.info("Skipping disabled configuration for url: %s", repo_cfg.get("url", "unknown"))
+                continue
+
             url: str = repo_cfg.get("url", "")
             access_token: str = repo_cfg.get("access_token", "")
             if not url or not access_token:
                 logger.warning("Skipping repo entry with missing url/access_token")
                 continue
 
-            g = Github(access_token)
+            auth = Auth.Token(access_token)
+            g = Github(auth=auth)
 
             try:
                 if is_wildcard_url(url):

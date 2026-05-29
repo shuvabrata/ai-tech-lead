@@ -99,6 +99,7 @@ async def test_connectors_api_endpoints():
             )
             assert resp.status_code == 200
             created_item = resp.json()
+            assert created_item.get("enabled") is True
             item_id = created_item.get("id")
             assert item_id is not None
             created_item_ids.append(item_id)
@@ -115,6 +116,7 @@ async def test_connectors_api_endpoints():
                 "props.application-context": "production",
                 "props.division": "engineering",
             }
+            assert created.get("enabled") is True
 
             print("Step 11: PUT /api/v1/connectors/{connector_type}/configs/{id} (update)")
             update_payload = {
@@ -126,12 +128,14 @@ async def test_connectors_api_endpoints():
                 },
                 "branch_name_patterns": ["main", "develop"],
                 "extraction_sources": ["branch", "commit_message"],
+                "enabled": False,
             }
             resp = await ac.put(
                 f"/api/v1/connectors/{CONNECTOR_TYPE}/configs/{item_id}",
                 json=update_payload,
             )
             assert resp.status_code == 200
+            assert resp.json().get("enabled") is False
 
             print("Step 12: DELETE /api/v1/connectors/{connector_type}/configs/{id} (delete)")
             resp = await ac.delete(
