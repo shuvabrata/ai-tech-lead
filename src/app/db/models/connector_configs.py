@@ -74,11 +74,17 @@ class TeamsConfig(Base):
 
 class ConfluenceConfig(Base):
     __tablename__ = "confluence_configs"
+    __table_args__ = (
+        UniqueConstraint("connector_id", "url"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     connector_id: Mapped[int] = mapped_column(ForeignKey("connectors.id"), nullable=False)
-    space_key: Mapped[str] = mapped_column(String(255), nullable=False)
-    space_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    url: Mapped[str] = mapped_column(String(1023), nullable=False)
+    email: Mapped[str] = mapped_column(String(255), nullable=False)
+    encrypted_api_token: Mapped[str | None] = mapped_column(Text, nullable=True)
+    include_spaces: Mapped[list[str]] = mapped_column(JSONB, server_default='[]', nullable=False)
+    exclude_spaces: Mapped[list[str]] = mapped_column(JSONB, server_default='[]', nullable=False)
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
