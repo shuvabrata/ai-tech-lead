@@ -1,6 +1,6 @@
 # Confluence Connector Integration Plan
 
-**Status**: Planning Phase
+**Status**: In Progress
 **Goal**: Integrate Confluence into the event-driven architecture to capture knowledge management collaboration signals and map them to the Neo4j graph. The scope of this plan includes:
 1. Identifying relevant Confluence concepts.
 2. Defining the Activity Signal payload structure.
@@ -81,23 +81,23 @@ We will enforce a strict testing strategy that prioritizes local determinism ove
 ## 2. Implementation Phases (Agreed)
 We will structure the implementation into five sequential phases to safely roll out the connector:
 * **Phase 0: Pre-requisite - Access & Validation**
-  * Create API access tokens for Confluence using a test account.
-  * Write a sample Python program using `atlassian-python-api` to validate authentication and successful connection to the workspace.
+  - [x] Create API access tokens for Confluence using a test account.
+  - [x] Write a sample Python program using `atlassian-python-api` to validate authentication and successful connection to the workspace.
 * **Phase 1: Shared Schema & Graph Models**
-  * Update `src/common/activity_signal/models.py` with `Space`, `Page`, and `Blogpost` attribute payloads.
-  * Update `src/connectors/neo4j_db/models.py` with new dataclasses and `merge_space`, `merge_page`, `merge_blogpost` functions.
-  * Update `src/app/scripts/create_es_indexes.py` to add Confluence entities to `MANAGED_INDEXES` ensuring they are searchable.
+  - [x] Update `src/common/activity_signal/models.py` with `Space`, `Page`, and `Blogpost` attribute payloads.
+  - [x] Update `src/connectors/neo4j_db/models.py` with new dataclasses and `merge_space`, `merge_page`, `merge_blogpost` functions.
+  - [x] Update `src/app/scripts/create_es_indexes.py` to add Confluence entities to `MANAGED_INDEXES` ensuring they are searchable.
 * **Phase 2: Configuration API & Frontend**
-  * Update the `ConfluenceConfig` SQLAlchemy model in `app/db/models/connector_configs.py` to support `url`, `email`, `encrypted_api_token`, `include_spaces`, and `exclude_spaces`.
-  * Generate and apply an Alembic database migration.
-  * Update the backend connectors API and Pydantic models to support the new schema.
-  * Update the Dash Connectors UI form to accept the URL, email, API token, and space filters.
+  - [x] Update the `ConfluenceConfig` SQLAlchemy model in `app/db/models/connector_configs.py` to support `url`, `email`, `encrypted_api_token`, `include_spaces`, and `exclude_spaces`.
+  - [x] Generate and apply an Alembic database migration.
+  - [ ] Update the backend connectors API and Pydantic models to support the new schema.
+  - [ ] Update the Dash Connectors UI form to accept the URL, email, API token, and space filters.
 * **Phase 3: The Confluence Producer**
-  * Build the extraction script using `atlassian-python-api`.
-  * Implement the delta sync logic using the `last_synced_at` cursor.
-  * Emit the bundled delta `ActivitySignal` payloads to RabbitMQ.
+  - [ ] Build the extraction script using `atlassian-python-api`.
+  - [ ] Implement the delta sync logic using the `last_synced_at` cursor.
+  - [ ] Emit the bundled delta `ActivitySignal` payloads to RabbitMQ.
 * **Phase 4: The Neo4j Consumer**
-  * Add handlers in `src/connectors/consumers/sinks/neo4j_sink.py` to parse incoming Confluence signals and call the new merge functions.
+  - [ ] Add handlers in `src/connectors/consumers/sinks/neo4j_sink.py` to parse incoming Confluence signals and call the new merge functions.
 
 ## 3. Technology & Packages
 * **Producer API Client**: `atlassian-python-api`
