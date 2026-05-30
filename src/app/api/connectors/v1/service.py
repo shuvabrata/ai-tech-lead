@@ -241,6 +241,10 @@ def _validate_jira_item_payload(data: Dict[str, Any], item_id: Optional[int]) ->
     if item_id is None and (not isinstance(api_token, str) or not api_token.strip()):
         raise ValueError("Jira api_token is required")
 
+    email = data.get("email")
+    if not isinstance(email, str) or not email.strip():
+        raise ValueError("Jira email is required")
+    
     if "api_token" in data and isinstance(api_token, str) and not api_token.strip():
         raise ValueError("Jira api_token cannot be empty")
 
@@ -249,6 +253,10 @@ def _validate_confluence_item_payload(data: Dict[str, Any], item_id: Optional[in
     url = data.get("url")
     if not isinstance(url, str) or not url.strip():
         raise ValueError("Confluence url is required")
+
+    email = data.get("email")
+    if not isinstance(email, str) or not email.strip():
+        raise ValueError("Confluence email is required")
 
     api_token = data.get("api_token")
     if item_id is None and (not isinstance(api_token, str) or not api_token.strip()):
