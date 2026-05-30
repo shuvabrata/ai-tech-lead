@@ -103,11 +103,11 @@ We will structure the implementation into five sequential phases to safely roll 
   - [x] Emit the bundled delta `ActivitySignal` payloads to RabbitMQ.
 * **Phase 4: The Neo4j Consumer**
   - [x] Add handlers in `src/connectors/consumers/sinks/neo4j_sink.py` to parse incoming Confluence signals and call the new merge functions.
+* **Phase 5: Remaining Alignment & Validation**
+  - [ ] Standardize Person WBA IDs for Jira and Confluence to start with `atlassian::` instead of `confluence`.
+  - [ ] Decide whether Confluence and Jira should be merged into a single connector.
+  - [ ] Complete the remaining Confluence test coverage.
 
 ## 3. Technology & Packages
 * **Producer API Client**: `atlassian-python-api`
 * **Message Broker**: RabbitMQ (existing infrastructure)
-
-## Open items
-- Person WBA_ID for Jira and confluence should start with atlassian:: instead of confluence.
-- Consider merging confluence and Jira into a single connector.
