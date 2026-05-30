@@ -319,6 +319,7 @@ The set is fixed; add new types by updating `models.py` and re-running this scri
 | `AUTHORED_BY` |
 | `BELONGS_TO` |
 | `BLOCKS` |
+| `CHILD_OF` |
 | `COLLABORATES_ON` |
 | `COLLABORATOR` |
 | `COMMENTED_ON` |
@@ -333,12 +334,15 @@ The set is fixed; add new types by updating `models.py` and re-running this scri
 | `LEADS` |
 | `MAPS_TO` |
 | `MEMBER_OF` |
+| `MENTIONS` |
 | `MERGED_BY` |
 | `MERGED_INTO` |
+| `MODIFIED` |
 | `MODIFIES` |
 | `OWNS` |
 | `PARENT_OF` |
 | `PART_OF` |
+| `REACTED_TO` |
 | `REFERENCES` |
 | `RELATED_TO` |
 | `RELATES_TO` |

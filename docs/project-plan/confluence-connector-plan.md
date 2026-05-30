@@ -91,7 +91,7 @@ We will structure the implementation into five sequential phases to safely roll 
   - [x] Update the `ConfluenceConfig` SQLAlchemy model in `app/db/models/connector_configs.py` to support `url`, `email`, `encrypted_api_token`, `include_spaces`, and `exclude_spaces`.
   - [x] Generate and apply an Alembic database migration.
   - [x] Update the backend connectors API and Pydantic models to support the new schema.
-  - [ ] Update the Dash Connectors UI form to accept the URL, email, API token, and space filters.
+  - [x] Update the Dash Connectors UI form to accept the URL, email, API token, and space filters.
 * **Phase 3: The Confluence Producer**
   - [ ] Build the extraction script using `atlassian-python-api`.
   - [ ] Implement the delta sync logic using the `last_synced_at` cursor.
