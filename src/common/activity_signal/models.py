@@ -63,9 +63,12 @@ SUPPORTED_RELATIONSHIP_TYPES: frozenset[str] = frozenset(
         "COLLABORATES_ON",
         "COLLABORATOR",
         "CONTAINS",
+        "COMMENTED_ON",
+        "CREATED",
         "CREATED_BY",
         "DEPENDS_ON",
         "FROM",
+        "IN_SPACE",
         "IN_SPRINT",
         "INCLUDES",
         "LEADS",
@@ -333,6 +336,49 @@ class FileAttributes(BaseModel):
     custom: Optional[Dict[str, Any]] = None
 
 
+class SpaceAttributes(BaseModel):
+    """Mandatory attributes for a Confluence Space node."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    entity_type: Literal["Space"] = Field(default="Space", exclude=True)
+    key: str
+    name: str
+    type: Optional[str] = None
+    url: Optional[str] = None
+    custom: Optional[Dict[str, Any]] = None
+
+
+class PageAttributes(BaseModel):
+    """Mandatory attributes for a Confluence Page node."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    entity_type: Literal["Page"] = Field(default="Page", exclude=True)
+    title: str
+    created_at: str
+    last_updated_at: Optional[str] = None
+    url: Optional[str] = None
+    version: Optional[int] = None
+    status: Optional[str] = None
+    custom: Optional[Dict[str, Any]] = None
+
+
+class BlogpostAttributes(BaseModel):
+    """Mandatory attributes for a Confluence Blogpost node."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    entity_type: Literal["Blogpost"] = Field(default="Blogpost", exclude=True)
+    title: str
+    created_at: str
+    last_updated_at: Optional[str] = None
+    url: Optional[str] = None
+    version: Optional[int] = None
+    status: Optional[str] = None
+    custom: Optional[Dict[str, Any]] = None
+
+
 # ---------------------------------------------------------------------------
 # Discriminated union of all attributes models
 # ---------------------------------------------------------------------------
@@ -351,6 +397,9 @@ _AttributesUnion = Union[
     PersonAttributes,
     TeamAttributes,
     FileAttributes,
+    SpaceAttributes,
+    PageAttributes,
+    BlogpostAttributes,
 ]
 
 # Annotated alias used in the field declaration to attach the discriminator.
@@ -370,6 +419,9 @@ SUPPORTED_ENTITY_TYPES: frozenset[str] = frozenset(
         "Person",
         "Team",
         "File",
+        "Space",
+        "Page",
+        "Blogpost",
     }
 )
 
