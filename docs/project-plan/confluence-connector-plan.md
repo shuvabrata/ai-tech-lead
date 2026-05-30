@@ -79,7 +79,10 @@ We will enforce a strict testing strategy that prioritizes local determinism ove
 * **No Live E2E Tests for MVP**: Explicitly exclude live end-to-end tests against an actual Atlassian Cloud instance in the automated suite to avoid rate-limiting and mutation-based flakiness. Rely on manual E2E verification during development.
 
 ## 2. Implementation Phases (Agreed)
-We will structure the implementation into four sequential phases to safely roll out the connector:
+We will structure the implementation into five sequential phases to safely roll out the connector:
+* **Phase 0: Pre-requisite - Access & Validation**
+  * Create API access tokens for Confluence using a test account.
+  * Write a sample Python program using `atlassian-python-api` to validate authentication and successful connection to the workspace.
 * **Phase 1: Shared Schema & Graph Models**
   * Update `src/common/activity_signal/models.py` with `Space`, `Page`, and `Blogpost` attribute payloads.
   * Update `src/connectors/neo4j_db/models.py` with new dataclasses and `merge_space`, `merge_page`, `merge_blogpost` functions.
