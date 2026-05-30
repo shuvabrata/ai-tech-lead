@@ -94,7 +94,12 @@ We will structure the implementation into five sequential phases to safely roll 
   - [x] Update the Dash Connectors UI form to accept the URL, email, API token, and space filters.
 * **Phase 3: The Confluence Producer**
   - [ ] Build the extraction script using `atlassian-python-api`.
+    - **Prep Decision**: Use `asyncio.to_thread()` to wrap synchronous API calls to maintain the async producer pipeline.
+    - **Prep Decision**: Structure fetching logic into distinct functions (e.g., `fetch_spaces`, `fetch_cql_results`) in `fetch_confluence.py` mirroring the prep script.
   - [ ] Implement the delta sync logic using the `last_synced_at` cursor.
+    - **Prep Decision**: Utilize Confluence Query Language (CQL) (e.g., `lastModified >= "YYYY-MM-DD"`) for efficient fetching of recently changed Pages and Blogposts.
+  - [ ] Parse page bodies for inline relationships.
+    - **Prep Decision**: Use `BeautifulSoup` (with `lxml`) to parse the `body.storage` format and reliably extract `@mentions` and Jira macro links.
   - [ ] Emit the bundled delta `ActivitySignal` payloads to RabbitMQ.
 * **Phase 4: The Neo4j Consumer**
   - [ ] Add handlers in `src/connectors/consumers/sinks/neo4j_sink.py` to parse incoming Confluence signals and call the new merge functions.
