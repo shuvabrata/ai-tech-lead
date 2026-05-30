@@ -40,6 +40,7 @@ DLQ_NAME: str = "activity_signals_dlq"
 SOURCE_QUEUES: list[tuple[str, str]] = [
     ("github_queue", "github.#"),
     ("jira_queue", "jira.#"),
+    ("confluence_queue", "confluence.#"),
 ]
 
 

@@ -1,0 +1,28 @@
+# Use Python 3.14.2 slim image as base (matches local development environment)
+FROM python:3.14.2-slim
+
+# Set working directory
+WORKDIR /app
+
+ENV PYTHONPATH=/app
+
+# Copy requirements file first for better layer caching
+COPY requirements.confluence-producer.txt /app/requirements.txt
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy connector code and shared common modules
+COPY src/connectors/ /app/connectors
+COPY src/common/ /app/common
+
+# Create non-root user for security
+RUN useradd -m -u 1000 -s /bin/bash appuser && \
+    mkdir -p /var/log/confluence-producer && \
+    chown -R appuser:appuser /var/log/confluence-producer /app
+
+# Switch to non-root user
+USER appuser
+
+# Run the producer (one-shot: exits after all accounts are processed)
+CMD ["python", "connectors/producers/confluence/main.py"]

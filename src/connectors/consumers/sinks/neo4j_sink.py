@@ -24,6 +24,7 @@ from common.activity_signal.models import Relationship as SignalRelationship
 from common.activity_signal.wba_node_id import wba_format, wba_node_id
 from connectors.commons.person_cache import PersonCache
 from connectors.neo4j_db.models import (
+    Blogpost,
     Commit,
     Epic,
     File,
@@ -31,11 +32,14 @@ from connectors.neo4j_db.models import (
     Issue,
     Person,
     Project,
+    Page,
     PullRequest,
     Repository,
     Sprint,
+    Space,
     Team,
     Relationship as DbRelationship,
+    merge_blogpost,
     merge_commit,
     merge_epic,
     merge_file,
@@ -43,10 +47,12 @@ from connectors.neo4j_db.models import (
     merge_issue,
     merge_person,
     merge_project,
+    merge_page,
     merge_pull_request,
     merge_relationship,
     merge_repository,
     merge_sprint,
+    merge_space,
     merge_team,
 )
 
@@ -66,6 +72,14 @@ def _label(entity_type: str) -> str:
     stable hook for future overrides and for test assertions.
     """
     return entity_type
+
+
+def _sync_timestamp(signal: ActivitySignal) -> str:
+    """Return the sync timestamp to persist on nodes updated by the consumer."""
+    ingestion_time = signal.ingestion_time
+    if ingestion_time is not None:
+        return ingestion_time.isoformat()
+    return datetime.now(timezone.utc).isoformat()
 
 
 # ---------------------------------------------------------------------------
@@ -182,6 +196,55 @@ def _handle_repository(session: Session, signal: ActivitySignal) -> None:
     )
     db_rels = _to_db_relationships(session, signal.relationships, node_id, "Repository")
     merge_repository(session, repo, relationships=db_rels)
+
+
+def _handle_space(session: Session, signal: ActivitySignal) -> None:
+    attrs = signal.attributes.model_dump()  # type: ignore[union-attr]
+    node_id = wba_node_id(signal)
+    space = Space(
+        id=node_id,
+        key=attrs.get("key", ""),
+        name=attrs.get("name", ""),
+        type=attrs.get("type"),
+        url=attrs.get("url"),
+        _last_synced_at=_sync_timestamp(signal),
+    )
+    db_rels = _to_db_relationships(session, signal.relationships, node_id, "Space")
+    merge_space(session, space, relationships=db_rels)
+
+
+def _handle_page(session: Session, signal: ActivitySignal) -> None:
+    attrs = signal.attributes.model_dump()  # type: ignore[union-attr]
+    node_id = wba_node_id(signal)
+    page = Page(
+        id=node_id,
+        title=attrs.get("title", ""),
+        created_at=attrs.get("created_at", ""),
+        last_updated_at=attrs.get("last_updated_at"),
+        url=attrs.get("url"),
+        version=attrs.get("version"),
+        status=attrs.get("status"),
+        _last_synced_at=_sync_timestamp(signal),
+    )
+    db_rels = _to_db_relationships(session, signal.relationships, node_id, "Page")
+    merge_page(session, page, relationships=db_rels)
+
+
+def _handle_blogpost(session: Session, signal: ActivitySignal) -> None:
+    attrs = signal.attributes.model_dump()  # type: ignore[union-attr]
+    node_id = wba_node_id(signal)
+    blogpost = Blogpost(
+        id=node_id,
+        title=attrs.get("title", ""),
+        created_at=attrs.get("created_at", ""),
+        last_updated_at=attrs.get("last_updated_at"),
+        url=attrs.get("url"),
+        version=attrs.get("version"),
+        status=attrs.get("status"),
+        _last_synced_at=_sync_timestamp(signal),
+    )
+    db_rels = _to_db_relationships(session, signal.relationships, node_id, "Blogpost")
+    merge_blogpost(session, blogpost, relationships=db_rels)
 
 
 def _handle_commit(session: Session, signal: ActivitySignal) -> None:
@@ -457,6 +520,9 @@ _HANDLERS: dict[str, Callable[[Session, ActivitySignal], None]] = {
     "Commit": _handle_commit,
     "PullRequest": _handle_pull_request,
     # Person is handled directly in upsert_signal to support PersonCache injection
+    "Space": _handle_space,
+    "Page": _handle_page,
+    "Blogpost": _handle_blogpost,
     "Team": _handle_team,
     "Project": _handle_project,
     "Initiative": _handle_initiative,
