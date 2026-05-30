@@ -23,8 +23,11 @@ FIELD_TOOLTIPS: Dict[str, Dict[str, str]] = {
         "channel_name": "The display name of the Microsoft Teams channel.",
     },
     "confluence": {
-        "space_key": "The unique key of the Confluence space (e.g., ENG).",
-        "space_name": "The display name of the Confluence space.",
+        "url": "The base URL of your Confluence workspace (e.g., https://your-company.atlassian.net).",
+        "email": "The email address associated with your Confluence account.",
+        "api_token": "Your Atlassian API token for authentication.",
+        "include_spaces": "Optional. A comma-separated list of Confluence Space Keys to sync (e.g., ENG, HR). If left blank, all accessible spaces will be synced.",
+        "exclude_spaces": "Optional. A comma-separated list of Confluence Space Keys to ignore.",
     },
     "google_docs": {
         "drive_id": "The unique identifier of the Google Drive or Shared Drive.",

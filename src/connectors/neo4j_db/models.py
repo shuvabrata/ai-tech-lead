@@ -685,6 +685,92 @@ class PullRequest:
 
 
 # ============================================================================
+# LAYER 9: Confluence
+# ============================================================================
+
+@dataclass
+class Space:
+    """Space node representing a Confluence Space."""
+    id: str
+    key: str
+    name: str
+    type: Optional[str] = None
+    url: Optional[str] = None
+    _last_synced_at: Optional[str] = None
+    
+    def to_neo4j_properties(self) -> Dict[str, Any]:
+        """Convert to Neo4j properties."""
+        return {k: v for k, v in asdict(self).items() if v is not None}
+    
+    def print_cli(self) -> None:
+        """Print the Space object in an easy-to-read CLI format."""
+        print(f"\n{'='*60}")
+        print(f"SPACE: {self.name}")
+        print(f"{'='*60}")
+        print(f"  ID:          {self.id}")
+        print(f"  Key:         {self.key}")
+        print(f"  Type:        {self.type}")
+        print(f"  URL:         {self.url}")
+        print(f"{'='*60}\n")
+
+
+@dataclass
+class Page:
+    """Page node representing a Confluence Page."""
+    id: str
+    title: str
+    created_at: str
+    last_updated_at: Optional[str] = None
+    url: Optional[str] = None
+    version: Optional[int] = None
+    status: Optional[str] = None
+    _last_synced_at: Optional[str] = None
+    
+    def to_neo4j_properties(self) -> Dict[str, Any]:
+        """Convert to Neo4j properties."""
+        return {k: v for k, v in asdict(self).items() if v is not None}
+
+    def print_cli(self) -> None:
+        """Print the Page object in an easy-to-read CLI format."""
+        print(f"\n{'='*60}")
+        print(f"PAGE: {self.title}")
+        print(f"{'='*60}")
+        print(f"  ID:              {self.id}")
+        print(f"  Created At:      {self.created_at}")
+        print(f"  Last Updated At: {self.last_updated_at}")
+        print(f"  Version:         {self.version}")
+        print(f"  Status:          {self.status}")
+        print(f"{'='*60}\n")
+
+
+@dataclass
+class Blogpost:
+    """Blogpost node representing a Confluence Blogpost."""
+    id: str
+    title: str
+    created_at: str
+    last_updated_at: Optional[str] = None
+    url: Optional[str] = None
+    version: Optional[int] = None
+    status: Optional[str] = None
+    _last_synced_at: Optional[str] = None
+    
+    def to_neo4j_properties(self) -> Dict[str, Any]:
+        """Convert to Neo4j properties."""
+        return {k: v for k, v in asdict(self).items() if v is not None}
+
+    def print_cli(self) -> None:
+        """Print the Blogpost object in an easy-to-read CLI format."""
+        print(f"\n{'='*60}")
+        print(f"BLOGPOST: {self.title}")
+        print(f"{'='*60}")
+        print(f"  ID:              {self.id}")
+        print(f"  Created At:      {self.created_at}")
+        print(f"  Last Updated At: {self.last_updated_at}")
+        print(f"{'='*60}\n")
+
+
+# ============================================================================
 # RELATIONSHIP DATACLASS
 # ============================================================================
 
@@ -766,6 +852,14 @@ DIRECTIONAL_RELATIONSHIPS = {
     "REVIEWED_BY": "REVIEWED",      # PullRequest → Person (reviewed by) / Person ← PullRequest (reviewed) - with state property
     "REQUESTED_REVIEWER": "REVIEW_REQUESTED_BY",  # PullRequest → Person / Person ← PullRequest
     "MERGED_BY": "MERGED",          # PullRequest → Person (merged by) / Person ← PullRequest (merged)
+    
+    # Layer 9 (Confluence)
+    "CHILD_OF": "PARENT_OF",        # Page → Page (child of) / Page ← Page (parent of)
+    "IN_SPACE": "CONTAINS",         # Page → Space (in space) / Space ← Page (contains)
+    "MENTIONS": "MENTIONED_IN",     # Page → Person (mentions) / Person ← Page (mentioned in)
+    "COMMENTED_ON": "HAS_COMMENT",  # Person → Page (commented on) / Page ← Person (has comment)
+    "REACTED_TO": "HAS_REACTION",   # Person → Page (reacted to) / Page ← Person (has reaction)
+    "MODIFIED": "MODIFIED_BY",      # Person → Page (modified) / Page ← Person (modified by)
 }
 
 
@@ -809,6 +903,11 @@ def create_constraints(session: Session, layers: Optional[List[int]] = None) -> 
         ],
         8: [
             "CREATE CONSTRAINT pull_request_id IF NOT EXISTS FOR (pr:PullRequest) REQUIRE pr.id IS UNIQUE"
+        ],
+        9: [
+            "CREATE CONSTRAINT space_id IF NOT EXISTS FOR (s:Space) REQUIRE s.id IS UNIQUE",
+            "CREATE CONSTRAINT page_id IF NOT EXISTS FOR (p:Page) REQUIRE p.id IS UNIQUE",
+            "CREATE CONSTRAINT blogpost_id IF NOT EXISTS FOR (b:Blogpost) REQUIRE b.id IS UNIQUE"
         ]
     }
     
@@ -1526,6 +1625,86 @@ def merge_relationship(session: Session, relationship: Relationship) -> None:
         """
         
         session.run(reverse_query, **params)
+
+
+# ============================================================================
+# LAYER 9 MERGE FUNCTIONS
+# ============================================================================
+
+def merge_space(session: Session, space: Space, relationships: Optional[List[Relationship]] = None) -> None:
+    """
+    Merge a Space node into Neo4j.
+    """
+    props = space.to_neo4j_properties()
+    
+    set_clauses = []
+    if _has_value(props, 'key'): set_clauses.append("s.key = $key")
+    if _has_value(props, 'name'): set_clauses.append("s.name = $name")
+    if _has_value(props, 'type'): set_clauses.append("s.type = $type")
+    if _has_value(props, 'url'): set_clauses.append("s.url = $url")
+    if _has_value(props, '_last_synced_at'): set_clauses.append("s._last_synced_at = datetime($_last_synced_at)")
+    
+    if set_clauses:
+        query = f"MERGE (s:Space {{id: $id}}) SET {', '.join(set_clauses)} RETURN s"
+    else:
+        query = "MERGE (s:Space {id: $id}) RETURN s"
+        
+    session.run(query, **props)
+    
+    for rel in (relationships or []):
+        merge_relationship(session, rel)
+
+
+def merge_page(session: Session, page: Page, relationships: Optional[List[Relationship]] = None) -> None:
+    """
+    Merge a Page node into Neo4j.
+    """
+    props = page.to_neo4j_properties()
+    
+    set_clauses = []
+    if _has_value(props, 'title'): set_clauses.append("p.title = $title")
+    if _has_value(props, 'created_at'): set_clauses.append("p.created_at = datetime($created_at)")
+    if _has_value(props, 'last_updated_at'): set_clauses.append("p.last_updated_at = datetime($last_updated_at)")
+    if _has_value(props, 'url'): set_clauses.append("p.url = $url")
+    if _has_value(props, 'version'): set_clauses.append("p.version = $version")
+    if _has_value(props, 'status'): set_clauses.append("p.status = $status")
+    if _has_value(props, '_last_synced_at'): set_clauses.append("p._last_synced_at = datetime($_last_synced_at)")
+    
+    if set_clauses:
+        query = f"MERGE (p:Page {{id: $id}}) SET {', '.join(set_clauses)} RETURN p"
+    else:
+        query = "MERGE (p:Page {id: $id}) RETURN p"
+        
+    session.run(query, **props)
+    
+    for rel in (relationships or []):
+        merge_relationship(session, rel)
+
+
+def merge_blogpost(session: Session, blogpost: Blogpost, relationships: Optional[List[Relationship]] = None) -> None:
+    """
+    Merge a Blogpost node into Neo4j.
+    """
+    props = blogpost.to_neo4j_properties()
+    
+    set_clauses = []
+    if _has_value(props, 'title'): set_clauses.append("b.title = $title")
+    if _has_value(props, 'created_at'): set_clauses.append("b.created_at = datetime($created_at)")
+    if _has_value(props, 'last_updated_at'): set_clauses.append("b.last_updated_at = datetime($last_updated_at)")
+    if _has_value(props, 'url'): set_clauses.append("b.url = $url")
+    if _has_value(props, 'version'): set_clauses.append("b.version = $version")
+    if _has_value(props, 'status'): set_clauses.append("b.status = $status")
+    if _has_value(props, '_last_synced_at'): set_clauses.append("b._last_synced_at = datetime($_last_synced_at)")
+    
+    if set_clauses:
+        query = f"MERGE (b:Blogpost {{id: $id}}) SET {', '.join(set_clauses)} RETURN b"
+    else:
+        query = "MERGE (b:Blogpost {id: $id}) RETURN b"
+        
+    session.run(query, **props)
+    
+    for rel in (relationships or []):
+        merge_relationship(session, rel)
 
 
 # ============================================================================

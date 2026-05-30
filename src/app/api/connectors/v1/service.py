@@ -21,6 +21,7 @@ SENSITIVE_FIELDS: Dict[str, Dict[str, str]] = {
     "github": {"access_token": "encrypted_access_token"},
     "jira": {"api_token": "encrypted_api_token"},
     "email": {"password": "encrypted_password"},
+    "confluence": {"api_token": "encrypted_api_token"},
 }
 
 REQUEST_FIELDS: Dict[str, List[str]] = {
@@ -35,7 +36,14 @@ REQUEST_FIELDS: Dict[str, List[str]] = {
     "jira": ["url", "email", "api_token", "enabled"],
     "slack": ["channel_id", "channel_name", "enabled"],
     "teams": ["channel_id", "channel_name", "enabled"],
-    "confluence": ["space_key", "space_name", "enabled"],
+    "confluence": [
+        "url",
+        "email",
+        "api_token",
+        "include_spaces",
+        "exclude_spaces",
+        "enabled",
+    ],
     "google_docs": ["drive_id", "drive_name", "enabled"],
     "sharepoint": ["site_url", "enabled"],
     "email": [
@@ -65,7 +73,17 @@ RESPONSE_FIELDS: Dict[str, List[str]] = {
     "jira": ["id", "url", "email", "api_token", "created_at", "updated_at", "enabled"],
     "slack": ["id", "channel_id", "channel_name", "created_at", "updated_at", "enabled"],
     "teams": ["id", "channel_id", "channel_name", "created_at", "updated_at", "enabled"],
-    "confluence": ["id", "space_key", "space_name", "created_at", "updated_at", "enabled"],
+    "confluence": [
+        "id",
+        "url",
+        "email",
+        "api_token",
+        "include_spaces",
+        "exclude_spaces",
+        "created_at",
+        "updated_at",
+        "enabled",
+    ],
     "google_docs": ["id", "drive_id", "drive_name", "created_at", "updated_at", "enabled"],
     "sharepoint": ["id", "site_url", "created_at", "updated_at", "enabled"],
     "email": [
@@ -223,8 +241,29 @@ def _validate_jira_item_payload(data: Dict[str, Any], item_id: Optional[int]) ->
     if item_id is None and (not isinstance(api_token, str) or not api_token.strip()):
         raise ValueError("Jira api_token is required")
 
+    email = data.get("email")
+    if not isinstance(email, str) or not email.strip():
+        raise ValueError("Jira email is required")
+    
     if "api_token" in data and isinstance(api_token, str) and not api_token.strip():
         raise ValueError("Jira api_token cannot be empty")
+
+
+def _validate_confluence_item_payload(data: Dict[str, Any], item_id: Optional[int]) -> None:
+    url = data.get("url")
+    if not isinstance(url, str) or not url.strip():
+        raise ValueError("Confluence url is required")
+
+    email = data.get("email")
+    if not isinstance(email, str) or not email.strip():
+        raise ValueError("Confluence email is required")
+
+    api_token = data.get("api_token")
+    if item_id is None and (not isinstance(api_token, str) or not api_token.strip()):
+        raise ValueError("Confluence api_token is required")
+
+    if "api_token" in data and isinstance(api_token, str) and not api_token.strip():
+        raise ValueError("Confluence api_token cannot be empty")
 
 
 async def list_connectors(db: AsyncSession) -> List[Dict[str, Any]]:
@@ -349,6 +388,8 @@ async def save_config_item(
         _validate_github_item_payload(data, item_id)
     if connector_type == "jira":
         _validate_jira_item_payload(data, item_id)
+    if connector_type == "confluence":
+        _validate_confluence_item_payload(data, item_id)
     allowed_fields = set(REQUEST_FIELDS[connector_type])
     encrypted_map = SENSITIVE_FIELDS.get(connector_type, {})
 

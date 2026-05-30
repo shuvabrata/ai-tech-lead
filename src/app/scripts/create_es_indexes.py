@@ -49,6 +49,9 @@ MANAGED_INDEXES: list[tuple[str, str]] = [
     ("jira", "Initiative"),
     ("jira", "Sprint"),
     ("jira", "Person"),
+    ("confluence", "Space"),
+    ("confluence", "Page"),
+    ("confluence", "Blogpost"),
 ]
 
 
@@ -156,6 +159,7 @@ _SHARED_MAPPINGS: dict = {
         "comments":          {"type": "integer"},
         "review_comments":   {"type": "integer"},
         "pull_request_number": {"type": "integer"},
+        "version":           {"type": "integer"},
 
         # --- Boolean fields ---
         "is_private":    {"type": "boolean"},

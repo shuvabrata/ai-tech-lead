@@ -38,6 +38,9 @@ from .components.config_forms import (
 
 TIMEOUT_SECONDS = settings.HTTP_REQUEST_TIMEOUT
 
+# Fields that should be parsed from comma-separated strings to lists
+ARRAY_FIELDS = {'include_spaces', 'exclude_spaces', 'branch_name_patterns', 'extraction_sources'}
+
 
 def _get_api_base_url() -> str:
     return os.getenv("API_BASE_URL", "http://localhost:8000")
@@ -479,7 +482,7 @@ def render_items_list(store: Dict[str, Any] | None):
                     header_text = f"{label}: last configured at {updated_at}"
 
         is_active = item.get("enabled", True)
-        fields = [k for k in item.keys() if k not in ("id", "connector_id", "created_at", "updated_at", "enabled")]
+        fields = [k for k in item.keys() if k not in ("id", "connector_id", "created_at", "updated_at", "enabled") and not k.endswith("token") and not k.endswith("password")]
         field_rows = []
         for key in fields:
             value = _format_display_value(item.get(key))
@@ -874,6 +877,14 @@ def _get_spec_fields(connector_type: str, section: str) -> List[Dict[str, Any]]:
 
 
 def _coerce_field_value(spec: Dict[str, Any], value: Any) -> Any:
+    key = spec.get("key")
+    if key in ARRAY_FIELDS:
+        if value is None or str(value).strip() == "":
+            return []
+        if isinstance(value, list):
+            return value
+        return [s.strip() for s in str(value).split(",") if s.strip()]
+
     input_type = spec.get("input_type")
     if input_type == FIELD_TEXTAREA and spec.get("is_list"):
         if value is None:
@@ -897,6 +908,9 @@ def _coerce_field_value(spec: Dict[str, Any], value: Any) -> Any:
 
 
 def _normalize_field_value(connector_type: str | None, section: str, key: str, value: Any) -> Any:
+    if key in ARRAY_FIELDS and isinstance(value, list):
+        return ", ".join(value)
+
     if connector_type:
         spec_fields = _get_spec_fields(connector_type, section)
         for spec in spec_fields:

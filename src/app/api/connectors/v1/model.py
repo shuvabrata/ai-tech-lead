@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import List, Optional, Dict, Any
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class ConnectorConfigUpdateRequest(BaseModel):
@@ -41,8 +41,11 @@ class TeamsConfigItemRequest(BaseModel):
 
 
 class ConfluenceConfigItemRequest(BaseModel):
-    space_key: str
-    space_name: str
+    url: str
+    email: str
+    api_token: Optional[str] = None
+    include_spaces: List[str] = Field(default_factory=list)
+    exclude_spaces: List[str] = Field(default_factory=list)
     enabled: bool = True
 
 
@@ -130,8 +133,11 @@ class TeamsConfigItem(BaseModel):
 
 class ConfluenceConfigItem(BaseModel):
     id: int
-    space_key: str
-    space_name: str
+    url: str
+    email: str
+    api_token: Optional[str] = None
+    include_spaces: List[str]
+    exclude_spaces: List[str]
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     enabled: bool

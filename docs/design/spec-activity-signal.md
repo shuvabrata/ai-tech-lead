@@ -39,7 +39,7 @@ This spec is derived directly from those models — the code is authoritative.
 | `event_time` | `datetime` | ✓ | Timestamp of the event in the source system (updated_at / created_at). |
 | `ingestion_time` | `Optional[datetime]` |  | Timestamp set by the consumer when the message is received. Must be None when emitted by a producer. |
 | `version` | `str` |  | Schema version string. |
-| `attributes` | `ProjectAttributes | InitiativeAttributes | EpicAttributes | SprintAttributes | IssueAttributes | RepositoryAttributes | CommitAttributes | PullRequestAttributes | PersonAttributes | TeamAttributes | FileAttributes` | ✓ | Entity-specific attributes.  Discriminated by entity_type. |
+| `attributes` | `ProjectAttributes | InitiativeAttributes | EpicAttributes | SprintAttributes | IssueAttributes | RepositoryAttributes | CommitAttributes | PullRequestAttributes | PersonAttributes | TeamAttributes | FileAttributes | SpaceAttributes | PageAttributes | BlogpostAttributes` | ✓ | Entity-specific attributes.  Discriminated by entity_type. |
 | `relationships` | `list[Relationship]` |  | Observed relationships for this node at event_time. |
 | `entity_type` | `str` | | Exposes entity_type at the root level of ActivitySignal.
 
@@ -319,23 +319,30 @@ The set is fixed; add new types by updating `models.py` and re-running this scri
 | `AUTHORED_BY` |
 | `BELONGS_TO` |
 | `BLOCKS` |
+| `CHILD_OF` |
 | `COLLABORATES_ON` |
 | `COLLABORATOR` |
+| `COMMENTED_ON` |
 | `CONTAINS` |
+| `CREATED` |
 | `CREATED_BY` |
 | `DEPENDS_ON` |
 | `FROM` |
 | `INCLUDES` |
+| `IN_SPACE` |
 | `IN_SPRINT` |
 | `LEADS` |
 | `MAPS_TO` |
 | `MEMBER_OF` |
+| `MENTIONS` |
 | `MERGED_BY` |
 | `MERGED_INTO` |
+| `MODIFIED` |
 | `MODIFIES` |
 | `OWNS` |
 | `PARENT_OF` |
 | `PART_OF` |
+| `REACTED_TO` |
 | `REFERENCES` |
 | `RELATED_TO` |
 | `RELATES_TO` |

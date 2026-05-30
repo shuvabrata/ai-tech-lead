@@ -132,21 +132,41 @@ CONFIG_FORM_SPECS = {
     "confluence": {
         "connector_config": [],
         "item": {
-            "label": "Confluence Space",
+            "label": "Confluence Workspace",
             "fields": [
                 {
-                    "key": "space_key",
-                    "label": "Space Key",
+                    "key": "url",
+                    "label": "Workspace URL",
                     "input_type": FIELD_TEXT,
-                    "placeholder": "ENG",
+                    "placeholder": "https://my-company.atlassian.net",
                     "required": True,
                 },
                 {
-                    "key": "space_name",
-                    "label": "Space Name",
+                    "key": "email",
+                    "label": "Email Address",
                     "input_type": FIELD_TEXT,
-                    "placeholder": "Engineering",
+                    "placeholder": "you@company.com",
                     "required": True,
+                },
+                {
+                    "key": "api_token",
+                    "label": "API Token",
+                    "input_type": FIELD_PASSWORD,
+                    "placeholder": "Enter Atlassian API Token",
+                    "required": True,
+                    "secret": True,
+                },
+                {
+                    "key": "include_spaces",
+                    "label": "Include Spaces",
+                    "input_type": FIELD_TEXT,
+                    "placeholder": "Optional. Enter comma-separated Space Keys (e.g. ENG, FIN). Leave blank to sync all.",
+                },
+                {
+                    "key": "exclude_spaces",
+                    "label": "Exclude Spaces",
+                    "input_type": FIELD_TEXT,
+                    "placeholder": "Optional. Enter comma-separated Space Keys to ignore.",
                 },
             ],
         },
