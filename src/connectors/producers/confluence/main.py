@@ -32,7 +32,6 @@ from connectors.producers.confluence.confluence_config import (
 )
 from connectors.producers.confluence.confluence_settings import (
     get_lookback_days,
-    get_max_results_per_page,
 )
 from connectors.producers.confluence.confluence_helpers import (
     get_comments,
@@ -623,7 +622,6 @@ async def process_account(
 
     last_synced_at = await get_sync_cursor(_SOURCE, sync_resource_id)
     lookback_days = get_lookback_days()
-    max_results_per_page = get_max_results_per_page()
     since_date = last_synced_at or (datetime.now(timezone.utc) - timedelta(days=lookback_days))
 
     logger.info(
