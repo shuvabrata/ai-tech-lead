@@ -19,7 +19,7 @@ def _build_recent_content_cql(
     exclude_spaces: Optional[Sequence[str]] = None,
 ) -> str:
     date_str = since_date.strftime("%Y-%m-%d %H:%M")
-    clauses = [f'(type=page OR type=blogpost)', f'lastModified >= "{date_str}"']
+    clauses = ['(type=page OR type=blogpost)', f'lastModified >= "{date_str}"']
 
     include = [
         _normalize_space_key(space)
@@ -54,10 +54,6 @@ async def get_recent_content(
 ) -> List[Dict[str, Any]]:
     cql = _build_recent_content_cql(since_date, include_spaces, exclude_spaces)
     return await asyncio.to_thread(fetch_cql_results, confluence, cql)
-
-async def process_content_body(confluence, content_id: str) -> Tuple[Set[str], Set[str]]:
-    body = await asyncio.to_thread(fetch_page_body, confluence, content_id)
-    return await asyncio.to_thread(parse_body_for_relations, body)
 
 async def get_comments(confluence, content_id: str, content_type: str = "page") -> List[Dict[str, Any]]:
     return await asyncio.to_thread(fetch_page_comments, confluence, content_id, content_type)
