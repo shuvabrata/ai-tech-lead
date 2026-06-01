@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 from urllib.parse import parse_qs, urlparse
 
 from atlassian import Confluence
-
-from connectors.producers.confluence.confluence_settings import get_max_results_per_page
+from common.logger import logger
 
 
 def _next_cursor(next_link: str) -> str | None:
@@ -18,34 +17,42 @@ def fetch_content_likes(
     confluence: Confluence,
     content_id: str,
     content_type: str = "page",
-    limit: Optional[int] = None,
 ) -> List[Dict[str, Any]]:
     """Fetch the current users who like a page or blogpost."""
     content_type = (content_type or "page").lower()
     if content_type not in {"page", "blogpost"}:
         return []
 
-    limit = limit if limit is not None else get_max_results_per_page()
+    page_size = 25
 
     collection = "pages" if content_type == "page" else "blogposts"
     path = f"/api/v2/{collection}/{content_id}/likes/users"
     results: List[Dict[str, Any]] = []
     cursor: str | None = None
 
+    logger.debug(f"Fetching likes for {content_type} with ID: {content_id} using page size {page_size}")
+
     while True:
-        params = {"limit": limit}
+        params = {"limit": page_size}
         if cursor:
             params["cursor"] = cursor
 
+        logger.debug(f"Calling Confluence API: {path} with params: {params}")
         response = confluence.get(path, params=params)
-        results.extend(response.get("results", []))
+        page_results = response.get("results", [])
+        results.extend(page_results)
+        
+        logger.debug(f"Retrieved {len(page_results)} likes in this page. Total so far: {len(results)}")
 
         next_link = response.get("_links", {}).get("next")
         if not next_link:
+            logger.debug(f"No next link found. Finished fetching likes for {content_id}")
             break
 
         cursor = _next_cursor(next_link)
         if not cursor:
+            logger.debug(f"Next link found but no cursor. Finished fetching likes for {content_id}")
             break
-
+    
+    logger.info(f"Total likes fetched for {content_type} with ID {content_id}: {len(results)}")
     return results

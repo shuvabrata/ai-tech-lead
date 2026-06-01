@@ -1,5 +1,4 @@
 atlassian-python-api==4.0.7
 aio-pika==9.6.2
-asyncpg
+asyncpg==0.31.0
 pydantic==2.13.4
-requests
