@@ -666,7 +666,6 @@ async def process_account(
     recent_items = await get_recent_content(
         confluence,
         since_date,
-        limit=max_results_per_page,
         include_spaces=include_spaces,
         exclude_spaces=exclude_spaces,
     )

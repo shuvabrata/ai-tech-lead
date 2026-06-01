@@ -9,7 +9,6 @@ from connectors.producers.confluence.fetch_page_body import fetch_page_body
 from connectors.producers.confluence.fetch_page_comments import fetch_page_comments
 from connectors.producers.confluence.fetch_user_details import fetch_user_details
 from connectors.producers.confluence.parse_body_for_relations import parse_body_for_relations
-from connectors.producers.confluence.confluence_settings import get_max_results_per_page
 
 def _normalize_space_key(key: str) -> str:
     return key.strip().upper()
@@ -50,13 +49,11 @@ async def get_spaces(confluence) -> List[Dict[str, Any]]:
 async def get_recent_content(
     confluence,
     since_date: datetime,
-    limit: Optional[int] = None,
     include_spaces: Optional[Sequence[str]] = None,
     exclude_spaces: Optional[Sequence[str]] = None,
 ) -> List[Dict[str, Any]]:
-    limit = limit if limit is not None else get_max_results_per_page()
     cql = _build_recent_content_cql(since_date, include_spaces, exclude_spaces)
-    return await asyncio.to_thread(fetch_cql_results, confluence, cql, limit)
+    return await asyncio.to_thread(fetch_cql_results, confluence, cql)
 
 async def process_content_body(confluence, content_id: str) -> Tuple[Set[str], Set[str]]:
     body = await asyncio.to_thread(fetch_page_body, confluence, content_id)
