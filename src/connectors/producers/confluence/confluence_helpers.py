@@ -44,9 +44,8 @@ def _build_recent_content_cql(
 
     return " AND ".join(clauses) + " ORDER BY lastModified DESC"
 
-async def get_spaces(confluence, limit: Optional[int] = None) -> List[Dict[str, Any]]:
-    limit = limit if limit is not None else get_max_results_per_page()
-    return await asyncio.to_thread(fetch_spaces, confluence, limit)
+async def get_spaces(confluence) -> List[Dict[str, Any]]:
+    return await asyncio.to_thread(fetch_spaces, confluence)
 
 async def get_recent_content(
     confluence,

@@ -643,7 +643,7 @@ async def process_account(
         _normalize_space_key(space) for space in exclude_spaces if _normalize_space_key(space)
     }
 
-    spaces = await get_spaces(confluence, limit=max_results_per_page)
+    spaces = await get_spaces(confluence)
     for space in spaces:
         key = _normalize_space_key(space.get("key"))
         if include_space_keys and key not in include_space_keys:
