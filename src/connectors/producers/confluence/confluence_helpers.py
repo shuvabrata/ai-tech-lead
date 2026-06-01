@@ -19,7 +19,7 @@ def _build_recent_content_cql(
     include_spaces: Optional[Sequence[str]] = None,
     exclude_spaces: Optional[Sequence[str]] = None,
 ) -> str:
-    date_str = since_date.strftime("%Y-%m-%d")
+    date_str = since_date.strftime("%Y-%m-%d %H:%M")
     clauses = [f'(type=page OR type=blogpost)', f'lastModified >= "{date_str}"']
 
     include = [
