@@ -132,8 +132,6 @@ def build_person_signal(
 ) -> Optional[ActivitySignal]:
     """Build an ActivitySignal for a Person (Jira user)."""
     account_id = user_data.get("account_id", "")
-    # Todo: Find out how we can set wba_id as atlassian::Person::557058:62105664-0fbe-4128-ab5c-3b0071e8f7f5"
-    person_id = wba_format(_SOURCE, "Person", account_id)
     try:
         attrs = PersonAttributes(
             full_name=user_data.get("display_name") or account_id,
