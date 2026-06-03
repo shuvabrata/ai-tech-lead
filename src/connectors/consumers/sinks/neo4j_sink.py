@@ -24,6 +24,7 @@ from common.activity_signal.models import Relationship as SignalRelationship
 from common.activity_signal.wba_node_id import wba_format, wba_node_id
 from connectors.commons.person_cache import PersonCache
 from connectors.neo4j_db.models import (
+    Blogpost,
     Commit,
     Epic,
     File,
@@ -31,11 +32,14 @@ from connectors.neo4j_db.models import (
     Issue,
     Person,
     Project,
+    Page,
     PullRequest,
     Repository,
     Sprint,
+    Space,
     Team,
     Relationship as DbRelationship,
+    merge_blogpost,
     merge_commit,
     merge_epic,
     merge_file,
@@ -43,10 +47,12 @@ from connectors.neo4j_db.models import (
     merge_issue,
     merge_person,
     merge_project,
+    merge_page,
     merge_pull_request,
     merge_relationship,
     merge_repository,
     merge_sprint,
+    merge_space,
     merge_team,
 )
 
@@ -66,6 +72,14 @@ def _label(entity_type: str) -> str:
     stable hook for future overrides and for test assertions.
     """
     return entity_type
+
+
+def _sync_timestamp(signal: ActivitySignal) -> str:
+    """Return the sync timestamp to persist on nodes updated by the consumer."""
+    ingestion_time = signal.ingestion_time
+    if ingestion_time is not None:
+        return ingestion_time.isoformat()
+    return datetime.now(timezone.utc).isoformat()
 
 
 # ---------------------------------------------------------------------------
@@ -163,6 +177,81 @@ def _to_db_relationships(
     return result
 
 
+def _rehome_person_stub(session: Session, stale_person_id: str, canonical_person_id: str) -> None:
+    """Move relationships from a stale Person stub onto the canonical Person node.
+
+    This handles the case where content relationships created a bare
+    ``confluence::Person::<account_id>`` node before the later Person signal was
+    deduplicated onto an existing canonical Person (for example, a Jira-backed
+    Person with the same Atlassian account_id).
+    """
+    if stale_person_id == canonical_person_id:
+        return
+
+    outgoing = session.run(
+        (
+            "MATCH (stale:Person {id: $stale_id})-[r]->(other) "
+            "RETURN type(r) AS rel_type, labels(other) AS other_labels, "
+            "other.id AS other_id, properties(r) AS props"
+        ),
+        stale_id=stale_person_id,
+    ).data()
+    incoming = session.run(
+        (
+            "MATCH (other)-[r]->(stale:Person {id: $stale_id}) "
+            "RETURN type(r) AS rel_type, labels(other) AS other_labels, "
+            "other.id AS other_id, properties(r) AS props"
+        ),
+        stale_id=stale_person_id,
+    ).data()
+
+    migrated = 0
+    for row in outgoing:
+        other_labels = row.get("other_labels") or []
+        if not other_labels:
+            continue
+        merge_relationship(
+            session,
+            DbRelationship(
+                type=row["rel_type"],
+                from_id=canonical_person_id,
+                to_id=row["other_id"],
+                from_type="Person",
+                to_type=other_labels[0],
+                properties=row.get("props") or {},
+            ),
+        )
+        migrated += 1
+
+    for row in incoming:
+        other_labels = row.get("other_labels") or []
+        if not other_labels:
+            continue
+        merge_relationship(
+            session,
+            DbRelationship(
+                type=row["rel_type"],
+                from_id=row["other_id"],
+                to_id=canonical_person_id,
+                from_type=other_labels[0],
+                to_type="Person",
+                properties=row.get("props") or {},
+            ),
+        )
+        migrated += 1
+
+    session.run(
+        "MATCH (stale:Person {id: $stale_id}) DETACH DELETE stale",
+        stale_id=stale_person_id,
+    )
+    logger.info(
+        "Rehomed stale Person stub stale_id=%s canonical_id=%s relationships_migrated=%s",
+        stale_person_id,
+        canonical_person_id,
+        migrated,
+    )
+
+
 # ---------------------------------------------------------------------------
 # Entity-type handlers
 # ---------------------------------------------------------------------------
@@ -182,6 +271,55 @@ def _handle_repository(session: Session, signal: ActivitySignal) -> None:
     )
     db_rels = _to_db_relationships(session, signal.relationships, node_id, "Repository")
     merge_repository(session, repo, relationships=db_rels)
+
+
+def _handle_space(session: Session, signal: ActivitySignal) -> None:
+    attrs = signal.attributes.model_dump()  # type: ignore[union-attr]
+    node_id = wba_node_id(signal)
+    space = Space(
+        id=node_id,
+        key=attrs.get("key", ""),
+        name=attrs.get("name", ""),
+        type=attrs.get("type"),
+        url=attrs.get("url"),
+        _last_synced_at=_sync_timestamp(signal),
+    )
+    db_rels = _to_db_relationships(session, signal.relationships, node_id, "Space")
+    merge_space(session, space, relationships=db_rels)
+
+
+def _handle_page(session: Session, signal: ActivitySignal) -> None:
+    attrs = signal.attributes.model_dump()  # type: ignore[union-attr]
+    node_id = wba_node_id(signal)
+    page = Page(
+        id=node_id,
+        title=attrs.get("title", ""),
+        created_at=attrs.get("created_at", ""),
+        last_updated_at=attrs.get("last_updated_at"),
+        url=attrs.get("url"),
+        version=attrs.get("version"),
+        status=attrs.get("status"),
+        _last_synced_at=_sync_timestamp(signal),
+    )
+    db_rels = _to_db_relationships(session, signal.relationships, node_id, "Page")
+    merge_page(session, page, relationships=db_rels)
+
+
+def _handle_blogpost(session: Session, signal: ActivitySignal) -> None:
+    attrs = signal.attributes.model_dump()  # type: ignore[union-attr]
+    node_id = wba_node_id(signal)
+    blogpost = Blogpost(
+        id=node_id,
+        title=attrs.get("title", ""),
+        created_at=attrs.get("created_at", ""),
+        last_updated_at=attrs.get("last_updated_at"),
+        url=attrs.get("url"),
+        version=attrs.get("version"),
+        status=attrs.get("status"),
+        _last_synced_at=_sync_timestamp(signal),
+    )
+    db_rels = _to_db_relationships(session, signal.relationships, node_id, "Blogpost")
+    merge_blogpost(session, blogpost, relationships=db_rels)
 
 
 def _handle_commit(session: Session, signal: ActivitySignal) -> None:
@@ -271,6 +409,16 @@ def _handle_person(
                 url=url,
             )
             if person_id:
+                signal_node_id = wba_node_id(signal)
+                if person_id != signal_node_id:
+                    logger.info(
+                        "Deduplicated Person signal source=%s signal_id=%s signal_node_id=%s canonical_id=%s",
+                        signal.source,
+                        signal.id,
+                        signal_node_id,
+                        person_id,
+                    )
+                    _rehome_person_stub(session, signal_node_id, person_id)
                 identity_id = wba_format("github", "IdentityMapping", login)
                 person_cache.queue_identity_mapping(
                     person_id=person_id,
@@ -298,13 +446,66 @@ def _handle_person(
                 name=name,
                 provider="jira",
                 external_id=account_id,
+                account_id=account_id,
             )
             if person_id:
+                signal_node_id = wba_node_id(signal)
+                if person_id != signal_node_id:
+                    logger.info(
+                        "Deduplicated Person signal source=%s signal_id=%s signal_node_id=%s canonical_id=%s",
+                        signal.source,
+                        signal.id,
+                        signal_node_id,
+                        person_id,
+                    )
+                    _rehome_person_stub(session, signal_node_id, person_id)
                 identity_id = wba_format("jira", "IdentityMapping", account_id)
                 person_cache.queue_identity_mapping(
                     person_id=person_id,
                     identity_id=identity_id,
                     provider="Jira",
+                    username=name,
+                    email=email or "",
+                    last_updated_at=datetime.now(timezone.utc).isoformat(),
+                )
+                if signal.relationships:
+                    db_rels = _to_db_relationships(session, signal.relationships, person_id, "Person")
+                    for rel in db_rels:
+                        merge_relationship(session, rel)
+            return person_id
+
+        elif signal.source == "confluence":
+            account_id = attrs.get("account_id", "")
+            name = attrs.get("full_name", "") or account_id
+            raw_email = attrs.get("email")
+            email = raw_email.lower() if raw_email else None
+            url = attrs.get("url")
+
+            person_id, _ = person_cache.get_or_create_person(
+                session,
+                email=email if email else None,
+                name=name,
+                provider="confluence",
+                external_id=account_id,
+                url=url,
+                account_id=account_id,
+            )
+            if person_id:
+                signal_node_id = wba_node_id(signal)
+                if person_id != signal_node_id:
+                    logger.info(
+                        "Deduplicated Person signal source=%s signal_id=%s signal_node_id=%s canonical_id=%s",
+                        signal.source,
+                        signal.id,
+                        signal_node_id,
+                        person_id,
+                    )
+                    _rehome_person_stub(session, signal_node_id, person_id)
+                identity_id = wba_format("confluence", "IdentityMapping", account_id)
+                person_cache.queue_identity_mapping(
+                    person_id=person_id,
+                    identity_id=identity_id,
+                    provider="Confluence",
                     username=name,
                     email=email or "",
                     last_updated_at=datetime.now(timezone.utc).isoformat(),
@@ -457,6 +658,9 @@ _HANDLERS: dict[str, Callable[[Session, ActivitySignal], None]] = {
     "Commit": _handle_commit,
     "PullRequest": _handle_pull_request,
     # Person is handled directly in upsert_signal to support PersonCache injection
+    "Space": _handle_space,
+    "Page": _handle_page,
+    "Blogpost": _handle_blogpost,
     "Team": _handle_team,
     "Project": _handle_project,
     "Initiative": _handle_initiative,

@@ -3,7 +3,10 @@
     {
       "url": "https://your-company.atlassian.net",
       "email": "your-email@company.com",
-      "api_token": "your-confluence-api-token-here"
+      "api_token": "your-confluence-api-token-here",
+      "include_spaces": [],
+      "exclude_spaces": [],
+      "enabled": true
     }
   ]
 }

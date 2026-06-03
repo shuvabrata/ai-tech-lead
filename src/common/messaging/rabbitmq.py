@@ -35,7 +35,6 @@ Example usage::
 from __future__ import annotations
 
 import json
-import logging
 from types import TracebackType
 from typing import AsyncGenerator, Optional, Type
 
@@ -45,7 +44,7 @@ from aio_pika.abc import AbstractChannel, AbstractConnection, AbstractIncomingMe
 
 from common.activity_signal.models import ActivitySignal
 
-logger = logging.getLogger(__name__)
+from common.logger import logger
 
 _DEFAULT_EXCHANGE = "activity_signals"
 
