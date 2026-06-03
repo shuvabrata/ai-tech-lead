@@ -1,26 +1,19 @@
-"""
-Session-level Person Cache
+"""Session-level Person cache."""
 
-Provides in-memory caching of person lookups to avoid repeated database queries
-when processing large batches of PRs, commits, or issues where the same users
-appear repeatedly.
+from typing import Any, Dict, Optional, Set, Tuple
 
-Usage:
-    cache = PersonCache()
-    person_id = cache.get_or_create_person(session, email, name, ...)
-    
-    # At end of batch processing
-    cache.flush_identity_mappings(session)
-"""
-
-from typing import Optional, Tuple, Dict, Set
-
-from connectors.neo4j_db.models import Person, IdentityMapping, Relationship, merge_person, merge_identity_mapping
 from common.activity_signal.wba_node_id import wba_format
 from common.logger import logger
+from connectors.neo4j_db.models import (
+    IdentityMapping,
+    Person,
+    Relationship,
+    merge_identity_mapping,
+    merge_person,
+)
 
 
-from typing import Any
+_ATLASSIAN_PROVIDERS = {"jira", "confluence"}
 
 class PersonCache:
     """
@@ -35,6 +28,9 @@ class PersonCache:
     def __init__(self) -> None:
         # Cache: email -> person_id
         self._email_cache: Dict[str, str] = {}
+
+        # Cache: Atlassian account_id -> person_id
+        self._atlassian_account_cache: Dict[str, str] = {}
         
         # Cache: (provider, external_id) -> person_id
         self._provider_cache: Dict[Tuple[str, str], str] = {}
@@ -57,20 +53,20 @@ class PersonCache:
         name: str,
         provider: str = None,
         external_id: str = None,
-        url: Optional[str] = None
+        url: Optional[str] = None,
+        account_id: Optional[str] = None,
     ) -> Tuple[str, bool]:
         """
         Get or create a Person node with cross-provider email deduplication.
 
-        Lookup order:
-        1. In-memory provider cache ``(provider, external_id)`` — fastest path.
-        2. In-memory email cache — catches cross-provider duplicates seen earlier
-           in the same batch.
-        3. Database lookup by email — finds nodes created by a previous sync run
-           from a different provider.
-        4. Database lookup by provider-scoped id — finds same-provider nodes
-           created without an email that now arrive with one.
-        5. Create a new ``person_{provider}_{external_id}`` node.
+          Lookup order:
+          1. In-memory provider cache ``(provider, external_id)``.
+          2. In-memory email cache.
+          3. Database lookup by email.
+          4. In-memory Atlassian account_id cache for Jira/Confluence.
+          5. Database lookup by Atlassian account_id for Jira/Confluence.
+          6. Database lookup by provider-scoped id.
+          7. Create a new provider-scoped Person node.
 
         Args:
             session: Neo4j session
@@ -89,6 +85,9 @@ class PersonCache:
             raise ValueError("    Cannot create person_id: provider and external_id are required")
 
         email = email if email else None
+        account_id = account_id if account_id else None
+        if provider in _ATLASSIAN_PROVIDERS and account_id is None:
+            account_id = external_id
 
         # ── 1. Provider cache (fastest) ───────────────────────────────────────
         if (provider, external_id) in self._provider_cache:
@@ -103,6 +102,8 @@ class PersonCache:
             person_id = self._email_cache[email]
             logger.debug(f"    ⚡ Cache hit (email) {email} -> {person_id}")
             self._provider_cache[(provider, external_id)] = person_id
+            if account_id:
+                self._atlassian_account_cache[account_id] = person_id
             return person_id, False
 
         self.cache_misses += 1
@@ -128,9 +129,42 @@ class PersonCache:
                 merge_person(session, person)
                 self._email_cache[email] = person_id
                 self._provider_cache[(provider, external_id)] = person_id
+                if account_id:
+                    self._atlassian_account_cache[account_id] = person_id
                 return person_id, False
 
-        # ── 4 & 5. Provider-scoped lookup / create ────────────────────────────
+        # ── 4. Atlassian account cache / lookup ──────────────────────────────
+        if provider in _ATLASSIAN_PROVIDERS and account_id:
+            if account_id in self._atlassian_account_cache:
+                self.cache_hits += 1
+                person_id = self._atlassian_account_cache[account_id]
+                logger.debug(f"    ⚡ Cache hit (atlassian_account) {account_id} -> {person_id}")
+                self._provider_cache[(provider, external_id)] = person_id
+                if email:
+                    self._email_cache[email] = person_id
+                return person_id, False
+
+            self.db_queries += 1
+            existing_by_account = self._lookup_by_atlassian_account(session, account_id)
+            if existing_by_account:
+                person_id = existing_by_account
+                logger.debug(
+                    "    ✓ Found existing Person by Atlassian account_id '%s': %s — reusing instead of creating %s",
+                    account_id,
+                    person_id,
+                    fallback_person_id,
+                )
+                person = Person(
+                    id=person_id, name=name, email=email, url=url,
+                )
+                merge_person(session, person)
+                self._atlassian_account_cache[account_id] = person_id
+                self._provider_cache[(provider, external_id)] = person_id
+                if email:
+                    self._email_cache[email] = person_id
+                return person_id, False
+
+        # ── 5 & 6. Provider-scoped lookup / create ────────────────────────────
         person_id = fallback_person_id
         logger.debug(f"    Using provider-scoped person ID: {person_id}")
 
@@ -148,8 +182,42 @@ class PersonCache:
 
         if email:
             self._email_cache[email] = person_id
+        if account_id:
+            self._atlassian_account_cache[account_id] = person_id
         self._provider_cache[(provider, external_id)] = person_id
         return person_id, is_new
+
+    def _lookup_by_atlassian_account(self, session: Any, account_id: str) -> Optional[str]:
+        """Resolve a Jira/Confluence account_id to an existing canonical Person id."""
+        identity_ids = [
+            wba_format("jira", "IdentityMapping", account_id),
+            wba_format("confluence", "IdentityMapping", account_id),
+        ]
+        person_ids = [
+            wba_format("jira", "Person", account_id),
+            wba_format("confluence", "Person", account_id),
+        ]
+
+        existing_by_identity = session.run(
+            (
+                "MATCH (im:IdentityMapping)-[:MAPS_TO]->(p:Person) "
+                "WHERE im.id IN $identity_ids "
+                "RETURN p.id AS id "
+                "LIMIT 1"
+            ),
+            identity_ids=identity_ids,
+        ).single()
+        if existing_by_identity:
+            return existing_by_identity["id"]
+
+        existing_by_person_id = session.run(
+            "MATCH (p:Person) WHERE p.id IN $person_ids RETURN p.id AS id LIMIT 1",
+            person_ids=person_ids,
+        ).single()
+        if existing_by_person_id:
+            return existing_by_person_id["id"]
+
+        return None
     
     def queue_identity_mapping(
         self,
@@ -232,6 +300,7 @@ class PersonCache:
     def clear(self) -> None:
         """Clear all caches."""
         self._email_cache.clear()
+        self._atlassian_account_cache.clear()
         self._provider_cache.clear()
         self._pending_identities.clear()
         self._flushed_persons.clear()
