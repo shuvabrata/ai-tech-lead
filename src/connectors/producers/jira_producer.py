@@ -132,7 +132,6 @@ def build_person_signal(
 ) -> Optional[ActivitySignal]:
     """Build an ActivitySignal for a Person (Jira user)."""
     account_id = user_data.get("account_id", "")
-    person_id = wba_format(_SOURCE, "Person", account_id)
     try:
         attrs = PersonAttributes(
             full_name=user_data.get("display_name") or account_id,

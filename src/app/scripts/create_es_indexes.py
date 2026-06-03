@@ -33,8 +33,14 @@ from elasticsearch.exceptions import NotFoundError, RequestError
 #   • this script to create indexes
 #   • tests/test_es_index_coverage.py to verify every SUPPORTED_ENTITY_TYPE
 #     is covered
-# Any new entity type must be added here AND to SUPPORTED_ENTITY_TYPES in
-# src/common/activity_signal/models.py.
+#
+# CRITICAL: Any new entity type OR new source for an existing entity type MUST
+# be added here AND to SUPPORTED_ENTITY_TYPES in src/common/activity_signal/models.py.
+# If you miss adding a (source, entity_type) pair here:
+#   1. Elasticsearch will dynamically create the index without proper text analyzers
+#      (e.g., partial searches on email/name won't work).
+#   2. The unmanaged index will NOT be included in the `wba_all` global search alias,
+#      meaning cross-domain searches will silently fail to find these entities.
 
 MANAGED_INDEXES: list[tuple[str, str]] = [
     ("github", "Repository"),
@@ -52,6 +58,7 @@ MANAGED_INDEXES: list[tuple[str, str]] = [
     ("confluence", "Space"),
     ("confluence", "Page"),
     ("confluence", "Blogpost"),
+    ("confluence", "Person"),
 ]
 
 

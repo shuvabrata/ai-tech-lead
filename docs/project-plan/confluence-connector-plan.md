@@ -36,7 +36,7 @@ We will use direct relationships for interactions to maintain a simple and perfo
 * `(Person)-[:CREATED]->(Page)`
 * `(Person)-[:MODIFIED]->(Page)`
 * `(Person)-[:COMMENTED_ON {timestamp, status}]->(Page)` (status: open, resolved, closed)
-* `(Person)-[:REACTED_TO {type: "like", timestamp}]->(Page)`
+* `(Person)-[:REACTED_TO {type: "like"}]->(Page)` when reaction timing is unavailable from the API.
 * `(Page)-[:MENTIONS]->(Person)`
 * `(Page)-[:REFERENCES]->(Issue)`
 * `(Page)-[:IN_SPACE]->(Space)`
@@ -93,11 +93,20 @@ We will structure the implementation into five sequential phases to safely roll 
   - [x] Update the backend connectors API and Pydantic models to support the new schema.
   - [x] Update the Dash Connectors UI form to accept the URL, email, API token, and space filters.
 * **Phase 3: The Confluence Producer**
-  - [ ] Build the extraction script using `atlassian-python-api`.
-  - [ ] Implement the delta sync logic using the `last_synced_at` cursor.
-  - [ ] Emit the bundled delta `ActivitySignal` payloads to RabbitMQ.
+  - [x] Build the extraction script using `atlassian-python-api`.
+    - **Prep Decision**: Use `asyncio.to_thread()` to wrap synchronous API calls to maintain the async producer pipeline.
+    - **Prep Decision**: Structure fetching logic into distinct functions (e.g., `fetch_spaces`, `fetch_cql_results`) in `fetch_confluence.py` mirroring the prep script.
+  - [x] Implement the delta sync logic using the `last_synced_at` cursor.
+    - **Prep Decision**: Utilize Confluence Query Language (CQL) (e.g., `lastModified >= "YYYY-MM-DD"`) for efficient fetching of recently changed Pages and Blogposts.
+  - [x] Parse page bodies for inline relationships.
+    - **Prep Decision**: Use `BeautifulSoup` (with `lxml`) to parse the `body.storage` format and reliably extract `@mentions` and Jira macro links.
+  - [x] Emit the bundled delta `ActivitySignal` payloads to RabbitMQ.
 * **Phase 4: The Neo4j Consumer**
-  - [ ] Add handlers in `src/connectors/consumers/sinks/neo4j_sink.py` to parse incoming Confluence signals and call the new merge functions.
+  - [x] Add handlers in `src/connectors/consumers/sinks/neo4j_sink.py` to parse incoming Confluence signals and call the new merge functions.
+* **Phase 5: Remaining Alignment & Validation**
+  - [ ] Standardize Person WBA IDs for Jira and Confluence to start with `atlassian::` instead of `confluence`.
+  - [ ] Decide whether Confluence and Jira should be merged into a single connector.
+  - [ ] Complete the remaining Confluence test coverage.
 
 ## 3. Technology & Packages
 * **Producer API Client**: `atlassian-python-api`

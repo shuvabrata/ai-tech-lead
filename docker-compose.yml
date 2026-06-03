@@ -256,6 +256,32 @@ services:
     networks:
       - wba-ai-network
 
+  confluence-producer:
+    build:
+      context: .
+      dockerfile: Dockerfile.confluence-producer
+    container_name: wba-ai-confluence-producer
+    env_file:
+      - .env
+    environment:
+      API_SERVER: http://app:8000/
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/postgres
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASSWORD:-guest}@rabbitmq:5672/
+      PYTHONPATH: /app
+      LOG_DIR: /var/log/confluence-producer
+    volumes:
+      - ./logs/confluence-producer:/var/log/confluence-producer
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      app:
+        condition: service_healthy
+    restart: "no"  # One-shot execution, run manually via docker compose run
+    networks:
+      - wba-ai-network
+
   github-consumer:
     build:
       context: .
@@ -313,6 +339,40 @@ services:
       ELASTIC_PASSWORD: ${ELASTIC_PASSWORD:-}
     volumes:
       - ./logs/jira-consumer:/var/log/jira-consumer
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      neo4j:
+        condition: service_healthy
+      app:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+    restart: unless-stopped  # Long-running consumer; restart on failure
+    networks:
+      - wba-ai-network
+
+  confluence-consumer:
+    build:
+      context: .
+      dockerfile: Dockerfile.confluence-consumer
+    deploy:
+      replicas: 1
+    env_file:
+      - .env
+    environment:
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASSWORD:-guest}@rabbitmq:5672/
+      NEO4J_URI: bolt://neo4j:7687
+      NEO4J_USERNAME: ${NEO4J_USERNAME:-neo4j}
+      NEO4J_PASSWORD: ${NEO4J_PASSWORD:-password}
+      LISTEN_QUEUES: confluence_queue
+      PYTHONPATH: /app
+      LOG_DIR: /var/log/confluence-consumer
+      ELASTICSEARCH_ENABLED: ${ELASTICSEARCH_ENABLED:-false}
+      ELASTICSEARCH_URL: http://elasticsearch:9200
+      ELASTIC_PASSWORD: ${ELASTIC_PASSWORD:-}
+    volumes:
+      - ./logs/confluence-consumer:/var/log/confluence-consumer
     depends_on:
       rabbitmq:
         condition: service_healthy
