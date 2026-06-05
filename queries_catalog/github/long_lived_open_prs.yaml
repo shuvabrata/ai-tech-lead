@@ -1,0 +1,36 @@
+name: Long-Lived Open PRs
+description: Open pull requests that have been waiting the longest.
+summary: "Open pull requests that have been waiting the longest."
+default_view: tabular
+owner: github-analytics
+status: active
+queries:
+  tabular: |-
+    MATCH (pr:PullRequest)-[:TARGETS]->(:Branch)-[:BRANCH_OF]-(r:Repository)
+        WHERE pr.state = 'open'
+        WITH r, pr, duration.between(date(pr.created_at), date()).days as age_days
+        RETURN r.name as repository,
+               pr.number as pr_number,
+               pr.title as title,
+               age_days,
+               pr.commits_count as commits,
+               pr.changed_files as changed_files,
+               pr.review_comments as review_comments,
+               pr.comments as comments,
+               pr.mergeable_state as mergeable_state,
+               pr.url as url
+        ORDER BY age_days DESC, pr.changed_files DESC
+        LIMIT 100
+  graph: |-
+    MATCH p1=(pr:PullRequest)-[:TARGETS]->(b:Branch)-[:BRANCH_OF]-(r:Repository)
+        WHERE pr.state = 'open'
+        WITH p1, duration.between(date(pr.created_at), date()).days as age_days
+        WHERE age_days >= 14
+        RETURN p1
+        ORDER BY age_days DESC
+        LIMIT 100
+tags:
+- test
+- table
+- graph
+

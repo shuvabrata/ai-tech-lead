@@ -1,0 +1,38 @@
+name: Reviewer Load Balance
+description: Requested vs completed review load for reviewers.
+summary: "Requested vs completed review load for reviewers."
+default_view: tabular
+owner: github-analytics
+status: active
+queries:
+  tabular: |-
+    MATCH (p:Person)
+        CALL {
+          WITH p
+          MATCH (pr:PullRequest)-[:REQUESTED_REVIEWER]->(p)
+          RETURN count(DISTINCT pr) as requested_count
+        }
+        CALL {
+          WITH p
+          MATCH (pr:PullRequest)-[:REVIEWED_BY]->(p)
+          RETURN count(DISTINCT pr) as reviewed_count
+        }
+        WITH p, requested_count, reviewed_count,
+             CASE WHEN requested_count > reviewed_count THEN requested_count - reviewed_count ELSE 0 END as pending_count
+        WHERE requested_count > 0 OR reviewed_count > 0
+        RETURN p.name as reviewer,
+               requested_count,
+               reviewed_count,
+               pending_count,
+               round(CASE WHEN requested_count = 0 THEN 0.0 ELSE reviewed_count * 1.0 / requested_count END, 2) as review_coverage
+        ORDER BY pending_count DESC, requested_count DESC
+        LIMIT 100
+  graph: |-
+    MATCH p1=(pr:PullRequest)-[:REQUESTED_REVIEWER|REVIEWED_BY]->(p:Person)
+        RETURN p1
+        LIMIT 100
+tags:
+- test
+- table
+- graph
+

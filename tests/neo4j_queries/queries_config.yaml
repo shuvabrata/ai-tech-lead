@@ -369,6 +369,76 @@ queries:
       min_rows: 0
       max_rows: 100
       max_time_ms: 2000
+
+  - name: "Reviewer Load Balance (tabular)"
+    section: "GitHub"
+    expectations:
+      min_rows: 0
+      max_rows: 10
+      max_time_ms: 1200
+
+  - name: "Reviewer Load Balance (graph)"
+    section: "GitHub"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 1200
+
+  - name: "PR Risk Score by Repository (tabular)"
+    section: "GitHub"
+    expectations:
+      min_rows: 0
+      max_rows: 10
+      max_time_ms: 1500
+
+  - name: "PR Risk Score by Repository (graph)"
+    section: "GitHub"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 1500
+
+  - name: "Large PRs with Low Review Coverage (tabular)"
+    section: "GitHub"
+    expectations:
+      min_rows: 0
+      max_rows: 10
+      max_time_ms: 1200
+
+  - name: "Large PRs with Low Review Coverage (graph)"
+    section: "GitHub"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 1200
+
+  - name: "Long-Lived Open PRs (tabular)"
+    section: "GitHub"
+    expectations:
+      min_rows: 0
+      max_rows: 10
+      max_time_ms: 1200
+
+  - name: "Long-Lived Open PRs (graph)"
+    section: "GitHub"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 1200
+
+  - name: "File Bus Factor Hotspots (tabular)"
+    section: "GitHub"
+    expectations:
+      min_rows: 0
+      max_rows: 10
+      max_time_ms: 1200
+
+  - name: "File Bus Factor Hotspots (graph)"
+    section: "GitHub"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 1200
   
   - name: "PR Merge Time Analysis (tabular)"
     section: "GitHub"
@@ -513,10 +583,94 @@ queries:
     expectations:
       max_rows: 3  # Goal: 0 unassigned critical issues
       max_time_ms: 300
+
+  - name: "Issue Age by Priority and Team (tabular)"
+    section: "Jira"
+    expectations:
+      min_rows: 0
+      max_rows: 10
+      max_time_ms: 1200
+
+  - name: "Issue Age by Priority and Team (graph)"
+    section: "Jira"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 1200
+
+  - name: "Sprint Scope Drift (tabular)"
+    section: "Jira"
+    expectations:
+      min_rows: 0
+      max_rows: 10
+      max_time_ms: 1000
+
+  - name: "Sprint Scope Drift (graph)"
+    section: "Jira"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 1000
+
+  - name: "Blocker Chain Depth (tabular)"
+    section: "Jira"
+    expectations:
+      min_rows: 0
+      max_rows: 10
+      max_time_ms: 1200
+
+  - name: "Blocker Chain Depth (graph)"
+    section: "Jira"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 1200
+
+  - name: "Epic Delivery Risk (tabular)"
+    section: "Jira"
+    expectations:
+      min_rows: 0
+      max_rows: 10
+      max_time_ms: 1200
+
+  - name: "Epic Delivery Risk (graph)"
+    section: "Jira"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 1200
+
+  - name: "Team Backlog Pressure (tabular)"
+    section: "Jira"
+    expectations:
+      min_rows: 0
+      max_rows: 10
+      max_time_ms: 1200
+
+  - name: "Team Backlog Pressure (graph)"
+    section: "Jira"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 1200
   
   # ============================================================================
   # Cross-Domain Analytics
   # ============================================================================
+  
+  - name: "PR to Jira Delivery Risk (tabular)"
+    section: "Cross-Domain"
+    expectations:
+      min_rows: 0
+      max_rows: 10
+      max_time_ms: 1500
+
+  - name: "PR to Jira Delivery Risk (graph)"
+    section: "Cross-Domain"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 1500
   
   - name: "Developer Impact Analysis"
     section: "Cross-Domain"

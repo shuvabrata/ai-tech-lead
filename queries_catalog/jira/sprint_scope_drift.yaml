@@ -1,0 +1,33 @@
+name: Sprint Scope Drift
+description: Issues added to a sprint after the sprint start date.
+summary: "Issues added to a sprint after the sprint start date."
+default_view: tabular
+owner: jira-analytics
+status: active
+queries:
+  tabular: |-
+    MATCH (s:Sprint)<-[:IN_SPRINT]-(i:Issue)
+        WITH s, i,
+             date(s.start_date) as sprint_start,
+             date(i.created_at) as issue_created
+        WITH s, i, sprint_start, issue_created,
+             CASE WHEN issue_created > sprint_start THEN 1 ELSE 0 END as late_added_flag,
+             CASE WHEN issue_created > sprint_start THEN coalesce(i.story_points, 0) ELSE 0 END as late_added_points
+        RETURN s.name as sprint,
+               count(i) as total_issues,
+               sum(late_added_flag) as late_added_issues,
+               sum(late_added_points) as late_added_story_points,
+               round(sum(late_added_flag) * 100.0 / count(i), 1) as late_added_issue_pct,
+               sum(coalesce(i.story_points, 0)) as total_story_points
+        ORDER BY late_added_issues DESC, total_story_points DESC
+        LIMIT 100
+  graph: |-
+    MATCH p1=(s:Sprint)<-[:IN_SPRINT]-(i:Issue)
+        WHERE date(i.created_at) > date(s.start_date)
+        RETURN p1
+        LIMIT 100
+tags:
+- test
+- table
+- graph
+

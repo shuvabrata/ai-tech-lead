@@ -1,0 +1,73 @@
+name: PR Risk Score by Repository
+description: Composite risk score for pull requests grouped by repository.
+summary: "Composite risk score for pull requests grouped by repository."
+default_view: tabular
+owner: github-analytics
+status: active
+queries:
+  tabular: |-
+    MATCH (pr:PullRequest)-[:TARGETS]->(:Branch)-[:BRANCH_OF]-(r:Repository)
+        WITH r, pr,
+             date(pr.created_at) as created_date,
+             CASE
+               WHEN pr.state = 'open' THEN date()
+               ELSE date(coalesce(pr.merged_at, pr.closed_at, datetime()))
+             END as end_date
+        WITH r, pr, duration.between(created_date, end_date).days as age_days,
+             toFloat(coalesce(pr.additions, 0) + coalesce(pr.deletions, 0)) as churn,
+             toFloat(coalesce(pr.changed_files, 0)) as changed_files,
+             toFloat(coalesce(pr.commits_count, 0)) as commit_count,
+             toFloat(coalesce(pr.comments, 0)) as comments,
+             toFloat(coalesce(pr.review_comments, 0)) as review_comments,
+             CASE pr.mergeable_state
+               WHEN 'dirty' THEN 8
+               WHEN 'behind' THEN 5
+               WHEN 'unstable' THEN 4
+               WHEN 'blocked' THEN 6
+               WHEN 'unknown' THEN 3
+               ELSE 0
+             END as merge_penalty
+        WITH r, pr, age_days,
+             round((churn / 200.0) + (changed_files * 1.2) + (commit_count * 1.0) + (comments * 0.5) + (review_comments * 0.8) + (age_days / 5.0) + merge_penalty, 1) as risk_score
+        RETURN r.name as repository,
+               pr.number as pr_number,
+               pr.title as title,
+               pr.state as state,
+               age_days,
+               risk_score,
+               pr.mergeable_state as mergeable_state,
+               pr.url as url
+        ORDER BY risk_score DESC, age_days DESC
+        LIMIT 100
+  graph: |-
+    MATCH p1=(pr:PullRequest)-[:TARGETS]->(b:Branch)-[:BRANCH_OF]-(r:Repository)
+        WITH p1, pr,
+             date(pr.created_at) as created_date,
+             CASE
+               WHEN pr.state = 'open' THEN date()
+               ELSE date(coalesce(pr.merged_at, pr.closed_at, datetime()))
+             END as end_date
+        WITH p1, duration.between(created_date, end_date).days as age_days,
+             toFloat(coalesce(pr.additions, 0) + coalesce(pr.deletions, 0)) as churn,
+             toFloat(coalesce(pr.changed_files, 0)) as changed_files,
+             toFloat(coalesce(pr.commits_count, 0)) as commit_count,
+             toFloat(coalesce(pr.comments, 0)) as comments,
+             toFloat(coalesce(pr.review_comments, 0)) as review_comments,
+             CASE pr.mergeable_state
+               WHEN 'dirty' THEN 8
+               WHEN 'behind' THEN 5
+               WHEN 'unstable' THEN 4
+               WHEN 'blocked' THEN 6
+               WHEN 'unknown' THEN 3
+               ELSE 0
+             END as merge_penalty
+        WITH p1,
+             round((churn / 200.0) + (changed_files * 1.2) + (commit_count * 1.0) + (comments * 0.5) + (review_comments * 0.8) + (age_days / 5.0) + merge_penalty, 1) as risk_score
+        ORDER BY risk_score DESC
+        LIMIT 100
+        RETURN p1
+tags:
+- test
+- table
+- graph
+
