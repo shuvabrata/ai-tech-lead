@@ -1,0 +1,32 @@
+name: Issue Age by Priority and Team
+description: Open issue aging and staleness grouped by team and priority.
+summary: "Open issue aging and staleness grouped by team and priority."
+default_view: tabular
+owner: jira-analytics
+status: active
+queries:
+  tabular: |-
+    MATCH (i:Issue)-[:ASSIGNED_TO]-(p:Person)-[:MEMBER_OF]-(t:Team)
+        WHERE NOT i.status IN ['Done', 'Closed', 'Resolved', 'Canceled', 'Cancelled', 'Complete', 'Completed']
+        WITH DISTINCT t, i
+        WITH t, i,
+             duration.between(date(i.created_at), date()).days as age_days,
+             duration.between(date(coalesce(i.updated_at, i.created_at)), date()).days as stale_days
+        RETURN t.name as team,
+               i.priority as priority,
+               count(i) as open_issues,
+               round(avg(age_days), 1) as avg_age_days,
+               round(avg(stale_days), 1) as avg_stale_days,
+               max(age_days) as oldest_issue_days,
+               sum(coalesce(i.story_points, 0)) as open_story_points
+        ORDER BY open_issues DESC, avg_stale_days DESC
+        LIMIT 100
+  graph: |-
+    MATCH p1=(i:Issue)-[:ASSIGNED_TO]-(p:Person)-[:MEMBER_OF]-(t:Team)
+        WHERE NOT i.status IN ['Done', 'Closed', 'Resolved', 'Canceled', 'Cancelled', 'Complete', 'Completed']
+        RETURN p1
+        LIMIT 100
+tags:
+- test
+- table
+- graph

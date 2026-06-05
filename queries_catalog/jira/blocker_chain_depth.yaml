@@ -1,0 +1,27 @@
+name: Blocker Chain Depth
+description: Issues with long blocker chains.
+summary: "Issues with long blocker chains."
+default_view: tabular
+owner: jira-analytics
+status: active
+queries:
+  tabular: |-
+    MATCH p=(i:Issue)-[:BLOCKS*1..5]->(blocked:Issue)
+        WITH i, max(length(p)) as max_chain_depth, count(DISTINCT blocked) as downstream_blocked_issues
+        RETURN i.key as issue_key,
+               i.summary as summary,
+               i.priority as priority,
+               i.status as status,
+               max_chain_depth,
+               downstream_blocked_issues
+        ORDER BY max_chain_depth DESC, downstream_blocked_issues DESC
+        LIMIT 100
+  graph: |-
+    MATCH p1=(i:Issue)-[:BLOCKS*1..5]->(blocked:Issue)
+        RETURN p1
+        LIMIT 100
+tags:
+- test
+- table
+- graph
+

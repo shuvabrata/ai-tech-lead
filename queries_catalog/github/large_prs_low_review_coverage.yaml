@@ -1,0 +1,50 @@
+name: Large PRs with Low Review Coverage
+description: Pull requests with high churn but weak review coverage.
+summary: "Pull requests with high churn but weak review coverage."
+default_view: tabular
+owner: github-analytics
+status: active
+queries:
+  tabular: |-
+    MATCH (pr:PullRequest)-[:TARGETS]->(:Branch)-[:BRANCH_OF]-(r:Repository)
+        WITH r, pr,
+             toFloat(coalesce(pr.additions, 0) + coalesce(pr.deletions, 0)) as churn,
+             toFloat(coalesce(pr.review_comments, 0)) as review_comments,
+             toFloat(coalesce(pr.comments, 0)) as comments,
+             toFloat(coalesce(pr.commits_count, 0)) as commits
+        WITH r, pr, churn, review_comments, comments, commits,
+             round(churn / (review_comments + 1), 1) as churn_to_review_ratio,
+             round(churn / (comments + 1), 1) as churn_to_discussion_ratio
+        WHERE churn >= 500 OR review_comments <= 1
+        RETURN r.name as repository,
+               pr.number as pr_number,
+               pr.title as title,
+               pr.state as state,
+               churn,
+               review_comments,
+               comments,
+               commits,
+               churn_to_review_ratio,
+               churn_to_discussion_ratio,
+               pr.mergeable_state as mergeable_state,
+               pr.url as url
+        ORDER BY churn_to_review_ratio DESC, churn DESC
+        LIMIT 100
+  graph: |-
+    MATCH p1=(pr:PullRequest)-[:TARGETS]->(:Branch)-[:BRANCH_OF]-(r:Repository)
+        WITH p1, pr,
+             toFloat(coalesce(pr.additions, 0) + coalesce(pr.deletions, 0)) as churn,
+             toFloat(coalesce(pr.review_comments, 0)) as review_comments,
+             toFloat(coalesce(pr.comments, 0)) as comments
+        WHERE churn >= 500 OR review_comments <= 1
+        WITH p1,
+             round(churn / (review_comments + 1), 1) as churn_to_review_ratio,
+             round(churn / (comments + 1), 1) as churn_to_discussion_ratio
+        ORDER BY churn_to_review_ratio DESC, churn_to_discussion_ratio DESC
+        LIMIT 100
+        RETURN p1
+tags:
+- test
+- table
+- graph
+

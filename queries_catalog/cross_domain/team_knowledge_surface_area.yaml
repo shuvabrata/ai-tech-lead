@@ -1,0 +1,31 @@
+name: Team Knowledge Surface Area
+description: How much documentation, work, and code a team touches.
+summary: "How much documentation, work, and code a team touches."
+default_view: tabular
+owner: cross-domain-analytics
+status: active
+queries:
+  tabular: |-
+    MATCH (t:Team)-[:MEMBER_OF]-(p:Person)
+    OPTIONAL MATCH (p)-[:CREATED|MODIFIED|COMMENTED_ON|REACTED_TO]->(doc)
+    WHERE doc:Page OR doc:Blogpost
+    OPTIONAL MATCH (p)-[:ASSIGNED_TO]-(i:Issue)
+    OPTIONAL MATCH (p)-[:AUTHORED_BY]-(c:Commit)
+    OPTIONAL MATCH (p)<-[:CREATED_BY]-(pr:PullRequest)
+    RETURN t.name as team,
+           count(DISTINCT p) as members,
+           count(DISTINCT doc) as docs_touched,
+           count(DISTINCT i) as issues_touched,
+           count(DISTINCT c) as commits,
+           count(DISTINCT pr) as prs
+    ORDER BY docs_touched DESC, issues_touched DESC, team
+    LIMIT 100
+  graph: |-
+    MATCH p1=(t:Team)-[:MEMBER_OF]-(p:Person)-[:CREATED|MODIFIED|COMMENTED_ON|REACTED_TO]->(doc)
+    WHERE doc:Page OR doc:Blogpost
+    RETURN p1
+    LIMIT 100
+tags:
+- test
+- table
+- graph

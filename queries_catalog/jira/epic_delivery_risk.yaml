@@ -1,0 +1,43 @@
+name: Epic Delivery Risk
+description: Epics with overdue work, blockers, and incomplete scope.
+summary: "Epics with overdue work, blockers, and incomplete scope."
+default_view: tabular
+owner: jira-analytics
+status: active
+queries:
+  tabular: |-
+    MATCH (e:Epic)<-[:PART_OF]-(i:Issue)
+        OPTIONAL MATCH (i)-[:BLOCKS]->(blocked:Issue)
+        WITH e,
+             count(DISTINCT i) as total_issues,
+             sum(CASE WHEN i.status IN ['Done', 'Closed', 'Resolved'] THEN 1 ELSE 0 END) as done_issues,
+             sum(CASE WHEN NOT i.status IN ['Done', 'Closed', 'Resolved'] THEN 1 ELSE 0 END) as open_issues,
+             sum(CASE WHEN NOT i.status IN ['Done', 'Closed', 'Resolved'] AND i.priority IN ['High', 'Highest', 'Critical'] THEN 1 ELSE 0 END) as open_high_priority,
+             count(DISTINCT blocked) as blocked_issues
+        WITH e, total_issues, done_issues, open_issues, open_high_priority, blocked_issues,
+             CASE
+               WHEN e.status IN ['Done', 'Closed', 'Resolved'] THEN 0
+               WHEN e.due_date IS NULL THEN 0
+               WHEN date(e.due_date) < date() THEN duration.between(date(e.due_date), date()).days
+               ELSE 0
+             END as overdue_days
+        RETURN e.key as epic_key,
+               e.summary as summary,
+               e.status as status,
+               e.priority as priority,
+               total_issues,
+               open_issues,
+               open_high_priority,
+               blocked_issues,
+               overdue_days,
+               round(done_issues * 100.0 / total_issues, 1) as completion_pct
+        ORDER BY overdue_days DESC, open_high_priority DESC, blocked_issues DESC
+        LIMIT 100
+  graph: |-
+    MATCH p1=(e:Epic)<-[:PART_OF]-(i:Issue)
+        RETURN p1
+        LIMIT 100
+tags:
+- test
+- table
+- graph

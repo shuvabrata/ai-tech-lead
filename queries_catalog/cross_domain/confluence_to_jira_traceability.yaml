@@ -1,0 +1,27 @@
+name: Confluence to Jira Traceability
+description: Pages and blogposts that explicitly reference Jira issues.
+summary: "Pages and blogposts that explicitly reference Jira issues."
+default_view: tabular
+owner: cross-domain-analytics
+status: active
+queries:
+  tabular: |-
+    MATCH (doc)
+    WHERE doc:Page OR doc:Blogpost
+    MATCH (doc)-[:REFERENCES]->(i:Issue)
+    RETURN labels(doc)[0] as content_type,
+           doc.title as content_title,
+           doc.url as content_url,
+           count(DISTINCT i) as referenced_issue_count,
+           collect(DISTINCT i.key)[0..10] as sample_issue_keys
+    ORDER BY referenced_issue_count DESC, content_title
+    LIMIT 100
+  graph: |-
+    MATCH p1=(doc)-[:REFERENCES]->(i:Issue)
+    WHERE doc:Page OR doc:Blogpost
+    RETURN p1
+    LIMIT 100
+tags:
+- test
+- table
+- graph

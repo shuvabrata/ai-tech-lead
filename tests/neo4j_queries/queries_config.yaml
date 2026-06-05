@@ -369,6 +369,76 @@ queries:
       min_rows: 0
       max_rows: 100
       max_time_ms: 2000
+
+  - name: "Reviewer Load Balance (tabular)"
+    section: "GitHub"
+    expectations:
+      min_rows: 0
+      max_rows: 10
+      max_time_ms: 1200
+
+  - name: "Reviewer Load Balance (graph)"
+    section: "GitHub"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 1200
+
+  - name: "PR Risk Score by Repository (tabular)"
+    section: "GitHub"
+    expectations:
+      min_rows: 0
+      max_rows: 10
+      max_time_ms: 1500
+
+  - name: "PR Risk Score by Repository (graph)"
+    section: "GitHub"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 1500
+
+  - name: "Large PRs with Low Review Coverage (tabular)"
+    section: "GitHub"
+    expectations:
+      min_rows: 0
+      max_rows: 10
+      max_time_ms: 1200
+
+  - name: "Large PRs with Low Review Coverage (graph)"
+    section: "GitHub"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 1200
+
+  - name: "Long-Lived Open PRs (tabular)"
+    section: "GitHub"
+    expectations:
+      min_rows: 0
+      max_rows: 10
+      max_time_ms: 1200
+
+  - name: "Long-Lived Open PRs (graph)"
+    section: "GitHub"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 1200
+
+  - name: "File Bus Factor Hotspots (tabular)"
+    section: "GitHub"
+    expectations:
+      min_rows: 0
+      max_rows: 10
+      max_time_ms: 1200
+
+  - name: "File Bus Factor Hotspots (graph)"
+    section: "GitHub"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 1200
   
   - name: "PR Merge Time Analysis (tabular)"
     section: "GitHub"
@@ -513,10 +583,94 @@ queries:
     expectations:
       max_rows: 3  # Goal: 0 unassigned critical issues
       max_time_ms: 300
+
+  - name: "Issue Age by Priority and Team (tabular)"
+    section: "Jira"
+    expectations:
+      min_rows: 0
+      max_rows: 10
+      max_time_ms: 1200
+
+  - name: "Issue Age by Priority and Team (graph)"
+    section: "Jira"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 1200
+
+  - name: "Sprint Scope Drift (tabular)"
+    section: "Jira"
+    expectations:
+      min_rows: 0
+      max_rows: 10
+      max_time_ms: 1000
+
+  - name: "Sprint Scope Drift (graph)"
+    section: "Jira"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 1000
+
+  - name: "Blocker Chain Depth (tabular)"
+    section: "Jira"
+    expectations:
+      min_rows: 0
+      max_rows: 10
+      max_time_ms: 1200
+
+  - name: "Blocker Chain Depth (graph)"
+    section: "Jira"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 1200
+
+  - name: "Epic Delivery Risk (tabular)"
+    section: "Jira"
+    expectations:
+      min_rows: 0
+      max_rows: 10
+      max_time_ms: 1200
+
+  - name: "Epic Delivery Risk (graph)"
+    section: "Jira"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 1200
+
+  - name: "Team Backlog Pressure (tabular)"
+    section: "Jira"
+    expectations:
+      min_rows: 0
+      max_rows: 10
+      max_time_ms: 1200
+
+  - name: "Team Backlog Pressure (graph)"
+    section: "Jira"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 1200
   
   # ============================================================================
   # Cross-Domain Analytics
   # ============================================================================
+  
+  - name: "PR to Jira Delivery Risk (tabular)"
+    section: "Cross-Domain"
+    expectations:
+      min_rows: 0
+      max_rows: 10
+      max_time_ms: 1500
+
+  - name: "PR to Jira Delivery Risk (graph)"
+    section: "Cross-Domain"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 1500
   
   - name: "Developer Impact Analysis"
     section: "Cross-Domain"
@@ -559,7 +713,299 @@ queries:
     expectations:
       min_rows: 1
       max_time_ms: 1500
-  
+
+  # ============================================================================
+  # Confluence Queries
+  # ============================================================================
+
+  - name: "Space Activity Overview (tabular)"
+    section: "Confluence"
+    expectations:
+      min_rows: 1
+      max_rows: 100
+      max_time_ms: 500
+
+  - name: "Space Activity Overview (graph)"
+    section: "Confluence"
+    expectations:
+      min_rows: 1
+      max_rows: 100
+      max_time_ms: 500
+
+  - name: "Page Edit Churn Hotspots (tabular)"
+    section: "Confluence"
+    expectations:
+      min_rows: 1
+      max_rows: 100
+      max_time_ms: 500
+
+  - name: "Page Edit Churn Hotspots (graph)"
+    section: "Confluence"
+    expectations:
+      min_rows: 1
+      max_rows: 100
+      max_time_ms: 500
+
+  - name: "Open Comment Hotspots (tabular)"
+    section: "Confluence"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 500
+
+  - name: "Open Comment Hotspots (graph)"
+    section: "Confluence"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 500
+
+  - name: "Blogpost Engagement Overview (tabular)"
+    section: "Confluence"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 500
+
+  - name: "Blogpost Engagement Overview (graph)"
+    section: "Confluence"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 500
+
+  - name: "Knowledge Broker Pages (tabular)"
+    section: "Confluence"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 500
+
+  - name: "Knowledge Broker Pages (graph)"
+    section: "Confluence"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 500
+
+  # ============================================================================
+  # Cross-Domain Confluence / Jira
+  # ============================================================================
+
+  - name: "Confluence to Jira Traceability (tabular)"
+    section: "Cross-Domain"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 1000
+
+  - name: "Confluence to Jira Traceability (graph)"
+    section: "Cross-Domain"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 1000
+
+  - name: "Jira Issues Without Docs (tabular)"
+    section: "Cross-Domain - Data Quality"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 1000
+
+  - name: "Jira Issues Without Docs (graph)"
+    section: "Cross-Domain - Data Quality"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 1000
+
+  - name: "Doc To Work Followthrough (tabular)"
+    section: "Cross-Domain"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 1500
+
+  - name: "Doc To Work Followthrough (graph)"
+    section: "Cross-Domain"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 1500
+
+  - name: "Doc Vs Implementation Gap (tabular)"
+    section: "Cross-Domain"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 1000
+
+  - name: "Doc Vs Implementation Gap (graph)"
+    section: "Cross-Domain"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 1000
+
+  - name: "Code Changes Without Doc Update (tabular)"
+    section: "Cross-Domain"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 1000
+
+  - name: "Code Changes Without Doc Update (graph)"
+    section: "Cross-Domain"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 1000
+
+  - name: "Epic Doc Coverage (tabular)"
+    section: "Cross-Domain"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 1500
+
+  - name: "Epic Doc Coverage (graph)"
+    section: "Cross-Domain"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 1500
+
+  - name: "Team Knowledge Surface Area (tabular)"
+    section: "Cross-Domain"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 1500
+
+  - name: "Team Knowledge Surface Area (graph)"
+    section: "Cross-Domain"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 1500
+
+  # ============================================================================
+  # Confluence Advanced Queries
+  # ============================================================================
+
+  - name: "Page Lineage Depth (tabular)"
+    section: "Confluence"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 1000
+
+  - name: "Page Lineage Depth (graph)"
+    section: "Confluence"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 1000
+
+  - name: "Orphan Pages (tabular)"
+    section: "Confluence"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 500
+
+  - name: "Orphan Pages (graph)"
+    section: "Confluence"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 500
+
+  - name: "Doc Staleness by Space (tabular)"
+    section: "Confluence"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 1000
+
+  - name: "Doc Staleness by Space (graph)"
+    section: "Confluence"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 1000
+
+  - name: "Comment Resolution Trend (tabular)"
+    section: "Confluence"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 1000
+
+  - name: "Comment Resolution Trend (graph)"
+    section: "Confluence"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 1000
+
+  - name: "High Touch Pages (tabular)"
+    section: "Confluence"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 1000
+
+  - name: "High Touch Pages (graph)"
+    section: "Confluence"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 1000
+
+  - name: "Space Collaboration Network (tabular)"
+    section: "Confluence"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 1000
+
+  - name: "Space Collaboration Network (graph)"
+    section: "Confluence"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 1000
+
+  - name: "Launch Readiness Docs (tabular)"
+    section: "Cross-Domain"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 1000
+
+  - name: "Launch Readiness Docs (graph)"
+    section: "Cross-Domain"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 1000
+
+  - name: "Cross Team Doc Bridges (tabular)"
+    section: "Cross-Domain"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 1000
+
+  - name: "Cross Team Doc Bridges (graph)"
+    section: "Cross-Domain"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 1000
+
   # ============================================================================
   # Schema Inspection
   # ============================================================================

@@ -1,0 +1,31 @@
+name: File Bus Factor Hotspots
+description: Files with high churn but low author diversity.
+summary: "Files with high churn but low author diversity."
+default_view: tabular
+owner: github-analytics
+status: active
+queries:
+  tabular: |-
+    MATCH (f:File)<-[:MODIFIES]-(c:Commit)-[:AUTHORED_BY]->(p:Person)
+        WITH f,
+             count(DISTINCT c) as commit_count,
+             count(DISTINCT p) as author_count,
+             sum(coalesce(c.additions, 0) + coalesce(c.deletions, 0)) as churn
+        RETURN f.repo_name as repository,
+               f.path as path,
+               f.language as language,
+               commit_count,
+               author_count,
+               churn,
+               round(churn * 1.0 / (author_count + 1), 1) as churn_per_author
+        ORDER BY author_count ASC, churn DESC
+        LIMIT 100
+  graph: |-
+    MATCH p1=(f:File)<-[:MODIFIES]-(c:Commit)-[:AUTHORED_BY]->(p:Person)
+        RETURN p1
+        LIMIT 100
+tags:
+- test
+- table
+- graph
+

@@ -1,0 +1,26 @@
+name: Open Comment Hotspots
+description: Pages with active comments that are not closed yet.
+summary: "Pages with active comments that are not closed yet."
+default_view: tabular
+owner: confluence-analytics
+status: active
+queries:
+  tabular: |-
+    MATCH (p:Page)<-[c:COMMENTED_ON]-(commenter:Person)
+    WHERE coalesce(c.status, 'open') <> 'closed'
+    RETURN p.title as page_title,
+           p.status as page_status,
+           sum(CASE WHEN c IS NULL THEN 0 ELSE coalesce(c.count, 1) END) as comment_events,
+           count(DISTINCT commenter) as unique_commenters,
+           collect(DISTINCT coalesce(c.status, 'open')) as statuses
+    ORDER BY comment_events DESC, unique_commenters DESC, page_title
+    LIMIT 100
+  graph: |-
+    MATCH p1=(commenter:Person)-[c:COMMENTED_ON]->(p:Page)
+    WHERE coalesce(c.status, 'open') <> 'closed'
+    RETURN p1
+    LIMIT 100
+tags:
+- test
+- table
+- graph

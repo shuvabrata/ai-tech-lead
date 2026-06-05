@@ -1,0 +1,28 @@
+name: Team Backlog Pressure
+description: Open work pressure grouped by team.
+summary: "Open work pressure grouped by team."
+default_view: tabular
+owner: jira-analytics
+status: active
+queries:
+  tabular: |-
+    MATCH (i:Issue)-[:ASSIGNED_TO]-(p:Person)-[:MEMBER_OF]-(t:Team)
+        WHERE NOT i.status IN ['Done', 'Closed', 'Resolved', 'Canceled', 'Cancelled', 'Complete', 'Completed']
+        WITH DISTINCT t, i,
+             duration.between(date(i.created_at), date()).days as age_days
+        RETURN t.name as team,
+               count(i) as open_issues,
+               sum(coalesce(i.story_points, 0)) as open_story_points,
+               sum(CASE WHEN i.priority IN ['High', 'Highest', 'Critical'] THEN 1 ELSE 0 END) as high_priority_open_issues,
+               round(avg(age_days), 1) as avg_age_days
+        ORDER BY open_story_points DESC, open_issues DESC
+        LIMIT 100
+  graph: |-
+    MATCH p1=(i:Issue)-[:ASSIGNED_TO]-(p:Person)-[:MEMBER_OF]-(t:Team)
+        WHERE NOT i.status IN ['Done', 'Closed', 'Resolved', 'Canceled', 'Cancelled', 'Complete', 'Completed']
+        RETURN p1
+        LIMIT 100
+tags:
+- test
+- table
+- graph
