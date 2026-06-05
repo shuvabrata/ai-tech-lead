@@ -333,14 +333,18 @@ def get_shape_css(shape):
     # Current legend-supported shapes:
     # ellipse, circle, rectangle, round-rectangle, triangle,
     # diamond, hexagon, round-hexagon, octagon, pentagon,
-    # tag, vee, rhomboid, barrel, star.
+    # tag, vee, rhomboid, barrel, star, cut-rectangle,
+    # bottom-round-rectangle, round-diamond.
     shape_styles = {
         'ellipse': {'borderRadius': '50%'},
         'circle': {'borderRadius': '50%'},
         'rectangle': {'borderRadius': '0'},
         'round-rectangle': {'borderRadius': '4px'},
+        'cut-rectangle': {'clipPath': 'polygon(15% 0%, 85% 0%, 100% 15%, 100% 85%, 85% 100%, 15% 100%, 0% 85%, 0% 15%)'},
+        'bottom-round-rectangle': {'borderRadius': '0 0 6px 6px'},
         'triangle': {'clipPath': 'polygon(50% 0%, 0% 100%, 100% 100%)'},
         'diamond': {'clipPath': 'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)', 'transform': 'rotate(0deg)'},
+        'round-diamond': {'transform': 'rotate(45deg) scale(0.75)', 'borderRadius': '4px'},
         'hexagon': {'clipPath': 'polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%)'},
         'round-hexagon': {'clipPath': 'polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%)', 'borderRadius': '3px'},
         'octagon': {'clipPath': 'polygon(30% 0%, 70% 0%, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0% 70%, 0% 30%)'},

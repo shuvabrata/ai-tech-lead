@@ -222,6 +222,39 @@ def build_cytoscape_stylesheet(theme_name: str = ACTIVE_THEME):
             }
         },
         {
+            'selector': 'node[nodeType = "Space"]',
+            'style': {
+                'shape': 'cut-rectangle',
+                'background-color': tokens.get("graph.node.space", tokens["graph.node.default"]),
+                'border-color': tokens.get("graph.node.space.border", tokens["graph.node.default.border"]),
+                'color': typed_node_label_color,
+                'width': '70px',
+                'height': '40px'
+            }
+        },
+        {
+            'selector': 'node[nodeType = "Page"]',
+            'style': {
+                'shape': 'bottom-round-rectangle',
+                'background-color': tokens.get("graph.node.page", tokens["graph.node.default"]),
+                'border-color': tokens.get("graph.node.page.border", tokens["graph.node.default.border"]),
+                'color': typed_node_label_color,
+                'width': '64px',
+                'height': '38px'
+            }
+        },
+        {
+            'selector': 'node[nodeType = "Blogpost"]',
+            'style': {
+                'shape': 'round-diamond',
+                'background-color': tokens.get("graph.node.blogpost", tokens["graph.node.default"]),
+                'border-color': tokens.get("graph.node.blogpost.border", tokens["graph.node.default.border"]),
+                'color': typed_node_label_color,
+                'width': '60px',
+                'height': '60px'
+            }
+        },
+        {
             'selector': 'edge',
             'style': {
                 'width': 2,
