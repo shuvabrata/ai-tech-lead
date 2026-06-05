@@ -4,7 +4,7 @@ A dynamic, YAML-driven testing framework for validating Neo4j Cypher queries wit
 
 ## 📋 Overview
 
-This framework automates the execution and validation of 60+ Cypher queries across 7 domains:
+This framework automates the execution and validation of 100+ Cypher queries across 7 domains:
 - **People & Identity**: Organizational structure and identity mappings
 - **GitHub**: Repositories, branches, commits, and pull requests
 - **Jira**: Projects, initiatives, epics, issues, and sprints

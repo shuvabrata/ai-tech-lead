@@ -1,0 +1,24 @@
+name: High Touch Pages
+description: Pages edited or discussed by many distinct people.
+summary: "Pages edited or discussed by many distinct people."
+default_view: tabular
+owner: confluence-analytics
+status: active
+queries:
+  tabular: |-
+    MATCH (p:Page)<-[:CREATED|MODIFIED|COMMENTED_ON|REACTED_TO]-(person:Person)
+    RETURN p.title as page_title,
+           p.status as status,
+           count(*) as interaction_events,
+           count(DISTINCT person) as distinct_people,
+           collect(DISTINCT person.name)[0..10] as sample_people
+    ORDER BY distinct_people DESC, interaction_events DESC, page_title
+    LIMIT 100
+  graph: |-
+    MATCH p1=(person:Person)-[:CREATED|MODIFIED|COMMENTED_ON|REACTED_TO]->(p:Page)
+    RETURN p1
+    LIMIT 100
+tags:
+- test
+- table
+- graph

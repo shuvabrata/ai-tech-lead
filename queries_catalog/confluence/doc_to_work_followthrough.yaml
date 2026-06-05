@@ -1,0 +1,30 @@
+name: Doc To Work Followthrough
+description: Documentation that links to work and follow-on code delivery.
+summary: "Documentation that links to work and follow-on code delivery."
+default_view: tabular
+owner: cross-domain-analytics
+status: active
+queries:
+  tabular: |-
+    MATCH (doc)
+    WHERE doc:Page OR doc:Blogpost
+    MATCH (doc)-[:REFERENCES]->(i:Issue)
+    OPTIONAL MATCH (i)<-[:REFERENCES]-(c:Commit)
+    OPTIONAL MATCH (c)<-[:INCLUDES]-(pr:PullRequest)
+    RETURN labels(doc)[0] as content_type,
+           doc.title as content_title,
+           count(DISTINCT i) as referenced_issues,
+           count(DISTINCT c) as related_commits,
+           count(DISTINCT pr) as related_prs,
+           collect(DISTINCT i.key)[0..10] as sample_issue_keys
+    ORDER BY related_commits DESC, referenced_issues DESC, content_title
+    LIMIT 100
+  graph: |-
+    MATCH p1=(doc)-[:REFERENCES]->(i:Issue)<-[:REFERENCES]-(c:Commit)<-[:INCLUDES]-(pr:PullRequest)
+    WHERE doc:Page OR doc:Blogpost
+    RETURN p1
+    LIMIT 100
+tags:
+- test
+- table
+- graph

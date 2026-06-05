@@ -666,6 +666,192 @@ queries:
       max_rows: 100
       max_time_ms: 1000
 
+  - name: "Doc To Work Followthrough (tabular)"
+    section: "Cross-Domain"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 1500
+
+  - name: "Doc To Work Followthrough (graph)"
+    section: "Cross-Domain"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 1500
+
+  - name: "Doc Vs Implementation Gap (tabular)"
+    section: "Cross-Domain"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 1000
+
+  - name: "Doc Vs Implementation Gap (graph)"
+    section: "Cross-Domain"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 1000
+
+  - name: "Code Changes Without Doc Update (tabular)"
+    section: "Cross-Domain"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 1000
+
+  - name: "Code Changes Without Doc Update (graph)"
+    section: "Cross-Domain"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 1000
+
+  - name: "Epic Doc Coverage (tabular)"
+    section: "Cross-Domain"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 1500
+
+  - name: "Epic Doc Coverage (graph)"
+    section: "Cross-Domain"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 1500
+
+  - name: "Team Knowledge Surface Area (tabular)"
+    section: "Cross-Domain"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 1500
+
+  - name: "Team Knowledge Surface Area (graph)"
+    section: "Cross-Domain"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 1500
+
+  # ============================================================================
+  # Confluence Advanced Queries
+  # ============================================================================
+
+  - name: "Page Lineage Depth (tabular)"
+    section: "Confluence"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 1000
+
+  - name: "Page Lineage Depth (graph)"
+    section: "Confluence"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 1000
+
+  - name: "Orphan Pages (tabular)"
+    section: "Confluence"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 500
+
+  - name: "Orphan Pages (graph)"
+    section: "Confluence"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 500
+
+  - name: "Doc Staleness by Space (tabular)"
+    section: "Confluence"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 1000
+
+  - name: "Doc Staleness by Space (graph)"
+    section: "Confluence"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 1000
+
+  - name: "Comment Resolution Trend (tabular)"
+    section: "Confluence"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 1000
+
+  - name: "Comment Resolution Trend (graph)"
+    section: "Confluence"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 1000
+
+  - name: "High Touch Pages (tabular)"
+    section: "Confluence"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 1000
+
+  - name: "High Touch Pages (graph)"
+    section: "Confluence"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 1000
+
+  - name: "Space Collaboration Network (tabular)"
+    section: "Confluence"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 1000
+
+  - name: "Space Collaboration Network (graph)"
+    section: "Confluence"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 1000
+
+  - name: "Launch Readiness Docs (tabular)"
+    section: "Cross-Domain"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 1000
+
+  - name: "Launch Readiness Docs (graph)"
+    section: "Cross-Domain"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 1000
+
+  - name: "Cross Team Doc Bridges (tabular)"
+    section: "Cross-Domain"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 1000
+
+  - name: "Cross Team Doc Bridges (graph)"
+    section: "Cross-Domain"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 1000
+
   # ============================================================================
   # Schema Inspection
   # ============================================================================

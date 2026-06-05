@@ -1,0 +1,34 @@
+name: Launch Readiness Docs
+description: Documentation tied to launch, release, rollout, or deploy work.
+summary: "Documentation tied to launch, release, rollout, or deploy work."
+default_view: tabular
+owner: cross-domain-analytics
+status: active
+queries:
+  tabular: |-
+    MATCH (doc)
+    WHERE doc:Page OR doc:Blogpost
+    MATCH (doc)-[:REFERENCES]->(i:Issue)
+    WHERE toLower(coalesce(i.summary, '')) CONTAINS 'launch'
+       OR toLower(coalesce(i.summary, '')) CONTAINS 'release'
+       OR toLower(coalesce(i.summary, '')) CONTAINS 'rollout'
+       OR toLower(coalesce(i.summary, '')) CONTAINS 'deploy'
+    RETURN labels(doc)[0] as content_type,
+           doc.title as content_title,
+           count(DISTINCT i) as launch_related_issues,
+           collect(DISTINCT i.key)[0..10] as sample_issue_keys
+    ORDER BY launch_related_issues DESC, content_title
+    LIMIT 100
+  graph: |-
+    MATCH p1=(doc)-[:REFERENCES]->(i:Issue)
+    WHERE (doc:Page OR doc:Blogpost)
+      AND (toLower(coalesce(i.summary, '')) CONTAINS 'launch'
+        OR toLower(coalesce(i.summary, '')) CONTAINS 'release'
+        OR toLower(coalesce(i.summary, '')) CONTAINS 'rollout'
+        OR toLower(coalesce(i.summary, '')) CONTAINS 'deploy')
+    RETURN p1
+    LIMIT 100
+tags:
+- test
+- table
+- graph

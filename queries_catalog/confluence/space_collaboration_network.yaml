@@ -1,0 +1,28 @@
+name: Space Collaboration Network
+description: Teams and people collaborating through shared Confluence spaces.
+summary: "Teams and people collaborating through shared Confluence spaces."
+default_view: tabular
+owner: confluence-analytics
+status: active
+queries:
+  tabular: |-
+    MATCH (s:Space)<-[:IN_SPACE]-(doc)
+    WHERE doc:Page OR doc:Blogpost
+    MATCH (doc)<-[:CREATED|MODIFIED|COMMENTED_ON|REACTED_TO]-(person:Person)
+    OPTIONAL MATCH (person)-[:MEMBER_OF]-(team:Team)
+    RETURN s.key as space_key,
+           s.name as space_name,
+           count(DISTINCT person) as contributors,
+           count(DISTINCT team) as teams,
+           collect(DISTINCT team.name)[0..10] as sample_teams
+    ORDER BY teams DESC, contributors DESC, space_key
+    LIMIT 100
+  graph: |-
+    MATCH p1=(team:Team)-[:MEMBER_OF]-(person:Person)-[:CREATED|MODIFIED|COMMENTED_ON|REACTED_TO]->(doc)-[:IN_SPACE]->(s:Space)
+    WHERE doc:Page OR doc:Blogpost
+    RETURN p1
+    LIMIT 100
+tags:
+- test
+- table
+- graph

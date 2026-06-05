@@ -1,0 +1,27 @@
+name: Comment Resolution Trend
+description: Track open, resolved, and closed comments over time.
+summary: "Track open, resolved, and closed comments over time."
+default_view: tabular
+owner: confluence-analytics
+status: active
+queries:
+  tabular: |-
+    MATCH (s:Space)<-[:IN_SPACE]-(p:Page)<-[c:COMMENTED_ON]-(person:Person)
+    WITH s, date(c.first_interaction_at) as comment_day, coalesce(c.status, 'open') as status
+    RETURN s.key as space_key,
+           s.name as space_name,
+           comment_day,
+           sum(CASE WHEN status = 'open' THEN 1 ELSE 0 END) as open_comments,
+           sum(CASE WHEN status = 'resolved' THEN 1 ELSE 0 END) as resolved_comments,
+           sum(CASE WHEN status = 'closed' THEN 1 ELSE 0 END) as closed_comments,
+           count(*) as total_comments
+    ORDER BY comment_day DESC, total_comments DESC, space_key
+    LIMIT 100
+  graph: |-
+    MATCH p1=(person:Person)-[c:COMMENTED_ON]->(p:Page)-[:IN_SPACE]->(s:Space)
+    RETURN p1
+    LIMIT 100
+tags:
+- test
+- table
+- graph

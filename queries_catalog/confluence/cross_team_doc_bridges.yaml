@@ -1,0 +1,33 @@
+name: Cross Team Doc Bridges
+description: Documentation that mentions people from multiple teams.
+summary: "Documentation that mentions people from multiple teams."
+default_view: tabular
+owner: cross-domain-analytics
+status: active
+queries:
+  tabular: |-
+    MATCH (doc)
+    WHERE doc:Page OR doc:Blogpost
+    MATCH (doc)-[:MENTIONS]->(person:Person)
+    OPTIONAL MATCH (person)-[:MEMBER_OF]-(team:Team)
+    WITH doc,
+         count(DISTINCT person) as mentioned_people,
+         count(DISTINCT team) as teams,
+         collect(DISTINCT team.name)[0..10] as sample_teams
+    WHERE teams >= 2
+    RETURN labels(doc)[0] as content_type,
+           doc.title as content_title,
+           mentioned_people,
+           teams,
+           sample_teams
+    ORDER BY teams DESC, mentioned_people DESC, content_title
+    LIMIT 100
+  graph: |-
+    MATCH p1=(doc)-[:MENTIONS]->(person:Person)-[:MEMBER_OF]-(team:Team)
+    WHERE doc:Page OR doc:Blogpost
+    RETURN p1
+    LIMIT 100
+tags:
+- test
+- table
+- graph

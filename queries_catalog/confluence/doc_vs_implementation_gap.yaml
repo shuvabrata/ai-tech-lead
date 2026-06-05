@@ -1,0 +1,29 @@
+name: Doc Vs Implementation Gap
+description: Documentation that references work items with no code linkage.
+summary: "Documentation that references work items with no code linkage."
+default_view: tabular
+owner: cross-domain-analytics
+status: active
+queries:
+  tabular: |-
+    MATCH (doc)
+    WHERE doc:Page OR doc:Blogpost
+    MATCH (doc)-[:REFERENCES]->(i:Issue)
+    WHERE NOT (i)<-[:REFERENCES]-(:Commit)
+    RETURN labels(doc)[0] as content_type,
+           doc.title as content_title,
+           i.key as issue_key,
+           i.status as issue_status,
+           i.priority as priority
+    ORDER BY content_title, issue_key
+    LIMIT 100
+  graph: |-
+    MATCH p1=(doc)-[:REFERENCES]->(i:Issue)
+    WHERE (doc:Page OR doc:Blogpost)
+      AND NOT (i)<-[:REFERENCES]-(:Commit)
+    RETURN p1
+    LIMIT 100
+tags:
+- test
+- table
+- graph
