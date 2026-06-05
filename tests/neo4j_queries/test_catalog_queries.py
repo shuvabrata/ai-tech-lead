@@ -30,7 +30,7 @@ def load_catalog_queries():
         if not ns_dir.exists():
             continue
             
-        for yaml_file in ns_dir.glob("*.yaml"):
+        for yaml_file in sorted(ns_dir.glob("*.yaml")):
             with open(yaml_file, "r") as yf:
                 raw_def = yaml.safe_load(yf)
                 
@@ -82,7 +82,7 @@ def test_catalog_query(query_def, query_executor, expectations, track_result):
         query_name=query_def["test_name"],
         section=query_def["section"],
         query_text=query_def["query_text"],
-        expectation=expectations.get(query_def.get("name")),
+        expectation=expectations.get(query_def["test_name"]) or expectations.get(query_def.get("name")),
         parameters=params  # NOTE: Ensure QueryExecutor accepts this argument!
     )
     

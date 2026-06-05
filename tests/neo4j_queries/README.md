@@ -4,10 +4,11 @@ A dynamic, YAML-driven testing framework for validating Neo4j Cypher queries wit
 
 ## 📋 Overview
 
-This framework automates the execution and validation of 60+ Cypher queries across 6 domains:
+This framework automates the execution and validation of 60+ Cypher queries across 7 domains:
 - **People & Identity**: Organizational structure and identity mappings
 - **GitHub**: Repositories, branches, commits, and pull requests
 - **Jira**: Projects, initiatives, epics, issues, and sprints
+- **Confluence**: Pages, spaces, blogposts, and knowledge collaboration
 - **Person-to-Person**: Deep-dive collaboration metrics between individuals
 - **Cross-Domain**: Analytics spanning multiple data sources
 - **Schema**: Database structure and constraints
@@ -63,6 +64,8 @@ pytest tests/neo4j_queries/test_queries_cross_domain.py -v # Cross-Domain
 pytest tests/neo4j_queries/test_queries_person_to_person.py -v # Person-to-Person
 pytest tests/neo4j_queries/test_queries_schema.py -v      # Schema
 ```
+
+Confluence catalog queries are currently exercised through `pytest tests/neo4j_queries/test_catalog_queries.py -v` alongside the other cataloged domains.
 
 ### Single Test
 ```bash

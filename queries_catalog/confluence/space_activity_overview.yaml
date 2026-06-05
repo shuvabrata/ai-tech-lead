@@ -1,0 +1,25 @@
+name: Space Activity Overview
+description: Counts pages and blogposts by Confluence space.
+summary: "Counts pages and blogposts by Confluence space."
+default_view: tabular
+owner: confluence-analytics
+status: active
+queries:
+  tabular: |-
+    MATCH (s:Space)<-[:IN_SPACE]-(doc)
+    WHERE doc:Page OR doc:Blogpost
+    RETURN s.key as space_key,
+           s.name as space_name,
+           count(DISTINCT doc) as document_count,
+           collect(DISTINCT doc.title)[0..10] as sample_documents
+    ORDER BY document_count DESC, s.key
+    LIMIT 100
+  graph: |-
+    MATCH p1=(s:Space)<-[:IN_SPACE]-(doc)
+    WHERE doc:Page OR doc:Blogpost
+    RETURN p1
+    LIMIT 100
+tags:
+- test
+- table
+- graph

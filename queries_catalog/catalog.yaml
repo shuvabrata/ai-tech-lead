@@ -6,6 +6,8 @@ namespaces:
   directory: schema
 - name: Cross-Domain
   directory: cross_domain
+- name: Confluence
+  directory: confluence
 - name: GitHub
   directory: github
 - name: Jira

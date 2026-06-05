@@ -559,7 +559,113 @@ queries:
     expectations:
       min_rows: 1
       max_time_ms: 1500
-  
+
+  # ============================================================================
+  # Confluence Queries
+  # ============================================================================
+
+  - name: "Space Activity Overview (tabular)"
+    section: "Confluence"
+    expectations:
+      min_rows: 1
+      max_rows: 100
+      max_time_ms: 500
+
+  - name: "Space Activity Overview (graph)"
+    section: "Confluence"
+    expectations:
+      min_rows: 1
+      max_rows: 100
+      max_time_ms: 500
+
+  - name: "Page Edit Churn Hotspots (tabular)"
+    section: "Confluence"
+    expectations:
+      min_rows: 1
+      max_rows: 100
+      max_time_ms: 500
+
+  - name: "Page Edit Churn Hotspots (graph)"
+    section: "Confluence"
+    expectations:
+      min_rows: 1
+      max_rows: 100
+      max_time_ms: 500
+
+  - name: "Open Comment Hotspots (tabular)"
+    section: "Confluence"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 500
+
+  - name: "Open Comment Hotspots (graph)"
+    section: "Confluence"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 500
+
+  - name: "Blogpost Engagement Overview (tabular)"
+    section: "Confluence"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 500
+
+  - name: "Blogpost Engagement Overview (graph)"
+    section: "Confluence"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 500
+
+  - name: "Knowledge Broker Pages (tabular)"
+    section: "Confluence"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 500
+
+  - name: "Knowledge Broker Pages (graph)"
+    section: "Confluence"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 500
+
+  # ============================================================================
+  # Cross-Domain Confluence / Jira
+  # ============================================================================
+
+  - name: "Confluence to Jira Traceability (tabular)"
+    section: "Cross-Domain"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 1000
+
+  - name: "Confluence to Jira Traceability (graph)"
+    section: "Cross-Domain"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 1000
+
+  - name: "Jira Issues Without Docs (tabular)"
+    section: "Cross-Domain - Data Quality"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 1000
+
+  - name: "Jira Issues Without Docs (graph)"
+    section: "Cross-Domain - Data Quality"
+    expectations:
+      min_rows: 0
+      max_rows: 100
+      max_time_ms: 1000
+
   # ============================================================================
   # Schema Inspection
   # ============================================================================

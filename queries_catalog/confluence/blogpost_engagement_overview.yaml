@@ -1,0 +1,35 @@
+name: Blogpost Engagement Overview
+description: Compare comments and reactions across blogposts.
+summary: "Compare comments and reactions across blogposts."
+default_view: tabular
+owner: confluence-analytics
+status: active
+queries:
+  tabular: |-
+    MATCH (b:Blogpost)
+    OPTIONAL MATCH (b)<-[c:COMMENTED_ON]-(commenter:Person)
+    WITH b,
+         sum(CASE WHEN c IS NULL THEN 0 ELSE coalesce(c.count, 1) END) as comment_events,
+         count(DISTINCT commenter) as unique_commenters
+    OPTIONAL MATCH (b)<-[r:REACTED_TO]-(reactor:Person)
+    WITH b,
+         comment_events,
+         unique_commenters,
+         sum(CASE WHEN r IS NULL THEN 0 ELSE coalesce(r.count, 1) END) as reaction_events,
+         count(DISTINCT reactor) as unique_reactors
+    RETURN b.title as blogpost_title,
+           b.status as status,
+           comment_events,
+           unique_commenters,
+           reaction_events,
+           unique_reactors
+    ORDER BY (comment_events + reaction_events) DESC, b.last_updated_at DESC, blogpost_title
+    LIMIT 100
+  graph: |-
+    MATCH p1=(person:Person)-[:COMMENTED_ON|REACTED_TO]->(b:Blogpost)
+    RETURN p1
+    LIMIT 100
+tags:
+- test
+- table
+- graph

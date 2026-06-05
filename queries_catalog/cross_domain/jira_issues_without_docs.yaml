@@ -1,0 +1,27 @@
+name: Jira Issues Without Docs
+description: Jira issues that do not have a Confluence reference.
+summary: "Jira issues that do not have a Confluence reference."
+default_view: tabular
+owner: cross-domain-analytics
+status: active
+queries:
+  tabular: |-
+    MATCH (i:Issue)
+    WHERE NOT (i)<-[:REFERENCES]-(:Page)
+      AND NOT (i)<-[:REFERENCES]-(:Blogpost)
+    RETURN i.key as issue_key,
+           i.summary as summary,
+           i.status as status,
+           i.priority as priority
+    ORDER BY i.priority DESC, i.key
+    LIMIT 100
+  graph: |-
+    MATCH p1=(i:Issue)
+    WHERE NOT (i)<-[:REFERENCES]-(:Page)
+      AND NOT (i)<-[:REFERENCES]-(:Blogpost)
+    RETURN p1
+    LIMIT 100
+tags:
+- test
+- table
+- graph
