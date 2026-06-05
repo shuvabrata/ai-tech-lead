@@ -1627,6 +1627,73 @@ def merge_relationship(session: Session, relationship: Relationship) -> None:
         session.run(reverse_query, **params)
 
 
+def merge_interaction_relationship(session: Session, relationship: Relationship) -> None:
+    """
+    Upserts a single interaction relationship (e.g., COMMENTED_ON, REACTED_TO)
+    between two nodes, aggregating counts and maintaining first/last timestamps.
+    """
+    rel_type = relationship.type
+    from_id = relationship.from_id
+    to_id = relationship.to_id
+    from_type = relationship.from_type
+    to_type = relationship.to_type
+    props = relationship.properties
+    
+    # Interaction edges must have a timestamp to aggregate correctly.
+    timestamp_val = props.get('timestamp', props.get('last_interaction_at'))
+    
+    if not timestamp_val:
+        # Fall back to generic merge if no timestamp is provided
+        return merge_relationship(session, relationship)
+        
+    query = f"""
+    MERGE (from:{from_type} {{id: $from_id}})
+    MERGE (to:{to_type} {{id: $to_id}})
+    MERGE (from)-[r:{rel_type}]->(to)
+    ON CREATE SET 
+        r.count = 1,
+        r.first_interaction_at = datetime($interaction_at),
+        r.last_interaction_at = datetime($interaction_at)
+    ON MATCH SET 
+        r.count = COALESCE(r.count, 0) + 1,
+        r.last_interaction_at = CASE 
+            WHEN datetime($interaction_at) > r.last_interaction_at THEN datetime($interaction_at) 
+            ELSE r.last_interaction_at 
+        END
+    RETURN r
+    """
+    
+    params = {
+        "from_id": from_id,
+        "to_id": to_id,
+        "interaction_at": timestamp_val
+    }
+    
+    session.run(query, **params)
+
+    # Create the reverse relationship for directional pairs only
+    if rel_type in DIRECTIONAL_RELATIONSHIPS:
+        reverse_type = DIRECTIONAL_RELATIONSHIPS[rel_type]
+        reverse_query = f"""
+        MERGE (from:{to_type} {{id: $to_id}})
+        MERGE (to:{from_type} {{id: $from_id}})
+        MERGE (from)-[r:{reverse_type}]->(to)
+        ON CREATE SET 
+            r.count = 1,
+            r.first_interaction_at = datetime($interaction_at),
+            r.last_interaction_at = datetime($interaction_at)
+        ON MATCH SET 
+            r.count = COALESCE(r.count, 0) + 1,
+            r.last_interaction_at = CASE 
+                WHEN datetime($interaction_at) > r.last_interaction_at THEN datetime($interaction_at) 
+                ELSE r.last_interaction_at 
+            END
+        RETURN r
+        """
+        
+        session.run(reverse_query, **params)
+
+
 # ============================================================================
 # LAYER 9 MERGE FUNCTIONS
 # ============================================================================
@@ -1678,7 +1745,10 @@ def merge_page(session: Session, page: Page, relationships: Optional[List[Relati
     session.run(query, **props)
     
     for rel in (relationships or []):
-        merge_relationship(session, rel)
+        if rel.type in ("COMMENTED_ON", "REACTED_TO"):
+            merge_interaction_relationship(session, rel)
+        else:
+            merge_relationship(session, rel)
 
 
 def merge_blogpost(session: Session, blogpost: Blogpost, relationships: Optional[List[Relationship]] = None) -> None:
@@ -1700,12 +1770,14 @@ def merge_blogpost(session: Session, blogpost: Blogpost, relationships: Optional
         query = f"MERGE (b:Blogpost {{id: $id}}) SET {', '.join(set_clauses)} RETURN b"
     else:
         query = "MERGE (b:Blogpost {id: $id}) RETURN b"
-        
-    session.run(query, **props)
-    
-    for rel in (relationships or []):
-        merge_relationship(session, rel)
 
+    session.run(query, **props)
+
+    for rel in (relationships or []):
+        if rel.type in ("COMMENTED_ON", "REACTED_TO"):
+            merge_interaction_relationship(session, rel)
+        else:
+            merge_relationship(session, rel)
 
 # ============================================================================
 # HELPER FUNCTIONS
