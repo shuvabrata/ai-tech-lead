@@ -116,10 +116,13 @@ def test_execute_query_repeated_runs_refresh_baseline_and_filters(monkeypatch):
     # Output indices from execute_query callback contract
     ELEMENTS = 1
     UNFILTERED_STORE = 15
-    NODE_FILTER = 16
-    REL_FILTER = 17
-    WEIGHT_FILTER = 18
-    TOP_N_FILTER = 19
+    FILTER_DISPLAY_MODE = 16
+    NODE_AVAILABLE = 17
+    REL_AVAILABLE = 18
+    NODE_FILTER = 19
+    REL_FILTER = 20
+    WEIGHT_FILTER = 21
+    TOP_N_FILTER = 22
 
     # Baseline and rendered elements should match each run
     assert result_a[ELEMENTS] == cyto_a
@@ -131,9 +134,13 @@ def test_execute_query_repeated_runs_refresh_baseline_and_filters(monkeypatch):
     # Critical regression assertion: second execute must overwrite first baseline
     assert result_b[UNFILTERED_STORE] != result_a[UNFILTERED_STORE]
 
-    # Execute should always reset filter controls to defaults
-    assert result_b[NODE_FILTER] == []
-    assert result_b[REL_FILTER] == []
+    # Execute should reset filter controls and force the filter domain
+    # callbacks to rebuild selections from the new baseline graph.
+    assert result_b[FILTER_DISPLAY_MODE] == "hide"
+    assert result_b[NODE_AVAILABLE] is None
+    assert result_b[REL_AVAILABLE] is None
+    assert result_b[NODE_FILTER] is query_callbacks.no_update
+    assert result_b[REL_FILTER] is query_callbacks.no_update
     assert result_b[WEIGHT_FILTER] == 0
     assert result_b[TOP_N_FILTER] == "all"
 
