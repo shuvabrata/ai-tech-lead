@@ -90,24 +90,56 @@ def _parse_datetime(value: Any) -> Optional[datetime]:
 
 
 def _content_url(base_url: str, content: Dict[str, Any]) -> Optional[str]:
+    base = base_url.rstrip('/')
+    if base.endswith('/wiki'):
+        base = base[:-5]
+
     links = content.get("_links")
     if isinstance(links, dict):
         webui = links.get("webui")
         if isinstance(webui, str) and webui.strip():
             if webui.startswith("http://") or webui.startswith("https://"):
                 return webui
-            return f"{base_url.rstrip('/')}/{webui.lstrip('/')}"
+            
+            webui_path = webui.lstrip('/')
+            if webui_path.startswith("spaces/"):
+                return f"{base}/wiki/{webui_path}"
+                
+            if webui_path.startswith("wiki/"):
+                return f"{base}/{webui_path}"
+
+            return f"{base_url.rstrip('/')}/{webui_path}"
     return None
 
 
 def _space_url(base_url: str, space: Dict[str, Any]) -> Optional[str]:
+    base = base_url.rstrip('/')
+    if base.endswith('/wiki'):
+        base = base[:-5]
+
     links = space.get("_links")
     if isinstance(links, dict):
         webui = links.get("webui")
         if isinstance(webui, str) and webui.strip():
             if webui.startswith("http://") or webui.startswith("https://"):
                 return webui
-            return f"{base_url.rstrip('/')}/{webui.lstrip('/')}"
+            
+            webui_path = webui.lstrip('/')
+            if webui_path.startswith("spaces/"):
+                parts = [p for p in webui_path.split('/') if p]
+                if len(parts) >= 2:
+                    space_key = parts[1]
+                    return f"{base}/wiki/spaces/{space_key}/overview"
+
+            if webui_path.startswith("wiki/"):
+                return f"{base}/{webui_path}"
+
+            return f"{base_url.rstrip('/')}/{webui_path}"
+
+    key = space.get("key")
+    if key:
+        return f"{base}/wiki/spaces/{key}/overview"
+
     return None
 
 
