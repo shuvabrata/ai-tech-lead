@@ -13,8 +13,8 @@ async def test_list_catalog_queries():
     response = await router.list_catalog_queries(namespace=None, tag=None, q=None, view=None)
     data = response.model_dump()
 
-    assert data["count"] == 59
-    assert len(data["items"]) == 59
+    assert data["count"] == 90
+    assert len(data["items"]) == 90
     assert data["items"][0]["id"] == "schema/view_all_node_types"
     assert set(data["items"][0]["queries"]) == {"tabular", "graph"}
     assert data["items"][0]["summary"] == "Count all nodes by type."
@@ -27,7 +27,7 @@ async def test_filter_catalog_by_namespace():
     response = await router.list_catalog_queries(namespace="github", tag=None, q=None, view=None)
     data = response.model_dump()
 
-    assert data["count"] == 20
+    assert data["count"] == 25
     assert all(item["namespace"]["directory"] == "github" for item in data["items"])
 
 
@@ -35,14 +35,14 @@ async def test_filter_catalog_by_namespace_display_name():
     response = await router.list_catalog_queries(namespace="GitHub", tag=None, q=None, view=None)
     data = response.model_dump()
 
-    assert data["count"] == 20
+    assert data["count"] == 25
 
 
 async def test_filter_catalog_by_view():
     response = await router.list_catalog_queries(namespace=None, tag=None, q=None, view="graph")
     data = response.model_dump()
 
-    assert data["count"] == 59
+    assert data["count"] == 90
     assert all("graph" in item["available_views"] for item in data["items"])
 
 
@@ -115,10 +115,11 @@ async def test_list_catalog_namespaces():
     response = await router.list_catalog_namespaces()
     data = response.model_dump()
 
-    assert data["count"] == 6
+    assert data["count"] == 7
     assert [item["directory"] for item in data["items"]] == [
         "schema",
         "cross_domain",
+        "confluence",
         "github",
         "jira",
         "people_and_identity",
