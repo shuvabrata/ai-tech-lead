@@ -144,6 +144,48 @@ def test_update_filter_panel_feedback_uses_logical_counts_in_dim_mode():
     assert weight_note_style == {"display": "block"}
 
 
+def test_update_node_type_filter_defaults_to_all_on_fresh_graph_load():
+    """Resetting the available-store should force a clean all-selected state."""
+    unfiltered_elements = [
+        {"data": {"id": "n1", "nodeType": "Person", "elementType": "node"}},
+        {"data": {"id": "n2", "nodeType": "Repository", "elementType": "node"}},
+    ]
+
+    options, values, available = filtering_callbacks.update_node_type_filter(
+        unfiltered_elements=unfiltered_elements,
+        current_values=["Person"],
+        previous_available=None,
+    )
+
+    assert options == [
+        {"label": "Person (1)", "value": "Person"},
+        {"label": "Repository (1)", "value": "Repository"},
+    ]
+    assert values == ["Person", "Repository"]
+    assert available == ["Person", "Repository"]
+
+
+def test_update_relationship_type_filter_defaults_to_all_on_fresh_graph_load():
+    """Resetting the available-store should force a clean all-selected state."""
+    unfiltered_elements = [
+        {"data": {"id": "n1", "nodeType": "Person", "elementType": "node"}},
+        {"data": {"id": "n2", "nodeType": "Repository", "elementType": "node"}},
+        {"data": {"id": "e1", "source": "n1", "target": "n2", "relType": "WORKS_ON", "elementType": "edge"}},
+    ]
+
+    options, values, available = filtering_callbacks.update_relationship_type_filter(
+        unfiltered_elements=unfiltered_elements,
+        current_values=[],
+        previous_available=None,
+    )
+
+    assert options == [
+        {"label": "WORKS_ON (1)", "value": "WORKS_ON"},
+    ]
+    assert values == ["WORKS_ON"]
+    assert available == ["WORKS_ON"]
+
+
 @pytest.mark.xfail(reason="Known Dim mode issue: stale dimmed class not removed on re-selection. See Phase 2 doc: Dim mode + edge hover interaction conflict")
 def test_apply_relationship_filters_dim_mode_un_dims_reselected_elements_with_stale_class():
     """Visible elements should have stale dimmed class removed when they become selected again."""

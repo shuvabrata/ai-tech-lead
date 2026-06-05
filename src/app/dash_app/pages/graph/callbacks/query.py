@@ -127,12 +127,15 @@ def validate_query(query_text):
      Output("graph-results-container", "children"),
      Output("graph-results-container", "style"),
      Output("graph-details-panel", "style"),
-     Output("graph-performance-metrics", "children"),
-     Output("graph-performance-metrics", "style"),
-     Output("loaded-node-ids", "data"),
-     Output("expanded-nodes", "data"),
+    Output("graph-performance-metrics", "children"),
+    Output("graph-performance-metrics", "style"),
+    Output("loaded-node-ids", "data"),
+    Output("expanded-nodes", "data"),
     Output("expansion-debounce-store", "data"),
     Output("unfiltered-elements-store", "data"),
+    Output("filter-display-mode", "value"),
+    Output("node-type-available-store", "data"),
+    Output("relationship-type-available-store", "data"),
     Output("node-type-filter", "value", allow_duplicate=True),
     Output("relationship-type-filter", "value", allow_duplicate=True),
     Output("weight-threshold-slider", "value", allow_duplicate=True),
@@ -164,7 +167,6 @@ def execute_query(
     graph_hidden_style = {"display": "none"}
     default_container_style = {"minHeight": "400px", "padding": "20px"}
     panel_visible_style = GRAPH_DETAILS_PANEL_STYLE
-    default_filters = ([], [], 0, "all")
 
     def build_response(
         graph_data,
@@ -199,7 +201,16 @@ def execute_query(
             {},
             {},
             unfiltered_elements,
-            *default_filters,
+            # Reset filter state for a fresh graph load. The available-store
+            # callbacks use None as the "fresh load" sentinel and then rebuild
+            # the checklist values from the new unfiltered baseline.
+            "hide",
+            None,
+            None,
+            no_update,
+            no_update,
+            0,
+            "all",
         )
 
     def error_response(error_display):
@@ -339,7 +350,7 @@ def execute_query(
 
             success_alert = create_graph_success_alert(node_count, rel_count)
             performance_metrics = create_performance_metrics(node_count, rel_count, execution_time_ms, is_graph=True)
-            
+
             # Show graph, hide table and default, show details panel
             return build_response(
                 data,
