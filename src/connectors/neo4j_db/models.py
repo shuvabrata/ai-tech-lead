@@ -4,6 +4,7 @@ Provides dataclasses for all layers and utility functions for merging into Neo4j
 """
 from __future__ import annotations
 
+from collections import defaultdict
 from dataclasses import dataclass, asdict, field
 from typing import Optional, List, Dict, Any
 from neo4j import Session
@@ -1627,71 +1628,93 @@ def merge_relationship(session: Session, relationship: Relationship) -> None:
         session.run(reverse_query, **params)
 
 
-def merge_interaction_relationship(session: Session, relationship: Relationship) -> None:
-    """
-    Upserts a single interaction relationship (e.g., COMMENTED_ON, REACTED_TO)
-    between two nodes, aggregating counts and maintaining first/last timestamps.
-    """
-    rel_type = relationship.type
-    from_id = relationship.from_id
-    to_id = relationship.to_id
-    from_type = relationship.from_type
-    to_type = relationship.to_type
-    props = relationship.properties
-    
-    # Interaction edges must have a timestamp to aggregate correctly.
-    timestamp_val = props.get('timestamp', props.get('last_interaction_at'))
-    
-    if not timestamp_val:
-        # Fall back to generic merge if no timestamp is provided
-        return merge_relationship(session, relationship)
-        
-    query = f"""
-    MERGE (from:{from_type} {{id: $from_id}})
-    MERGE (to:{to_type} {{id: $to_id}})
-    MERGE (from)-[r:{rel_type}]->(to)
-    ON CREATE SET 
-        r.count = 1,
-        r.first_interaction_at = datetime($interaction_at),
-        r.last_interaction_at = datetime($interaction_at)
-    ON MATCH SET 
-        r.count = COALESCE(r.count, 0) + 1,
-        r.last_interaction_at = CASE 
-            WHEN datetime($interaction_at) > r.last_interaction_at THEN datetime($interaction_at) 
-            ELSE r.last_interaction_at 
-        END
-    RETURN r
-    """
-    
-    params = {
-        "from_id": from_id,
-        "to_id": to_id,
-        "interaction_at": timestamp_val
-    }
-    
-    session.run(query, **params)
+def replace_snapshot_interaction_relationships(
+    session: Session,
+    page_id: str,
+    page_type: str,
+    interaction_rels: List[Relationship],
+) -> None:
+    """Replace interaction relationships for a page/blogpost using snapshot semantics.
 
-    # Create the reverse relationship for directional pairs only
-    if rel_type in DIRECTIONAL_RELATIONSHIPS:
-        reverse_type = DIRECTIONAL_RELATIONSHIPS[rel_type]
-        reverse_query = f"""
-        MERGE (from:{to_type} {{id: $to_id}})
-        MERGE (to:{from_type} {{id: $from_id}})
-        MERGE (from)-[r:{reverse_type}]->(to)
-        ON CREATE SET 
-            r.count = 1,
-            r.first_interaction_at = datetime($interaction_at),
-            r.last_interaction_at = datetime($interaction_at)
-        ON MATCH SET 
-            r.count = COALESCE(r.count, 0) + 1,
-            r.last_interaction_at = CASE 
-                WHEN datetime($interaction_at) > r.last_interaction_at THEN datetime($interaction_at) 
-                ELSE r.last_interaction_at 
-            END
-        RETURN r
-        """
-        
-        session.run(reverse_query, **params)
+    Treats the incoming relationships as the authoritative
+    full set for this page.  It deletes all existing interaction edges connected
+    to the page node, then writes new aggregated edges computed from the supplied
+    relationships.
+
+    This makes re-processing the same signal fully idempotent: ``count``,
+    ``first_interaction_at``, and ``last_interaction_at`` reflect the actual
+    comment/reaction data rather than the number of times the signal was delivered.
+    """
+    if not interaction_rels:
+        return
+
+    # Group by (from_id, from_type, rel_type) and aggregate timestamps.
+    groups: Dict[tuple, List[Relationship]] = defaultdict(list)
+    for rel in interaction_rels:
+        groups[(rel.from_id, rel.from_type, rel.type)].append(rel)
+
+    # Delete all existing forward + reverse interaction edges for this page.
+    rel_types_present = {rel.type for rel in interaction_rels}
+    for rel_type in rel_types_present:
+        session.run(
+            f"MATCH (n)-[r:{rel_type}]->(p:{page_type} {{id: $page_id}}) DELETE r",
+            page_id=page_id,
+        )
+        reverse_type = DIRECTIONAL_RELATIONSHIPS.get(rel_type)
+        if reverse_type:
+            session.run(
+                f"MATCH (p:{page_type} {{id: $page_id}})-[r:{reverse_type}]->() DELETE r",
+                page_id=page_id,
+            )
+
+    # Write new aggregated edges.
+    for (from_id, from_type, rel_type), rels in groups.items():
+        timestamps = [
+            r.properties.get("timestamp") or r.properties.get("last_interaction_at")
+            for r in rels
+            if r.properties.get("timestamp") or r.properties.get("last_interaction_at")
+        ]
+        count = len(rels)
+        first_at = min(timestamps) if timestamps else None
+        last_at = max(timestamps) if timestamps else None
+
+        set_clauses = ["r.count = $count"]
+        params: Dict[str, Any] = {
+            "from_id": from_id,
+            "to_id": page_id,
+            "count": count,
+        }
+        if first_at:
+            set_clauses.append("r.first_interaction_at = datetime($first_at)")
+            params["first_at"] = first_at
+        if last_at:
+            set_clauses.append("r.last_interaction_at = datetime($last_at)")
+            params["last_at"] = last_at
+        set_str = ", ".join(set_clauses)
+
+        # Forward edge: e.g. (Person)-[:COMMENTED_ON]->(Page)
+        session.run(
+            f"""
+            MERGE (from:{from_type} {{id: $from_id}})
+            MERGE (to:{page_type} {{id: $to_id}})
+            MERGE (from)-[r:{rel_type}]->(to)
+            SET {set_str}
+            """,
+            **params,
+        )
+
+        # Reverse edge: e.g. (Page)-[:HAS_COMMENT]->(Person)
+        reverse_type = DIRECTIONAL_RELATIONSHIPS.get(rel_type)
+        if reverse_type:
+            session.run(
+                f"""
+                MERGE (from:{page_type} {{id: $to_id}})
+                MERGE (to:{from_type} {{id: $from_id}})
+                MERGE (from)-[r:{reverse_type}]->(to)
+                SET {set_str}
+                """,
+                **params,
+            )
 
 
 # ============================================================================
@@ -1744,11 +1767,11 @@ def merge_page(session: Session, page: Page, relationships: Optional[List[Relati
         
     session.run(query, **props)
     
-    for rel in (relationships or []):
-        if rel.type in ("COMMENTED_ON", "REACTED_TO"):
-            merge_interaction_relationship(session, rel)
-        else:
-            merge_relationship(session, rel)
+    interaction_rels = [r for r in (relationships or []) if r.type in ("COMMENTED_ON", "REACTED_TO")]
+    other_rels = [r for r in (relationships or []) if r.type not in ("COMMENTED_ON", "REACTED_TO")]
+    replace_snapshot_interaction_relationships(session, page.id, "Page", interaction_rels)
+    for rel in other_rels:
+        merge_relationship(session, rel)
 
 
 def merge_blogpost(session: Session, blogpost: Blogpost, relationships: Optional[List[Relationship]] = None) -> None:
@@ -1773,11 +1796,11 @@ def merge_blogpost(session: Session, blogpost: Blogpost, relationships: Optional
 
     session.run(query, **props)
 
-    for rel in (relationships or []):
-        if rel.type in ("COMMENTED_ON", "REACTED_TO"):
-            merge_interaction_relationship(session, rel)
-        else:
-            merge_relationship(session, rel)
+    interaction_rels = [r for r in (relationships or []) if r.type in ("COMMENTED_ON", "REACTED_TO")]
+    other_rels = [r for r in (relationships or []) if r.type not in ("COMMENTED_ON", "REACTED_TO")]
+    replace_snapshot_interaction_relationships(session, blogpost.id, "Blogpost", interaction_rels)
+    for rel in other_rels:
+        merge_relationship(session, rel)
 
 # ============================================================================
 # HELPER FUNCTIONS
