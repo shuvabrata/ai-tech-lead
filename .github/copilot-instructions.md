@@ -175,6 +175,19 @@ pytest -m "integration and server" tests -q
 pytest -m neo4j tests -q
 ```
 
+#### Dedicated Test Suites with HTML Reports
+
+Some test suites live in their own subdirectory under `tests/` and generate self-contained HTML + JSON reports on every run. Follow this pattern when adding a new integration validation suite.
+
+**Pattern to follow when creating a new suite:**
+
+1. Create `tests/<suite_name>/` with `__init__.py`, `conftest.py`, and `results/`.
+2. Add `tests/<suite_name>/results/` to `.gitignore` (keep `results/.gitkeep` tracked).
+3. In `conftest.py`, implement a `pytest_sessionfinish` hook that writes timestamped `test_results_<timestamp>.html` and `test_results_<timestamp>.json` plus `latest.html` / `latest.json` to the `results/` folder.
+4. Provide a `track_result` fixture that tests call to register a result dict into the session-scoped list consumed by the hook.
+5. Gate tests on `NEO4J_ENABLED` (or the relevant service flag) via `@pytest.mark.skipif` — no additional opt-in env vars needed.
+6. Run the suite directly: `pytest tests/<suite_name>/ -v`
+
 ## Running the Application
 
 ### Development Setup (local app, Docker services)

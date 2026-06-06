@@ -285,6 +285,24 @@ input::placeholder {
     color: var(--color-text-dark) !important;
 }
 
+/* Labels and checklist/switch labels — Bootstrap defaults to near-black; override for dark theme */
+.theme-executive-dark label,
+.theme-executive-dark .form-label,
+.theme-executive-dark .form-check-label {
+    color: var(--color-charcoal) !important;
+}
+
+/* Checklist and switch checkboxes — ensure border is visible on dark backgrounds */
+.theme-executive-dark .form-check-input {
+    background-color: var(--color-background-light) !important;
+    border-color: var(--color-border-light) !important;
+}
+
+.theme-executive-dark .form-check-input:checked {
+    background-color: var(--color-navy) !important;
+    border-color: var(--color-navy) !important;
+}
+
 /* Fix for multi-select dropdown tags in dark theme */
 .theme-executive-dark .Select--multi .Select-value {
     background-color: var(--color-surface-active) !important;

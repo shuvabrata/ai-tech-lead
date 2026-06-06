@@ -908,7 +908,9 @@ def create_constraints(session: Session, layers: Optional[List[int]] = None) -> 
         9: [
             "CREATE CONSTRAINT space_id IF NOT EXISTS FOR (s:Space) REQUIRE s.id IS UNIQUE",
             "CREATE CONSTRAINT page_id IF NOT EXISTS FOR (p:Page) REQUIRE p.id IS UNIQUE",
-            "CREATE CONSTRAINT blogpost_id IF NOT EXISTS FOR (b:Blogpost) REQUIRE b.id IS UNIQUE"
+            "CREATE CONSTRAINT blogpost_id IF NOT EXISTS FOR (b:Blogpost) REQUIRE b.id IS UNIQUE",
+            "CREATE INDEX page_last_updated_at IF NOT EXISTS FOR (p:Page) ON (p.last_updated_at)",
+            "CREATE INDEX blogpost_last_updated_at IF NOT EXISTS FOR (b:Blogpost) ON (b.last_updated_at)",
         ]
     }
     
