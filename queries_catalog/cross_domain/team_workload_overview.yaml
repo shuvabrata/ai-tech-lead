@@ -16,11 +16,13 @@ queries:
         ORDER BY assigned_issues DESC
         LIMIT 100
   graph: |-
-    MATCH p1=(t:Team)-[:MEMBER_OF]-(p:Person)
-        OPTIONAL MATCH p2=(p)-[:ASSIGNED_TO]-(i:Issue)
-        OPTIONAL MATCH p3=(p)-[:AUTHORED_BY]-(c:Commit)
-        RETURN p1, p2, p3
-        LIMIT 100
+    MATCH path=(t:Team)-[:MEMBER_OF]-(p:Person)-[:ASSIGNED_TO]-(i:Issue)
+        RETURN path
+        LIMIT 50
+    UNION
+    MATCH path=(t:Team)-[:MEMBER_OF]-(p:Person)-[:AUTHORED_BY]-(c:Commit)
+        RETURN path
+        LIMIT 50
 tags:
 - test
 - table

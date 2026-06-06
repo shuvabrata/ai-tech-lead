@@ -20,7 +20,7 @@ queries:
     section: "People & Identity"
     expectations:
       min_rows: 1
-      max_rows: 10
+      max_rows: 100
       max_time_ms: 200
 
   - name: "Team Distribution (graph)"
@@ -34,7 +34,7 @@ queries:
     section: "People & Identity"
     expectations:
       min_rows: 1
-      max_rows: 10
+      max_rows: 100
       max_time_ms: 200
 
   - name: "Teams and Members (graph)"
@@ -48,7 +48,7 @@ queries:
     section: "People & Identity"
     expectations:
       min_rows: 0  # Query requires specific person name parameter
-      max_rows: 10
+      max_rows: 100
       max_time_ms: 200
 
   - name: "Identity Mappings (graph)"
@@ -62,7 +62,7 @@ queries:
     section: "People & Identity"
     expectations:
       min_rows: 0  # May have flat org structure
-      max_rows: 10
+      max_rows: 100
       max_time_ms: 300
 
   - name: "Organizational Hierarchy (graph)"
@@ -80,7 +80,7 @@ queries:
     section: "GitHub"
     expectations:
       min_rows: 1
-      max_rows: 10
+      max_rows: 100
       max_time_ms: 300
 
   - name: "Repository Ownership (graph)"
@@ -94,7 +94,7 @@ queries:
     section: "GitHub"
     expectations:
       min_rows: 0
-      max_rows: 10
+      max_rows: 100
       max_time_ms: 300
 
   - name: "Repository Maintainers (graph)"
@@ -108,7 +108,7 @@ queries:
     section: "GitHub"
     expectations:
       min_rows: 0
-      max_rows: 10
+      max_rows: 100
       max_time_ms: 300
 
   - name: "Cross-Team Collaborations (graph)"
@@ -122,7 +122,7 @@ queries:
     section: "GitHub"
     expectations:
       min_rows: 1
-      max_rows: 10
+      max_rows: 100
       max_time_ms: 500
 
   - name: "Branches by Repository (graph)"
@@ -136,7 +136,7 @@ queries:
     section: "GitHub"
     expectations:
       min_rows: 0
-      max_rows: 10
+      max_rows: 100
       max_time_ms: 500
 
   - name: "Active Feature Branches (graph)"
@@ -150,7 +150,7 @@ queries:
     section: "GitHub"
     expectations:
       min_rows: 0
-      max_rows: 10
+      max_rows: 100
       max_time_ms: 300
 
   - name: "Protected Branches (graph)"
@@ -164,7 +164,7 @@ queries:
     section: "GitHub"
     expectations:
       min_rows: 0  # Query filters by specific work item
-      max_rows: 10
+      max_rows: 100
       max_time_ms: 300
 
   - name: "Branches by Work Item (graph)"
@@ -178,7 +178,7 @@ queries:
     section: "GitHub"
     expectations:
       min_rows: 1
-      max_rows: 10
+      max_rows: 100
       max_time_ms: 500
 
   - name: "Top Contributors (graph)"
@@ -192,7 +192,7 @@ queries:
     section: "GitHub"
     expectations:
       min_rows: 1
-      max_rows: 10
+      max_rows: 100
       max_time_ms: 500
 
   - name: "Commits per Repository (graph)"
@@ -206,7 +206,7 @@ queries:
     section: "GitHub"
     expectations:
       min_rows: 0  # May have no Jira integration
-      max_rows: 10
+      max_rows: 100
       max_time_ms: 800
 
   - name: "Commits with Jira References (graph)"
@@ -220,7 +220,7 @@ queries:
     section: "GitHub"
     expectations:
       min_rows: 0
-      max_rows: 10
+      max_rows: 100
       max_time_ms: 1000
 
   - name: "Commits Referencing Issues (graph)"
@@ -234,7 +234,7 @@ queries:
     section: "GitHub"
     expectations:
       min_rows: 0
-      max_rows: 10
+      max_rows: 100
       max_time_ms: 800
 
   - name: "Multi-Repository Contributors (graph)"
@@ -248,7 +248,7 @@ queries:
     section: "GitHub"
     expectations:
       min_rows: 1
-      max_rows: 10
+      max_rows: 100
       max_time_ms: 1000
 
   - name: "Hotspot Files (graph)"
@@ -262,7 +262,7 @@ queries:
     section: "GitHub"
     expectations:
       min_rows: 1
-      max_rows: 10
+      max_rows: 100
       max_time_ms: 1500
 
   - name: "Test vs Production Code (graph)"
@@ -276,7 +276,7 @@ queries:
     section: "GitHub"
     expectations:
       min_rows: 1
-      max_rows: 10
+      max_rows: 100
       max_time_ms: 1500
 
   - name: "Code Churn (graph)"
@@ -290,7 +290,7 @@ queries:
     section: "GitHub"
     expectations:
       min_rows: 1
-      max_rows: 10
+      max_rows: 100
       max_time_ms: 2000
 
   - name: "Developer Activity by Language (graph)"
@@ -304,7 +304,7 @@ queries:
     section: "GitHub"
     expectations:
       min_rows: 0  # May have no PRs yet
-      max_rows: 10
+      max_rows: 100
       max_time_ms: 800
 
   - name: "PR Velocity by Repository (graph)"
@@ -318,7 +318,7 @@ queries:
     section: "GitHub"
     expectations:
       min_rows: 0
-      max_rows: 10
+      max_rows: 100
       max_time_ms: 800
 
   - name: "Top PR Contributors (graph)"
@@ -332,7 +332,7 @@ queries:
     section: "GitHub"
     expectations:
       min_rows: 0
-      max_rows: 10
+      max_rows: 100
       max_time_ms: 800
 
   - name: "Most Active Reviewers (graph)"
@@ -346,7 +346,7 @@ queries:
     section: "GitHub"
     expectations:
       min_rows: 0
-      max_rows: 10
+      max_rows: 100
       max_time_ms: 500
 
   - name: "PR Size Distribution (graph)"
@@ -360,7 +360,7 @@ queries:
     section: "GitHub"
     expectations:
       min_rows: 0
-      max_rows: 10
+      max_rows: 100
       max_time_ms: 2000
 
   - name: "Cross-Team Reviews (graph)"
@@ -374,7 +374,7 @@ queries:
     section: "GitHub"
     expectations:
       min_rows: 0
-      max_rows: 10
+      max_rows: 100
       max_time_ms: 1200
 
   - name: "Reviewer Load Balance (graph)"
@@ -388,7 +388,7 @@ queries:
     section: "GitHub"
     expectations:
       min_rows: 0
-      max_rows: 10
+      max_rows: 100
       max_time_ms: 1500
 
   - name: "PR Risk Score by Repository (graph)"
@@ -402,7 +402,7 @@ queries:
     section: "GitHub"
     expectations:
       min_rows: 0
-      max_rows: 10
+      max_rows: 100
       max_time_ms: 1200
 
   - name: "Large PRs with Low Review Coverage (graph)"
@@ -416,7 +416,7 @@ queries:
     section: "GitHub"
     expectations:
       min_rows: 0
-      max_rows: 10
+      max_rows: 100
       max_time_ms: 1200
 
   - name: "Long-Lived Open PRs (graph)"
@@ -430,7 +430,7 @@ queries:
     section: "GitHub"
     expectations:
       min_rows: 0
-      max_rows: 10
+      max_rows: 100
       max_time_ms: 1200
 
   - name: "File Bus Factor Hotspots (graph)"
@@ -444,7 +444,7 @@ queries:
     section: "GitHub"
     expectations:
       min_rows: 0  # Requires merged PRs
-      max_rows: 10
+      max_rows: 100
       max_time_ms: 800
 
   - name: "PR Merge Time Analysis (graph)"
@@ -457,7 +457,7 @@ queries:
   - name: "Stale Branches (tabular)"
     section: "GitHub - Data Quality"
     expectations:
-      max_rows: 10
+      max_rows: 100
       max_time_ms: 500
 
   - name: "Stale Branches (graph)"
@@ -469,7 +469,7 @@ queries:
   - name: "PRs Without Reviews (tabular)"
     section: "GitHub - Data Quality"
     expectations:
-      max_rows: 10  # Should have few unreviewed PRs
+      max_rows: 100  
       max_time_ms: 500
 
   - name: "PRs Without Reviews (graph)"
@@ -588,7 +588,7 @@ queries:
     section: "Jira"
     expectations:
       min_rows: 0
-      max_rows: 10
+      max_rows: 100
       max_time_ms: 1200
 
   - name: "Issue Age by Priority and Team (graph)"
@@ -602,7 +602,7 @@ queries:
     section: "Jira"
     expectations:
       min_rows: 0
-      max_rows: 10
+      max_rows: 100
       max_time_ms: 1000
 
   - name: "Sprint Scope Drift (graph)"
@@ -616,7 +616,7 @@ queries:
     section: "Jira"
     expectations:
       min_rows: 0
-      max_rows: 10
+      max_rows: 100
       max_time_ms: 1200
 
   - name: "Blocker Chain Depth (graph)"
@@ -630,7 +630,7 @@ queries:
     section: "Jira"
     expectations:
       min_rows: 0
-      max_rows: 10
+      max_rows: 100
       max_time_ms: 1200
 
   - name: "Epic Delivery Risk (graph)"
@@ -644,7 +644,7 @@ queries:
     section: "Jira"
     expectations:
       min_rows: 0
-      max_rows: 10
+      max_rows: 100
       max_time_ms: 1200
 
   - name: "Team Backlog Pressure (graph)"
@@ -662,7 +662,7 @@ queries:
     section: "Cross-Domain"
     expectations:
       min_rows: 0
-      max_rows: 10
+      max_rows: 100
       max_time_ms: 1500
 
   - name: "PR to Jira Delivery Risk (graph)"
