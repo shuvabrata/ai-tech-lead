@@ -167,6 +167,69 @@ def _hit_to_result(hit: Dict[str, Any], full: bool) -> SearchResult:
     return result
 
 
+def search_in_graph(request: SearchRequest, graph_wba_ids: list[str]) -> SearchResponse:
+    """Execute a search scoped to the specific wba_ids currently loaded in the graph.
+
+    Unlike ``search()``, this function constrains the ES query to only the
+    documents whose ``wba_id`` is in *graph_wba_ids*.  This ensures that:
+
+    * Every loaded node is a candidate, regardless of how common the query term
+      is across the full corpus (eliminates the top-N clipping problem).
+    * The result ``size`` is always ``len(graph_wba_ids)`` — all matches are
+      returned in a single request without pagination.
+
+    Returns an empty response when Elasticsearch is disabled, *graph_wba_ids*
+    is empty, or the index does not exist.
+
+    Args:
+        request:        A ``SearchRequest`` whose ``q`` is used for scoring.
+                        ``page``, ``page_size``, and filter params are ignored —
+                        the graph scope supersedes them.
+        graph_wba_ids:  The list of ``wba_id`` values for all nodes currently
+                        rendered in the graph.
+    """
+    if not graph_wba_ids:
+        return SearchResponse(total=0, page=1, page_size=0, results=[])
+
+    if not settings.ELASTICSEARCH_ENABLED:
+        logger.debug("[Spotlight] Elasticsearch is disabled — returning empty response")
+        return SearchResponse(total=0, page=1, page_size=0, results=[])
+
+    client = _build_client()
+    body = _build_query_body(request)
+
+    # Override pagination — return all graph nodes in one shot.
+    body["from"] = 0
+    body["size"] = len(graph_wba_ids)
+
+    # Constrain to the wba_ids currently in the graph.
+    bool_clause = body["query"]["bool"]
+    filters: List[Dict[str, Any]] = list(bool_clause.get("filter", []))
+    filters.append({"terms": {"wba_id": graph_wba_ids}})
+    bool_clause["filter"] = filters
+
+    try:
+        response = client.search(index="wba_all", body=body)
+    except NotFoundError:
+        logger.warning("[Spotlight] wba_all alias not found")
+        return SearchResponse(total=0, page=1, page_size=0, results=[])
+    except BadRequestError as exc:
+        logger.warning("[Spotlight] Bad request from Elasticsearch: %s", exc)
+        return SearchResponse(total=0, page=1, page_size=0, results=[])
+    except Exception as exc:
+        logger.exception("[Spotlight] Elasticsearch query failed: %s", exc)
+        raise
+
+    hits = response.get("hits", {})
+    total_value = hits.get("total", {})
+    total = total_value.get("value", 0) if isinstance(total_value, dict) else int(total_value)
+    results: List[SearchResult] = [
+        _hit_to_result(hit, False) for hit in hits.get("hits", [])
+    ]
+
+    return SearchResponse(total=total, page=1, page_size=len(graph_wba_ids), results=results)
+
+
 def search(request: SearchRequest) -> SearchResponse:
     """Execute a search against Elasticsearch and return a ``SearchResponse``.
 

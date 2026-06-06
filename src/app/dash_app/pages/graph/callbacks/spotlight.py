@@ -11,6 +11,7 @@ from dash.exceptions import PreventUpdate
 
 from app.api.search.v1 import service as search_service
 from app.api.search.v1.model import SearchRequest
+from app.api.search.v1.service import search_in_graph
 from common.logger import logger
 from ..utils import is_node_data
 
@@ -107,8 +108,14 @@ def update_spotlight(query: str | None, elements: list | None):
 
     q = query.strip()
 
+    graph_wba_ids = [
+        e["data"]["wba_id"]
+        for e in (elements or [])
+        if is_node_data(e.get("data", {})) and e["data"].get("wba_id")
+    ]
+
     try:
-        response = search_service.search(SearchRequest(q=q, page_size=100))
+        response = search_in_graph(SearchRequest(q=q), graph_wba_ids)
     except Exception as exc:
         logger.warning(f"[Spotlight] Search failed for query {q!r}: {exc}")
         raise PreventUpdate

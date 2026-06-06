@@ -1,21 +1,30 @@
 """Collaboration Network spotlight callbacks.
 
-Live spotlight search: debounce the input (400 ms, min 3 chars), call the
-ES search API via the service layer, intersect results with the loaded collab
-nodes via wba_id, then apply spotlight-match / spotlight-dim CSS classes to
-all Cytoscape elements — composing on top of any active filter classes.
+Live spotlight search: debounce the input (400 ms, min 3 chars), perform a
+client-side case-insensitive substring match against the person fields already
+stored in the Cytoscape elements (label, full_name, name, email, login), then
+apply spotlight-match / spotlight-dim CSS classes to all Cytoscape elements —
+composing on top of any active filter classes.
+
+Client-side matching is used instead of Elasticsearch because the collab
+network loads 1000+ nodes and sending that many wba_ids in an ES terms filter
+causes ES to return the total count but silently drop the hits array.  The
+person fields required for spotlight (name, email) are already present in the
+element data returned by the collaboration score query, so no ES round-trip is
+needed.
 """
 
 from dash import Input, Output, State, callback, clientside_callback
 from dash.exceptions import PreventUpdate
 
-from app.api.search.v1 import service as search_service
-from app.api.search.v1.model import SearchRequest
 from app.dash_app.pages.graph.utils import is_node_data
 from common.logger import logger
 
 
 _MIN_QUERY_LENGTH = 3
+
+# Fields searched in priority order for each Person node.
+_SEARCH_FIELDS = ("label", "full_name", "name", "login", "email")
 
 
 # ---------------------------------------------------------------------------
@@ -44,6 +53,15 @@ clientside_callback(
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+def _match_node(data: dict, query_lower: str) -> bool:
+    """Return True if any searchable field in node data contains query_lower."""
+    for field in _SEARCH_FIELDS:
+        val = data.get(field)
+        if val and query_lower in str(val).lower():
+            return True
+    return False
+
 
 def _apply_spotlight_classes(elements, match_wba_ids):
     """Add spotlight-match / spotlight-dim classes to Cytoscape elements.
@@ -98,7 +116,7 @@ def _apply_spotlight_classes(elements, match_wba_ids):
     prevent_initial_call=True,
 )
 def update_collab_spotlight(query: str | None, elements: list | None):
-    """Apply spotlight highlighting to collab nodes based on ES search results."""
+    """Apply spotlight highlighting to collab nodes using client-side field matching."""
     if not elements:
         raise PreventUpdate
 
@@ -108,22 +126,30 @@ def update_collab_spotlight(query: str | None, elements: list | None):
         return cleared, ""
 
     q = query.strip()
+    q_lower = q.lower()
 
-    try:
-        response = search_service.search(SearchRequest(q=q, page_size=100))
-    except Exception as exc:
-        logger.warning("[Collab Spotlight] Search failed for query %r: %s", q, exc)
-        raise PreventUpdate
+    node_elements = [e for e in elements if is_node_data(e.get("data", {}))]
 
-    match_wba_ids = {r.wba_id for r in response.results}
+    match_wba_ids = {
+        e["data"]["wba_id"]
+        for e in node_elements
+        if e["data"].get("wba_id") and _match_node(e["data"], q_lower)
+    }
 
-    node_count = sum(1 for elem in elements if is_node_data(elem.get("data", {})))
-    match_count = sum(
-        1
-        for elem in elements
-        if is_node_data(elem.get("data", {}))
-        and elem["data"].get("wba_id", "") in match_wba_ids
+    node_count = len(node_elements)
+    match_count = len(match_wba_ids)
+
+    logger.info(
+        "[Collab Spotlight] query=%r  node_count=%d  match_count=%d",
+        q,
+        node_count,
+        match_count,
     )
+
+    updated = _apply_spotlight_classes(elements, match_wba_ids)
+    count_text = f"{match_count} of {node_count} nodes match" if node_count > 0 else ""
+    return updated, count_text
+
 
     updated = _apply_spotlight_classes(elements, match_wba_ids)
     count_text = f"{match_count} of {node_count} nodes match" if node_count > 0 else ""
