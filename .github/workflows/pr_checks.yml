@@ -1,6 +1,5 @@
 name: PR Checks
 on:
-  pull_request:
   workflow_dispatch:
 
 permissions:

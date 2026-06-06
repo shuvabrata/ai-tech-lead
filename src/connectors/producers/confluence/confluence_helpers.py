@@ -40,7 +40,12 @@ def _build_recent_content_cql(
             "space not in (" + ", ".join(f'"{space}"' for space in exclude) + ")"
         )
 
-    return " AND ".join(clauses) + " ORDER BY lastModified DESC"
+    # Sort by id ASC (stable immutable field) instead of lastModified DESC.
+    # Confluence Cloud uses offset-based CQL pagination; sorting by a mutable
+    # field like lastModified causes pages to shift position between batches
+    # when other pages are modified during the scan — leading to duplicates and
+    # silently skipped pages. id ASC is stable for the full duration of the scan.
+    return " AND ".join(clauses) + " ORDER BY id ASC"
 
 async def get_spaces(confluence) -> List[Dict[str, Any]]:
     logger.debug("Dispatching Confluence space fetch to worker thread")
