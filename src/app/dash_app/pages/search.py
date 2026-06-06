@@ -128,6 +128,9 @@ def _get_api_base_url() -> str:
 # ---------------------------------------------------------------------------
 # Use the same TOKENS dict as the graph page (get_theme_tokens) so badge
 # colours always match the Cytoscape node colours exactly.
+# IMPORTANT: keep this dict in sync with the nodeType selectors in
+# src/app/dash_app/pages/graph/styles.py.  The unit test
+# tests/test_search_node_color_consistency.py enforces that invariant.
 _ENTITY_TYPE_BADGE_COLORS: dict[str, str] = {
     "Person": TOKENS["graph.node.person"],
     "Issue": TOKENS["graph.node.issue"],
@@ -135,7 +138,16 @@ _ENTITY_TYPE_BADGE_COLORS: dict[str, str] = {
     "Repository": TOKENS["graph.node.repository"],
     "Branch": TOKENS["graph.node.branch"],
     "Project": TOKENS["graph.node.project"],
-    # PullRequest, Commit, Team, File, Sprint, Initiative → default colour
+    "Team": TOKENS["graph.node.team"],
+    "IdentityMapping": TOKENS["graph.node.identity_mapping"],
+    "Initiative": TOKENS["graph.node.initiative"],
+    "Sprint": TOKENS["graph.node.sprint"],
+    "Commit": TOKENS["graph.node.commit"],
+    "File": TOKENS["graph.node.file"],
+    "PullRequest": TOKENS["graph.node.pull_request"],
+    "Space": TOKENS["graph.node.space"],
+    "Page": TOKENS["graph.node.page"],
+    "Blogpost": TOKENS["graph.node.blogpost"],
 }
 
 
