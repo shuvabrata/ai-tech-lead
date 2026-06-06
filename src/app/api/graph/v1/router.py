@@ -202,6 +202,10 @@ async def get_collaboration_network(
     w_sprint_coworkers: float = Query(default=2.0, ge=0),
     w_explicit_review_requests: float = Query(default=2.0, ge=0),
     w_epic_overlap: float = Query(default=1.0, ge=0),
+    w_confluence_co_authorship: float = Query(default=3.0, ge=0),
+    w_confluence_comment_engagement: float = Query(default=2.0, ge=0),
+    w_confluence_co_commenters: float = Query(default=1.0, ge=0),
+    w_confluence_mentions: float = Query(default=2.0, ge=0),
 ):
     """
     Build and return a collaboration network with Louvain community detection.
@@ -241,6 +245,10 @@ async def get_collaboration_network(
                 "w_sprint_coworkers": w_sprint_coworkers,
                 "w_explicit_review_requests": w_explicit_review_requests,
                 "w_epic_overlap": w_epic_overlap,
+                "w_confluence_co_authorship": w_confluence_co_authorship,
+                "w_confluence_comment_engagement": w_confluence_comment_engagement,
+                "w_confluence_co_commenters": w_confluence_co_commenters,
+                "w_confluence_mentions": w_confluence_mentions,
             }
         )
         response = service.get_collaboration_network(config=config)

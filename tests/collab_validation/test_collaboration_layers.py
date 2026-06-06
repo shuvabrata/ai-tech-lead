@@ -1,12 +1,18 @@
-"""Integration tests for parameterized collaboration Cypher query.
+"""Per-layer validation of the collaboration score Cypher query against live Neo4j.
 
-These tests require a live Neo4j instance and real project data.
-Run with:
-    pytest tests/test_collaboration_query_integration.py -v
+Runs automatically whenever NEO4J_ENABLED=true. No extra opt-in flag required.
+
+Each test isolates one collaboration layer by enabling only that layer, runs the
+full query against the live graph, and asserts at least one person-pair is
+returned. Results are collected and written to tests/collab_validation/results/
+as timestamped HTML and JSON reports via the conftest.py session hook.
+
+Run:
+    pytest tests/collab_validation/ -v
 """
 
+import time
 from pathlib import Path
-import os
 from typing import Any
 
 import pytest
@@ -17,6 +23,16 @@ from app.settings import settings
 
 
 pytestmark = [pytest.mark.integration, pytest.mark.neo4j]
+
+_QUERY_PATH = (
+    Path(__file__).resolve().parent.parent.parent
+    / "src"
+    / "app"
+    / "analytics"
+    / "collaboration"
+    / "queries"
+    / "collaboration_score.cypher"
+)
 
 
 def _to_cypher_literal(value: Any) -> str:
@@ -38,32 +54,19 @@ def _to_cypher_literal(value: Any) -> str:
 def _render_query(query: str, parameters: dict[str, Any]) -> str:
     """Render a query with parameters inlined for human-readable debugging."""
     rendered = query
-    # Replace longer parameter names first to avoid partial token collisions.
     for key in sorted(parameters.keys(), key=len, reverse=True):
         rendered = rendered.replace(f"${key}", _to_cypher_literal(parameters[key]))
     return rendered
 
 
 @pytest.mark.skipif(
-    (not settings.NEO4J_ENABLED) or (os.getenv("RUN_COLLAB_DB_VALIDATION", "0") != "1"),
-    reason=(
-        "Requires live Neo4j and explicit opt-in. "
-        "Set NEO4J_ENABLED=true and RUN_COLLAB_DB_VALIDATION=1 to run."
-    ),
+    not settings.NEO4J_ENABLED,
+    reason="Requires live Neo4j. Set NEO4J_ENABLED=true to run.",
 )
 @pytest.mark.parametrize("layer", LAYER_ORDER)
-def test_each_layer_returns_data(layer: str):
-    """Validate each collaboration layer has data in the current DB snapshot."""
-    query_path = (
-        Path(__file__).resolve().parent.parent
-        / "src"
-        / "app"
-        / "analytics"
-        / "collaboration"
-        / "queries"
-        / "collaboration_score.cypher"
-    )
-    query = query_path.read_text(encoding="utf-8")
+def test_each_layer_returns_data(layer: str, track_result):
+    """Validate each collaboration layer returns at least one person-pair from Neo4j."""
+    query = _QUERY_PATH.read_text(encoding="utf-8")
 
     config = CollaborationNetworkConfig.from_query_values(
         {
@@ -83,13 +86,24 @@ def test_each_layer_returns_data(layer: str):
     print(rendered_query)
     print("=" * 90)
 
+    t0 = time.time()
     records = execute_cypher_query(
         query,
         timeout=settings.NEO4J_QUERY_TIMEOUT,
         parameters=parameters,
     )
+    elapsed_ms = int((time.time() - t0) * 1000)
 
-    assert records, (
+    passed = bool(records)
+    track_result({
+        "layer": layer,
+        "status": "PASS" if passed else "FAIL",
+        "row_count": len(records),
+        "elapsed_ms": elapsed_ms,
+        "message": f"{len(records)} pairs found" if passed else "No rows returned",
+    })
+
+    assert passed, (
         f"Single-layer query returned no rows for layer '{layer}'. "
         "This indicates either no activity exists in the last 90 days for that layer "
         "or data relationships/timestamps are missing for that signal."

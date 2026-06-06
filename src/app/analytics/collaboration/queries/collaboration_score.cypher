@@ -71,6 +71,58 @@ CALL () {
     AND i2.created_at >= datetime() - duration({days: $lookback_days})
   WITH dev1 AS p1, dev2 AS p2, e
   RETURN p1, p2, count(DISTINCT e) * $weight_epic_overlap AS sub_score
+
+  UNION ALL
+
+  // 7. Find Confluence Co-authorship (Weight: 3)
+  // Both people CREATED or MODIFIED the same Page or Blogpost
+  MATCH (p1:Person)-[:CREATED|MODIFIED]->(doc)<-[:CREATED|MODIFIED]-(p2:Person)
+  WHERE $include_confluence_co_authorship
+    AND (doc:Page OR doc:Blogpost)
+    AND elementId(p1) < elementId(p2)
+    AND doc.last_updated_at >= datetime() - duration({days: $lookback_days})
+  RETURN p1, p2, count(DISTINCT doc) * $weight_confluence_co_authorship AS sub_score
+
+  UNION ALL
+
+  // 8. Find Confluence Comment Engagement (Weight: 2)
+  // Person A commented on a document that Person B created or modified
+  MATCH (commenter:Person)-[:COMMENTED_ON]->(doc)<-[:CREATED|MODIFIED]-(author:Person)
+  WHERE $include_confluence_comment_engagement
+    AND (doc:Page OR doc:Blogpost)
+    AND elementId(commenter) <> elementId(author)
+    AND doc.last_updated_at >= datetime() - duration({days: $lookback_days})
+  WITH
+    CASE WHEN elementId(commenter) < elementId(author) THEN commenter ELSE author END AS p1,
+    CASE WHEN elementId(commenter) < elementId(author) THEN author ELSE commenter END AS p2,
+    doc
+  RETURN p1, p2, count(DISTINCT doc) * $weight_confluence_comment_engagement AS sub_score
+
+  UNION ALL
+
+  // 9. Find Confluence Co-commenters (Weight: 1)
+  // Both people commented on the same Page or Blogpost
+  MATCH (p1:Person)-[:COMMENTED_ON]->(doc)<-[:COMMENTED_ON]-(p2:Person)
+  WHERE $include_confluence_co_commenters
+    AND (doc:Page OR doc:Blogpost)
+    AND elementId(p1) < elementId(p2)
+    AND doc.last_updated_at >= datetime() - duration({days: $lookback_days})
+  RETURN p1, p2, count(DISTINCT doc) * $weight_confluence_co_commenters AS sub_score
+
+  UNION ALL
+
+  // 10. Find Confluence Mentions (Weight: 2)
+  // The author of a document explicitly @mentioned another person in the body or comments
+  MATCH (author:Person)-[:CREATED|MODIFIED]->(doc)-[:MENTIONS]->(mentioned:Person)
+  WHERE $include_confluence_mentions
+    AND (doc:Page OR doc:Blogpost)
+    AND elementId(author) <> elementId(mentioned)
+    AND doc.last_updated_at >= datetime() - duration({days: $lookback_days})
+  WITH
+    CASE WHEN elementId(author) < elementId(mentioned) THEN author ELSE mentioned END AS p1,
+    CASE WHEN elementId(author) < elementId(mentioned) THEN mentioned ELSE author END AS p2,
+    doc
+  RETURN p1, p2, count(DISTINCT doc) * $weight_confluence_mentions AS sub_score
 }
 // Sum the scores from all independent systems
 WITH p1, p2, sum(sub_score) AS total_collaboration_score

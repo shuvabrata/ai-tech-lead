@@ -321,6 +321,10 @@ def _weight_input(layer: str) -> html.Div:
         Input("collab-weight-sprint_coworkers", "value"),
         Input("collab-weight-explicit_review_requests", "value"),
         Input("collab-weight-epic_overlap", "value"),
+        Input("collab-weight-confluence_co_authorship", "value"),
+        Input("collab-weight-confluence_comment_engagement", "value"),
+        Input("collab-weight-confluence_co_commenters", "value"),
+        Input("collab-weight-confluence_mentions", "value"),
     ],
 )
 def build_collaboration_href(
@@ -338,6 +342,10 @@ def build_collaboration_href(
     w_sprint_coworkers,
     w_explicit_review_requests,
     w_epic_overlap,
+    w_confluence_co_authorship,
+    w_confluence_comment_engagement,
+    w_confluence_co_commenters,
+    w_confluence_mentions,
 ):
     """Build a graph-mode URL that carries collaboration query overrides."""
     query_values = {
@@ -355,6 +363,10 @@ def build_collaboration_href(
         "w_sprint_coworkers": w_sprint_coworkers,
         "w_explicit_review_requests": w_explicit_review_requests,
         "w_epic_overlap": w_epic_overlap,
+        "w_confluence_co_authorship": w_confluence_co_authorship,
+        "w_confluence_comment_engagement": w_confluence_comment_engagement,
+        "w_confluence_co_commenters": w_confluence_co_commenters,
+        "w_confluence_mentions": w_confluence_mentions,
     }
 
     try:
@@ -377,6 +389,10 @@ def build_collaboration_href(
         "w_sprint_coworkers": config.weights["sprint_coworkers"],
         "w_explicit_review_requests": config.weights["explicit_review_requests"],
         "w_epic_overlap": config.weights["epic_overlap"],
+        "w_confluence_co_authorship": config.weights["confluence_co_authorship"],
+        "w_confluence_comment_engagement": config.weights["confluence_comment_engagement"],
+        "w_confluence_co_commenters": config.weights["confluence_co_commenters"],
+        "w_confluence_mentions": config.weights["confluence_mentions"],
     }
 
     href = f"/app/collaboration?{urlencode(params)}"

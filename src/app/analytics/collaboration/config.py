@@ -12,6 +12,10 @@ LAYER_ORDER = [
     "sprint_coworkers",
     "explicit_review_requests",
     "epic_overlap",
+    "confluence_co_authorship",
+    "confluence_comment_engagement",
+    "confluence_co_commenters",
+    "confluence_mentions",
 ]
 
 LAYER_LABELS: Dict[str, str] = {
@@ -21,6 +25,10 @@ LAYER_LABELS: Dict[str, str] = {
     "sprint_coworkers": "Sprint Co-workers",
     "explicit_review_requests": "Explicit Review Requests",
     "epic_overlap": "Epic Overlap",
+    "confluence_co_authorship": "Co-authorship (Confluence)",
+    "confluence_comment_engagement": "Comment Engagement (Confluence)",
+    "confluence_co_commenters": "Co-commenters (Confluence)",
+    "confluence_mentions": "Mentions (Confluence)",
 }
 
 DEFAULT_LAYER_WEIGHTS: Dict[str, float] = {
@@ -30,6 +38,10 @@ DEFAULT_LAYER_WEIGHTS: Dict[str, float] = {
     "sprint_coworkers": 2.0,
     "explicit_review_requests": 2.0,
     "epic_overlap": 1.0,
+    "confluence_co_authorship": 3.0,
+    "confluence_comment_engagement": 2.0,
+    "confluence_co_commenters": 1.0,
+    "confluence_mentions": 2.0,
 }
 
 DEFAULT_LOOKBACK_DAYS = 90

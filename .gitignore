@@ -235,4 +235,5 @@ simulation/data/layer8_pull_requests.json
 
 # Test files
 tests/neo4j_queries/results/
+tests/collab_validation/results/
 pytest_report.html
