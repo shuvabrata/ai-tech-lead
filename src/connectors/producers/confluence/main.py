@@ -606,17 +606,22 @@ async def _publish_content_signal(
     content: Dict[str, Any],
     confluence_url: str,
     account_ids: Set[str],
+    fetch_body: bool = True,
 ) -> int:
     content_id = _content_id(content)
     if not content_id:
         return 0
 
-    body_value = await asyncio.to_thread(fetch_page_body, confluence, content_id)
-    body_mentions, body_jira_keys = parse_body_for_relations(body_value)
+    if fetch_body:
+        body_value = await asyncio.to_thread(fetch_page_body, confluence, content_id)
+        body_mentions, body_jira_keys = parse_body_for_relations(body_value)
+    else:
+        body_value = ""
+        body_mentions = set()
+        body_jira_keys = set()
+
     # Comments and likes are separate Confluence resources, not part of the page's
-    # version watermark. We only see them when this page is selected for rescanning
-    # via the page last-modified window, so comment/like-only activity can be missed
-    # unless we add a separate activity feed for those resources later.
+    # version watermark. We scan them for all pages in the lookback window.
     comments = await get_comments(confluence, content_id, _content_type(content))
     likes = await get_likes(confluence, content_id, _content_type(content))
     relationships, people = _extract_relationships_and_people(
@@ -661,12 +666,16 @@ async def process_account(
 
     last_synced_at = await get_sync_cursor(_SOURCE, sync_resource_id)
     lookback_days = get_lookback_days()
+    
+    # We always fetch pages within the lookback window to catch comments/likes.
+    since_date = datetime.now(timezone.utc) - timedelta(days=lookback_days)
+    
     if last_synced_at is not None:
-        # Use a small overlap so edits that land right around the previous scan
-        # boundary are still picked up on the next run.
-        since_date = last_synced_at - _SYNC_CURSOR_OVERLAP
+        # The cursor determines if we fetch the expensive page body.
+        body_sync_cursor = last_synced_at - _SYNC_CURSOR_OVERLAP
     else:
-        since_date = datetime.now(timezone.utc) - timedelta(days=lookback_days)
+        body_sync_cursor = since_date
+        
     scan_started_at = datetime.now(timezone.utc)
 
     logger.info(
@@ -720,6 +729,16 @@ async def process_account(
         for content in space_items:
             if not isinstance(content, dict):
                 continue
+            
+            last_mod_str = _content_last_updated_at(content)
+            last_mod_dt = _parse_datetime(last_mod_str)
+            
+            # If the page was modified after our sync cursor, we fetch the full body.
+            # Otherwise, we skip the body fetch and only process its comments/likes.
+            fetch_body = True
+            if last_mod_dt and last_mod_dt < body_sync_cursor:
+                fetch_body = False
+                
             entity_type = _content_entity_type(content)
             published_count = await _publish_content_signal(
                 publisher,
@@ -727,6 +746,7 @@ async def process_account(
                 content,
                 confluence_url,
                 account_ids,
+                fetch_body=fetch_body,
             )
             total_published += published_count
             if entity_type in entity_type_counts:
