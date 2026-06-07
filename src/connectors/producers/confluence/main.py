@@ -35,8 +35,8 @@ from connectors.producers.confluence.confluence_settings import (
 )
 from connectors.producers.confluence.confluence_helpers import (
     get_comments,
-    get_recent_content,
     get_likes,
+    get_space_pages,
     get_spaces,
     get_user_details_async,
 )
@@ -631,10 +631,12 @@ async def _publish_content_signal(
     signal = build_content_signal(content, confluence_url, relationships)
     if signal is None:
         return 0
+    title = content.get("title", "")
     logger.debug(
-        "Publishing %s signal: id=%s relationships=%d",
+        "Publishing %s signal: id=%s title=%r relationships=%d",
         signal.entity_type,
         signal.id,
+        title,
         len(signal.relationships) if hasattr(signal, 'relationships') else 0,
     )
     await publisher.publish(signal)
@@ -693,30 +695,31 @@ async def process_account(
         total_published += 1
         entity_type_counts["Space"] += 1
 
-    recent_items = await get_recent_content(
-        confluence,
-        since_date,
-        include_spaces=include_spaces,
-        exclude_spaces=exclude_spaces,
-    )
-    logger.info("Fetched %d recently changed content items", len(recent_items))
-
-    for item in recent_items:
-        content = item.get("content", item)
-        if not isinstance(content, dict):
-            continue
-        # Determine entity type for count
-        entity_type = _content_entity_type(content)
-        published_count = await _publish_content_signal(
-            publisher,
-            confluence,
-            content,
-            confluence_url,
-            account_ids,
+        # Fetch all pages/blogposts in this space modified since the cursor.
+        # Uses the storage-layer content API (not CQL search) to avoid
+        # Confluence Cloud index gaps that silently skip pages.
+        space_items = await get_space_pages(confluence, key, since_date)
+        logger.info(
+            "Space %s: processing %d content items",
+            key,
+            len(space_items),
         )
-        total_published += published_count
-        if entity_type in entity_type_counts:
-            entity_type_counts[entity_type] += published_count
+        # See fetch_space_pages() for why a full space scan is required even when
+        # only a small number of items fall within the since_date window.
+        for content in space_items:
+            if not isinstance(content, dict):
+                continue
+            entity_type = _content_entity_type(content)
+            published_count = await _publish_content_signal(
+                publisher,
+                confluence,
+                content,
+                confluence_url,
+                account_ids,
+            )
+            total_published += published_count
+            if entity_type in entity_type_counts:
+                entity_type_counts[entity_type] += published_count
 
     person_published = await _publish_person_signals(
         publisher,
