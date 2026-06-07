@@ -35,8 +35,8 @@ from connectors.producers.confluence.confluence_settings import (
 )
 from connectors.producers.confluence.confluence_helpers import (
     get_comments,
-    get_recent_content,
     get_likes,
+    get_space_pages,
     get_spaces,
     get_user_details_async,
 )
@@ -48,6 +48,7 @@ from connectors.producers.sync_cursor import get_sync_cursor, set_sync_cursor
 
 _SOURCE = "confluence"
 _VERSION = "1.0"
+_SYNC_CURSOR_OVERLAP = timedelta(hours=1)
 
 
 def _connector_url() -> str:
@@ -605,13 +606,22 @@ async def _publish_content_signal(
     content: Dict[str, Any],
     confluence_url: str,
     account_ids: Set[str],
+    fetch_body: bool = True,
 ) -> int:
     content_id = _content_id(content)
     if not content_id:
         return 0
 
-    body_value = await asyncio.to_thread(fetch_page_body, confluence, content_id)
-    body_mentions, body_jira_keys = parse_body_for_relations(body_value)
+    if fetch_body:
+        body_value = await asyncio.to_thread(fetch_page_body, confluence, content_id)
+        body_mentions, body_jira_keys = parse_body_for_relations(body_value)
+    else:
+        body_value = ""
+        body_mentions = set()
+        body_jira_keys = set()
+
+    # Comments and likes are separate Confluence resources, not part of the page's
+    # version watermark. We scan them for all pages in the lookback window.
     comments = await get_comments(confluence, content_id, _content_type(content))
     likes = await get_likes(confluence, content_id, _content_type(content))
     relationships, people = _extract_relationships_and_people(
@@ -631,10 +641,12 @@ async def _publish_content_signal(
     signal = build_content_signal(content, confluence_url, relationships)
     if signal is None:
         return 0
+    title = content.get("title", "")
     logger.debug(
-        "Publishing %s signal: id=%s relationships=%d",
+        "Publishing %s signal: id=%s title=%r relationships=%d",
         signal.entity_type,
         signal.id,
+        title,
         len(signal.relationships) if hasattr(signal, 'relationships') else 0,
     )
     await publisher.publish(signal)
@@ -654,7 +666,17 @@ async def process_account(
 
     last_synced_at = await get_sync_cursor(_SOURCE, sync_resource_id)
     lookback_days = get_lookback_days()
-    since_date = last_synced_at or (datetime.now(timezone.utc) - timedelta(days=lookback_days))
+    
+    # We always fetch pages within the lookback window to catch comments/likes.
+    since_date = datetime.now(timezone.utc) - timedelta(days=lookback_days)
+    
+    if last_synced_at is not None:
+        # The cursor determines if we fetch the expensive page body.
+        body_sync_cursor = last_synced_at - _SYNC_CURSOR_OVERLAP
+    else:
+        body_sync_cursor = since_date
+        
+    scan_started_at = datetime.now(timezone.utc)
 
     logger.info(
         "Processing Confluence config id=%s url=%s last_synced_at=%s",
@@ -693,30 +715,42 @@ async def process_account(
         total_published += 1
         entity_type_counts["Space"] += 1
 
-    recent_items = await get_recent_content(
-        confluence,
-        since_date,
-        include_spaces=include_spaces,
-        exclude_spaces=exclude_spaces,
-    )
-    logger.info("Fetched %d recently changed content items", len(recent_items))
-
-    for item in recent_items:
-        content = item.get("content", item)
-        if not isinstance(content, dict):
-            continue
-        # Determine entity type for count
-        entity_type = _content_entity_type(content)
-        published_count = await _publish_content_signal(
-            publisher,
-            confluence,
-            content,
-            confluence_url,
-            account_ids,
+        # Fetch all pages/blogposts in this space modified since the cursor.
+        # Uses the storage-layer content API (not CQL search) to avoid
+        # Confluence Cloud index gaps that silently skip pages.
+        space_items = await get_space_pages(confluence, key, since_date)
+        logger.info(
+            "Space %s: processing %d content items",
+            key,
+            len(space_items),
         )
-        total_published += published_count
-        if entity_type in entity_type_counts:
-            entity_type_counts[entity_type] += published_count
+        # See fetch_space_pages() for why a full space scan is required even when
+        # only a small number of items fall within the since_date window.
+        for content in space_items:
+            if not isinstance(content, dict):
+                continue
+            
+            last_mod_str = _content_last_updated_at(content)
+            last_mod_dt = _parse_datetime(last_mod_str)
+            
+            # If the page was modified after our sync cursor, we fetch the full body.
+            # Otherwise, we skip the body fetch and only process its comments/likes.
+            fetch_body = True
+            if last_mod_dt and last_mod_dt < body_sync_cursor:
+                fetch_body = False
+                
+            entity_type = _content_entity_type(content)
+            published_count = await _publish_content_signal(
+                publisher,
+                confluence,
+                content,
+                confluence_url,
+                account_ids,
+                fetch_body=fetch_body,
+            )
+            total_published += published_count
+            if entity_type in entity_type_counts:
+                entity_type_counts[entity_type] += published_count
 
     person_published = await _publish_person_signals(
         publisher,
@@ -727,7 +761,7 @@ async def process_account(
     total_published += person_published
     entity_type_counts["Person"] += person_published
 
-    await set_sync_cursor(_SOURCE, sync_resource_id, datetime.now(timezone.utc))
+    await set_sync_cursor(_SOURCE, sync_resource_id, scan_started_at)
     logger.info(
         "Published counts: Pages=%d, Blogposts=%d, Spaces=%d, People=%d",
         entity_type_counts["Page"],

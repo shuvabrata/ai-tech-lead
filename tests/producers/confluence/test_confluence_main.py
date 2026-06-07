@@ -145,27 +145,25 @@ async def test_process_account_publishes_space_content_and_person_signals(monkey
     )
     monkeypatch.setattr(
         confluence_main,
-        "get_recent_content",
+        "get_space_pages",
         AsyncMock(
             return_value=[
                 {
-                    "content": {
-                        "id": "2001",
-                        "type": "page",
-                        "title": "Design Notes",
-                        "status": "current",
-                        "space": {"key": "ENG"},
-                        "history": {
-                            "createdDate": "2026-05-01T10:00:00Z",
-                            "createdBy": {"accountId": "acc123"},
-                        },
-                        "version": {
-                            "number": 3,
-                            "when": "2026-05-02T09:30:00Z",
-                            "by": {"accountId": "acc123"},
-                        },
-                        "_links": {"webui": "/wiki/spaces/ENG/pages/2001/Design+Notes"},
-                    }
+                    "id": "2001",
+                    "type": "page",
+                    "title": "Design Notes",
+                    "status": "current",
+                    "space": {"key": "ENG"},
+                    "history": {
+                        "createdDate": "2026-05-01T10:00:00Z",
+                        "createdBy": {"accountId": "acc123"},
+                    },
+                    "version": {
+                        "number": 3,
+                        "when": "2026-05-02T09:30:00Z",
+                        "by": {"accountId": "acc123"},
+                    },
+                    "_links": {"webui": "/wiki/spaces/ENG/pages/2001/Design+Notes"},
                 }
             ]
         ),
