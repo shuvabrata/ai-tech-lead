@@ -48,6 +48,7 @@ from connectors.producers.sync_cursor import get_sync_cursor, set_sync_cursor
 
 _SOURCE = "confluence"
 _VERSION = "1.0"
+_SYNC_CURSOR_OVERLAP = timedelta(hours=1)
 
 
 def _connector_url() -> str:
@@ -612,6 +613,10 @@ async def _publish_content_signal(
 
     body_value = await asyncio.to_thread(fetch_page_body, confluence, content_id)
     body_mentions, body_jira_keys = parse_body_for_relations(body_value)
+    # Comments and likes are separate Confluence resources, not part of the page's
+    # version watermark. We only see them when this page is selected for rescanning
+    # via the page last-modified window, so comment/like-only activity can be missed
+    # unless we add a separate activity feed for those resources later.
     comments = await get_comments(confluence, content_id, _content_type(content))
     likes = await get_likes(confluence, content_id, _content_type(content))
     relationships, people = _extract_relationships_and_people(
@@ -656,7 +661,13 @@ async def process_account(
 
     last_synced_at = await get_sync_cursor(_SOURCE, sync_resource_id)
     lookback_days = get_lookback_days()
-    since_date = last_synced_at or (datetime.now(timezone.utc) - timedelta(days=lookback_days))
+    if last_synced_at is not None:
+        # Use a small overlap so edits that land right around the previous scan
+        # boundary are still picked up on the next run.
+        since_date = last_synced_at - _SYNC_CURSOR_OVERLAP
+    else:
+        since_date = datetime.now(timezone.utc) - timedelta(days=lookback_days)
+    scan_started_at = datetime.now(timezone.utc)
 
     logger.info(
         "Processing Confluence config id=%s url=%s last_synced_at=%s",
@@ -730,7 +741,7 @@ async def process_account(
     total_published += person_published
     entity_type_counts["Person"] += person_published
 
-    await set_sync_cursor(_SOURCE, sync_resource_id, datetime.now(timezone.utc))
+    await set_sync_cursor(_SOURCE, sync_resource_id, scan_started_at)
     logger.info(
         "Published counts: Pages=%d, Blogposts=%d, Spaces=%d, People=%d",
         entity_type_counts["Page"],
