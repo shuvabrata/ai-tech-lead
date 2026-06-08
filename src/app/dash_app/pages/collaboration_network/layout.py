@@ -200,7 +200,7 @@ def get_layout() -> html.Div:
                         stylesheet=CYTOSCAPE_STYLESHEET,
                         userZoomingEnabled=True,
                         userPanningEnabled=True,
-                        wheelSensitivity=1.0,
+                        wheelSensitivity=0.3,
                         minZoom=0.1,
                         maxZoom=3,
                     ),

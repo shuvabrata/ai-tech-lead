@@ -68,6 +68,10 @@ def neo4j_to_cytoscape(graph_response):
 
     # Transform relationships
     for rel in graph_response.get("relationships", []):
+        # Skip relationships flagged as hidden from the graph UI (e.g. auto-generated reverse edges).
+        # The REST API still returns these; the filter applies to the UI render path only.
+        if not rel.get('properties', {}).get('_display_in_graph', True):
+            continue
         # Use Neo4j element ids for endpoints
         source_id = rel.get('startNode')
         target_id = rel.get('endNode')

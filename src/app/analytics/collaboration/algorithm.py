@@ -243,7 +243,6 @@ def to_cytoscape_elements(
                 "source": canonical_source,
                 "target": canonical_target,
                 "weight": edge_data.get("weight", 1),
-                "label": "COLLABORATES",
                 "relType": "COLLABORATES",
                 "elementType": "edge",
             },
