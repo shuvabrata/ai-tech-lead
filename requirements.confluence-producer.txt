@@ -1,4 +1,4 @@
-beautifulsoup4==4.14.3
+beautifulsoup4==4.15.0
 lxml==6.1.1
 atlassian-python-api==4.0.7
 pydantic==2.13.4
