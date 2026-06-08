@@ -48,6 +48,11 @@ from connectors.producers.sync_cursor import get_sync_cursor, set_sync_cursor
 
 _SOURCE = "confluence"
 _VERSION = "1.0"
+
+# During incremental scan, we assume the last scan window
+# to move by this interval just to make sure we dont miss any transient
+# changes. Scanning dulicates is not a problem as the consumer will
+# upsert them.
 _SYNC_CURSOR_OVERLAP = timedelta(hours=1)
 
 
@@ -669,13 +674,7 @@ async def process_account(
     
     # We always fetch pages within the lookback window to catch comments/likes.
     since_date = datetime.now(timezone.utc) - timedelta(days=lookback_days)
-    
-    if last_synced_at is not None:
-        # The cursor determines if we fetch the expensive page body.
-        body_sync_cursor = last_synced_at - _SYNC_CURSOR_OVERLAP
-    else:
-        body_sync_cursor = since_date
-        
+      
     scan_started_at = datetime.now(timezone.utc)
 
     logger.info(
@@ -724,6 +723,15 @@ async def process_account(
             key,
             len(space_items),
         )
+        
+        # First assume that the body of pages was last synced at the 
+        # time of the lookback window.
+        body_last_synced_at = since_date
+
+        # If incremental scan, we use the last synced timestamp as the body sync cursor with some overlap.
+        if last_synced_at is not None:
+            body_last_synced_at = last_synced_at - _SYNC_CURSOR_OVERLAP
+
         # See fetch_space_pages() for why a full space scan is required even when
         # only a small number of items fall within the since_date window.
         for content in space_items:
@@ -736,7 +744,7 @@ async def process_account(
             # If the page was modified after our sync cursor, we fetch the full body.
             # Otherwise, we skip the body fetch and only process its comments/likes.
             fetch_body = True
-            if last_mod_dt and last_mod_dt < body_sync_cursor:
+            if last_mod_dt and last_mod_dt < body_last_synced_at:
                 fetch_body = False
                 
             entity_type = _content_entity_type(content)

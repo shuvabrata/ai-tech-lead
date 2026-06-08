@@ -784,6 +784,7 @@ class Relationship:
     from_type: str
     to_type: str
     properties: Dict[str, Any] = field(default_factory=dict)
+    _display_in_graph: bool = field(default=True)
     
     def print_cli(self) -> None:
         """Print the Relationship object in an easy-to-read CLI format."""
@@ -1606,13 +1607,15 @@ def merge_relationship(session: Session, relationship: Relationship) -> None:
     MERGE (from:{from_type} {{id: $from_id}})
     MERGE (to:{to_type} {{id: $to_id}})
     MERGE (from)-[r:{rel_type} {props_str}]->(to)
+    SET r._display_in_graph = $_display_in_graph
     RETURN r
     """
     
     params = {
         "from_id": from_id,
         "to_id": to_id,
-        **props
+        **props,
+        "_display_in_graph": relationship._display_in_graph,
     }
     
     session.run(forward_query, **params)
@@ -1624,6 +1627,7 @@ def merge_relationship(session: Session, relationship: Relationship) -> None:
         MERGE (from:{to_type} {{id: $to_id}})
         MERGE (to:{from_type} {{id: $from_id}})
         MERGE (from)-[r:{reverse_type} {props_str}]->(to)
+        SET r._display_in_graph = false
         RETURN r
         """
         
