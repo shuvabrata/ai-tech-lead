@@ -1,5 +1,5 @@
 fastapi==0.136.3
-uvicorn==0.48.0
+uvicorn==0.49.0
 dash==4.2.0
 starlette==1.2.1
 dash-bootstrap-components==2.0.4
@@ -10,7 +10,7 @@ sqlalchemy==2.0.50
 asyncpg==0.31.0
 pydantic-settings==2.14.1
 psycopg2-binary==2.9.12
-openai==2.40.0
+openai==2.41.0
 tiktoken==0.13.0
 python-dotenv==1.2.2
 pyyaml==6.0.3
