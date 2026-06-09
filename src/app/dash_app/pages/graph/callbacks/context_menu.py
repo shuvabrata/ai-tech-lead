@@ -10,6 +10,7 @@ from dash.exceptions import PreventUpdate
 from app.settings import settings
 from common.logger import logger
 from app.dash_app.components.common import create_alert
+from app.dash_app.styles import CONTEXT_MENU_CONTAINER_STYLE
 from ..utils import (
     execute_expansion_and_merge,
     create_expansion_success_alert,
@@ -24,24 +25,33 @@ TIMEOUT_SECONDS = settings.HTTP_REQUEST_TIMEOUT
 @callback(
     Output("context-menu", "style"),
     Input("rightclicked-node-store", "data"),
-    State("context-menu", "style"),
     prevent_initial_call=True
 )
-def show_context_menu(rightclick_data, current_menu_style):
-    """Show context menu at mouse position when node is right-clicked"""
+def show_context_menu(rightclick_data):
+    """Show context menu at mouse position when node is right-clicked.
+
+    Builds the style from scratch on every call so that React always sees a
+    change to the ``display`` property and does not skip the DOM update.  The
+    bug this fixes: the outside-click handler used to set
+    ``menu.style.display = 'none'`` directly on the DOM without going through
+    Dash/React.  The next time this callback ran, React thought ``display`` was
+    still ``block`` (its last virtual-DOM value) and skipped updating it, so
+    the menu stayed invisible.
+    """
     if not rightclick_data or not isinstance(rightclick_data, dict):
-        return current_menu_style
-    
+        # Explicit hide: return the canonical hidden style so Dash/React always
+        # drives display to 'none' through its own reconciliation path.
+        return CONTEXT_MENU_CONTAINER_STYLE
+
     x = rightclick_data.get("x", 0)
     y = rightclick_data.get("y", 0)
-    
-    # Update menu style to show it at the click position
-    menu_style = current_menu_style.copy()
-    menu_style["display"] = "block"
-    menu_style["left"] = f"{x}px"
-    menu_style["top"] = f"{y}px"
-    
-    return menu_style
+
+    return {
+        **CONTEXT_MENU_CONTAINER_STYLE,
+        "display": "block",
+        "left": f"{x}px",
+        "top": f"{y}px",
+    }
 
 
 @callback(
@@ -306,7 +316,16 @@ clientside_callback(
                 if (menu && menu.style.display === 'block') {
                     // Check if click is outside the menu
                     if (!menu.contains(e.target)) {
-                        menu.style.display = 'none';
+                        // Use set_props to null the store instead of directly
+                        // manipulating the DOM.  Direct DOM manipulation bypasses
+                        // React's virtual DOM, so React never updates display back
+                        // to 'block' on the next right-click (it sees no change).
+                        // Routing through set_props keeps Dash and the DOM in sync.
+                        if (window.dash_clientside && window.dash_clientside.set_props) {
+                            window.dash_clientside.set_props('rightclicked-node-store', { data: null });
+                        } else {
+                            menu.style.display = 'none';  // fallback only
+                        }
                     }
                 }
             });
