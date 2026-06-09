@@ -309,6 +309,7 @@ def context_menu_remove_node(n_clicks, rightclick_data, current_elements, curren
     [Output("graph-cytoscape", "elements", allow_duplicate=True),
      Output("unfiltered-elements-store", "data", allow_duplicate=True),
      Output("loaded-node-ids", "data", allow_duplicate=True),
+     Output("expanded-nodes", "data", allow_duplicate=True),
      Output("context-menu", "style", allow_duplicate=True),
      Output("graph-status-strip", "children", allow_duplicate=True),
      Output("graph-status-strip", "style", allow_duplicate=True)],
@@ -317,11 +318,12 @@ def context_menu_remove_node(n_clicks, rightclick_data, current_elements, curren
      State("graph-cytoscape", "elements"),
      State("unfiltered-elements-store", "data"),
      State("loaded-node-ids", "data"),
+     State("expanded-nodes", "data"),
      State("context-menu", "style")],
     prevent_initial_call=True
 )
 def context_menu_keep_neighbours(n_clicks, rightclick_data, current_elements,
-                                  current_unfiltered, loaded_node_ids, menu_style):
+                                  current_unfiltered, loaded_node_ids, expanded_nodes, menu_style):
     """Keep only the focal node and its immediate (1-hop) spoke edges.
 
     Nodes that are not the focal node or a direct neighbour are removed from
@@ -344,7 +346,7 @@ def context_menu_keep_neighbours(n_clicks, rightclick_data, current_elements,
     node_id = rightclick_data.get("node_id")
     if not node_id:
         return (current_elements, current_unfiltered, loaded_node_ids,
-                updated_menu_style, None, hide_style)
+                expanded_nodes, updated_menu_style, None, hide_style)
 
     elements = current_elements or []
 
@@ -388,6 +390,12 @@ def context_menu_keep_neighbours(n_clicks, rightclick_data, current_elements,
     }
     updated_loaded_ids = [nid for nid in (loaded_node_ids or []) if nid not in pruned_ids]
 
+    # Remove pruned nodes from expanded-nodes so re-expansion works correctly.
+    updated_expanded = {
+        nid: state for nid, state in (expanded_nodes or {}).items()
+        if nid not in pruned_ids
+    }
+
     logger.info(
         "[GRAPH-DEBUG][context.keep_neighbours] "
         f"node_id={node_id} neighbours={len(neighbour_ids)} "
@@ -401,7 +409,7 @@ def context_menu_keep_neighbours(n_clicks, rightclick_data, current_elements,
     ], color="info", class_name="mb-0", duration=4000)
 
     return (retained, retained, updated_loaded_ids,
-            updated_menu_style, success_msg, show_style)
+            updated_expanded, updated_menu_style, success_msg, show_style)
 
 
 # Clientside callback to hide context menu on outside click
