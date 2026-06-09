@@ -29,6 +29,9 @@ def create_context_menu():
         html.Hr(style=CONTEXT_MENU_DIVIDER_STYLE),
         html.Div("Copy Node ID", id="ctx-menu-copy-id", className="context-menu-item", 
                  style=CONTEXT_MENU_ITEM_STYLE),
+        html.Hr(style=CONTEXT_MENU_DIVIDER_STYLE),
+        html.Div("Keep only neighbours", id="ctx-menu-keep-neighbours", className="context-menu-item",
+                 style=CONTEXT_MENU_ITEM_STYLE),
         html.Div("Remove from View", id="ctx-menu-remove", className="context-menu-item", 
                  style=CONTEXT_MENU_DESTRUCTIVE_STYLE),
     ], id="context-menu", style=CONTEXT_MENU_CONTAINER_STYLE)

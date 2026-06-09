@@ -305,6 +305,113 @@ def context_menu_remove_node(n_clicks, rightclick_data, current_elements, curren
     return filtered_elements, filtered_elements, updated_menu_style, success_msg, show_style
 
 
+@callback(
+    [Output("graph-cytoscape", "elements", allow_duplicate=True),
+     Output("unfiltered-elements-store", "data", allow_duplicate=True),
+     Output("loaded-node-ids", "data", allow_duplicate=True),
+     Output("expanded-nodes", "data", allow_duplicate=True),
+     Output("context-menu", "style", allow_duplicate=True),
+     Output("graph-status-strip", "children", allow_duplicate=True),
+     Output("graph-status-strip", "style", allow_duplicate=True)],
+    Input("ctx-menu-keep-neighbours", "n_clicks"),
+    [State("rightclicked-node-store", "data"),
+     State("graph-cytoscape", "elements"),
+     State("unfiltered-elements-store", "data"),
+     State("loaded-node-ids", "data"),
+     State("expanded-nodes", "data"),
+     State("context-menu", "style")],
+    prevent_initial_call=True
+)
+def context_menu_keep_neighbours(n_clicks, rightclick_data, current_elements,
+                                  current_unfiltered, loaded_node_ids, expanded_nodes, menu_style):
+    """Keep only the focal node and its immediate (1-hop) spoke edges.
+
+    Nodes that are not the focal node or a direct neighbour are removed from
+    both the visible graph and the unfiltered backup store.  They are also
+    removed from ``loaded-node-ids`` so that expanding a spoke node later will
+    re-fetch them from the backend as if they had never been loaded.
+
+    Only edges directly connecting to the focal node are retained (spokes).
+    Edges between neighbours are dropped together with any non-neighbour nodes.
+    """
+    show_style = {"display": "block"}
+    hide_style = {"display": "none"}
+
+    updated_menu_style = menu_style.copy()
+    updated_menu_style["display"] = "none"
+
+    if not n_clicks or not rightclick_data:
+        raise PreventUpdate
+
+    node_id = rightclick_data.get("node_id")
+    if not node_id:
+        return (current_elements, current_unfiltered, loaded_node_ids,
+                expanded_nodes, updated_menu_style, None, hide_style)
+
+    elements = current_elements or []
+
+    # Collect IDs of direct neighbours via spoke edges (both directions).
+    neighbour_ids: set[str] = set()
+    for elem in elements:
+        if not is_edge_element(elem):
+            continue
+        src = elem["data"].get("source", "")
+        tgt = elem["data"].get("target", "")
+        if src == node_id:
+            neighbour_ids.add(tgt)
+        elif tgt == node_id:
+            neighbour_ids.add(src)
+
+    keep_node_ids = neighbour_ids | {node_id}
+
+    # Keep: focal node, direct neighbours, and edges that touch the focal node.
+    retained = []
+    removed_node_count = 0
+    for elem in elements:
+        if is_edge_element(elem):
+            src = elem["data"].get("source", "")
+            tgt = elem["data"].get("target", "")
+            if src == node_id or tgt == node_id:
+                retained.append(elem)
+            # Drop edges between neighbours and edges to removed nodes silently.
+        else:
+            elem_id = elem["data"].get("id", "")
+            if elem_id in keep_node_ids:
+                retained.append(elem)
+            else:
+                removed_node_count += 1
+
+    # Remove pruned nodes from loaded-node-ids so expansion can re-fetch them.
+    pruned_ids = {
+        elem["data"].get("id", "")
+        for elem in elements
+        if not is_edge_element(elem)
+        and elem["data"].get("id", "") not in keep_node_ids
+    }
+    updated_loaded_ids = [nid for nid in (loaded_node_ids or []) if nid not in pruned_ids]
+
+    # Remove pruned nodes from expanded-nodes so re-expansion works correctly.
+    updated_expanded = {
+        nid: state for nid, state in (expanded_nodes or {}).items()
+        if nid not in pruned_ids
+    }
+
+    logger.info(
+        "[GRAPH-DEBUG][context.keep_neighbours] "
+        f"node_id={node_id} neighbours={len(neighbour_ids)} "
+        f"removed_nodes={removed_node_count} retained_elements={len(retained)} "
+        f"loaded_ids_before={len(loaded_node_ids or [])} loaded_ids_after={len(updated_loaded_ids)}"
+    )
+
+    success_msg = create_alert([
+        html.I(className="fas fa-compress-arrows-alt me-2"),
+        f"Kept {len(neighbour_ids)} neighbour(s) — removed {removed_node_count} distant node(s)"
+    ], color="info", class_name="mb-0", duration=4000)
+
+    return (retained, retained, updated_loaded_ids,
+            updated_expanded, updated_menu_style, success_msg, show_style)
+
+
 # Clientside callback to hide context menu on outside click
 clientside_callback(
     """

@@ -26,7 +26,8 @@ from .context_menu import (
     context_menu_expand_modal,
     context_menu_quick_expand,
     hide_menu_after_copy,
-    context_menu_remove_node
+    context_menu_remove_node,
+    context_menu_keep_neighbours,
 )
 from .navigation import handle_keyboard_shortcuts
 from .filtering import (
@@ -66,6 +67,7 @@ __all__ = [
     'context_menu_quick_expand',
     'hide_menu_after_copy',
     'context_menu_remove_node',
+    'context_menu_keep_neighbours',
     # Navigation callbacks
     'handle_keyboard_shortcuts',
     # Filtering callbacks (Phase 1.2.4)
