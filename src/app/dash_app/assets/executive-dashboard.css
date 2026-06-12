@@ -894,3 +894,51 @@ input::placeholder {
     margin-left: var(--spacing-xxsmall);
     cursor: pointer;
 }
+
+/* ============================================================
+   Details Panel — Property Row Icons (link + copy)
+   ============================================================ */
+
+.details-prop-value-wrap {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 4px;
+    width: 100%;
+}
+
+.details-prop-icon {
+    flex-shrink: 0;
+    font-size: 10px;
+    color: var(--color-text-muted);
+    opacity: 0;
+    transition: opacity 0.15s ease, color 0.15s ease;
+    cursor: pointer;
+    background: none;
+    border: none;
+    padding: 0;
+    line-height: inherit;
+}
+
+.details-prop-row:hover .details-prop-icon {
+    opacity: 1;
+}
+
+.details-prop-icon:hover {
+    color: var(--color-navy);
+}
+
+.details-prop-icon--link:hover {
+    text-decoration: none;
+}
+
+/* dcc.Clipboard renders a <button> wrapper — flatten it */
+.details-prop-icon--copy {
+    display: inline-flex;
+    align-items: center;
+}
+
+.details-prop-icon--copy svg {
+    width: 11px;
+    height: 11px;
+    fill: currentColor;
+}
