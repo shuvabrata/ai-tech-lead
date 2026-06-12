@@ -25,8 +25,8 @@ async def test_catalog_list_endpoint_returns_normalized_catalog():
     assert response.status_code == 200
     data = response.json()
 
-    assert data["count"] == 59
-    assert len(data["items"]) == 59
+    assert data["count"] == 90
+    assert len(data["items"]) == 90
 
     first_item = data["items"][0]
     assert first_item["id"] == "schema/view_all_node_types"
@@ -50,16 +50,17 @@ async def test_catalog_namespaces_endpoint_returns_display_order():
     assert response.status_code == 200
     data = response.json()
 
-    assert data["count"] == 6
+    assert data["count"] == 7
     assert [item["directory"] for item in data["items"]] == [
         "schema",
         "cross_domain",
+        "confluence",
         "github",
         "jira",
         "people_and_identity",
         "person_to_person",
     ]
-    assert [item["order"] for item in data["items"]] == list(range(6))
+    assert [item["order"] for item in data["items"]] == list(range(7))
 
 
 @pytest.mark.parametrize("namespace", ["github", "GitHub"])
@@ -69,7 +70,7 @@ async def test_catalog_list_endpoint_filters_by_namespace_directory_or_display_n
     assert response.status_code == 200
     data = response.json()
 
-    assert data["count"] == 20
+    assert data["count"] == 25
     assert all(item["namespace"]["directory"] == "github" for item in data["items"])
 
 
@@ -121,7 +122,7 @@ async def test_catalog_list_endpoint_searches_namespace_owner_and_status_metadat
     assert response.status_code == 200
     data = response.json()
 
-    assert data["count"] == 20
+    assert data["count"] == 25
     assert all(item["namespace"]["directory"] == "github" for item in data["items"])
     assert all(item["owner"] == "github-analytics" for item in data["items"])
 
@@ -132,7 +133,7 @@ async def test_catalog_list_endpoint_filters_by_view():
     assert response.status_code == 200
     data = response.json()
 
-    assert data["count"] == 59
+    assert data["count"] == 90
     assert all("graph" in item["available_views"] for item in data["items"])
 
 

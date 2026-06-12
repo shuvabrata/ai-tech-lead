@@ -90,7 +90,6 @@ def validate_query(query_text):
     Output("expanded-nodes", "data"),
     Output("expansion-debounce-store", "data"),
     Output("unfiltered-elements-store", "data"),
-    Output("filter-display-mode", "value"),
     Output("node-type-available-store", "data"),
     Output("relationship-type-available-store", "data"),
     Output("node-type-filter", "value", allow_duplicate=True),
@@ -158,10 +157,8 @@ def execute_query(
             {},
             {},
             unfiltered_elements,
-            # Reset filter state for a fresh graph load. The available-store
-            # callbacks use None as the "fresh load" sentinel and then rebuild
-            # the checklist values from the new unfiltered baseline.
-            "hide",
+            # The available-store callbacks use None as the "fresh load" sentinel
+            # and then rebuild the checklist values from the new unfiltered baseline.
             None,
             None,
             no_update,

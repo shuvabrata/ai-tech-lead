@@ -192,60 +192,6 @@ def _compute_filtered_graph(
     }
 
 
-def _append_class(element, class_name):
-    """Return an element copy with an additional Cytoscape class name."""
-    updated = dict(element)
-    existing_classes = updated.get("classes", "")
-
-    if not existing_classes:
-        updated["classes"] = class_name
-        return updated
-
-    class_tokens = existing_classes.split()
-    if class_name not in class_tokens:
-        updated["classes"] = f"{existing_classes} {class_name}"
-
-    return updated
-
-
-def _element_key(element):
-    """Return a stable identity key for nodes and edges."""
-    data = element.get("data", {})
-    element_id = data.get("id")
-    if element_id is None:
-        element_kind = "edge" if is_edge_data(data) else "node"
-        raise FilteringDataValidationError(
-            f"Graph {element_kind} is missing required 'id' field for rendering"
-        )
-
-    if is_edge_data(data):
-        return ("edge-id", element_id)
-    return ("node", element_id)
-
-
-def _build_rendered_elements(filtered_graph, display_mode):
-    """Return Cytoscape elements for either hide or dim display mode."""
-    visible_nodes = filtered_graph["visible_nodes"]
-    visible_edges = filtered_graph["visible_edges"]
-
-    if display_mode != "dim":
-        return visible_nodes + visible_edges
-
-    visible_node_keys = {_element_key(node) for node in visible_nodes}
-    visible_edge_keys = {_element_key(edge) for edge in visible_edges}
-
-    rendered_nodes = [
-        node if _element_key(node) in visible_node_keys else _append_class(node, "dimmed")
-        for node in filtered_graph["all_nodes"]
-    ]
-    rendered_edges = [
-        edge if _element_key(edge) in visible_edge_keys else _append_class(edge, "dimmed")
-        for edge in filtered_graph["all_edges"]
-    ]
-
-    return rendered_nodes + rendered_edges
-
-
 @callback(
     [Output("relationship-type-filter", "options"),
      Output("relationship-type-filter", "value"),
@@ -376,7 +322,6 @@ def update_weight_threshold_label(threshold):
      Input("relationship-type-filter", "value"),
      Input("weight-threshold-slider", "value"),
      Input("top-n-toggle", "value"),
-     Input("filter-display-mode", "value"),
      Input("node-type-filter", "options"),
      Input("relationship-type-filter", "options")]
 )
@@ -386,7 +331,6 @@ def update_filter_panel_feedback(
     selected_rel_types,
     weight_threshold,
     top_n_mode,
-    _display_mode,
     node_type_options,
     rel_type_options,
 ):
@@ -451,8 +395,7 @@ def clear_all_filters(n_clicks, node_type_options, rel_type_options):
     [Input("node-type-filter", "value"),
      Input("relationship-type-filter", "value"),
      Input("weight-threshold-slider", "value"),
-     Input("top-n-toggle", "value"),
-     Input("filter-display-mode", "value")],
+     Input("top-n-toggle", "value")],
     State("unfiltered-elements-store", "data"),
     prevent_initial_call=True
 )
@@ -461,7 +404,6 @@ def apply_relationship_filters(
     selected_rel_types,
     weight_threshold,
     top_n_mode,
-    display_mode,
     unfiltered_elements,
 ):
     """Apply all filters (node types, relationship types, weight, top-N) to graph elements"""
@@ -475,27 +417,26 @@ def apply_relationship_filters(
         top_n_mode,
         unfiltered_elements,
     )
-    nodes = filtered_graph["all_nodes"]
-    edges = filtered_graph["all_edges"]
     filtered_nodes = filtered_graph["visible_nodes"]
     filtered_edges = filtered_graph["visible_edges"]
     has_weighted_edges = filtered_graph["has_weighted_edges"]
 
     logger.info(
         "[GRAPH-DEBUG][filter.apply] start "
-        f"nodes={len(nodes)} edges={len(edges)} selected_node_types={selected_node_types} "
-        f"selected_rel_types={selected_rel_types} weight_threshold={weight_threshold} "
-        f"top_n_mode={top_n_mode} display_mode={display_mode} has_weighted_edges={has_weighted_edges}"
+        f"nodes={len(filtered_graph['all_nodes'])} edges={len(filtered_graph['all_edges'])} "
+        f"selected_node_types={selected_node_types} selected_rel_types={selected_rel_types} "
+        f"weight_threshold={weight_threshold} top_n_mode={top_n_mode} "
+        f"has_weighted_edges={has_weighted_edges}"
     )
 
     logger.info(
         "[GRAPH-DEBUG][filter.apply] nodes_after_type_filter "
-        f"visible={len(filtered_nodes)} removed={len(nodes) - len(filtered_nodes)}"
+        f"visible={len(filtered_nodes)} removed={len(filtered_graph['all_nodes']) - len(filtered_nodes)}"
     )
 
     logger.info(
         "[GRAPH-DEBUG][filter.apply] edges_after_rel_type_filter "
-        f"visible={len(filtered_edges)} removed={len(edges) - len(filtered_edges)}"
+        f"visible={len(filtered_edges)} removed={len(filtered_graph['all_edges']) - len(filtered_edges)}"
     )
 
     logger.info(
@@ -515,12 +456,10 @@ def apply_relationship_filters(
             f"mode={top_n_mode} visible={len(filtered_edges)}"
         )
 
-    filtered_elements = _build_rendered_elements(filtered_graph, display_mode)
-
     logger.info(
         "[GRAPH-DEBUG][filter.apply] final "
-        f"elements={len(filtered_elements)} visible_nodes={len(filtered_nodes)} "
-        f"visible_edges={len(filtered_edges)}"
+        f"elements={len(filtered_nodes) + len(filtered_edges)} "
+        f"visible_nodes={len(filtered_nodes)} visible_edges={len(filtered_edges)}"
     )
-    
-    return filtered_elements
+
+    return filtered_nodes + filtered_edges
