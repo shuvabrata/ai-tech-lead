@@ -4,7 +4,7 @@ Imports all graph page callbacks to register them with Dash.
 """
 
 # Import all callbacks to register them
-from .query import validate_query, execute_query, toggle_query_collapse
+from .query import validate_query, execute_query
 from .catalog import (
     load_query_catalog,
     populate_namespace_filter,
@@ -31,7 +31,6 @@ from .context_menu import (
 )
 from .navigation import handle_keyboard_shortcuts
 from .filtering import (
-    toggle_filter_panel,
     update_relationship_type_filter,
     update_filter_panel_feedback,
     update_weight_threshold_label,
@@ -40,12 +39,17 @@ from .filtering import (
 )
 from .analytics_mode import toggle_query_panel_for_analytics_mode
 from .spotlight import update_spotlight
+from .right_panel import (
+    toggle_right_panel_tab,
+    sync_right_panel_ui,
+    handle_url_deep_link_tab,
+)
 
 __all__ = [
     # Query callbacks
     'validate_query',
     'execute_query',
-    'toggle_query_collapse',
+    # Catalog callbacks
     'load_query_catalog',
     'populate_namespace_filter',
     'sync_selected_catalog_query',
@@ -70,12 +74,16 @@ __all__ = [
     'context_menu_keep_neighbours',
     # Navigation callbacks
     'handle_keyboard_shortcuts',
-    # Filtering callbacks (Phase 1.2.4)
-    'toggle_filter_panel',
+    # Filtering callbacks
     'update_relationship_type_filter',
     'update_filter_panel_feedback',
     'update_weight_threshold_label',
     'clear_all_filters',
     'apply_relationship_filters',
+    # Analytics mode
     'toggle_query_panel_for_analytics_mode',
+    # Right panel workbench tabs
+    'toggle_right_panel_tab',
+    'sync_right_panel_ui',
+    'handle_url_deep_link_tab',
 ]

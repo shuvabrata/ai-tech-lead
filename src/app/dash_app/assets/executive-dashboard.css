@@ -429,6 +429,53 @@ input::placeholder {
     box-shadow: none !important;
 }
 
+/* ============================================================
+   Right Panel Workbench Tab Bar
+   ============================================================ */
+
+.graph-right-panel-tab-bar {
+    display: flex;
+    justify-content: space-evenly;
+    padding: 4px 0 0 0;
+    border-bottom: 1px solid var(--color-border);
+    position: sticky;
+    top: 0;
+    background-color: var(--color-background-white);
+    z-index: 10;
+    margin-bottom: 8px;
+}
+
+.graph-right-panel-tab-icon {
+    background-color: var(--color-background-white);
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--color-gray-medium);
+    padding: 6px 12px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: color 0.15s ease, border-color 0.15s ease, background-color 0.15s ease;
+    margin-bottom: -1px; /* overlap parent border-bottom so active underline is flush */
+    outline: none;
+    border-radius: 0;
+}
+
+.graph-right-panel-tab-icon:hover {
+    color: var(--color-charcoal-medium);
+    background-color: var(--color-background-white);
+}
+
+.graph-right-panel-tab-icon.active {
+    color: var(--color-navy);
+    border-bottom: 2px solid var(--color-navy);
+    background-color: var(--color-background-white);
+}
+
+.graph-right-panel-tab-icon:focus-visible {
+    outline: 2px solid var(--color-navy);
+    outline-offset: 2px;
+    border-radius: 2px;
+}
+
 .graph-filter-toggle-btn {
     background-color: transparent !important;
     color: var(--color-charcoal-medium) !important;

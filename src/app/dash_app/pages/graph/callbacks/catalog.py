@@ -205,39 +205,6 @@ def _build_parameter_help_text(parameter: dict):
 
 
 @callback(
-    Output("catalog-panel-collapse", "is_open"),
-    Output("catalog-collapse-icon", "className"),
-    Input("toggle-catalog-collapse-btn", "n_clicks"),
-    Input("url", "search"),
-    State("catalog-panel-collapse", "is_open"),
-    prevent_initial_call=False,
-)
-def toggle_catalog_collapse(
-    n_clicks: int | None, search: str | None, is_open: bool
-) -> tuple[bool, str]:
-    """Toggle the Query Catalog collapse panel and auto-open for deep links."""
-    try:
-        triggered_id = ctx.triggered_id
-    except MissingCallbackContextException:
-        triggered_id = None
-
-    # On initial load or URL change, check if there's a catalog deep link
-    if triggered_id == "url" or triggered_id is None:
-        catalog_id, _ = parse_catalog_deep_link(search)
-        if catalog_id:
-            return True, "fas fa-chevron-down me-2"
-
-    # On button click, toggle the state
-    if triggered_id == "toggle-catalog-collapse-btn" and n_clicks:
-        new_is_open = not is_open
-        icon_class = "fas fa-chevron-down me-2" if new_is_open else "fas fa-chevron-right me-2"
-        return new_is_open, icon_class
-
-    # Fallback to current state
-    return is_open, "fas fa-chevron-down me-2" if is_open else "fas fa-chevron-right me-2"
-
-
-@callback(
     Output("query-catalog-store", "data"),
     Output("query-catalog-load-status", "children"),
     Input("url", "pathname"),
@@ -330,14 +297,12 @@ def sync_selected_catalog_query(
     Input("query-catalog-store", "data"),
     Input("catalog-namespace-filter", "value"),
     Input("catalog-search-input", "value"),
-    Input("catalog-view-filter", "value"),
     Input("selected-catalog-query-store", "data"),
 )
 def render_catalog_query_list(
     catalog_queries: list[dict] | None,
     namespace_filter: str | None,
     search_text: str | None,
-    view_filter: str | None,
     selected_query: dict | None,
 ):
     """Render the filtered query list."""
@@ -346,7 +311,7 @@ def render_catalog_query_list(
         catalog_queries,
         namespace_filter,
         search_text,
-        view_filter,
+        None,
     )
 
     if not catalog_queries:
@@ -488,6 +453,7 @@ def render_catalog_query_detail(
         )
     )
 
+    parameter_children = []
     available_views = query.get("available_views") or []
     ordered_views = sorted(
         available_views,
@@ -497,8 +463,6 @@ def render_catalog_query_detail(
         {"label": view.title(), "value": view}
         for view in ordered_views
     ]
-
-    parameter_children = []
     for parameter in query.get("parameters") or []:
         parameter_name = parameter.get("name")
         required = parameter.get("required", False)
@@ -559,12 +523,12 @@ def sync_catalog_parameter_values(values: list[str], ids: list[dict]):
 
 @callback(
     Output("graph-query-input", "value"),
+    Output("right-panel-active-tab", "data", allow_duplicate=True),
     Input("catalog-load-console-btn", "n_clicks"),
     Input("selected-catalog-query-store", "data"),
     Input("url", "search"),
     State("selected-catalog-query-store", "data"),
     State("query-catalog-store", "data"),
-    State("catalog-query-view-toggle", "value"),
     prevent_initial_call=True,
 )
 def load_catalog_query_into_console(
@@ -573,7 +537,6 @@ def load_catalog_query_into_console(
     search: str | None,
     selected_query: dict | None,
     catalog_queries: list[dict] | None,
-    selected_view: str | None,
 ):
     """Populate the query console with the selected catalog query text."""
     try:
@@ -582,14 +545,19 @@ def load_catalog_query_into_console(
         triggered_id = None
 
     query = find_catalog_query(catalog_queries or [], (selected_query or {}).get("id"))
-    if not query or not selected_view:
-        return no_update
+    if not query:
+        return no_update, no_update
+
+    selected_view = determine_catalog_view(query, None, None)
+    if not selected_view:
+        return no_update, no_update
 
     if triggered_id == "catalog-load-console-btn":
-        return (query.get("queries") or {}).get(selected_view, no_update)
+        cypher = (query.get("queries") or {}).get(selected_view, no_update)
+        return cypher, "console"
 
     deep_link_id, _ = parse_catalog_deep_link(search)
     if deep_link_id and deep_link_id == query.get("id"):
-        return (query.get("queries") or {}).get(selected_view, no_update)
+        return (query.get("queries") or {}).get(selected_view, no_update), no_update
 
-    return no_update
+    return no_update, no_update

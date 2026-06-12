@@ -250,17 +250,17 @@ def clear_collab_filters(n_clicks, community_options):
 
 
 @callback(
-    [Output("collab-filter-panel-collapse", "is_open"),
-     Output("collab-filter-collapse-icon",  "className")],
-    Input("collab-filter-toggle-btn", "n_clicks"),
-    State("collab-filter-panel-collapse", "is_open"),
+    Output("collab-right-tab-filters-collapse", "is_open"),
+    Output("collab-right-tab-filters-btn", "className"),
+    Input("collab-right-tab-filters-btn", "n_clicks"),
+    State("collab-right-tab-filters-collapse", "is_open"),
     prevent_initial_call=True,
 )
 def toggle_collab_filter_panel(n_clicks, is_open):
-    """Toggle the filter panel open/closed."""
+    """Toggle the Filters tab open/closed and update the icon button active state."""
     new_open = not is_open
-    icon_class = "fas fa-chevron-down me-2" if new_open else "fas fa-chevron-right me-2"
-    return new_open, icon_class
+    btn_class = "graph-right-panel-tab-icon active" if new_open else "graph-right-panel-tab-icon"
+    return new_open, btn_class
 
 
 # ---------------------------------------------------------------------------

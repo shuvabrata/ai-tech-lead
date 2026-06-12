@@ -103,7 +103,11 @@ def _to_db_relationships(
     Target node resolution priority:
     1. ``entity_type == "Person"`` and ``target.email`` set → look up by email.
     2. ``target.url`` set → look up node by url.
-    3. ``target.id`` set → ``{source}::{entity_type}::{id}`` canonical key.
+    3. ``entity_type == "Person"`` and ``target.source`` is a Jira/Confluence provider
+       → look up the canonical Person via shared Atlassian account_id (IdentityMapping
+       or existing Person node). Jira and Confluence share the same account_id namespace,
+       so ``jira::Person::X`` and ``confluence::Person::X`` are the same individual.
+    4. ``target.id`` set → ``{source}::{entity_type}::{id}`` canonical key.
 
     Relationships with no resolvable target identifier are skipped with a warning.
     """
@@ -138,6 +142,44 @@ def _to_db_relationships(
             ).single()
             if row:
                 to_id = row["id"]
+
+        # Step 3: For Jira/Confluence Person targets, resolve via shared Atlassian
+        # account_id before falling back to raw wba_format. Jira and Confluence share
+        # the same account_id namespace, so the same individual may already exist as a
+        # Person node from the other provider (or from GitHub via email dedup).
+        # Checking IdentityMapping first avoids creating a disconnected stub.
+        if (
+            to_id is None
+            and target.entity_type == "Person"
+            and target.source in ("jira", "confluence")
+            and target.id
+        ):
+            account_id = target.id
+            identity_ids = [
+                wba_format("jira", "IdentityMapping", account_id),
+                wba_format("confluence", "IdentityMapping", account_id),
+            ]
+            person_ids = [
+                wba_format("jira", "Person", account_id),
+                wba_format("confluence", "Person", account_id),
+            ]
+            row = session.run(
+                (
+                    "MATCH (im:IdentityMapping)-[:MAPS_TO]->(p:Person) "
+                    "WHERE im.id IN $identity_ids "
+                    "RETURN p.id AS id LIMIT 1"
+                ),
+                identity_ids=identity_ids,
+            ).single()
+            if row:
+                to_id = row["id"]
+            else:
+                row = session.run(
+                    "MATCH (p:Person) WHERE p.id IN $person_ids RETURN p.id AS id LIMIT 1",
+                    person_ids=person_ids,
+                ).single()
+                if row:
+                    to_id = row["id"]
 
         if to_id is None and target.source and target.entity_type and target.id:
             to_id = wba_format(target.source, target.entity_type, target.id)

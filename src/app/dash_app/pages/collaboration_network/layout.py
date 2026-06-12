@@ -44,16 +44,28 @@ _LABEL_STYLE = {
 # Layout helpers
 # ---------------------------------------------------------------------------
 
-def _create_filter_panel() -> html.Div:
-    """Return the collapsible filter sidebar for the collaboration network."""
+def _create_right_panel_tab_bar() -> html.Div:
+    """Return the sticky icon-only tab bar for the collab right panel (Filters only)."""
+    return html.Div(
+        id="collab-right-panel-tab-bar",
+        className="graph-right-panel-tab-bar",
+        children=[
+            html.Button(
+                html.I(className="fas fa-sliders fa-fw"),
+                id="collab-right-tab-filters-btn",
+                title="Filters",
+                className="graph-right-panel-tab-icon",
+                n_clicks=0,
+            ),
+        ],
+    )
+
+
+def _create_right_panel_tabs() -> html.Div:
+    """Return the single accordion collapse panel for the Filters tab."""
     return html.Div([
-        dbc.Button(
-            [html.I(id="collab-filter-collapse-icon", className="fas fa-chevron-right me-2"), "Filters"],
-            id="collab-filter-toggle-btn",
-            className="w-100 text-start mb-3 graph-filter-toggle-btn collapse-toggle-subtle",
-        ),
         dbc.Collapse(
-            id="collab-filter-panel-collapse",
+            id="collab-right-tab-filters-collapse",
             is_open=False,
             children=[
                 dbc.Card([
@@ -154,7 +166,7 @@ def _create_filter_panel() -> html.Div:
                 ], className="graph-filter-card", style={"border": "none", "backgroundColor": "transparent"}),
             ],
         ),
-    ], className="mb-3")
+    ])
 
 
 def get_layout() -> html.Div:
@@ -218,15 +230,20 @@ def get_layout() -> html.Div:
                 ], id="collab-viz-col", width=8, style={"paddingRight": "16px"}),
 
                 dbc.Col([
-                    _create_filter_panel(),
-                    html.Hr(style={"margin": "16px 0", "borderColor": COLOR_GRAY_LIGHTER}),
                     html.Div(
-                        id="collab-details-panel",
-                        children=html.P(
-                            "Select a node or edge to see its properties.",
-                            className="text-muted text-center",
-                            style={"fontSize": FONT_SIZE_XSMALL, "padding": "16px 0"},
-                        ),
+                        style={"overflowY": "auto", "maxHeight": "calc(75vh + 40px)", "position": "relative"},
+                        children=[
+                            _create_right_panel_tab_bar(),
+                            _create_right_panel_tabs(),
+                            html.Div(
+                                id="collab-details-panel",
+                                children=html.P(
+                                    "Select a node or edge to see its properties.",
+                                    className="text-muted text-center",
+                                    style={"fontSize": FONT_SIZE_XSMALL, "padding": "16px 0"},
+                                ),
+                            ),
+                        ],
                     ),
                 ], id="collab-details-col", width=4, style={"borderLeft": f"1px solid {COLOR_GRAY_LIGHTER}", "paddingLeft": "16px"}),
             ], className="g-0"),
