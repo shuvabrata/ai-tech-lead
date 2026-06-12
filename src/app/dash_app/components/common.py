@@ -272,6 +272,82 @@ def register_fullwidth_callback(id_prefix: str) -> None:
         return new_state, viz_width, panel_style, btn_label
 
 
+def register_edge_hover_dimming_callback(cytoscape_id: str) -> None:
+    """Register the edge-hover dimming clientside callback for a Cytoscape component.
+
+    On edge mouseover, the hovered edge and its two endpoint nodes are highlighted
+    and all other elements are dimmed.  On mouseout the classes are cleared.
+    The listener is attached once (guarded by ``cy._edgeHoverListenerAttached``) so
+    re-renders that re-invoke this callback do not stack duplicate listeners.
+
+    Component IDs expected:
+        ``{cytoscape_id}`` — the ``cyto.Cytoscape`` component
+
+    Args:
+        cytoscape_id: The Dash component ID of the Cytoscape element,
+            e.g. ``"graph-cytoscape"`` or ``"collab-cytoscape"``.
+    """
+    from dash import Input, Output, clientside_callback  # pylint: disable=import-outside-toplevel
+
+    clientside_callback(
+        """
+        function(elements) {
+            const elem = document.getElementById('""" + cytoscape_id + """');
+            if (!elem || !elem._cyreg || !elem._cyreg.cy) {
+                return window.dash_clientside.no_update;
+            }
+
+            const cy = elem._cyreg.cy;
+
+            if (!cy._edgeHoverListenerAttached) {
+                let hoverTimeout = null;
+                let isHovering = false;
+
+                cy.on('mouseover', 'edge', function(evt) {
+                    const edge = evt.target;
+
+                    if (hoverTimeout) {
+                        clearTimeout(hoverTimeout);
+                    }
+
+                    hoverTimeout = setTimeout(function() {
+                        isHovering = true;
+
+                        const sourceNode = edge.source();
+                        const targetNode = edge.target();
+
+                        edge.addClass('highlighted');
+                        sourceNode.addClass('highlighted');
+                        targetNode.addClass('highlighted');
+
+                        cy.elements().not(edge).not(sourceNode).not(targetNode).addClass('dimmed');
+                    }, 50);
+                });
+
+                cy.on('mouseout', 'edge', function(evt) {
+                    if (hoverTimeout) {
+                        clearTimeout(hoverTimeout);
+                        hoverTimeout = null;
+                    }
+
+                    if (isHovering) {
+                        cy.elements().removeClass('highlighted dimmed');
+                        isHovering = false;
+                    }
+                });
+
+                cy._edgeHoverListenerAttached = true;
+            }
+
+            return window.dash_clientside.no_update;
+        }
+        """,
+        Output(cytoscape_id, "className"),
+        Input(cytoscape_id, "elements"),
+        prevent_initial_call=False,
+    )
+
+
 _CONTROLS_BUTTON_STYLE = {
     "fontFamily": FONT_SANS,
     "fontSize": "11px",
