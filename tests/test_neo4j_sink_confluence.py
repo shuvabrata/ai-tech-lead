@@ -65,6 +65,20 @@ def test_upsert_space_signal_calls_merge_space() -> None:
 
 def test_upsert_page_signal_converts_relationships() -> None:
     session = MagicMock()
+
+    def run_side_effect(query: str, **_kwargs):
+        if "WHERE p.email = $email" in query:
+            return _SingleResult(None)
+        if "WHERE n.url = $url" in query:
+            return _SingleResult(None)
+        if "WHERE im.id IN $identity_ids" in query:
+            return _SingleResult(None)
+        if "WHERE p.id IN $person_ids" in query:
+            return _SingleResult(None)
+        raise AssertionError(f"Unexpected query: {query}")
+
+    session.run.side_effect = run_side_effect
+
     signal = _signal(
         "confluence",
         PageAttributes(
