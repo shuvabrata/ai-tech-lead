@@ -247,23 +247,6 @@ def _build_rendered_elements(filtered_graph, display_mode):
 
 
 @callback(
-    [Output("filter-panel-collapse", "is_open"),
-     Output("filter-collapse-icon", "className")],
-    Input("toggle-filter-collapse-btn", "n_clicks"),
-    State("filter-panel-collapse", "is_open"),
-    prevent_initial_call=True
-)
-def toggle_filter_panel(n_clicks, is_open):
-    """Toggle filter panel collapse and update chevron icon"""
-    if n_clicks:
-        new_state = not is_open
-        # Chevron right when collapsed, chevron down when open
-        icon_class = "fas fa-chevron-down me-2" if new_state else "fas fa-chevron-right me-2"
-        return new_state, icon_class
-    raise PreventUpdate
-
-
-@callback(
     [Output("relationship-type-filter", "options"),
      Output("relationship-type-filter", "value"),
      Output("relationship-type-available-store", "data")],

@@ -27,16 +27,23 @@ def test_graph_layout_includes_catalog_workbench_components():
 
     walk(layout)
 
-    assert "graph-catalog-section" in component_ids
+    # Catalog is now inside the right-panel workbench tab (right-panel-workbench redesign)
+    assert "right-tab-catalog-btn" in component_ids
+    assert "right-tab-catalog-collapse" in component_ids
+    assert "right-panel-active-tab" in component_ids
+    # Removed in redesign: graph-catalog-section, catalog-view-filter
+    assert "graph-catalog-section" not in component_ids
+    assert "catalog-view-filter" not in component_ids
+    # View toggle is present inside the catalog tab (needed for graph/tabular selection)
+    assert "catalog-query-view-toggle" in component_ids
+    # Catalog content IDs still present inside the right panel tab
     assert "query-catalog-store" in component_ids
     assert "selected-catalog-query-store" in component_ids
     assert "catalog-parameters-store" in component_ids
     assert "catalog-namespace-filter" in component_ids
     assert "catalog-search-input" in component_ids
-    assert "catalog-view-filter" in component_ids
     assert "catalog-query-list" in component_ids
     assert "catalog-query-detail" in component_ids
-    assert "catalog-query-view-toggle" in component_ids
     assert "catalog-parameter-inputs" in component_ids
     assert "catalog-run-btn" in component_ids
     assert "catalog-load-console-btn" in component_ids

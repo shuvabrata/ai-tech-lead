@@ -607,8 +607,6 @@ GRAPH_DETAILS_PANEL_STYLE = {
     "borderRadius": "4px",
     "border": f"1px solid {COLOR_BORDER_GRAY}",
     "padding": SPACING_XXSMALL,
-    "height": "calc(75vh + 40px)",
-    "overflowY": "auto"
 }
 
 GRAPH_DETAILS_PANEL_ICON_STYLE = {
