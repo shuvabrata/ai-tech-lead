@@ -97,22 +97,6 @@ def _create_right_panel_tabs() -> html.Div:
                             children=[html.Span("No active filters", className="graph-filter-empty-state")],
                         ),
 
-                        # Display mode
-                        html.Div([
-                            html.Label("Display Filtered Items:", style=_LABEL_STYLE),
-                            dbc.RadioItems(
-                                id="collab-filter-display-mode",
-                                options=[
-                                    {"label": "Hide", "value": "hide"},
-                                    {"label": "Dim",  "value": "dim"},
-                                ],
-                                value="hide",
-                                inline=True,
-                                className="graph-filter-radio",
-                                style={"fontSize": "12px"},
-                            ),
-                        ], className="mb-3"),
-
                         # Community filter
                         html.Div([
                             html.Label("Communities:", style=_LABEL_STYLE),
@@ -288,18 +272,11 @@ def _get_communities(elements: list[dict]) -> list[int]:
     return sorted(seen)
 
 
-def _append_class(element: dict, class_name: str) -> dict:
-    existing = element.get("classes", "") or ""
-    classes = f"{existing} {class_name}".strip()
-    return {**element, "classes": classes}
-
-
 def _compute_collab_filtered(
     elements: list[dict],
     selected_communities: list[Any],
     weight_threshold: int,
     top_n_mode: str,
-    display_mode: str,
 ) -> list[dict]:
     """Apply community, weight, and top-N filters to collaboration elements.
 
@@ -336,17 +313,4 @@ def _compute_collab_filtered(
     elif top_n_mode == "top100":
         candidate_edges = sorted(candidate_edges, key=lambda e: e["data"].get("weight", 0), reverse=True)[:100]
 
-    if display_mode == "hide":
-        return [n for n in nodes if n["data"]["id"] in visible_node_ids] + candidate_edges
-
-    # dim mode: keep all elements but mark filtered-out ones with "dimmed"
-    candidate_edge_ids = {e["data"]["id"] for e in candidate_edges}
-    dimmed_nodes = [
-        n if n["data"]["id"] in visible_node_ids else _append_class(n, "dimmed")
-        for n in nodes
-    ]
-    dimmed_edges = [
-        e if e["data"]["id"] in candidate_edge_ids else _append_class(e, "dimmed")
-        for e in edges
-    ]
-    return dimmed_nodes + dimmed_edges
+    return [n for n in nodes if n["data"]["id"] in visible_node_ids] + candidate_edges

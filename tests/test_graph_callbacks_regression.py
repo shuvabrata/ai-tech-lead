@@ -116,13 +116,12 @@ def test_execute_query_repeated_runs_refresh_baseline_and_filters(monkeypatch):
     # Output indices from execute_query callback contract
     ELEMENTS = 1
     UNFILTERED_STORE = 15
-    FILTER_DISPLAY_MODE = 16
-    NODE_AVAILABLE = 17
-    REL_AVAILABLE = 18
-    NODE_FILTER = 19
-    REL_FILTER = 20
-    WEIGHT_FILTER = 21
-    TOP_N_FILTER = 22
+    NODE_AVAILABLE = 16
+    REL_AVAILABLE = 17
+    NODE_FILTER = 18
+    REL_FILTER = 19
+    WEIGHT_FILTER = 20
+    TOP_N_FILTER = 21
 
     # Baseline and rendered elements should match each run
     assert result_a[ELEMENTS] == cyto_a
@@ -136,7 +135,6 @@ def test_execute_query_repeated_runs_refresh_baseline_and_filters(monkeypatch):
 
     # Execute should reset filter controls and force the filter domain
     # callbacks to rebuild selections from the new baseline graph.
-    assert result_b[FILTER_DISPLAY_MODE] == "hide"
     assert result_b[NODE_AVAILABLE] is None
     assert result_b[REL_AVAILABLE] is None
     assert result_b[NODE_FILTER] is query_callbacks.no_update

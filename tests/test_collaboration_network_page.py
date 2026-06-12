@@ -10,7 +10,6 @@ Run with: pytest tests/test_collaboration_network_page.py -v
 import pytest
 
 from app.dash_app.pages.collaboration_network.layout import (
-    _append_class,
     _compute_collab_filtered,
     _get_communities,
     _split_elements,
@@ -137,38 +136,6 @@ class TestGetCommunities:
         assert communities == [3]
 
 
-# ---------------------------------------------------------------------------
-# _append_class
-# ---------------------------------------------------------------------------
-
-class TestAppendClass:
-    def test_appends_class_to_empty_classes(self):
-        element = {"data": {"id": "a"}}
-        result = _append_class(element, "dimmed")
-        assert result["classes"] == "dimmed"
-
-    def test_appends_class_to_existing_classes(self):
-        element = {"data": {"id": "a"}, "classes": "community-0"}
-        result = _append_class(element, "dimmed")
-        assert "community-0" in result["classes"]
-        assert "dimmed" in result["classes"]
-
-    def test_does_not_mutate_original(self):
-        element = {"data": {"id": "a"}, "classes": "community-0"}
-        _append_class(element, "dimmed")
-        assert element["classes"] == "community-0"
-
-    def test_strips_extra_whitespace(self):
-        element = {"data": {"id": "a"}, "classes": ""}
-        result = _append_class(element, "dimmed")
-        assert result["classes"] == "dimmed"
-
-    def test_preserves_other_fields(self):
-        element = {"data": {"id": "a"}, "position": {"x": 1, "y": 2}}
-        result = _append_class(element, "dimmed")
-        assert result["position"] == {"x": 1, "y": 2}
-        assert result["data"]["id"] == "a"
-
 
 # ---------------------------------------------------------------------------
 # _compute_collab_filtered — no filters (baseline)
@@ -181,7 +148,6 @@ class TestComputeCollabFilteredBaseline:
             selected_communities=[],
             weight_threshold=0,
             top_n_mode="all",
-            display_mode="hide",
         )
         assert len(result) == len(ALL_ELEMENTS)
 
@@ -191,7 +157,6 @@ class TestComputeCollabFilteredBaseline:
             selected_communities=[],
             weight_threshold=0,
             top_n_mode="all",
-            display_mode="hide",
         )
         assert result == []
 
@@ -201,7 +166,6 @@ class TestComputeCollabFilteredBaseline:
             selected_communities=[],
             weight_threshold=0,
             top_n_mode="all",
-            display_mode="hide",
         )
         nodes, edges = _split_elements(result)
         assert len(nodes) == 4
@@ -219,7 +183,6 @@ class TestComputeCollabFilteredCommunity:
             selected_communities=[0],
             weight_threshold=0,
             top_n_mode="all",
-            display_mode="hide",
         )
         nodes, edges = _split_elements(result)
         node_ids = {n["data"]["id"] for n in nodes}
@@ -235,7 +198,6 @@ class TestComputeCollabFilteredCommunity:
             selected_communities=[],
             weight_threshold=0,
             top_n_mode="all",
-            display_mode="hide",
         )
         nodes, _ = _split_elements(result)
         assert len(nodes) == 4
@@ -246,7 +208,6 @@ class TestComputeCollabFilteredCommunity:
             selected_communities=[0, 1],
             weight_threshold=0,
             top_n_mode="all",
-            display_mode="hide",
         )
         nodes, _ = _split_elements(result)
         assert len(nodes) == 4
@@ -257,7 +218,6 @@ class TestComputeCollabFilteredCommunity:
             selected_communities=[99],
             weight_threshold=0,
             top_n_mode="all",
-            display_mode="hide",
         )
         nodes, edges = _split_elements(result)
         assert len(nodes) == 0
@@ -276,7 +236,6 @@ class TestComputeCollabFilteredWeight:
             selected_communities=[],
             weight_threshold=10,
             top_n_mode="all",
-            display_mode="hide",
         )
         _, edges = _split_elements(result)
         weights = [e["data"]["weight"] for e in edges]
@@ -288,7 +247,6 @@ class TestComputeCollabFilteredWeight:
             selected_communities=[],
             weight_threshold=0,
             top_n_mode="all",
-            display_mode="hide",
         )
         _, edges = _split_elements(result)
         assert len(edges) == 4
@@ -299,7 +257,6 @@ class TestComputeCollabFilteredWeight:
             selected_communities=[],
             weight_threshold=100,
             top_n_mode="all",
-            display_mode="hide",
         )
         _, edges = _split_elements(result)
         assert len(edges) == 0
@@ -323,7 +280,6 @@ class TestComputeCollabFilteredTopN:
             selected_communities=[],
             weight_threshold=0,
             top_n_mode="top50",
-            display_mode="hide",
         )
         _, edges = _split_elements(result)
         assert len(edges) <= 50
@@ -335,7 +291,6 @@ class TestComputeCollabFilteredTopN:
             selected_communities=[],
             weight_threshold=0,
             top_n_mode="top100",
-            display_mode="hide",
         )
         _, edges = _split_elements(result)
         assert len(edges) <= 100
@@ -347,7 +302,6 @@ class TestComputeCollabFilteredTopN:
             selected_communities=[],
             weight_threshold=0,
             top_n_mode="top50",
-            display_mode="hide",
         )
         _, edges = _split_elements(result)
         weights = sorted([e["data"]["weight"] for e in edges], reverse=True)
@@ -361,7 +315,6 @@ class TestComputeCollabFilteredTopN:
             selected_communities=[],
             weight_threshold=0,
             top_n_mode="all",
-            display_mode="hide",
         )
         _, edges = _split_elements(result)
         assert len(edges) == 4
@@ -373,98 +326,10 @@ class TestComputeCollabFilteredTopN:
             selected_communities=[],
             weight_threshold=0,
             top_n_mode="top50",
-            display_mode="hide",
         )
         _, edges = _split_elements(result)
         assert len(edges) == 4
 
-
-# ---------------------------------------------------------------------------
-# _compute_collab_filtered — display mode (hide vs dim)
-# ---------------------------------------------------------------------------
-
-class TestComputeCollabFilteredDisplayMode:
-    def test_hide_mode_removes_filtered_nodes(self):
-        result = _compute_collab_filtered(
-            ALL_ELEMENTS,
-            selected_communities=[0],
-            weight_threshold=0,
-            top_n_mode="all",
-            display_mode="hide",
-        )
-        nodes, _ = _split_elements(result)
-        node_ids = {n["data"]["id"] for n in nodes}
-        assert "carol" not in node_ids
-        assert "dave" not in node_ids
-
-    def test_dim_mode_retains_all_nodes(self):
-        result = _compute_collab_filtered(
-            ALL_ELEMENTS,
-            selected_communities=[0],
-            weight_threshold=0,
-            top_n_mode="all",
-            display_mode="dim",
-        )
-        nodes, _ = _split_elements(result)
-        assert len(nodes) == 4
-
-    def test_dim_mode_marks_filtered_nodes_as_dimmed(self):
-        result = _compute_collab_filtered(
-            ALL_ELEMENTS,
-            selected_communities=[0],
-            weight_threshold=0,
-            top_n_mode="all",
-            display_mode="dim",
-        )
-        nodes, _ = _split_elements(result)
-        for node in nodes:
-            nid = node["data"]["id"]
-            if nid in ("carol", "dave"):
-                assert "dimmed" in node.get("classes", ""), f"{nid} should be dimmed"
-            else:
-                assert "dimmed" not in node.get("classes", ""), f"{nid} should not be dimmed"
-
-    def test_dim_mode_marks_filtered_edges_as_dimmed(self):
-        result = _compute_collab_filtered(
-            ALL_ELEMENTS,
-            selected_communities=[0],
-            weight_threshold=0,
-            top_n_mode="all",
-            display_mode="dim",
-        )
-        _, edges = _split_elements(result)
-        for edge in edges:
-            eid = edge["data"]["id"]
-            # Cross-community edges should be dimmed
-            if edge["data"]["source"] not in ("alice", "bob") or edge["data"]["target"] not in ("alice", "bob"):
-                assert "dimmed" in edge.get("classes", ""), f"edge {eid} should be dimmed"
-
-    def test_dim_mode_intra_community_edges_not_dimmed(self):
-        result = _compute_collab_filtered(
-            ALL_ELEMENTS,
-            selected_communities=[0],
-            weight_threshold=0,
-            top_n_mode="all",
-            display_mode="dim",
-        )
-        _, edges = _split_elements(result)
-        alice_bob = next(
-            (e for e in edges if e["data"]["source"] == "alice" and e["data"]["target"] == "bob"),
-            None,
-        )
-        assert alice_bob is not None
-        assert "dimmed" not in alice_bob.get("classes", "")
-
-    def test_dim_mode_retains_all_edges(self):
-        result = _compute_collab_filtered(
-            ALL_ELEMENTS,
-            selected_communities=[0],
-            weight_threshold=0,
-            top_n_mode="all",
-            display_mode="dim",
-        )
-        _, edges = _split_elements(result)
-        assert len(edges) == 4
 
 
 # ---------------------------------------------------------------------------
@@ -479,7 +344,6 @@ class TestComputeCollabFilteredCombined:
             selected_communities=[0],
             weight_threshold=15,
             top_n_mode="all",
-            display_mode="hide",
         )
         nodes, edges = _split_elements(result)
         node_ids = {n["data"]["id"] for n in nodes}
@@ -495,30 +359,7 @@ class TestComputeCollabFilteredCombined:
             selected_communities=[],
             weight_threshold=8,
             top_n_mode="top50",
-            display_mode="hide",
         )
         _, edges = _split_elements(result)
         assert len(edges) == 3
 
-    def test_community_weight_topn_dim_all_combined(self):
-        result = _compute_collab_filtered(
-            ALL_ELEMENTS,
-            selected_communities=[0],
-            weight_threshold=15,
-            top_n_mode="top50",
-            display_mode="dim",
-        )
-        nodes, edges = _split_elements(result)
-        # dim keeps everything
-        assert len(nodes) == 4
-        assert len(edges) == 4
-        # alice and bob must not be dimmed
-        alice = next(n for n in nodes if n["data"]["id"] == "alice")
-        bob = next(n for n in nodes if n["data"]["id"] == "bob")
-        assert "dimmed" not in alice.get("classes", "")
-        assert "dimmed" not in bob.get("classes", "")
-        # carol and dave must be dimmed
-        carol = next(n for n in nodes if n["data"]["id"] == "carol")
-        dave = next(n for n in nodes if n["data"]["id"] == "dave")
-        assert "dimmed" in carol.get("classes", "")
-        assert "dimmed" in dave.get("classes", "")

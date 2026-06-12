@@ -132,10 +132,9 @@ def load_collaboration_network(search: str | None, pathname: str | None):
     [Input("collab-elements-store",          "data"),
      Input("collab-community-filter",        "value"),
      Input("collab-weight-threshold-slider", "value"),
-     Input("collab-top-n-toggle",            "value"),
-     Input("collab-filter-display-mode",     "value")],
+     Input("collab-top-n-toggle",            "value")],
 )
-def apply_collab_filters(elements, selected_communities, weight_threshold, top_n_mode, display_mode):
+def apply_collab_filters(elements, selected_communities, weight_threshold, top_n_mode):
     """Translate raw store elements through the active filters \u2192 cytoscape."""
     if not elements:
         return []
@@ -144,11 +143,10 @@ def apply_collab_filters(elements, selected_communities, weight_threshold, top_n
         selected_communities or [],
         weight_threshold or 0,
         top_n_mode or "all",
-        display_mode or "hide",
     )
     logger.debug(
-        "[COLLAB-FILTER] communities=%s weight>=%s top_n=%s mode=%s \u2192 %d elements",
-        selected_communities, weight_threshold, top_n_mode, display_mode, len(result),
+        "[COLLAB-FILTER] communities=%s weight>=%s top_n=%s \u2192 %d elements",
+        selected_communities, weight_threshold, top_n_mode, len(result),
     )
     return result
 
@@ -191,10 +189,9 @@ def update_collab_weight_label(value):
     [Input("collab-elements-store",          "data"),
      Input("collab-community-filter",        "value"),
      Input("collab-weight-threshold-slider", "value"),
-     Input("collab-top-n-toggle",            "value"),
-     Input("collab-filter-display-mode",     "value")],
+     Input("collab-top-n-toggle",            "value")],
 )
-def update_collab_filter_feedback(elements, selected_communities, weight_threshold, top_n_mode, display_mode):
+def update_collab_filter_feedback(elements, selected_communities, weight_threshold, top_n_mode):
     """Keep the summary line and active-filter chips up to date."""
     if not elements:
         return (
@@ -208,7 +205,6 @@ def update_collab_filter_feedback(elements, selected_communities, weight_thresho
         selected_communities or [],
         weight_threshold or 0,
         top_n_mode or "all",
-        display_mode or "hide",
     )
     f_nodes, f_edges = _split_elements(filtered)
 
