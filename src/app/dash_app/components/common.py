@@ -15,7 +15,7 @@ Usage:
 
 from typing import Any
 
-from dash import html
+from dash import html, dcc
 import dash_bootstrap_components as dbc
 
 from app.dash_app.styles import (
@@ -34,6 +34,7 @@ from app.dash_app.styles import (
     DETAILS_TABLE_KEY_STYLE,
     DETAILS_TABLE_VALUE_STYLE,
     DETAILS_TABLE_VALUE_MONO_STYLE,
+    DETAILS_TABLE_LINK_STYLE,
     DETAILS_MUTED_TEXT_STYLE,
     # Colors
     COLOR_NAVY,
@@ -430,24 +431,63 @@ def _panel_properties_table(items: list) -> html.Table:
     rows = []
     for key, value in items:
         str_value = str(value)
+        is_url = key == "url" or str_value.startswith(("http://", "https://"))
         is_mono = key in ("id",) or (len(str_value) > 16 and " " not in str_value)
-        value_cell = (
-            html.Code(str_value, style=DETAILS_TABLE_VALUE_MONO_STYLE)
-            if is_mono
-            else html.Span(str_value, style=DETAILS_TABLE_VALUE_STYLE)
-        )
-        rows.append(html.Tr([
-            html.Td(key, style=DETAILS_TABLE_KEY_STYLE),
-            html.Td(
-                value_cell,
-                style={
-                    "padding": "6px 0 6px 8px",
-                    "borderBottom": "1px solid var(--color-border-light)",
-                    "verticalAlign": "top",
-                    "wordBreak": "break-word",
-                },
-            ),
-        ]))
+        if is_url:
+            value_cell = html.Span(
+                [
+                    html.A(
+                        str_value,
+                        href=str_value,
+                        target="_blank",
+                        rel="noopener noreferrer",
+                        style=DETAILS_TABLE_LINK_STYLE,
+                    ),
+                    html.I(
+                        className="fas fa-external-link-alt details-prop-icon details-prop-icon--link",
+                    ),
+                ],
+                className="details-prop-value-wrap",
+            )
+        elif is_mono:
+            value_cell = html.Span(
+                [
+                    html.Code(str_value, style=DETAILS_TABLE_VALUE_MONO_STYLE),
+                    dcc.Clipboard(
+                        content=str_value,
+                        className="details-prop-icon details-prop-icon--copy",
+                        title="Copy",
+                    ),
+                ],
+                className="details-prop-value-wrap",
+            )
+        else:
+            value_cell = html.Span(
+                [
+                    html.Span(str_value, style=DETAILS_TABLE_VALUE_STYLE),
+                    dcc.Clipboard(
+                        content=str_value,
+                        className="details-prop-icon details-prop-icon--copy",
+                        title="Copy",
+                    ),
+                ],
+                className="details-prop-value-wrap",
+            )
+        rows.append(html.Tr(
+            [
+                html.Td(key, style=DETAILS_TABLE_KEY_STYLE),
+                html.Td(
+                    value_cell,
+                    style={
+                        "padding": "6px 0 6px 8px",
+                        "borderBottom": "1px solid var(--color-border-light)",
+                        "verticalAlign": "top",
+                        "wordBreak": "break-word",
+                    },
+                ),
+            ],
+            className="details-prop-row",
+        ))
     return html.Table(html.Tbody(rows), style=DETAILS_TABLE_STYLE)
 
 

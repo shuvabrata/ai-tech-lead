@@ -785,6 +785,14 @@ DETAILS_TABLE_VALUE_MONO_STYLE = {
     "border": "none",
 }
 
+DETAILS_TABLE_LINK_STYLE = {
+    **DETAILS_TABLE_VALUE_STYLE,
+    "color": COLOR_NAVY,
+    "textDecoration": "none",
+    "cursor": "pointer",
+    "wordBreak": "break-all",
+}
+
 # Property Formatter Styles
 PROPERTY_COMPLEX_VALUE_STYLE = {
     "fontSize": FONT_SIZE_TINY,
