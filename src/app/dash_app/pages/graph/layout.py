@@ -351,26 +351,89 @@ def create_catalog_tab_content():
         html.Div with namespace filter, search, query list, detail, and action buttons.
     """
     return html.Div([
-        html.Label("Namespace", className="mb-1", style=GRAPH_HELPER_TEXT_STYLE),
-        dbc.Select(
-            id="catalog-namespace-filter",
-            options=[{"label": "All namespaces", "value": "__all__"}],
-            value="__all__",
-            size="sm",
-            className="mb-3",
-        ),
-        html.Label("Search", className="mb-1", style=GRAPH_HELPER_TEXT_STYLE),
-        dbc.Input(
-            id="catalog-search-input",
-            placeholder="Find a query by name, tag, or description",
-            type="text",
-            size="sm",
-            className="mb-3",
-        ),
-        html.Div(
-            id="query-catalog-load-status",
-            className="mb-2",
-        ),
+        # Sticky Top Control Panel
+        html.Div([
+            # Namespace & Search side-by-side
+            dbc.Row([
+                dbc.Col([
+                    html.Label("Namespace", className="mb-1", style=GRAPH_HELPER_TEXT_STYLE),
+                    dbc.Select(
+                        id="catalog-namespace-filter",
+                        options=[{"label": "All namespaces", "value": "__all__"}],
+                        value="__all__",
+                        size="sm",
+                    ),
+                ], width=5, style={"paddingLeft": "0"}),
+                dbc.Col([
+                    html.Label("Search", className="mb-1", style=GRAPH_HELPER_TEXT_STYLE),
+                    dbc.Input(
+                        id="catalog-search-input",
+                        placeholder="Search queries...",
+                        type="text",
+                        size="sm",
+                    ),
+                ], width=7, style={"paddingRight": "0"}),
+            ], className="g-2 mx-0 mb-2"),
+            
+            html.Div(
+                id="query-catalog-load-status",
+                className="mb-2",
+            ),
+            
+            # Selected Query Detail (integrated & borderless)
+            html.Div(
+                id="catalog-query-detail",
+                children=html.Div(
+                    "Select a catalog query to inspect it here.",
+                    style={"fontSize": "12px", "color": COLOR_TEXT_SECONDARY}
+                ),
+                style={
+                    "color": COLOR_CHARCOAL_MEDIUM,
+                    "marginTop": "8px",
+                },
+            ),
+            
+            # Parameter Inputs
+            html.Div(
+                id="catalog-parameter-inputs",
+                className="mt-2",
+            ),
+            
+            # Display Options
+            html.Div([
+                html.Label("Display as", className="mb-1 mt-2", style=GRAPH_HELPER_TEXT_STYLE),
+                dbc.RadioItems(
+                    id="catalog-query-view-toggle",
+                    options=[],
+                    value=None,
+                    inline=True,
+                    className="mb-2",
+                    input_class_name="me-1",
+                ),
+            ], id="catalog-view-toggle-container"),
+            
+            # Run & Load Buttons
+            html.Div([
+                dbc.Button(
+                    "Run",
+                    id="catalog-run-btn",
+                    color="primary",
+                    size="sm",
+                    className="me-2",
+                    disabled=True,
+                ),
+                dbc.Button(
+                    "Load into Console",
+                    id="catalog-load-console-btn",
+                    outline=True,
+                    color="secondary",
+                    size="sm",
+                    disabled=True,
+                ),
+            ], className="mt-2"),
+        ], className="graph-catalog-sticky-panel hover-scrollbar"),
+        
+        # Scrollable Query List at the bottom
         html.Div(
             id="catalog-query-list",
             children=html.Div(
@@ -378,8 +441,6 @@ def create_catalog_tab_content():
                 style={"fontSize": "12px", "color": COLOR_TEXT_SECONDARY}
             ),
             style={
-                "maxHeight": "240px",
-                "overflowY": "auto",
                 "border": f"1px solid {COLOR_BORDER}",
                 "borderRadius": "2px",
                 "padding": "8px",
@@ -387,54 +448,6 @@ def create_catalog_tab_content():
                 "color": COLOR_CHARCOAL_MEDIUM,
             }
         ),
-        html.Div(
-            id="catalog-query-detail",
-            children=html.Div(
-                "Select a catalog query to inspect it here.",
-                style={"fontSize": "12px", "color": COLOR_TEXT_SECONDARY}
-            ),
-            style={
-                "border": f"1px solid {COLOR_BORDER}",
-                "borderRadius": "2px",
-                "padding": "12px",
-                "backgroundColor": COLOR_BACKGROUND_WHITE,
-                "color": COLOR_CHARCOAL_MEDIUM,
-                "marginTop": "8px",
-            },
-        ),
-        html.Div(
-            id="catalog-parameter-inputs",
-            className="mt-3",
-        ),
-        html.Div([
-            html.Label("Display as", className="mb-1 mt-3", style=GRAPH_HELPER_TEXT_STYLE),
-            dbc.RadioItems(
-                id="catalog-query-view-toggle",
-                options=[],
-                value=None,
-                inline=True,
-                className="mb-2",
-                input_class_name="me-1",
-            ),
-        ], id="catalog-view-toggle-container"),
-        html.Div([
-            dbc.Button(
-                "Run",
-                id="catalog-run-btn",
-                color="primary",
-                size="sm",
-                className="me-2",
-                disabled=True,
-            ),
-            dbc.Button(
-                "Load into Console",
-                id="catalog-load-console-btn",
-                outline=True,
-                color="secondary",
-                size="sm",
-                disabled=True,
-            ),
-        ], className="mt-3"),
     ], style={"padding": "8px 0"})
 
 
@@ -504,18 +517,8 @@ def create_results_section():
                             "padding": "0",
                             "backgroundColor": "transparent"
                         },
-                        children=[
-                            html.Div([
-                                html.I(className="fas fa-info-circle fa-lg mb-2", style=GRAPH_DETAILS_PANEL_ICON_STYLE),
-                                html.P(
-                                    "Execute a query to see the graph",
-                                    className="mb-0",
-                                    style={"fontSize": "12px", "color": "var(--color-text-secondary)"}
-                                )
-                            ], className="text-center", style={"marginTop": "100px"})
-                        ]
                     )
-                ], style={"overflowY": "auto", "maxHeight": "calc(75vh + 40px)", "position": "relative"})
+                ], className="graph-right-panel-workbench hover-scrollbar")
             ], id="graph-details-col", width=4, style={"borderLeft": f"1px solid {COLOR_GRAY_LIGHTER}", "paddingLeft": "24px"})
         ], className="g-0")
     ], className="mb-2")
@@ -591,7 +594,7 @@ def create_stores():
         dcc.Store(id="spotlight-debounced-store", storage_type="memory", data=None),
 
         # Right panel workbench: tracks which tab is currently open ("filters", "console", "catalog", or None)
-        dcc.Store(id="right-panel-active-tab", storage_type="memory", data="console"),
+        dcc.Store(id="right-panel-active-tab", storage_type="memory", data="catalog"),
     ]
 
 

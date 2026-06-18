@@ -107,6 +107,7 @@
 }
 
 .theme-executive-dark {
+    color-scheme: dark;
     --color-navy: #5f86b4;
     --color-navy-dark: #4d739f;
     --color-navy-hover: #6b93c3;
@@ -250,6 +251,7 @@
 /* ============================================================================= */
 
 .form-control,
+.form-select,
 .Select-value-label,
 .Select-value {
     color: var(--color-charcoal) !important;
@@ -269,7 +271,8 @@ input::placeholder {
     font-weight: var(--font-weight-normal);
 }
 
-.form-control:focus {
+.form-control:focus,
+.form-select:focus {
     border-color: var(--color-navy) !important;
     box-shadow: 0 0 0 2px var(--color-focus-ring) !important;
     background-color: var(--color-background-white) !important;
@@ -280,8 +283,20 @@ input::placeholder {
 /* ============================================================================= */
 
 .theme-executive-dark .form-control,
+.theme-executive-dark .form-select,
 .theme-executive-dark .Select-value-label,
 .theme-executive-dark .Select-value {
+    color: var(--color-text-dark) !important;
+}
+
+.theme-executive-dark .form-control,
+.theme-executive-dark .form-select {
+    background-color: var(--color-background-light) !important;
+    border-color: var(--color-border-light) !important;
+}
+
+.theme-executive-dark .form-select option {
+    background-color: var(--color-background-light) !important;
     color: var(--color-text-dark) !important;
 }
 
@@ -474,6 +489,60 @@ input::placeholder {
     outline: 2px solid var(--color-navy);
     outline-offset: 2px;
     border-radius: 2px;
+}
+
+.graph-right-panel-workbench {
+    max-height: calc(75vh + 40px);
+    position: relative;
+    overflow-y: auto;
+}
+
+.graph-catalog-sticky-panel {
+    position: sticky;
+    top: 33px; /* Sits right below the sticky tab bar at top: 0 */
+    background-color: var(--color-background-white);
+    z-index: 9;
+    border-bottom: 1px solid var(--color-border);
+    padding-bottom: 10px;
+    margin-bottom: 10px;
+    max-height: 50vh;
+    overflow-y: auto;
+}
+
+/* Theme-aware hover-only fading scrollbar */
+.hover-scrollbar {
+    scrollbar-width: none; /* Hide scrollbar in Firefox by default */
+}
+
+.hover-scrollbar:hover {
+    scrollbar-width: thin; /* Show thin scrollbar in Firefox on hover */
+    scrollbar-color: var(--color-gray-lighter) transparent;
+}
+
+/* WebKit-based browsers (Chrome, Safari, Edge) */
+.hover-scrollbar::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+.hover-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.hover-scrollbar::-webkit-scrollbar-thumb {
+    background: transparent; /* Invisible by default */
+    border-radius: var(--border-radius-medium);
+    transition: background-color 0.2s ease;
+}
+
+/* Show thumb when parent container is hovered */
+.hover-scrollbar:hover::-webkit-scrollbar-thumb {
+    background: var(--color-gray-lighter);
+}
+
+/* Accent highlight when directly hovering over the scrollbar thumb */
+.hover-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: var(--color-gray-light) !important;
 }
 
 .graph-filter-toggle-btn {
