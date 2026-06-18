@@ -1,5 +1,10 @@
 name: Review Bottlenecks
-description: Review requests not yet completed - Data Quality check.
+description: |-
+  **What it is:** Identifies Pull Requests that have outstanding review requests which have not yet been completed.
+  
+  **How it helps:** Enables Tech Leads to actively unblock in-flight work by pinging assigned reviewers or reassigning reviews to available engineers.
+  
+  **What-If Impact:** Stagnant code reviews artificially inflate lead times and increase merge conflicts as the underlying main branch drifts further away.
 summary: "Review requests not yet completed - Data Quality check."
 default_view: tabular
 owner: github-analytics

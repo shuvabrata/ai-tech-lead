@@ -1,5 +1,10 @@
 name: View All Relationship Types
-description: Count all relationships by type.
+description: |-
+  **What it is:** Counts all relationships in the database grouped by their type (e.g., BLOCKS, AUTHORED_BY).
+  
+  **How it helps:** Helps administrators and leads verify the integrity and completeness of connections between ingested entities across tools.
+  
+  **What-If Impact:** Relying on disconnected data can break traceability queries, obscuring dependencies and leading to inaccurate cross-domain analysis.
 summary: "Count all relationships by type."
 default_view: graph
 owner: graph-platform

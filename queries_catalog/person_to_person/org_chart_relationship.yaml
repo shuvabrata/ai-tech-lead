@@ -1,5 +1,10 @@
 name: Org Chart Relationship
-description: Check direct or indirect management relationship between the two people.
+description: |-
+  **What it is:** Traces the formal management reporting hierarchy connecting two individuals, highlighting if one reports directly or indirectly to the other.
+  
+  **How it helps:** Helps HR and Management resolve escalation paths and understand the formal power dynamic between two collaborating employees.
+  
+  **What-If Impact:** Misunderstanding the formal reporting structure can lead to inappropriate delegation or perceived micromanagement during cross-functional projects.
 summary: Check whether two people are connected through the reporting hierarchy.
 default_view: graph
 parameters:

@@ -1,5 +1,10 @@
 name: Space Activity Overview
-description: Counts pages and blogposts by Confluence space.
+description: |-
+  **What it is:** Counts the total number of pages and blogposts created within each Confluence space.
+  
+  **How it helps:** Helps Administrators assess knowledge base adoption and identify which business units or teams are actively maintaining their documentation portals.
+  
+  **What-If Impact:** Low activity in core spaces suggests a shadow documentation culture (e.g., hoarding knowledge in private docs or chats) which hurts cross-functional transparency.
 summary: "Counts pages and blogposts by Confluence space."
 default_view: tabular
 owner: confluence-analytics

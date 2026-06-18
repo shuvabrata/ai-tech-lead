@@ -1,5 +1,10 @@
 name: Sprint Burndown Data
-description: Sprint progress and burndown metrics.
+description: |-
+  **What it is:** Calculates the total story points committed versus completed for issues within a specific sprint.
+  
+  **How it helps:** Helps Program Managers and Scrum Masters assess sprint delivery reliability and historical velocity, aiding in more accurate future sprint planning.
+  
+  **What-If Impact:** Inconsistent sprint burndown tracking obscures chronic over-commitment, leading to missed release targets and developer burnout.
 summary: "Sprint progress and burndown metrics."
 default_view: tabular
 owner: jira-analytics

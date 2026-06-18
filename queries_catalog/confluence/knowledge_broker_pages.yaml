@@ -1,5 +1,10 @@
 name: Knowledge Broker Pages
-description: Pages edited or discussed by the widest set of people.
+description: |-
+  **What it is:** Surfaces individual wiki pages that boast the widest diversity of unique editors and commenters across the organization.
+  
+  **How it helps:** Helps Tech Leads identify foundational "living documents" that act as central nervous systems for major project coordination.
+  
+  **What-If Impact:** If core coordination happens entirely in ephemeral chat channels rather than "knowledge broker" pages, the context is lost to future hires and cross-functional partners.
 summary: "Pages edited or discussed by the widest set of people."
 default_view: tabular
 owner: confluence-analytics

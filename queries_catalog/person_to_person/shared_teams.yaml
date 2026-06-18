@@ -1,5 +1,10 @@
 name: Shared Teams
-description: Find teams that both people belong to.
+description: |-
+  **What it is:** Identifies any organizational teams or working groups where two specific individuals share overlapping membership.
+  
+  **How it helps:** Helps Engineering Managers uncover existing collaborative structures between two people when attempting to resolve interpersonal friction or plan resource transfers.
+  
+  **What-If Impact:** Failing to understand shared team contexts can lead managers to misdiagnose the root cause of communication breakdowns between engineers.
 summary: Compare two people by the teams they share.
 default_view: tabular
 parameters:

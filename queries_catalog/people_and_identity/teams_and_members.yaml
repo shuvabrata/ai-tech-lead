@@ -1,5 +1,10 @@
 name: Teams and Members
-description: View all teams and their members.
+description: |-
+  **What it is:** Lists all teams alongside their individual constituent members and their respective roles.
+  
+  **How it helps:** Provides Program Managers and Tech Leads with a definitive directory to quickly locate domain experts or assign cross-team dependencies.
+  
+  **What-If Impact:** Relying on outdated or informal team rosters leads to misdirected communication, lost requests, and stalled cross-team collaboration.
 summary: "View all teams and their members."
 default_view: graph
 owner: identity-analytics

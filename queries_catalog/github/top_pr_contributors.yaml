@@ -1,5 +1,10 @@
 name: Top PR Contributors
-description: Top PR contributors by creation count.
+description: |-
+  **What it is:** Ranks individual developers by the sheer volume of Pull Requests they have authored and opened.
+  
+  **How it helps:** Provides a high-level view of throughput for Tech Leads, highlighting highly prolific engineers or potential automated bot accounts.
+  
+  **What-If Impact:** Focusing solely on PR volume without context can inadvertently incentivize breaking single logical changes into artificially small PRs to game the metrics.
 summary: "Top PR contributors by creation count."
 default_view: tabular
 owner: github-analytics

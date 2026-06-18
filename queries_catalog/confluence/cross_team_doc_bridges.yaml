@@ -1,5 +1,10 @@
 name: Cross Team Doc Bridges
-description: Documentation that mentions people from multiple teams.
+description: |-
+  **What it is:** Identifies specific wiki pages that actively tag or mention members from multiple distinct organizational teams.
+  
+  **How it helps:** Allows Program Managers to pinpoint critical cross-team alignment documents, such as API contracts, shared architecture specs, or incident post-mortems.
+  
+  **What-If Impact:** Without visibility into shared documentation, it is difficult to verify if complex cross-team dependencies are actually being formally negotiated and written down.
 summary: "Documentation that mentions people from multiple teams."
 default_view: tabular
 owner: cross-domain-analytics

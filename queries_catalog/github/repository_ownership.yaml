@@ -1,5 +1,10 @@
 name: Repository Ownership
-description: View repositories with owning teams (WRITE access).
+description: |-
+  **What it is:** Maps GitHub repositories to the specific organizational teams that hold WRITE (or higher) access privileges.
+  
+  **How it helps:** Helps Engineering Directors audit code stewardship, ensuring that every critical codebase has an accountable owning team.
+  
+  **What-If Impact:** Repositories without clear ownership become "zombie code," suffering from neglected security updates, degraded test coverage, and stalled feature development.
 summary: "View repositories with owning teams (WRITE access)."
 default_view: tabular
 owner: github-analytics

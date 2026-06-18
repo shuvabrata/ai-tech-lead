@@ -1,5 +1,10 @@
 name: Shared Jira Work
-description: Find Jira issues reported by one and assigned to the other.
+description: |-
+  **What it is:** Finds Jira issues where one person acted as the reporter and the other was the assigned developer.
+  
+  **How it helps:** Helps Product Managers assess the feedback loop between an internal customer (or QA) and the engineer tasked with addressing the request.
+  
+  **What-If Impact:** A lack of shared Jira work between a product owner and a lead developer often signals a massive disconnect in requirements gathering and execution.
 summary: Compare two people by shared Jira reporting and assignment activity.
 default_view: tabular
 parameters:

@@ -1,5 +1,10 @@
 name: PR Risk Score by Repository
-description: Composite risk score for pull requests grouped by repository.
+description: |-
+  **What it is:** Calculates a composite risk score for Pull Requests based on factors like size, age, and review activity, grouped by repository.
+  
+  **How it helps:** Allows Engineering Directors to identify which codebases are currently absorbing the highest volume of risky or unvetted changes.
+  
+  **What-If Impact:** Unmonitored PR risk accumulation often precedes major production incidents, as large, hastily reviewed changes are merged into critical paths.
 summary: "Composite risk score for pull requests grouped by repository."
 default_view: tabular
 owner: github-analytics

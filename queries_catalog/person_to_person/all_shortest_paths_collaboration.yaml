@@ -1,5 +1,10 @@
 name: All Shortest Paths Collaboration
-description: Find ALL shortest paths if multiple connections of the same length exist.
+description: |-
+  **What it is:** Discovers all possible shortest communication paths between two people when multiple equally direct routes exist.
+  
+  **How it helps:** Helps Engineering Directors map network resilience, ensuring that critical communication isn't entirely dependent on a single intermediary person.
+  
+  **What-If Impact:** Assuming only one collaboration path exists creates artificial bottlenecks and single points of failure in organizational communication.
 summary: Show every shortest collaboration path between two people.
 default_view: graph
 parameters:

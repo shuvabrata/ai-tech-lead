@@ -1,5 +1,10 @@
 name: Epics by Initiative
-description: Epics grouped by initiative.
+description: |-
+  **What it is:** Groups all Epics under their parent strategic Initiatives.
+  
+  **How it helps:** Helps Senior Executives track how high-level strategic goals are being decomposed into actionable project phases (Epics) across the organization.
+  
+  **What-If Impact:** Lacking visibility into this hierarchy makes it difficult to ensure that all ongoing tactical work rolls up to funded business objectives.
 summary: "Epics grouped by initiative."
 default_view: tabular
 owner: jira-analytics

@@ -1,5 +1,10 @@
 name: Work by Person
-description: Work assigned to each person.
+description: |-
+  **What it is:** Calculates the total number of issues and sum of story points assigned to each individual contributor.
+  
+  **How it helps:** Allows Management and Tech Leads to identify individuals who may be overloaded with concurrent tasks, guiding workload rebalancing within the team.
+  
+  **What-If Impact:** Failing to monitor individual workload distribution can result in quiet burnout and single points of failure for critical project deliverables.
 summary: "Work assigned to each person."
 default_view: tabular
 owner: jira-analytics

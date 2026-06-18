@@ -1,5 +1,10 @@
 name: Orphan Pages
-description: Pages with no parent or child pages.
+description: |-
+  **What it is:** Identifies isolated Confluence pages that lack both parent and child page relationships.
+  
+  **How it helps:** Acts as a data quality sweep for Knowledge Managers to find unindexed "floating" pages that need to be organized into the proper space hierarchy.
+  
+  **What-If Impact:** Orphaned pages are practically unfindable through organic navigation, meaning the effort spent writing them is largely wasted.
 summary: "Pages with no parent or child pages."
 default_view: tabular
 owner: confluence-analytics

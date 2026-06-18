@@ -1,5 +1,10 @@
 name: Large PRs with Low Review Coverage
-description: Pull requests with high churn but weak review coverage.
+description: |-
+  **What it is:** Surfaces massively sized Pull Requests that were merged with minimal or zero review activity.
+  
+  **How it helps:** Serves as a critical compliance and security alert for Engineering Managers to audit potential bypasses of standard quality controls.
+  
+  **What-If Impact:** Rubber-stamping large code changes entirely defeats the purpose of peer review, exposing the application to significant security vulnerabilities and architectural drift.
 summary: "Pull requests with high churn but weak review coverage."
 default_view: tabular
 owner: github-analytics

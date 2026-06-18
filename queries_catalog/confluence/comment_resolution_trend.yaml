@@ -1,5 +1,10 @@
 name: Comment Resolution Trend
-description: Track open, resolved, and closed comments over time.
+description: |-
+  **What it is:** Tracks the lifecycle of inline Confluence comments, comparing the volume of open versus resolved or closed threads over time.
+  
+  **How it helps:** Enables Technical Writers and PMs to gauge whether documentation feedback is being actively addressed or if queries are being ignored.
+  
+  **What-If Impact:** A growing backlog of unresolved documentation comments indicates that readers are finding errors or ambiguities that owners are failing to correct.
 summary: "Track open, resolved, and closed comments over time."
 default_view: tabular
 owner: confluence-analytics

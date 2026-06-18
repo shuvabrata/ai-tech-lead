@@ -1,7 +1,10 @@
 name: Shortest Path Collaboration
 description: |-
-  Find the shortest path of collaboration between two people.
-  Purpose: Answers the question "What is the shortest general path of collaboration between these two people across any domain?"
+  **What it is:** Finds the absolute shortest path of collaboration between two people, traversing across all domains (Jira, GitHub, Confluence, Teams).
+  
+  **How it helps:** Acts as the definitive starting query for Organizational Network Analysis to understand how knowledge actually flows across the company.
+  
+  **What-If Impact:** Without cross-domain pathing, leadership is blind to the informal networks that actually hold the company together when formal processes fail.
 summary: Trace the shortest overall collaboration path between two people across domains.
 default_view: graph
 parameters:

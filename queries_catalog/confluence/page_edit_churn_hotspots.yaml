@@ -1,5 +1,10 @@
 name: Page Edit Churn Hotspots
-description: Identify pages with the highest version churn and latest updates.
+description: |-
+  **What it is:** Identifies wiki pages experiencing the highest frequency of version updates and text churn.
+  
+  **How it helps:** Serves as a volatility indicator for Tech Leads, pointing to requirements or specs that are fluctuating wildly during a sprint.
+  
+  **What-If Impact:** Uncontrolled edit churn on a spec document while development is underway virtually guarantees that engineers will build the wrong thing or face constant rework.
 summary: "Identify pages with the highest version churn and latest updates."
 default_view: tabular
 owner: confluence-analytics

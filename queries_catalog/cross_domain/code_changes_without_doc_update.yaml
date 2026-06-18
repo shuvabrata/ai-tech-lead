@@ -1,5 +1,10 @@
 name: Code Changes Without Doc Update
-description: Commits linked to issues that have no Confluence references.
+description: |-
+  **What it is:** Identifies code commits linked to Jira issues that completely lack any corresponding Confluence documentation references.
+  
+  **How it helps:** Acts as a compliance guardrail for Tech Leads to ensure that significant codebase changes are accompanied by updated technical specs or release notes.
+  
+  **What-If Impact:** Shipping undocumented code gradually decays the accuracy of the organizational knowledge base, making future onboarding and incident response increasingly difficult.
 summary: "Commits linked to issues that have no Confluence references."
 default_view: tabular
 owner: cross-domain-analytics

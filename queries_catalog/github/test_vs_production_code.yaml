@@ -1,5 +1,10 @@
 name: Test vs Production Code
-description: Test vs production code analysis.
+description: |-
+  **What it is:** Compares the volume of code modifications made in test files versus production files.
+  
+  **How it helps:** Enables Tech Leads and QA to verify if new feature development is being adequately matched with corresponding automated test updates.
+  
+  **What-If Impact:** A high ratio of production code churn with zero test updates indicates growing technical debt and a high risk of regression bugs in upcoming releases.
 summary: "Test vs production code analysis."
 default_view: tabular
 owner: github-analytics

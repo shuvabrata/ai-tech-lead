@@ -1,5 +1,10 @@
 name: Identity Mappings
-description: Find all identity mappings for a person.
+description: |-
+  **What it is:** Consolidates all known user accounts (e.g., GitHub logins, Jira account IDs) linked to a single canonical Person entity.
+  
+  **How it helps:** Essential for Administrators and Data Engineers to verify that identity resolution is working correctly, ensuring cross-domain queries accurately track individuals.
+  
+  **What-If Impact:** Incomplete identity mapping causes fragmented activity tracking, leading to inaccurate workload assessments and misattributed code contributions.
 summary: "Find all identity mappings for a person."
 default_view: tabular
 owner: identity-analytics

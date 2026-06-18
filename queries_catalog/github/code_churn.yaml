@@ -1,5 +1,10 @@
 name: Code Churn
-description: Files with most changes (additions + deletions).
+description: |-
+  **What it is:** Identifies files experiencing the highest absolute volume of code additions and deletions.
+  
+  **How it helps:** Acts as an architectural early warning system for Tech Leads, pointing to volatile files that may be violating the Single Responsibility Principle.
+  
+  **What-If Impact:** Ignoring extreme code churn often leads to "god classes" or fragile modules where even minor changes introduce unpredictable side-effects.
 summary: "Files with most changes (additions + deletions)."
 default_view: tabular
 owner: github-analytics

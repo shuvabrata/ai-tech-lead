@@ -1,5 +1,10 @@
 name: Reviewer Load Balance
-description: Requested vs completed review load for reviewers.
+description: |-
+  **What it is:** Compares the number of review requests assigned to an engineer against the number of reviews they have actually completed.
+  
+  **How it helps:** Allows Tech Leads to spot bottlenecks where specific senior engineers are overwhelmed with review requests, allowing for timely workload redistribution.
+  
+  **What-If Impact:** Chronically unbalanced reviewer load causes PR queues to stall indefinitely, blocking junior developers and severely slowing down the entire sprint.
 summary: "Requested vs completed review load for reviewers."
 default_view: tabular
 owner: github-analytics

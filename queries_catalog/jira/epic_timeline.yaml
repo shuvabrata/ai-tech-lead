@@ -1,5 +1,10 @@
 name: Epic Timeline
-description: Epic timeline by start date.
+description: |-
+  **What it is:** Lists Epics sequentially based on their start and due dates, indicating their current completion status.
+  
+  **How it helps:** Provides Program Managers with a chronological roadmap of major deliverables to verify sequencing and coordinate cross-team dependencies.
+  
+  **What-If Impact:** Without a clear timeline view, teams may misalign their start dates with prerequisite work, leading to schedule collisions and blocked sprints.
 summary: "Epic timeline by start date."
 default_view: tabular
 owner: jira-analytics

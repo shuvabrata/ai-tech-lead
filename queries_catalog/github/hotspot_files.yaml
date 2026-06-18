@@ -1,5 +1,10 @@
 name: Hotspot Files
-description: Files with most modifications.
+description: |-
+  **What it is:** Highlights the source code files that are modified most frequently across the entire repository.
+  
+  **How it helps:** Directs Tech Leads to potential design flaws or heavily overloaded modules that require architectural decoupling.
+  
+  **What-If Impact:** Persistently high modification rates on a single file often correlate directly with elevated defect density and fragile, tightly coupled logic.
 summary: "Files with most modifications."
 default_view: tabular
 owner: github-analytics

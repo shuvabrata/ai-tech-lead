@@ -1,5 +1,10 @@
 name: PR to Jira Delivery Risk
-description: Pull requests linked to Jira issues with an aggregated delivery risk score.
+description: |-
+  **What it is:** Correlates high-risk pull requests (e.g., large size, old age) with the specific Jira issues they implement.
+  
+  **How it helps:** Enables Release Managers to flag specific feature rollouts that are backed by risky, unstable code modifications before they hit production.
+  
+  **What-If Impact:** Ignoring the risk profile of incoming code at the feature level often results in "poison pill" deployments that break critical business workflows.
 summary: "Pull requests linked to Jira issues with an aggregated delivery risk score."
 default_view: tabular
 owner: data-platform

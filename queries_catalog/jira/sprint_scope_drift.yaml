@@ -1,5 +1,10 @@
 name: Sprint Scope Drift
-description: Issues added to a sprint after the sprint start date.
+description: |-
+  **What it is:** Identifies issues and story points that were added to a sprint after its official start date.
+  
+  **How it helps:** Empowers Tech Leads and Scrum Masters to quantify mid-sprint interruptions and push back on unplanned work that derails sprint goals.
+  
+  **What-If Impact:** Failing to track scope drift hides the true cost of context-switching and urgent interruptions, making the team appear less productive than they actually are.
 summary: "Issues added to a sprint after the sprint start date."
 default_view: tabular
 owner: jira-analytics

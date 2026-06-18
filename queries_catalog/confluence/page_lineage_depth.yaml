@@ -1,5 +1,10 @@
 name: Page Lineage Depth
-description: Measure how deep pages sit in the Confluence tree.
+description: |-
+  **What it is:** Measures the hierarchical depth of pages within the Confluence tree structure.
+  
+  **How it helps:** Assists Administrators in auditing information architecture, ensuring that critical documentation isn't buried ten clicks deep in the hierarchy.
+  
+  **What-If Impact:** Deeply buried pages become unfindable, causing teams to recreate existing documentation or proceed without necessary compliance guidelines.
 summary: "Measure how deep pages sit in the Confluence tree."
 default_view: tabular
 owner: confluence-analytics

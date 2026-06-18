@@ -1,5 +1,10 @@
 name: Organizational Hierarchy
-description: View reporting structure.
+description: |-
+  **What it is:** Maps out the management reporting lines (manager-to-report relationships) across the entire engineering department.
+  
+  **How it helps:** Enables Executives to visualize the shape of the organization and identify whether management spans of control are too wide or too deep.
+  
+  **What-If Impact:** Obscured reporting structures make it difficult to cascade strategic goals effectively, leading to localized decision-making that contradicts broader company objectives.
 summary: "View reporting structure."
 default_view: graph
 owner: identity-analytics

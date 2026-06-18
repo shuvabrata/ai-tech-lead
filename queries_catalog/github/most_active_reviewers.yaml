@@ -1,5 +1,10 @@
 name: Most Active Reviewers
-description: Most active code reviewers.
+description: |-
+  **What it is:** Ranks developers based on the total number of code reviews they have formally submitted.
+  
+  **How it helps:** Helps Tech Leads recognize engineers who bear the heavy, often invisible burden of maintaining codebase quality through peer review.
+  
+  **What-If Impact:** Failing to recognize and reward top reviewers often leads to review burnout and a rapid decline in overall code quality as reviewers disengage.
 summary: "Most active code reviewers."
 default_view: tabular
 owner: github-analytics

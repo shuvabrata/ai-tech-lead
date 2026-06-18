@@ -1,5 +1,10 @@
 name: Shared Code Hotspots
-description: Find files (hotspots) that both developers have modified.
+description: |-
+  **What it is:** Identifies specific source code files that have been modified by both individuals in question.
+  
+  **How it helps:** Points Tech Leads to areas where two developers have deep, shared technical context, making them ideal partners for refactoring that specific module.
+  
+  **What-If Impact:** Ignoring shared context means inadvertently pairing engineers who have completely different architectural understandings of the same codebase, slowing down development.
 summary: Compare two people by the files they have both changed.
 default_view: tabular
 parameters:

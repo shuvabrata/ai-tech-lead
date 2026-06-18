@@ -1,5 +1,10 @@
 name: PR Size Distribution
-description: PR size distribution by commit count.
+description: |-
+  **What it is:** Categorizes Pull Requests by their sheer size, measured by the number of commits or changed lines.
+  
+  **How it helps:** Helps Scrum Masters and Tech Leads verify whether the team is adhering to the agile practice of delivering small, incremental changes.
+  
+  **What-If Impact:** A high frequency of massively sized PRs overwhelms reviewers, leading to rubber-stamp approvals and an increased likelihood of uncaught bugs.
 summary: "PR size distribution by commit count."
 default_view: tabular
 owner: github-analytics

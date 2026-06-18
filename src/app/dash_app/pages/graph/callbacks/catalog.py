@@ -6,7 +6,7 @@ from urllib.parse import parse_qs
 
 import dash_bootstrap_components as dbc
 import requests
-from dash import ALL, Input, Output, State, callback, ctx, html, no_update
+from dash import ALL, Input, Output, State, callback, ctx, dcc, html, no_update
 from dash.exceptions import MissingCallbackContextException
 
 from common.logger import logger
@@ -17,6 +17,7 @@ from app.dash_app.styles import (
     COLOR_BORDER,
     COLOR_CHARCOAL_MEDIUM,
     COLOR_TEXT_SECONDARY,
+    COLOR_GRAY_MEDIUM,
 )
 from app.settings import settings
 
@@ -359,12 +360,14 @@ def render_catalog_query_list(
     Input("selected-catalog-query-store", "data"),
     Input("query-catalog-store", "data"),
     Input("catalog-parameters-store", "data"),
+    Input("theme-store", "data"),
     State("catalog-query-view-toggle", "value"),
 )
 def render_catalog_query_detail(
     selected_query: dict | None,
     catalog_queries: list[dict] | None,
     parameter_values: dict | None,
+    theme_name: str | None,
     current_view: str | None,
 ):
     """Render selected query details, view toggle, and parameter inputs."""
@@ -402,20 +405,37 @@ def render_catalog_query_detail(
             ],
             style={"fontSize": "16px", "fontWeight": 600, "color": COLOR_CHARCOAL},
         ),
-        html.Div(
-            query.get("description", ""),
-            style={"fontSize": "12px", "color": COLOR_TEXT_SECONDARY, "marginTop": "6px"},
-        ),
     ]
 
-    summary = query.get("summary")
-    if summary:
-        detail_children.append(
-            html.Div(
-                summary,
-                style={"fontSize": "12px", "color": COLOR_CHARCOAL_MEDIUM, "marginTop": "6px"},
+    summary_text = query.get("summary") or "No summary available."
+    description_text = query.get("description")
+
+    summary_children = [html.Span(summary_text)]
+    
+    if description_text:
+        icon_id = "query-detail-info-icon"
+        summary_children.extend([
+            html.I(
+                className="fas fa-info-circle",
+                id=icon_id,
+                style={"cursor": "help", "marginLeft": "8px", "color": COLOR_GRAY_MEDIUM},
+            ),
+            dbc.Popover(
+                dbc.PopoverBody(dcc.Markdown(description_text)),
+                target=icon_id,
+                trigger="hover",
+                placement="auto",
+                style={"maxWidth": "800px"},
+                class_name=f"theme-{'executive-dark' if (theme_name or 'executive-light') == 'executive-light' else 'executive-light'}",
             )
+        ])
+
+    detail_children.append(
+        html.Div(
+            summary_children,
+            style={"fontSize": "12px", "color": COLOR_CHARCOAL_MEDIUM, "marginTop": "6px", "display": "flex", "alignItems": "center"},
         )
+    )
 
     if tags:
         detail_children.append(

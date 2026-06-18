@@ -1,5 +1,10 @@
 name: Epics with Owners and Teams
-description: Complete epic context with owners, teams, and initiatives.
+description: |-
+  **What it is:** Maps Epics to both their individual owners and their executing teams, while tracing them back to parent Initiatives.
+  
+  **How it helps:** Gives Program Managers a holistic view of accountability, showing exactly who is leading the work and which team is executing it for a given strategic goal.
+  
+  **What-If Impact:** Without clear mapping of both owner and team, accountability becomes diffused, making it harder to coordinate status updates or resolve delivery escalations.
 summary: "Complete epic context with owners, teams, and initiatives."
 default_view: tabular
 owner: jira-analytics

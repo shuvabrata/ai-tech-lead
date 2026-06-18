@@ -1,5 +1,10 @@
 name: Project Hierarchy
-description: Projects and their initiatives.
+description: |-
+  **What it is:** Maps the high-level Jira Projects to their contained strategic Initiatives.
+  
+  **How it helps:** Helps Administrators and Executives understand how overarching business boundaries (Projects) encapsulate various strategic goals.
+  
+  **What-If Impact:** Without this hierarchical mapping, it is difficult to audit if new strategic Initiatives are being placed into the correct funding and governance buckets.
 summary: "Projects and their initiatives."
 default_view: tabular
 owner: jira-analytics

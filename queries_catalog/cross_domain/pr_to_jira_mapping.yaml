@@ -1,5 +1,10 @@
 name: PR to Jira Mapping
-description: PRs linked to Jira issues via commits.
+description: |-
+  **What it is:** Establishes a direct link between GitHub Pull Requests and Jira issues by analyzing commit metadata.
+  
+  **How it helps:** Helps QA Engineers understand exactly which code changes they are testing when verifying a specific Jira ticket in staging.
+  
+  **What-If Impact:** Without PR-to-Jira mapping, QA must guess the scope of changes, leading to insufficient testing of edge cases and unverified deployments.
 summary: "PRs linked to Jira issues via commits."
 default_view: tabular
 owner: data-platform

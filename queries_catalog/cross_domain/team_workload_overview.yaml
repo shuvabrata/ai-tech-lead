@@ -1,5 +1,10 @@
 name: Team Workload Overview
-description: Team workload across GitHub and Jira.
+description: |-
+  **What it is:** Aggregates a team's total in-progress workload spanning both Jira issues and open GitHub pull requests.
+  
+  **How it helps:** Gives Engineering Managers a complete, multi-system view of team utilization, preventing burnout caused by hidden code-review or maintenance work not tracked in Jira.
+  
+  **What-If Impact:** Assessing capacity solely via Jira story points misses the substantial effort spent on unplanned bug fixes, reviews, and infrastructure work in GitHub.
 summary: "Team workload across GitHub and Jira."
 default_view: graph
 owner: data-platform
