@@ -1,5 +1,10 @@
 name: Work Without Code
-description: Issues marked Done but no code commits - Data Quality check.
+description: |-
+  **What it is:** Flags Jira issues transitioned to 'Done' status that possess absolutely no associated code commits or pull requests.
+  
+  **How it helps:** Acts as a data quality and process check for Agile Coaches to detect "ghost tickets" or manual, untracked out-of-band changes to production.
+  
+  **What-If Impact:** A high volume of code-less 'Done' tickets obscures true engineering velocity and suggests that operational work or manual interventions are bypassing version control.
 summary: "Issues marked Done but no code commits - Data Quality check."
 default_view: tabular
 owner: data-platform

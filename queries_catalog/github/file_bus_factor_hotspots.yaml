@@ -1,5 +1,10 @@
 name: File Bus Factor Hotspots
-description: Files with high churn but low author diversity.
+description: |-
+  **What it is:** Surfaces highly modified files that are authored or edited by only one or two specific developers.
+  
+  **How it helps:** Serves as a critical risk alert for Tech Leads to identify localized knowledge silos and enforce mandatory code walkthroughs for those components.
+  
+  **What-If Impact:** Allowing a "bus factor of 1" on heavily modified core files virtually guarantees massive delivery delays if that specific developer takes leave or departs.
 summary: "Files with high churn but low author diversity."
 default_view: tabular
 owner: github-analytics

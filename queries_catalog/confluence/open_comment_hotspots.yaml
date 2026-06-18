@@ -1,5 +1,10 @@
 name: Open Comment Hotspots
-description: Pages with active comments that are not closed yet.
+description: |-
+  **What it is:** Highlights specific wiki pages possessing the highest volume of currently open, unresolved comments.
+  
+  **How it helps:** Directs Tech Leads to documents that are actively contested or highly confusing to readers, signaling a need for an immediate rewrite or synchronous review.
+  
+  **What-If Impact:** Leaving massive comment threads unresolved turns documentation into a source of debate rather than a source of truth, paralyzing dependent teams.
 summary: "Pages with active comments that are not closed yet."
 default_view: tabular
 owner: confluence-analytics

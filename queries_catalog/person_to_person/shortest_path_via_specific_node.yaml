@@ -1,6 +1,10 @@
 name: Shortest Path Via Specific Node
-description: Find the shortest path between two people that goes THROUGH a specific
-  3rd node.
+description: |-
+  **What it is:** Finds the shortest collaboration path between two people that explicitly routes through a designated third entity (person, issue, or repository).
+  
+  **How it helps:** Enables Security and Compliance teams to audit whether interaction between two segregated individuals properly passed through a mandated intermediary (e.g., a formal security review).
+  
+  **What-If Impact:** Failing to route through mandatory compliance nodes violates segregation-of-duties protocols and introduces massive legal and security risks.
 summary: Trace the shortest connection between two people through a required intermediary node.
 default_view: graph
 parameters:

@@ -1,5 +1,10 @@
 name: Bug Distribution by Epic
-description: Bugs grouped by epic.
+description: |-
+  **What it is:** Aggregates and counts the total number of bug-type issues linked directly to each Epic.
+  
+  **How it helps:** Helps Senior Developers and Management identify which major feature areas (Epics) are generating the most defects, guiding decisions on where to focus refactoring or testing efforts.
+  
+  **What-If Impact:** Failing to track bug density by epic can obscure underlying architectural instability, resulting in continued investment in unstable feature areas.
 summary: "Bugs grouped by epic."
 default_view: tabular
 owner: jira-analytics

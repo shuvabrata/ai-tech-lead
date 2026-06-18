@@ -1,5 +1,10 @@
 name: Jira Issues Without Docs
-description: Jira issues that do not have a Confluence reference.
+description: |-
+  **What it is:** Identifies Jira issues that have no associated Confluence documentation attached.
+  
+  **How it helps:** Serves as a compliance check for Tech Leads to ensure that significant technical decisions are documented before a ticket is closed.
+  
+  **What-If Impact:** Closing major work items without documentation guarantees that future maintainers will have to reverse-engineer the "why" behind technical decisions.
 summary: "Jira issues that do not have a Confluence reference."
 default_view: tabular
 owner: cross-domain-analytics

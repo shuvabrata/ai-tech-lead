@@ -1,5 +1,10 @@
 name: Cross-Team Reviews
-description: Cross-team code review collaboration.
+description: |-
+  **What it is:** Highlights instances where a developer from one team reviews code authored by a developer on a different team.
+  
+  **How it helps:** Helps Engineering Directors track cross-pollination of knowledge and identify whether architectural standards are being shared across organizational silos.
+  
+  **What-If Impact:** A complete absence of cross-team reviews often signals deep organizational silos, resulting in duplicated effort and inconsistent codebase standards.
 summary: "Cross-team code review collaboration."
 default_view: graph
 owner: github-analytics

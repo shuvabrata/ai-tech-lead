@@ -1,6 +1,10 @@
 name: Shortest Path Through Work Items
-description: Find the shortest connection between two people based purely on Jira
-  work items.
+description: |-
+  **What it is:** Calculates the most direct collaboration path between two people using strictly Jira ticket assignments and mentions.
+  
+  **How it helps:** Helps Agile Coaches identify whether two distinct team members are actually collaborating on the same feature set or operating in isolated silos.
+  
+  **What-If Impact:** Assuming two people collaborate just because they are on the same team often ignores the reality that they are working on completely disparate backlog items.
 summary: Trace the shortest Jira-only connection between two people.
 default_view: graph
 parameters:

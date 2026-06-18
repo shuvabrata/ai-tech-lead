@@ -1,5 +1,10 @@
 name: Doc Staleness by Space
-description: Compare document freshness and age across Confluence spaces.
+description: |-
+  **What it is:** Compares the average age and time-since-last-update of pages across different Confluence spaces.
+  
+  **How it helps:** Helps Technical Writers and Management identify neglected documentation repositories that may be feeding developers obsolete architectural or onboarding information.
+  
+  **What-If Impact:** Highly stale documentation spaces cause developers to distrust written knowledge, leading to a reliance on disruptive "shoulder-tapping" to find accurate information.
 summary: "Compare document freshness and age across Confluence spaces."
 default_view: tabular
 owner: confluence-analytics

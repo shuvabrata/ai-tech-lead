@@ -1,5 +1,10 @@
 name: Blocker Chain Depth
-description: Issues with long blocker chains.
+description: |-
+  **What it is:** Identifies issues linked in serial dependency chains up to 5 levels deep across Jira.
+  
+  **How it helps:** Assists Program Managers and Tech Leads in identifying compounding schedule risks and serial bottlenecks before critical milestones.
+  
+  **What-If Impact:** Allowing deep blocker chains to accumulate increases variance in delivery dates, whereas proactive restructuring of serial tasks into parallel work streams builds schedule buffer.
 summary: "Issues with long blocker chains."
 default_view: tabular
 owner: jira-analytics

@@ -1,5 +1,10 @@
 name: Epic Ownership Distribution
-description: Epic ownership by person.
+description: |-
+  **What it is:** Aggregates all Epics assigned to individual owners across the organization.
+  
+  **How it helps:** Allows Management to identify key personnel carrying a disproportionate share of major project leadership, aiding in capacity planning and delegation.
+  
+  **What-If Impact:** Failing to balance epic ownership can result in key-person bottlenecks and burnout, slowing down decision-making on critical initiatives.
 summary: "Epic ownership by person."
 default_view: tabular
 owner: jira-analytics

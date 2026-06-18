@@ -1,5 +1,10 @@
 name: Cross-Team Collaborations
-description: Teams with READ access to repositories.
+description: |-
+  **What it is:** Maps organizational teams to the repositories where they have been granted READ access to contribute or review code.
+  
+  **How it helps:** Enables Program Managers to track internal open-source initiatives (InnerSource) and monitor which teams are actively sharing code assets.
+  
+  **What-If Impact:** Lacking visibility into cross-team code access makes it difficult to audit intellectual property exposure or encourage InnerSource reuse.
 summary: "Teams with READ access to repositories."
 default_view: tabular
 owner: github-analytics

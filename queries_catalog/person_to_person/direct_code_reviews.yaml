@@ -1,5 +1,10 @@
 name: Direct Code Reviews
-description: Find all PRs created by one and reviewed by the other.
+description: |-
+  **What it is:** Identifies Pull Requests authored by one specific developer that were reviewed by another specific developer.
+  
+  **How it helps:** Enables Tech Leads to audit peer review pairings and identify potential echo chambers where two developers exclusively review each other's code.
+  
+  **What-If Impact:** Exclusive code review pairings often lead to a degradation of code standards, as reviewers become complacent and stop challenging architectural decisions.
 summary: Compare two people by direct code review activity.
 default_view: tabular
 parameters:

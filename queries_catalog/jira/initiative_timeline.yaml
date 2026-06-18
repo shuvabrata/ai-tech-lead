@@ -1,5 +1,10 @@
 name: Initiative Timeline
-description: Initiative timeline by start date.
+description: |-
+  **What it is:** Displays high-level strategic Initiatives ordered sequentially by their planned start dates.
+  
+  **How it helps:** Enables Senior Executives to view the organization's overarching strategic roadmap and verify that long-term funding and phasing align with business goals.
+  
+  **What-If Impact:** Failing to track Initiative timelines can lead to overlapping mega-projects that constrain shared services and exceed organizational capacity.
 summary: "Initiative timeline by start date."
 default_view: tabular
 owner: jira-analytics

@@ -1,5 +1,10 @@
 name: Confluence to Jira Traceability
-description: Pages and blogposts that explicitly reference Jira issues.
+description: |-
+  **What it is:** Surfaces Confluence wiki pages and blogposts that actively embed or reference specific Jira issue keys.
+  
+  **How it helps:** Allows Product Managers to track how high-level product requirements and meeting notes translate directly into actionable engineering backlog items.
+  
+  **What-If Impact:** A disconnect between Confluence and Jira indicates that strategic planning is detached from tactical execution, resulting in teams building the wrong features.
 summary: "Pages and blogposts that explicitly reference Jira issues."
 default_view: tabular
 owner: cross-domain-analytics

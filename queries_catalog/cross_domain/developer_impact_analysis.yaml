@@ -1,5 +1,10 @@
 name: Developer Impact Analysis
-description: Developer contributions across all domains.
+description: |-
+  **What it is:** Aggregates a single developer's activity footprint across Jira (issues completed), GitHub (commits, PRs, reviews), and Confluence (pages edited).
+  
+  **How it helps:** Provides Engineering Managers with a holistic view of an engineer's contributions, capturing not just code output but also planning and documentation efforts.
+  
+  **What-If Impact:** Evaluating engineers based on a single domain (like commit count) actively penalizes the collaborative "glue" work necessary for team success.
 summary: "Developer contributions across all domains."
 default_view: tabular
 owner: data-platform

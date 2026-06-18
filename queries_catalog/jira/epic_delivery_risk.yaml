@@ -1,5 +1,10 @@
 name: Epic Delivery Risk
-description: Epics with overdue work, blockers, and incomplete scope.
+description: |-
+  **What it is:** Evaluates Epics based on overdue work, the volume of blocking dependencies, and the ratio of incomplete scope (open vs. done issues).
+  
+  **How it helps:** Provides Senior Executives and Program Managers an objective, data-driven risk profile for major deliverables, helping to determine if budget or resource re-allocation is necessary.
+  
+  **What-If Impact:** Overlooking accumulated delivery risk factors can result in late-stage project failures; monitoring them proactively allows for timely intervention or scope negotiation.
 summary: "Epics with overdue work, blockers, and incomplete scope."
 default_view: tabular
 owner: jira-analytics

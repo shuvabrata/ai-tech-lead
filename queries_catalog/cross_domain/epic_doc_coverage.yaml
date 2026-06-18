@@ -1,5 +1,10 @@
 name: Epic Doc Coverage
-description: Measure documentation coverage for epics through their issues.
+description: |-
+  **What it is:** Calculates the percentage of issues within an Epic that are explicitly linked to Confluence requirement or design pages.
+  
+  **How it helps:** Enables Program Managers to verify that large-scale initiatives are grounded in written specifications rather than just oral agreements.
+  
+  **What-If Impact:** Low documentation coverage on major Epics usually precedes severe scope creep, as undocumented assumptions lead to misaligned development efforts.
 summary: "Measure documentation coverage for epics through their issues."
 default_view: tabular
 owner: cross-domain-analytics

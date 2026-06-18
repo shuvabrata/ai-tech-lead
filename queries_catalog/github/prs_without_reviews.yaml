@@ -1,5 +1,10 @@
 name: PRs Without Reviews
-description: PRs without reviews - Data Quality check.
+description: |-
+  **What it is:** Identifies Pull Requests that were merged without any peer review comments or formal approvals.
+  
+  **How it helps:** Acts as a crucial data quality and compliance check for Engineering Directors to ensure mandatory review policies are not being circumvented.
+  
+  **What-If Impact:** Bypassing peer review increases the risk of production outages and violates standard SOC2 compliance requirements for code deployment.
 summary: "PRs without reviews - Data Quality check."
 default_view: tabular
 owner: github-analytics

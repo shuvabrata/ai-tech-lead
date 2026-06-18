@@ -1,5 +1,10 @@
 name: Orphaned Issues
-description: Issues not linked to any epic - Data Quality check.
+description: |-
+  **What it is:** Identifies isolated issues that are not linked to any parent Epic.
+  
+  **How it helps:** Acts as a data quality check for Program Managers to find stealth work or untracked operational overhead that is not rolling up to funded initiatives.
+  
+  **What-If Impact:** High volumes of orphaned issues indicate a breakdown in tracking discipline, meaning significant team effort is being expended on "dark work" invisible to leadership.
 summary: "Issues not linked to any epic - Data Quality check."
 default_view: tabular
 owner: jira-analytics

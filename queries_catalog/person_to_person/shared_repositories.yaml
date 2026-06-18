@@ -1,5 +1,10 @@
 name: Shared Repositories
-description: Find repositories both developers collaborate on.
+description: |-
+  **What it is:** Lists the GitHub repositories where both individuals have actively pushed code or conducted reviews.
+  
+  **How it helps:** Provides Engineering Directors with a macro-level view of which specific services act as integration points for the two developers.
+  
+  **What-If Impact:** Assuming two developers collaborate heavily just because they sit together ignores the fact that their work may touch entirely isolated microservices.
 summary: Compare two people by the repositories where they both collaborate.
 default_view: tabular
 parameters:

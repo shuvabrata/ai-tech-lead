@@ -1,5 +1,10 @@
 name: Blogpost Engagement Overview
-description: Compare comments and reactions across blogposts.
+description: |-
+  **What it is:** Aggregates and compares the volume of comments and reactions (likes) across internal Confluence blogposts.
+  
+  **How it helps:** Enables Senior Executives to gauge internal alignment and employee sentiment regarding major organizational announcements or strategic pivots.
+  
+  **What-If Impact:** Low engagement on strategic blogposts often signals a disconnected workforce or a failure to effectively communicate the "why" behind major technical decisions.
 summary: "Compare comments and reactions across blogposts."
 default_view: tabular
 owner: confluence-analytics

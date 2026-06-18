@@ -1,5 +1,10 @@
 name: PR Velocity by Repository
-description: PR velocity and merge rate by repository.
+description: |-
+  **What it is:** Measures the throughput and merge rate of Pull Requests across different repositories.
+  
+  **How it helps:** Provides Program Managers with an objective metric to gauge team delivery speed and compare operational efficiency across different services.
+  
+  **What-If Impact:** Ignoring repository-level velocity makes it difficult to detect when specific services become bottlenecked by legacy code or insufficient tooling.
 summary: "PR velocity and merge rate by repository."
 default_view: tabular
 owner: github-analytics

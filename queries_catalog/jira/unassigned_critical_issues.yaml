@@ -1,5 +1,10 @@
 name: Unassigned Critical Issues
-description: Critical issues without assignees - Data Quality check.
+description: |-
+  **What it is:** Highlights issues with 'Critical' priority that currently have no designated assignee.
+  
+  **How it helps:** Serves as a vital operational alert for Program Managers and Tech Leads to ensure that the highest-severity defects or tasks are immediately staffed.
+  
+  **What-If Impact:** Allowing critical issues to remain unassigned creates a bystander effect, where urgent fixes are delayed because everyone assumes someone else is handling them.
 summary: "Critical issues without assignees - Data Quality check."
 default_view: tabular
 owner: jira-analytics

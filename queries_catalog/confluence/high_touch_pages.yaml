@@ -1,5 +1,10 @@
 name: High Touch Pages
-description: Pages edited or discussed by many distinct people.
+description: |-
+  **What it is:** Highlights pages that receive an extremely high frequency of edits and comments, regardless of the diversity of the authors.
+  
+  **How it helps:** Directs Tech Leads to highly contested requirements or rapidly evolving specs that may require synchronous meetings to resolve debate.
+  
+  **What-If Impact:** Chronic high-frequency editing often indicates unresolved technical disagreements or wildly shifting requirements that will eventually derail downstream development.
 summary: "Pages edited or discussed by many distinct people."
 default_view: tabular
 owner: confluence-analytics

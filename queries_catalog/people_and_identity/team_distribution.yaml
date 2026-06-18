@@ -1,5 +1,10 @@
 name: Team Distribution
-description: View team sizes.
+description: |-
+  **What it is:** Calculates the total headcount for each designated team across the organization.
+  
+  **How it helps:** Helps HR and Senior Engineering Leadership monitor organizational growth and verify that team sizing remains within manageable limits (e.g., standard two-pizza teams).
+  
+  **What-If Impact:** Over-sized teams naturally develop communication silos and management bottlenecks, severely degrading agile delivery cadence.
 summary: "View team sizes."
 default_view: graph
 owner: identity-analytics

@@ -1,6 +1,10 @@
 name: Shortest Path Through Code
-description: Find the shortest connection between two people based purely on code
-  artifacts.
+description: |-
+  **What it is:** Traces the shortest collaborative connection between two people, restricted entirely to GitHub artifacts (commits, PRs, reviews).
+  
+  **How it helps:** Helps Tech Leads identify pure engineering pathways, bypassing managerial layers to find how code is actually shared.
+  
+  **What-If Impact:** Mixing management nodes into code collaboration metrics artificially inflates the "technical reach" of non-coding managers.
 summary: Trace the shortest code-only connection between two people.
 default_view: graph
 parameters:

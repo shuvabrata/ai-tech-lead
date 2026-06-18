@@ -1011,3 +1011,46 @@ input::placeholder {
     height: 11px;
     fill: currentColor;
 }
+
+/* ============================================================================= */
+/* Popover Styling (Dark Theme Support)                                         */
+/* ============================================================================= */
+
+.popover {
+    background-color: var(--color-background-white) !important;
+    border-color: var(--color-border) !important;
+}
+
+.popover-header {
+    background-color: var(--color-background-light) !important;
+    border-bottom-color: var(--color-border) !important;
+    color: var(--color-charcoal) !important;
+}
+
+.popover-body {
+    color: var(--color-charcoal) !important;
+}
+
+.bs-popover-auto[data-popper-placement^=top] > .popover-arrow::after, 
+.bs-popover-top > .popover-arrow::after {
+    border-top-color: var(--color-background-white) !important;
+}
+
+.bs-popover-auto[data-popper-placement^=bottom] > .popover-arrow::after, 
+.bs-popover-bottom > .popover-arrow::after {
+    border-bottom-color: var(--color-background-white) !important;
+}
+
+.bs-popover-auto[data-popper-placement^=end] > .popover-arrow::after, 
+.bs-popover-end > .popover-arrow::after,
+.bs-popover-auto[data-popper-placement^=right] > .popover-arrow::after,
+.bs-popover-right > .popover-arrow::after {
+    border-right-color: var(--color-background-white) !important;
+}
+
+.bs-popover-auto[data-popper-placement^=start] > .popover-arrow::after, 
+.bs-popover-start > .popover-arrow::after,
+.bs-popover-auto[data-popper-placement^=left] > .popover-arrow::after,
+.bs-popover-left > .popover-arrow::after {
+    border-left-color: var(--color-background-white) !important;
+}

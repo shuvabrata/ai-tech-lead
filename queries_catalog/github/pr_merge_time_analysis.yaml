@@ -1,5 +1,10 @@
 name: PR Merge Time Analysis
-description: Average time to merge PRs.
+description: |-
+  **What it is:** Calculates the average lifecycle duration (time to merge) for Pull Requests.
+  
+  **How it helps:** Helps Engineering Managers assess CI/CD pipeline efficiency and review culture, indicating how quickly code travels from developer machine to main branch.
+  
+  **What-If Impact:** Slow PR merge times create integration bottlenecks and increase the likelihood of massive merge conflicts that stall entire release cycles.
 summary: "Average time to merge PRs."
 default_view: tabular
 owner: github-analytics

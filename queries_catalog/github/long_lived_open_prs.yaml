@@ -1,5 +1,10 @@
 name: Long-Lived Open PRs
-description: Open pull requests that have been waiting the longest.
+description: |-
+  **What it is:** Surfaces pull requests that have remained open and unmerged for the longest continuous duration.
+  
+  **How it helps:** Serves as a direct alert for Tech Leads to investigate whether work is blocked, abandoned, or requires breaking down into smaller, reviewable chunks.
+  
+  **What-If Impact:** Allowing PRs to age indefinitely results in massive merge conflicts and signals a breakdown in team review culture or requirement clarity.
 summary: "Open pull requests that have been waiting the longest."
 default_view: tabular
 owner: github-analytics

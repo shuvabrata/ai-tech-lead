@@ -1,5 +1,10 @@
 name: Top Contributors
-description: Top 10 contributors by commit count.
+description: |-
+  **What it is:** Identifies the top engineers based purely on total commit count.
+  
+  **How it helps:** Gives Management a rudimentary pulse on raw developer output, though primarily useful as a baseline rather than a direct performance metric.
+  
+  **What-If Impact:** Using commit counts alone to judge performance incentivizes trivial code changes while penalizing engineers who focus on complex, high-value problem solving.
 summary: "Top 10 contributors by commit count."
 default_view: tabular
 owner: github-analytics

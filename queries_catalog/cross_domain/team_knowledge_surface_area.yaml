@@ -1,5 +1,10 @@
 name: Team Knowledge Surface Area
-description: How much documentation, work, and code a team touches.
+description: |-
+  **What it is:** Quantifies the total volume of unique code repositories, Jira projects, and Confluence spaces a specific team interacts with.
+  
+  **How it helps:** Helps Engineering Directors assess cognitive load, identifying teams that are spread too thin across disparate domains and legacy systems.
+  
+  **What-If Impact:** Forcing a team to maintain too large a knowledge surface area inevitably leads to context-switching exhaustion and a dramatic drop in delivery speed.
 summary: "How much documentation, work, and code a team touches."
 default_view: tabular
 owner: cross-domain-analytics

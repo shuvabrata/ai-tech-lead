@@ -1,5 +1,10 @@
 name: Team Backlog Pressure
-description: Open work pressure grouped by team.
+description: |-
+  **What it is:** Aggregates the volume of open issues, story points, and high-priority work currently assigned to each team, along with average issue age.
+  
+  **How it helps:** Gives Management a macro-level view of which teams are facing the highest operational burden and backlog pressure, informing resourcing and hiring decisions.
+  
+  **What-If Impact:** Ignoring unbalanced backlog pressure leads to chronically overburdened teams, which degrades code quality and increases turnover risk.
 summary: "Open work pressure grouped by team."
 default_view: tabular
 owner: jira-analytics

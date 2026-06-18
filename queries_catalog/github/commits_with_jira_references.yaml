@@ -1,5 +1,10 @@
 name: Commits with Jira References
-description: Commits with Jira references.
+description: |-
+  **What it is:** Identifies specific code commits that contain recognizable Jira issue keys in their commit messages.
+  
+  **How it helps:** Acts as a foundational query for Data Engineers to validate the linkage between version control activity and project management tasks.
+  
+  **What-If Impact:** Without this linkage, generating cross-domain traceability reports becomes impossible, blinding leadership to the actual code delivered for specific features.
 summary: "Commits with Jira references."
 default_view: tabular
 owner: github-analytics

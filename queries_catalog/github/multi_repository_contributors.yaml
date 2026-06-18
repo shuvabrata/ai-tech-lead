@@ -1,5 +1,10 @@
 name: Multi-Repository Contributors
-description: People working across multiple repos.
+description: |-
+  **What it is:** Highlights developers who actively commit code to multiple distinct repositories.
+  
+  **How it helps:** Allows Management to identify potential "glue" engineers and architects whose cross-boundary work is critical to system integration.
+  
+  **What-If Impact:** Failing to recognize multi-repo contributors often means their high context-switching overhead is penalized in naive metric systems rather than rewarded for driving integration.
 summary: "People working across multiple repos."
 default_view: tabular
 owner: github-analytics

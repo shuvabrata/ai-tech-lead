@@ -1,5 +1,10 @@
 name: Initiatives with Assignees
-description: Initiatives with assignees and reporters.
+description: |-
+  **What it is:** Lists all strategic Initiatives along with their designated assignees and reporters.
+  
+  **How it helps:** Helps Management instantly identify the single-threaded leaders responsible for driving major business objectives to completion.
+  
+  **What-If Impact:** Initiatives without clear executive or senior leadership assignment often stall due to lack of decisive steering and cross-team unblocking.
 summary: "Initiatives with assignees and reporters."
 default_view: tabular
 owner: jira-analytics

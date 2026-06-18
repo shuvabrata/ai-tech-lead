@@ -1,5 +1,10 @@
 name: Commits per Repository
-description: Count commits per repository.
+description: |-
+  **What it is:** Aggregates and counts the total volume of raw code commits pushed to each repository.
+  
+  **How it helps:** Gives Management a rudimentary sense of where active development effort is currently concentrated across the organization's architecture.
+  
+  **What-If Impact:** While raw commit volume is a noisy metric, ignoring macro-level activity shifts can mask unexpected engineering effort being poured into supposedly "maintenance-only" legacy systems.
 summary: "Count commits per repository."
 default_view: tabular
 owner: github-analytics

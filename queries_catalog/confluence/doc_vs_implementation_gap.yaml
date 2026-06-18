@@ -1,5 +1,10 @@
 name: Doc Vs Implementation Gap
-description: Documentation that references work items with no code linkage.
+description: |-
+  **What it is:** Finds Confluence pages that link to Jira issues which, in turn, have absolutely zero linked code commits.
+  
+  **How it helps:** Acts as a reality check for Program Managers to identify "paperware"—architectural designs or requirements that were heavily documented but never actually built.
+  
+  **What-If Impact:** Failing to track implementation gaps can lead leadership to believe a feature is complete based on extensive documentation, when the actual code was never delivered.
 summary: "Documentation that references work items with no code linkage."
 default_view: tabular
 owner: cross-domain-analytics

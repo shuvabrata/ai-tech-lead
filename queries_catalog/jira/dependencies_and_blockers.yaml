@@ -1,5 +1,10 @@
 name: Dependencies and Blockers
-description: Issues blocking other issues.
+description: |-
+  **What it is:** Highlights direct, single-level blocking relationships between individual issues.
+  
+  **How it helps:** Allows Program Managers to quickly pinpoint immediate workflow obstructions and prioritize unblocking activities for dependent teams.
+  
+  **What-If Impact:** Ignoring immediate blockers leads to developer idle time and localized delivery delays, which can quickly cascade to impact broader sprint goals.
 summary: "Issues blocking other issues."
 default_view: tabular
 owner: jira-analytics

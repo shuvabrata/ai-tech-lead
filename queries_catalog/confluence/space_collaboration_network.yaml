@@ -1,5 +1,10 @@
 name: Space Collaboration Network
-description: Teams and people collaborating through shared Confluence spaces.
+description: |-
+  **What it is:** Maps the network of distinct teams and individuals who actively co-edit or comment within the same Confluence spaces.
+  
+  **How it helps:** Helps Organizational Leaders map the informal communication network, revealing which teams naturally collaborate closely on shared knowledge.
+  
+  **What-If Impact:** Assuming collaboration only happens along formal reporting lines blinds leadership to the actual, cross-functional ways the organization shares information.
 summary: "Teams and people collaborating through shared Confluence spaces."
 default_view: tabular
 owner: confluence-analytics

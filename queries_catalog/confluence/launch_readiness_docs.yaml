@@ -1,5 +1,10 @@
 name: Launch Readiness Docs
-description: Documentation tied to launch, release, rollout, or deploy work.
+description: |-
+  **What it is:** Aggregates documentation explicitly linked to epics or issues categorized under launch, release, or deployment activities.
+  
+  **How it helps:** Acts as a compliance checklist for Release Managers to ensure runbooks, release notes, and operational procedures are finalized before go-live.
+  
+  **What-If Impact:** Proceeding to launch without formal readiness documentation severely increases the risk of botched rollouts and extended mean-time-to-recovery (MTTR) during incidents.
 summary: "Documentation tied to launch, release, rollout, or deploy work."
 default_view: tabular
 owner: cross-domain-analytics

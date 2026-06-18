@@ -1,5 +1,10 @@
 name: Developer Activity by Language
-description: Developer activity by programming language.
+description: |-
+  **What it is:** Aggregates developer commits based on the programming language of the modified files.
+  
+  **How it helps:** Allows Technical Management to understand the actual technology footprint of the organization, aiding in targeted hiring and training initiatives.
+  
+  **What-If Impact:** Misunderstanding the team's true language distribution can lead to adopting frameworks or architectures that the current engineering staff is unequipped to support.
 summary: "Developer activity by programming language."
 default_view: tabular
 owner: github-analytics

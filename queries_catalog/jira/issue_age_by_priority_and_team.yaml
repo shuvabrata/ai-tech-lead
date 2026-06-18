@@ -1,5 +1,10 @@
 name: Issue Age by Priority and Team
-description: Open issue aging and staleness grouped by team and priority.
+description: |-
+  **What it is:** Aggregates open issues by team and priority, calculating the average age (time since creation) and staleness (time since last update).
+  
+  **How it helps:** Empowers Tech Leads and Program Managers to spot neglected high-priority work and understand which teams might be struggling with backlog rot.
+  
+  **What-If Impact:** Allowing issues to age indefinitely without updates masks true team capacity constraints and often indicates blocked work that teams are quietly ignoring.
 summary: "Open issue aging and staleness grouped by team and priority."
 default_view: tabular
 owner: jira-analytics

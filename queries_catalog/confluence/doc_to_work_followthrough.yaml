@@ -1,5 +1,10 @@
 name: Doc To Work Followthrough
-description: Documentation that links to work and follow-on code delivery.
+description: |-
+  **What it is:** Traces Confluence pages to Jira issues that possess subsequent, linked code commits.
+  
+  **How it helps:** Provides Program Managers with proof of execution, verifying that documented specs actually resulted in shipped code.
+  
+  **What-If Impact:** Without tracing documentation through to code delivery, teams cannot accurately measure the ROI of their upfront design and spec-writing phases.
 summary: "Documentation that links to work and follow-on code delivery."
 default_view: tabular
 owner: cross-domain-analytics

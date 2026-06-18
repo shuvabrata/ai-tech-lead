@@ -1,5 +1,10 @@
 name: Epic to Repository Traceability
-description: Map epics to repositories via commits.
+description: |-
+  **What it is:** Maps high-level Epics down to the specific GitHub repositories they modify, traced via the commits of their child issues.
+  
+  **How it helps:** Helps System Architects understand the true architectural blast radius of a business initiative across various microservices and monolithic codebases.
+  
+  **What-If Impact:** Without repository traceability, teams often underestimate deployment complexity, leading to missed cross-service coordinate releases and broken integrations.
 summary: "Map epics to repositories via commits."
 default_view: tabular
 owner: data-platform

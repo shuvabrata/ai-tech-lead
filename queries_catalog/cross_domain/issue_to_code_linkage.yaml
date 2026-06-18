@@ -1,5 +1,10 @@
 name: Issue to Code Linkage
-description: Issues linked to actual code commits.
+description: |-
+  **What it is:** Identifies individual Jira issues that have successfully been linked to specific GitHub code commits.
+  
+  **How it helps:** Serves as the primary traceability query for Scrum Masters to verify that developers are properly tagging their commits with ticket numbers.
+  
+  **What-If Impact:** Poor issue-to-code linkage completely breaks CI/CD release automation that relies on ticket statuses to generate automated changelogs and compliance reports.
 summary: "Issues linked to actual code commits."
 default_view: tabular
 owner: data-platform

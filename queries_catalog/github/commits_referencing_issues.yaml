@@ -1,5 +1,10 @@
 name: Commits Referencing Issues
-description: Commits referencing Jira issues by issue type.
+description: |-
+  **What it is:** Aggregates commits that explicitly mention Jira issue keys in their commit messages, grouped by issue type.
+  
+  **How it helps:** Allows Engineering Managers to verify traceability discipline, ensuring code changes are properly linked to planned work items or defect reports.
+  
+  **What-If Impact:** A low rate of issue-referencing commits breaks end-to-end delivery tracking, making it impossible to audit why certain code was introduced or modified.
 summary: "Commits referencing Jira issues by issue type."
 default_view: tabular
 owner: github-analytics

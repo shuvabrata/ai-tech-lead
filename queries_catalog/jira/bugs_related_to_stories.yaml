@@ -1,5 +1,10 @@
 name: Bugs Related to Stories
-description: Bugs linked to specific stories.
+description: |-
+  **What it is:** Links bug-type issues directly to the specific user stories they relate to.
+  
+  **How it helps:** Enables QA/CE teams and Developers to trace defects back to their originating requirements, facilitating targeted root-cause analysis.
+  
+  **What-If Impact:** Without tracing bugs to specific stories, teams may treat defects in isolation rather than addressing systemic misunderstandings or gaps in specific feature requirements.
 summary: "Bugs linked to specific stories."
 default_view: tabular
 owner: jira-analytics

@@ -1,5 +1,10 @@
 name: Epics by Team
-description: Epics assigned to each team.
+description: |-
+  **What it is:** Groups and counts the total number of Epics assigned to each organizational team.
+  
+  **How it helps:** Allows Management to evaluate the distribution of large-scale project responsibilities across different teams to guide headcount or restructuring decisions.
+  
+  **What-If Impact:** Ignoring team-level epic distribution can cause certain scrum teams to be chronically overburdened with context-switching across multiple large projects.
 summary: "Epics assigned to each team."
 default_view: tabular
 owner: jira-analytics
