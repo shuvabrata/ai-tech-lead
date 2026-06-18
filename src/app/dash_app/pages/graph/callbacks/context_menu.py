@@ -4,7 +4,7 @@ Callbacks for right-click context menu functionality.
 """
 
 import requests
-from dash import html, Input, Output, State, callback, clientside_callback, callback_context
+from dash import html, Input, Output, State, callback, clientside_callback, callback_context, no_update
 from dash.exceptions import PreventUpdate
 
 from app.settings import settings
@@ -111,7 +111,7 @@ def context_menu_quick_expand(_n_clicks_incoming, _n_clicks_outgoing, rightclick
     updated_menu_style["display"] = "none"
     
     if not rightclick_data:
-        return (current_elements, current_unfiltered, expanded_nodes, loaded_node_ids, updated_menu_style,
+        return (no_update, no_update, expanded_nodes, loaded_node_ids, updated_menu_style,
                 None, hide_style, current_layout)
     
     # Determine which button was clicked
@@ -131,7 +131,7 @@ def context_menu_quick_expand(_n_clicks_incoming, _n_clicks_outgoing, rightclick
     
     node_id = rightclick_data.get("node_id")
     if not node_id:
-        return (current_elements, current_unfiltered, expanded_nodes, loaded_node_ids, updated_menu_style,
+        return (no_update, no_update, expanded_nodes, loaded_node_ids, updated_menu_style,
                 None, hide_style, current_layout)
     
     try:
@@ -146,14 +146,15 @@ def context_menu_quick_expand(_n_clicks_incoming, _n_clicks_outgoing, rightclick
             limit=settings.GRAPH_UI_MAX_NODES_TO_EXPAND,
             loaded_node_ids=loaded_node_ids,
             expanded_nodes=expanded_nodes,
-            current_elements=current_elements,
+            # Merge against the full unfiltered baseline, not the filtered view.
+            current_elements=current_unfiltered,
             current_node_positions=current_node_positions,
             timeout_seconds=TIMEOUT_SECONDS,
         )
 
         if not result["ok"]:
             error_alert = create_expansion_error_alert(f"Expansion failed: {result['error_message']}")
-            return (current_elements, current_unfiltered, expanded_nodes, loaded_node_ids, updated_menu_style,
+            return (no_update, no_update, expanded_nodes, loaded_node_ids, updated_menu_style,
                     error_alert, show_style, current_layout)
 
         merged_elements = result["merged_elements"]
@@ -162,7 +163,7 @@ def context_menu_quick_expand(_n_clicks_incoming, _n_clicks_outgoing, rightclick
 
         if result["new_nodes_count"] == 0:
             info_msg = create_no_neighbors_alert()
-            return (merged_elements, merged_elements, updated_expanded, updated_loaded_ids, updated_menu_style,
+            return (no_update, no_update, updated_expanded, updated_loaded_ids, updated_menu_style,
                     info_msg, show_style, current_layout)
 
         success_msg = create_expansion_success_alert(
@@ -176,7 +177,9 @@ def context_menu_quick_expand(_n_clicks_incoming, _n_clicks_outgoing, rightclick
             f"node_id={node_id} direction={direction} new_nodes={result['new_nodes_count']} "
             f"new_relationships={result['new_relationships_count']} merged_total={len(merged_elements)}"
         )
-        return (merged_elements, merged_elements, updated_expanded, updated_loaded_ids, updated_menu_style,
+        # Write merged_elements to the unfiltered store; the filter callback
+        # re-applies active filters automatically (see apply_relationship_filters).
+        return (no_update, merged_elements, updated_expanded, updated_loaded_ids, updated_menu_style,
             success_msg, show_style, "preset")
             
     except requests.exceptions.Timeout:
@@ -185,7 +188,7 @@ def context_menu_quick_expand(_n_clicks_incoming, _n_clicks_outgoing, rightclick
             f"node_id={node_id} direction={direction} timeout_seconds={TIMEOUT_SECONDS}"
         )
         error_alert = create_expansion_error_alert("Expansion timed out", error_type="timeout")
-        return (current_elements, current_unfiltered, expanded_nodes, loaded_node_ids, updated_menu_style,
+        return (no_update, no_update, expanded_nodes, loaded_node_ids, updated_menu_style,
                error_alert, show_style, current_layout)
     
     except requests.exceptions.ConnectionError:
@@ -197,13 +200,13 @@ def context_menu_quick_expand(_n_clicks_incoming, _n_clicks_outgoing, rightclick
             "Could not connect to server. Please check your connection.",
             error_type="connection"
         )
-        return (current_elements, current_unfiltered, expanded_nodes, loaded_node_ids, updated_menu_style,
+        return (no_update, no_update, expanded_nodes, loaded_node_ids, updated_menu_style,
                error_alert, show_style, current_layout)
     
     except Exception as e:
         logger.exception(f"[GRAPH-DEBUG][context.expand] unexpected_error {e}")
         error_alert = create_expansion_error_alert(f"Expansion error: {str(e)}")
-        return (current_elements, current_unfiltered, expanded_nodes, loaded_node_ids, updated_menu_style,
+        return (no_update, no_update, expanded_nodes, loaded_node_ids, updated_menu_style,
                error_alert, show_style, current_layout)
 
 
@@ -257,7 +260,19 @@ def hide_menu_after_copy(n_clicks, menu_style):
     prevent_initial_call=True
 )
 def context_menu_remove_node(n_clicks, rightclick_data, current_elements, current_unfiltered, menu_style):
-    """Remove node from view"""
+    """Permanently remove a node and its connected edges from the session.
+
+    This is a **permanent session-level operation**: the node is removed from
+    both ``graph-cytoscape.elements`` (the visible view) AND
+    ``unfiltered-elements-store`` (the filter baseline).  Writing to both stores
+    is intentional — the removal should survive filter toggling.  Re-enabling a
+    node type in the filter panel must NOT restore nodes that were explicitly
+    removed via this action.
+
+    Contrast with expansion callbacks, which must write ``no_update`` for
+    ``graph-cytoscape.elements`` and let the filter callback drive the visible
+    update.  The dual-store write here is correct by design.
+    """
     show_style = {"display": "block"}
     
     # Hide menu
@@ -333,6 +348,12 @@ def context_menu_keep_neighbours(n_clicks, rightclick_data, current_elements,
 
     Only edges directly connecting to the focal node are retained (spokes).
     Edges between neighbours are dropped together with any non-neighbour nodes.
+
+    This is a **permanent session-level operation**: writing the trimmed set to
+    ``unfiltered-elements-store`` is intentional — the removal survives filter
+    toggling.  Contrast with expansion callbacks, where only the success path
+    updates the store and the visible update is delegated to
+    ``apply_relationship_filters`` via the Input trigger.
     """
     show_style = {"display": "block"}
     hide_style = {"display": "none"}

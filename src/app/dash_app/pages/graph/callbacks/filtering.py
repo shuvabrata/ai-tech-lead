@@ -202,7 +202,23 @@ def _compute_filtered_graph(
     prevent_initial_call=True
 )
 def update_relationship_type_filter(unfiltered_elements, current_values, previous_available):
-    """Dynamically populate relationship type checkboxes from unfiltered graph"""
+    """Dynamically populate relationship type checkboxes from the unfiltered graph.
+
+    Called whenever the unfiltered baseline changes (new query or expansion).
+    Uses a three-way intent model to decide which types to select:
+
+    1. ``previous_available is None``  → true first load; select all.
+    2. ``previous_available == current`` → user had "show all"; keep showing all
+       (including any newly discovered types from expansion).
+    3. Otherwise → user had a specific subset; preserve only their *explicit*
+       deselections. Types that are brand-new (never seen before this call) are
+       auto-selected because the user never chose to hide them.
+
+    ``previous_available`` acts as a sentinel: ``None`` means the store has never
+    been populated (first load), while ``[]`` means the user explicitly cleared
+    all selections. This distinction prevents a fresh query from being treated
+    as "show all" when the user had deliberately deselected everything.
+    """
     if not unfiltered_elements:
         return [], [], []
     
@@ -236,8 +252,11 @@ def update_relationship_type_filter(unfiltered_elements, current_values, previou
         # Keep "Show All" behavior for newly discovered types too.
         values = available_values
     else:
-        # User had a specific subset selected (including empty subset). Preserve it.
-        values = [v for v in current_values if v in available_set]
+        # User had a specific subset. Preserve only *explicit* deselections.
+        # Brand-new relationship types the user has never seen before are
+        # auto-selected — the user never chose to hide them.
+        newly_added = [v for v in available_values if v not in previous_available_set]
+        values = [v for v in current_values if v in available_set] + newly_added
 
     logger.info(
         "[GRAPH-DEBUG][filter.rel_types] refresh "
@@ -257,7 +276,23 @@ def update_relationship_type_filter(unfiltered_elements, current_values, previou
     prevent_initial_call=True
 )
 def update_node_type_filter(unfiltered_elements, current_values, previous_available):
-    """Dynamically populate node type checkboxes from unfiltered graph"""
+    """Dynamically populate node type checkboxes from the unfiltered graph.
+
+    Called whenever the unfiltered baseline changes (new query or expansion).
+    Uses a three-way intent model to decide which types to select:
+
+    1. ``previous_available is None``  → true first load; select all.
+    2. ``previous_available == current`` → user had "show all"; keep showing all
+       (including any newly discovered types from expansion).
+    3. Otherwise → user had a specific subset; preserve only their *explicit*
+       deselections. Types that are brand-new (never seen before this call) are
+       auto-selected because the user never chose to hide them.
+
+    ``previous_available`` acts as a sentinel: ``None`` means the store has never
+    been populated (first load), while ``[]`` means the user explicitly cleared
+    all selections. This distinction prevents a fresh query from being treated
+    as "show all" when the user had deliberately deselected everything.
+    """
     if not unfiltered_elements:
         return [], [], []
     
@@ -289,8 +324,11 @@ def update_node_type_filter(unfiltered_elements, current_values, previous_availa
         # User had EVERYTHING selected previously ("Show All" intent).
         values = available_values
     else:
-        # User had a specific subset selected. Preserve it.
-        values = [v for v in current_values if v in available_set]
+        # User had a specific subset. Preserve only *explicit* deselections.
+        # Brand-new node types the user has never seen before are auto-selected
+        # — the user never chose to hide them.
+        newly_added = [v for v in available_values if v not in previous_available_set]
+        values = [v for v in current_values if v in available_set] + newly_added
 
     hidden_types = [t for t in node_types if t not in values]
     logger.info(
@@ -395,8 +433,11 @@ def clear_all_filters(n_clicks, node_type_options, rel_type_options):
     [Input("node-type-filter", "value"),
      Input("relationship-type-filter", "value"),
      Input("weight-threshold-slider", "value"),
-     Input("top-n-toggle", "value")],
-    State("unfiltered-elements-store", "data"),
+     Input("top-n-toggle", "value"),
+     # Promoted from State → Input so that expansion writes to this store
+     # automatically re-trigger the filter, keeping the filtered view in sync
+     # with the unfiltered baseline after every expansion.
+     Input("unfiltered-elements-store", "data")],
     prevent_initial_call=True
 )
 def apply_relationship_filters(
@@ -406,7 +447,18 @@ def apply_relationship_filters(
     top_n_mode,
     unfiltered_elements,
 ):
-    """Apply all filters (node types, relationship types, weight, top-N) to graph elements"""
+    """Apply all filters (node types, relationship types, weight, top-N) to graph elements.
+
+    ``unfiltered-elements-store`` is an **Input** (not State) so that this
+    callback fires automatically whenever expansion writes new nodes to the
+    store.  Without this, re-enabling a previously hidden node type after an
+    expansion would show nothing, because the store change would not trigger
+    a re-filter.
+
+    Expansion callbacks write ``no_update`` for ``graph-cytoscape.elements``
+    and let this callback drive the visible update, ensuring the active filter
+    is always respected regardless of which path added nodes to the store.
+    """
     if not unfiltered_elements:
         raise PreventUpdate
 
