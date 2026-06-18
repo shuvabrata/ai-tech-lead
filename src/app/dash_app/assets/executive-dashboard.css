@@ -476,6 +476,48 @@ input::placeholder {
     border-radius: 2px;
 }
 
+.graph-right-panel-workbench {
+    max-height: calc(75vh + 40px);
+    position: relative;
+    overflow-y: auto;
+}
+
+/* Theme-aware hover-only fading scrollbar */
+.hover-scrollbar {
+    scrollbar-width: none; /* Hide scrollbar in Firefox by default */
+}
+
+.hover-scrollbar:hover {
+    scrollbar-width: thin; /* Show thin scrollbar in Firefox on hover */
+    scrollbar-color: var(--color-gray-lighter) transparent;
+}
+
+/* WebKit-based browsers (Chrome, Safari, Edge) */
+.hover-scrollbar::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+.hover-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.hover-scrollbar::-webkit-scrollbar-thumb {
+    background: transparent; /* Invisible by default */
+    border-radius: var(--border-radius-medium);
+    transition: background-color 0.2s ease;
+}
+
+/* Show thumb when parent container is hovered */
+.hover-scrollbar:hover::-webkit-scrollbar-thumb {
+    background: var(--color-gray-lighter);
+}
+
+/* Accent highlight when directly hovering over the scrollbar thumb */
+.hover-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: var(--color-gray-light) !important;
+}
+
 .graph-filter-toggle-btn {
     background-color: transparent !important;
     color: var(--color-charcoal-medium) !important;

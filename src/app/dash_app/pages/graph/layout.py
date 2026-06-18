@@ -378,8 +378,6 @@ def create_catalog_tab_content():
                 style={"fontSize": "12px", "color": COLOR_TEXT_SECONDARY}
             ),
             style={
-                "maxHeight": "240px",
-                "overflowY": "auto",
                 "border": f"1px solid {COLOR_BORDER}",
                 "borderRadius": "2px",
                 "padding": "8px",
@@ -515,7 +513,7 @@ def create_results_section():
                             ], className="text-center", style={"marginTop": "100px"})
                         ]
                     )
-                ], style={"overflowY": "auto", "maxHeight": "calc(75vh + 40px)", "position": "relative"})
+                ], className="graph-right-panel-workbench hover-scrollbar")
             ], id="graph-details-col", width=4, style={"borderLeft": f"1px solid {COLOR_GRAY_LIGHTER}", "paddingLeft": "24px"})
         ], className="g-0")
     ], className="mb-2")
