@@ -182,6 +182,7 @@ def test_render_catalog_query_detail_uses_rich_metadata_and_default_view():
         selected_query={"id": "person_to_person/direct_code_reviews"},
         catalog_queries=[catalog_query],
         parameter_values={"person1_id": "person_123"},
+        theme_name=None,
         current_view=None,
     )
 
