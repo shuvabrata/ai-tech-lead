@@ -194,7 +194,6 @@ def test_render_catalog_query_detail_uses_rich_metadata_and_default_view():
     assert view_options[1]["value"] == "tabular"
     assert selected_view == "graph"
     assert "Compare two people by direct code review activity." in detail_text
-    assert "Owner: graph-team" in detail_text
     assert "Active" in detail_text
     assert first_parameter_block.children[0].children == "First person *"
     assert parameter_input.placeholder == "Enter first person id"

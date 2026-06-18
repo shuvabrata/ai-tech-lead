@@ -224,19 +224,7 @@ def load_query_catalog(pathname: str | None):
         payload = response.json()
         items = payload.get("items", [])
         logger.info("[GRAPH-CATALOG] loaded count=%d", len(items))
-        return items, html.Div(
-            f"Loaded {len(items)} shipped queries.",
-            className="mb-2 graph-catalog-status-banner",
-            style={
-                "fontSize": "11px",
-                "fontWeight": 500,
-                "backgroundColor": COLOR_BACKGROUND_WHITE,
-                "border": f"1px solid {COLOR_BORDER}",
-                "color": COLOR_CHARCOAL_MEDIUM,
-                "borderRadius": "4px",
-                "padding": "8px 12px",
-            },
-        )
+        return items, None
     except requests.exceptions.RequestException as exc:
         logger.error("[GRAPH-CATALOG] load_failed %s", exc)
         error_display = create_error_alert(
@@ -437,21 +425,7 @@ def render_catalog_query_detail(
             )
         )
 
-    owner = query.get("owner")
-    if owner:
-        detail_children.append(
-            html.Div(
-                f"Owner: {owner}",
-                style={"fontSize": "11px", "color": COLOR_TEXT_SECONDARY, "marginTop": "10px"},
-            )
-        )
 
-    detail_children.append(
-        html.Div(
-            query.get("id", ""),
-            style={"fontSize": "11px", "color": COLOR_TEXT_SECONDARY, "marginTop": "10px"},
-        )
-    )
 
     parameter_children = []
     available_views = query.get("available_views") or []

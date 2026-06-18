@@ -107,6 +107,7 @@
 }
 
 .theme-executive-dark {
+    color-scheme: dark;
     --color-navy: #5f86b4;
     --color-navy-dark: #4d739f;
     --color-navy-hover: #6b93c3;
@@ -250,6 +251,7 @@
 /* ============================================================================= */
 
 .form-control,
+.form-select,
 .Select-value-label,
 .Select-value {
     color: var(--color-charcoal) !important;
@@ -269,7 +271,8 @@ input::placeholder {
     font-weight: var(--font-weight-normal);
 }
 
-.form-control:focus {
+.form-control:focus,
+.form-select:focus {
     border-color: var(--color-navy) !important;
     box-shadow: 0 0 0 2px var(--color-focus-ring) !important;
     background-color: var(--color-background-white) !important;
@@ -280,8 +283,20 @@ input::placeholder {
 /* ============================================================================= */
 
 .theme-executive-dark .form-control,
+.theme-executive-dark .form-select,
 .theme-executive-dark .Select-value-label,
 .theme-executive-dark .Select-value {
+    color: var(--color-text-dark) !important;
+}
+
+.theme-executive-dark .form-control,
+.theme-executive-dark .form-select {
+    background-color: var(--color-background-light) !important;
+    border-color: var(--color-border-light) !important;
+}
+
+.theme-executive-dark .form-select option {
+    background-color: var(--color-background-light) !important;
     color: var(--color-text-dark) !important;
 }
 
@@ -479,6 +494,18 @@ input::placeholder {
 .graph-right-panel-workbench {
     max-height: calc(75vh + 40px);
     position: relative;
+    overflow-y: auto;
+}
+
+.graph-catalog-sticky-panel {
+    position: sticky;
+    top: 33px; /* Sits right below the sticky tab bar at top: 0 */
+    background-color: var(--color-background-white);
+    z-index: 9;
+    border-bottom: 1px solid var(--color-border);
+    padding-bottom: 10px;
+    margin-bottom: 10px;
+    max-height: 50vh;
     overflow-y: auto;
 }
 
