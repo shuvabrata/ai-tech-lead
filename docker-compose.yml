@@ -163,6 +163,7 @@ services:
   influxdb:
     image: influxdb:2.7
     container_name: wba-ai-influxdb
+    profiles: ["monitoring"]
     restart: unless-stopped
     environment:
       - DOCKER_INFLUXDB_INIT_MODE=setup
@@ -282,12 +283,12 @@ services:
     networks:
       - wba-ai-network
 
-  github-consumer:
+  signal-consumer:
     build:
       context: .
-      dockerfile: Dockerfile.github-consumer
+      dockerfile: Dockerfile.signal-consumer
     deploy:
-      replicas: ${GITHUB_CONSUMER_REPLICAS:-1}
+      replicas: ${SIGNAL_CONSUMER_REPLICAS:-1}
     env_file:
       - .env
     environment:
@@ -295,84 +296,15 @@ services:
       NEO4J_URI: bolt://neo4j:7687
       NEO4J_USERNAME: ${NEO4J_USERNAME:-neo4j}
       NEO4J_PASSWORD: ${NEO4J_PASSWORD:-password}
-      LISTEN_QUEUES: github_queue
+      # Listen on all provider queues
+      LISTEN_QUEUES: github_queue,jira_queue,confluence_queue
       PYTHONPATH: /app
-      LOG_DIR: /var/log/github-consumer
-      # Override ES URL to use service-to-service networking, not localhost.
+      LOG_DIR: /var/log/signal-consumer
       ELASTICSEARCH_ENABLED: ${ELASTICSEARCH_ENABLED:-false}
       ELASTICSEARCH_URL: http://elasticsearch:9200
       ELASTIC_PASSWORD: ${ELASTIC_PASSWORD:-}
     volumes:
-      - ./logs/github-consumer:/var/log/github-consumer
-    depends_on:
-      rabbitmq:
-        condition: service_healthy
-      neo4j:
-        condition: service_healthy
-      app:
-        condition: service_healthy
-      elasticsearch:
-        condition: service_healthy
-    restart: unless-stopped  # Long-running consumer; restart on failure
-    networks:
-      - wba-ai-network
-
-  jira-consumer:
-    build:
-      context: .
-      dockerfile: Dockerfile.jira-consumer
-    deploy:
-      replicas: ${JIRA_CONSUMER_REPLICAS:-1}
-    env_file:
-      - .env
-    environment:
-      RABBITMQ_URL: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASSWORD:-guest}@rabbitmq:5672/
-      NEO4J_URI: bolt://neo4j:7687
-      NEO4J_USERNAME: ${NEO4J_USERNAME:-neo4j}
-      NEO4J_PASSWORD: ${NEO4J_PASSWORD:-password}
-      LISTEN_QUEUES: jira_queue
-      PYTHONPATH: /app
-      LOG_DIR: /var/log/jira-consumer
-      # Override ES URL to use service-to-service networking, not localhost.
-      ELASTICSEARCH_ENABLED: ${ELASTICSEARCH_ENABLED:-false}
-      ELASTICSEARCH_URL: http://elasticsearch:9200
-      ELASTIC_PASSWORD: ${ELASTIC_PASSWORD:-}
-    volumes:
-      - ./logs/jira-consumer:/var/log/jira-consumer
-    depends_on:
-      rabbitmq:
-        condition: service_healthy
-      neo4j:
-        condition: service_healthy
-      app:
-        condition: service_healthy
-      elasticsearch:
-        condition: service_healthy
-    restart: unless-stopped  # Long-running consumer; restart on failure
-    networks:
-      - wba-ai-network
-
-  confluence-consumer:
-    build:
-      context: .
-      dockerfile: Dockerfile.confluence-consumer
-    deploy:
-      replicas: 1
-    env_file:
-      - .env
-    environment:
-      RABBITMQ_URL: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASSWORD:-guest}@rabbitmq:5672/
-      NEO4J_URI: bolt://neo4j:7687
-      NEO4J_USERNAME: ${NEO4J_USERNAME:-neo4j}
-      NEO4J_PASSWORD: ${NEO4J_PASSWORD:-password}
-      LISTEN_QUEUES: confluence_queue
-      PYTHONPATH: /app
-      LOG_DIR: /var/log/confluence-consumer
-      ELASTICSEARCH_ENABLED: ${ELASTICSEARCH_ENABLED:-false}
-      ELASTICSEARCH_URL: http://elasticsearch:9200
-      ELASTIC_PASSWORD: ${ELASTIC_PASSWORD:-}
-    volumes:
-      - ./logs/confluence-consumer:/var/log/confluence-consumer
+      - ./logs/signal-consumer:/var/log/signal-consumer
     depends_on:
       rabbitmq:
         condition: service_healthy

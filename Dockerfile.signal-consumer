@@ -8,7 +8,7 @@ WORKDIR /app
 ENV PYTHONPATH=/app
 
 # Copy requirements file first for better layer caching
-COPY requirements.confluence-consumer.txt /app/requirements.txt
+COPY requirements.signal-consumer.txt /app/requirements.txt
 
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
@@ -19,11 +19,11 @@ COPY src/common/ /app/common
 
 # Create non-root user for security
 RUN useradd -m -u 1000 -s /bin/bash appuser && \
-    mkdir -p /var/log/confluence-consumer && \
-    chown -R appuser:appuser /var/log/confluence-consumer /app
+    mkdir -p /var/log/signal-consumer && \
+    chown -R appuser:appuser /var/log/signal-consumer /app
 
 # Switch to non-root user
 USER appuser
 
-# Consume all Confluence entity queues
+# Consume configured queues
 CMD ["python", "connectors/consumers/main.py"]
