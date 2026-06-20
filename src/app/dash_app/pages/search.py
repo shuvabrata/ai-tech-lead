@@ -472,7 +472,12 @@ def _build_filters_panel() -> dbc.Collapse:
                                 id="search-entity-type",
                                 options=_ENTITY_TYPE_OPTIONS,
                                 value="",
-                                style={**INPUT_STYLE, "height": "36px"},
+                                style={
+                                    **INPUT_STYLE,
+                                    "height": "36px",
+                                    "lineHeight": "18px",
+                                    "padding": "4px 8px",
+                                },
                             ),
                         ],
                         md=3,
@@ -486,7 +491,12 @@ def _build_filters_panel() -> dbc.Collapse:
                                 id="search-source",
                                 options=_SOURCE_OPTIONS,
                                 value="",
-                                style={**INPUT_STYLE, "height": "36px"},
+                                style={
+                                    **INPUT_STYLE,
+                                    "height": "36px",
+                                    "lineHeight": "18px",
+                                    "padding": "4px 8px",
+                                },
                             ),
                         ],
                         md=2,
@@ -644,8 +654,8 @@ def get_layout() -> html.Div:
                     # Optional ES-disabled banner
                     es_disabled_banner,
 
-                    # ── Search bar ──────────────────────────────────────────
-                    dbc.InputGroup(
+                    # ── Search bar — centered, constrained (Option A) ──────
+                    html.Div(
                         [
                             dbc.Input(
                                 id="search-q-input",
@@ -655,62 +665,89 @@ def get_layout() -> html.Div:
                                 n_submit=0,
                                 style={
                                     **INPUT_STYLE,
-                                    "borderRadius": "2px 0 0 2px",
-                                    "height": "40px",
+                                    "borderRadius": "24px",
+                                    "height": "44px",
                                     "fontSize": FONT_SIZE_MEDIUM,
+                                    "paddingLeft": "20px",
+                                    "paddingRight": "20px",
+                                    "boxShadow": "0 2px 8px rgba(0,0,0,0.08)",
+                                    "border": f"1px solid {COLOR_BORDER}",
                                 },
                             ),
-                            dbc.Button(
-                                html.I(className="fas fa-search"),
-                                id="search-submit-btn",
-                                color="primary",
-                                n_clicks=0,
+
+                            # ── Filters toggle + Person only ───────────────
+                            html.Div(
+                                [
+                                    dbc.Button(
+                                        [
+                                            html.I(
+                                                className="fas fa-sliders-h me-1",
+                                                style={"fontSize": FONT_SIZE_XSMALL},
+                                            ),
+                                            html.Span(
+                                                "Filters",
+                                                id="search-filters-toggle-label",
+                                            ),
+                                            html.I(
+                                                className="fas fa-chevron-down ms-1",
+                                                id="search-filters-chevron",
+                                                style={"fontSize": FONT_SIZE_XSMALL},
+                                            ),
+                                        ],
+                                        id="search-filters-toggle-btn",
+                                        color="link",
+                                        size="sm",
+                                        className="collapse-toggle-subtle",
+                                        style={
+                                            "fontFamily": FONT_SANS,
+                                            "fontSize": FONT_SIZE_XSMALL,
+                                            "color": COLOR_GRAY_MEDIUM,
+                                            "textDecoration": "none",
+                                            "padding": f"{SPACING_XXSMALL} 0",
+                                            "letterSpacing": "0.3px",
+                                        },
+                                    ),
+                                    dbc.Checklist(
+                                        options=[
+                                            {
+                                                "label": html.Span([
+                                                    "Person only",
+                                                    html.Span(html.I(className="fas fa-info-circle"), id="search-person-only-help", style={"marginLeft": 0, "color": COLOR_GRAY_MEDIUM, "fontSize": "12px", "cursor": "default", "display": "inline-flex", "alignItems": "center"})
+                                                ]),
+                                                "value": "person_only",
+                                            }
+                                        ],
+                                        value=[],
+                                        id="search-person-only",
+                                        inline=True,
+                                        style={
+                                            "fontFamily": FONT_SANS,
+                                            "fontSize": FONT_SIZE_XSMALL,
+                                            "color": COLOR_GRAY_MEDIUM,
+                                        },
+                                    ),
+                                ],
                                 style={
-                                    "backgroundColor": COLOR_NAVY,
-                                    "border": f"1px solid {COLOR_NAVY}",
-                                    "borderRadius": "0 2px 2px 0",
-                                    "padding": f"0 {SPACING_SMALL}",
-                                    "fontSize": FONT_SIZE_SMALL,
+                                    "marginTop": SPACING_XXSMALL,
+                                    "display": "flex",
+                                    "alignItems": "center",
+                                    "gap": SPACING_MEDIUM,
                                 },
                             ),
                         ],
-                        style={"marginBottom": "0"},
-                    ),
-
-                    # ── Filters toggle + collapse ───────────────────────────
-                    html.Div(
-                        dbc.Button(
-                            [
-                                html.I(
-                                    className="fas fa-sliders-h me-1",
-                                    style={"fontSize": FONT_SIZE_XSMALL},
-                                ),
-                                html.Span(
-                                    "Filters",
-                                    id="search-filters-toggle-label",
-                                ),
-                                html.I(
-                                    className="fas fa-chevron-down ms-1",
-                                    id="search-filters-chevron",
-                                    style={"fontSize": FONT_SIZE_XSMALL},
-                                ),
-                            ],
-                            id="search-filters-toggle-btn",
-                            color="link",
-                            size="sm",
-                            className="collapse-toggle-subtle",
-                            style={
-                                "fontFamily": FONT_SANS,
-                                "fontSize": FONT_SIZE_XSMALL,
-                                "color": COLOR_GRAY_MEDIUM,
-                                "textDecoration": "none",
-                                "padding": f"{SPACING_XXSMALL} 0",
-                                "letterSpacing": "0.3px",
-                            },
-                        ),
-                        style={"marginTop": SPACING_XXSMALL},
+                        style={
+                            "maxWidth": "650px",
+                            "margin": "0 auto",
+                            "marginBottom": SPACING_SMALL,
+                        },
                     ),
                     _build_filters_panel(),
+
+                    dbc.Tooltip(
+                        "Finds people by name, username, or email when you type 3 or more starting characters.",
+                        target="search-person-only-help",
+                        placement="right",
+                    ),
 
                     # ── Results header (count + full-attributes toggle) ─────
                     html.Div(
@@ -735,17 +772,25 @@ def get_layout() -> html.Div:
                         style={**_RESULTS_HEADER_STYLE, "display": "none"},
                     ),
 
-                    # ── Results container ──────────────────────────────────
+                    # ── Results container + pagination (wrapped in Loading) ─
                     dcc.Loading(
+                        id="search-loading",
                         type="circle",
-                        children=html.Div(
-                            _build_placeholder(),
-                            id="search-results-container",
-                        ),
+                        color=COLOR_NAVY,
+                        overlay_style={
+                            "visibility": "visible",
+                            "filter": "blur(1px)",
+                            "opacity": "0.4",
+                        },
+                        delay_show=100,
+                        children=[
+                            html.Div(
+                                _build_placeholder(),
+                                id="search-results-container",
+                            ),
+                            _build_pagination_row(),
+                        ],
                     ),
-
-                    # ── Pagination ─────────────────────────────────────────
-                    _build_pagination_row(),
                 ],
                 style=CARD_CONTAINER_STYLE,
             ),
@@ -833,7 +878,7 @@ def restore_search_on_navigate(
     params = dict(last_query_params)
     params["page"] = page
     params["full"] = "true" if full else "false"
-    params.setdefault("page_size", 20)
+    params.setdefault("page_size", 10)
 
     try:
         response = requests.get(
@@ -899,6 +944,16 @@ def toggle_filters_panel(_n_clicks: int | None, is_open: bool) -> tuple:
 
 
 @callback(
+    Output("search-entity-type", "disabled"),
+    Input("search-person-only", "value"),
+    prevent_initial_call=False,
+)
+def _toggle_entity_type_disabled(person_only_values: list | None) -> bool:
+    """Disable the Entity Type dropdown while Person only is checked."""
+    return bool(person_only_values)
+
+
+@callback(
     Output("search-results-container", "children"),
     Output("search-results-count", "children"),
     Output("search-results-header", "style"),
@@ -908,7 +963,6 @@ def toggle_filters_panel(_n_clicks: int | None, is_open: bool) -> tuple:
     Output("search-prev-btn", "disabled"),
     Output("search-current-page", "data"),
     Output("search-last-query-params", "data"),
-    Input("search-submit-btn", "n_clicks"),
     Input("search-q-input", "n_submit"),
     Input("search-full-toggle", "value"),
     Input("search-url-q-store", "data"),
@@ -920,10 +974,10 @@ def toggle_filters_panel(_n_clicks: int | None, is_open: bool) -> tuple:
     State("search-date-from", "value"),
     State("search-date-to", "value"),
     State("search-last-query-params", "data"),
+    State("search-person-only", "value"),
     prevent_initial_call=True,
 )
 def execute_search(
-    _n_clicks: int | None,
     _n_submit: int | None,
     full: bool,
     url_q: str | None,
@@ -935,6 +989,7 @@ def execute_search(
     date_from: str | None,
     date_to: str | None,
     last_query_params: dict | None,
+    person_only: list | None,
 ) -> tuple:
     """Fire a search request and render result cards."""
     triggered_id = ctx.triggered_id
@@ -959,11 +1014,14 @@ def execute_search(
     # ── Build query params ─────────────────────────────────────────────────
     params: dict = {
         "page": 1,
-        "page_size": 20,
+        "page_size": 10,
         "full": "true" if full else "false",
     }
     if q and q.strip():
         params["q"] = q.strip()
+    # Person only checkbox overrides the Entity Type dropdown.
+    if person_only:
+        entity_type = "Person"
     if entity_type:
         params["entity_type"] = entity_type
     if source:
@@ -1093,7 +1151,7 @@ def paginate_search(
     params["full"] = "true" if full else "false"
     if "full" not in last_query_params:
         # page_size may have been stored; keep it
-        params.setdefault("page_size", 20)
+        params.setdefault("page_size", 10)
 
     try:
         response = requests.get(

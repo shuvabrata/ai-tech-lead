@@ -768,7 +768,7 @@ input::placeholder {
 
 .graph-spotlight-input::placeholder {
     color: var(--color-text-secondary);
-    font-style: italic;
+    font-style: normal;
 }
 
 .graph-spotlight-input:focus,
