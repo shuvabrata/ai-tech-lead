@@ -702,7 +702,15 @@ def get_layout() -> html.Div:
                                 },
                             ),
                             dbc.Checklist(
-                                options=[{"label": "Person only", "value": "person_only"}],
+                                options=[
+                                    {
+                                        "label": html.Span([
+                                            "Person only",
+                                            html.Span(html.I(className="fas fa-info-circle"), id="search-person-only-help", style={"marginLeft": 0, "color": COLOR_GRAY_MEDIUM, "fontSize": "12px", "cursor": "default", "display": "inline-flex", "alignItems": "center"})
+                                        ]),
+                                        "value": "person_only",
+                                    }
+                                ],
                                 value=[],
                                 id="search-person-only",
                                 inline=True,
@@ -721,6 +729,12 @@ def get_layout() -> html.Div:
                         },
                     ),
                     _build_filters_panel(),
+
+                    dbc.Tooltip(
+                        "Finds people by name, username, or email when you type 3 or more starting characters.",
+                        target="search-person-only-help",
+                        placement="right",
+                    ),
 
                     # ── Results header (count + full-attributes toggle) ─────
                     html.Div(
