@@ -654,78 +654,91 @@ def get_layout() -> html.Div:
                     # Optional ES-disabled banner
                     es_disabled_banner,
 
-                    # ── Search bar ──────────────────────────────────────────
-                    dbc.Input(
-                        id="search-q-input",
-                        type="text",
-                        placeholder="Search entities — people, issues, pull requests, commits…",
-                        debounce=False,
-                        n_submit=0,
-                        style={
-                            **INPUT_STYLE,
-                            "borderRadius": "2px",
-                            "height": "40px",
-                            "fontSize": FONT_SIZE_MEDIUM,
-                        },
-                    ),
-
-                    # ── Filters toggle + Person only (same row) ────────────
+                    # ── Search bar — centered, constrained (Option A) ──────
                     html.Div(
                         [
-                            dbc.Button(
-                                [
-                                    html.I(
-                                        className="fas fa-sliders-h me-1",
-                                        style={"fontSize": FONT_SIZE_XSMALL},
-                                    ),
-                                    html.Span(
-                                        "Filters",
-                                        id="search-filters-toggle-label",
-                                    ),
-                                    html.I(
-                                        className="fas fa-chevron-down ms-1",
-                                        id="search-filters-chevron",
-                                        style={"fontSize": FONT_SIZE_XSMALL},
-                                    ),
-                                ],
-                                id="search-filters-toggle-btn",
-                                color="link",
-                                size="sm",
-                                className="collapse-toggle-subtle",
+                            dbc.Input(
+                                id="search-q-input",
+                                type="text",
+                                placeholder="Search entities — people, issues, pull requests, commits…",
+                                debounce=False,
+                                n_submit=0,
                                 style={
-                                    "fontFamily": FONT_SANS,
-                                    "fontSize": FONT_SIZE_XSMALL,
-                                    "color": COLOR_GRAY_MEDIUM,
-                                    "textDecoration": "none",
-                                    "padding": f"{SPACING_XXSMALL} 0",
-                                    "letterSpacing": "0.3px",
+                                    **INPUT_STYLE,
+                                    "borderRadius": "24px",
+                                    "height": "44px",
+                                    "fontSize": FONT_SIZE_MEDIUM,
+                                    "paddingLeft": "20px",
+                                    "paddingRight": "20px",
+                                    "boxShadow": "0 2px 8px rgba(0,0,0,0.08)",
+                                    "border": f"1px solid {COLOR_BORDER}",
                                 },
                             ),
-                            dbc.Checklist(
-                                options=[
-                                    {
-                                        "label": html.Span([
-                                            "Person only",
-                                            html.Span(html.I(className="fas fa-info-circle"), id="search-person-only-help", style={"marginLeft": 0, "color": COLOR_GRAY_MEDIUM, "fontSize": "12px", "cursor": "default", "display": "inline-flex", "alignItems": "center"})
-                                        ]),
-                                        "value": "person_only",
-                                    }
+
+                            # ── Filters toggle + Person only ───────────────
+                            html.Div(
+                                [
+                                    dbc.Button(
+                                        [
+                                            html.I(
+                                                className="fas fa-sliders-h me-1",
+                                                style={"fontSize": FONT_SIZE_XSMALL},
+                                            ),
+                                            html.Span(
+                                                "Filters",
+                                                id="search-filters-toggle-label",
+                                            ),
+                                            html.I(
+                                                className="fas fa-chevron-down ms-1",
+                                                id="search-filters-chevron",
+                                                style={"fontSize": FONT_SIZE_XSMALL},
+                                            ),
+                                        ],
+                                        id="search-filters-toggle-btn",
+                                        color="link",
+                                        size="sm",
+                                        className="collapse-toggle-subtle",
+                                        style={
+                                            "fontFamily": FONT_SANS,
+                                            "fontSize": FONT_SIZE_XSMALL,
+                                            "color": COLOR_GRAY_MEDIUM,
+                                            "textDecoration": "none",
+                                            "padding": f"{SPACING_XXSMALL} 0",
+                                            "letterSpacing": "0.3px",
+                                        },
+                                    ),
+                                    dbc.Checklist(
+                                        options=[
+                                            {
+                                                "label": html.Span([
+                                                    "Person only",
+                                                    html.Span(html.I(className="fas fa-info-circle"), id="search-person-only-help", style={"marginLeft": 0, "color": COLOR_GRAY_MEDIUM, "fontSize": "12px", "cursor": "default", "display": "inline-flex", "alignItems": "center"})
+                                                ]),
+                                                "value": "person_only",
+                                            }
+                                        ],
+                                        value=[],
+                                        id="search-person-only",
+                                        inline=True,
+                                        style={
+                                            "fontFamily": FONT_SANS,
+                                            "fontSize": FONT_SIZE_XSMALL,
+                                            "color": COLOR_GRAY_MEDIUM,
+                                        },
+                                    ),
                                 ],
-                                value=[],
-                                id="search-person-only",
-                                inline=True,
                                 style={
-                                    "fontFamily": FONT_SANS,
-                                    "fontSize": FONT_SIZE_XSMALL,
-                                    "color": COLOR_GRAY_MEDIUM,
+                                    "marginTop": SPACING_XXSMALL,
+                                    "display": "flex",
+                                    "alignItems": "center",
+                                    "gap": SPACING_MEDIUM,
                                 },
                             ),
                         ],
                         style={
-                            "marginTop": SPACING_XXSMALL,
-                            "display": "flex",
-                            "alignItems": "center",
-                            "gap": SPACING_MEDIUM,
+                            "maxWidth": "650px",
+                            "margin": "0 auto",
+                            "marginBottom": SPACING_SMALL,
                         },
                     ),
                     _build_filters_panel(),
