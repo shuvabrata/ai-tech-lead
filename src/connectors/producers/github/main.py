@@ -24,7 +24,7 @@ from datetime import datetime, timezone
 
 from github import Github, Auth  # type: ignore[import-untyped]
 
-from common.logger import logger
+from common.logger import LogContext, logger
 from common.messaging.rabbitmq import RabbitMQPublisher
 
 from connectors.producers.github.github_config import (
@@ -98,7 +98,8 @@ async def main_async() -> None:
                     )
 
                     published: Dict[str, int] = {}
-                    await process_repo_signals(publisher, repo, owner, last_synced_at, published)
+                    with LogContext(request_id=repo.full_name):
+                        await process_repo_signals(publisher, repo, owner, last_synced_at, published)
 
                     now = datetime.now(timezone.utc)
                     await set_sync_cursor(_SOURCE, full_name, now)
