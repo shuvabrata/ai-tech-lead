@@ -645,70 +645,70 @@ def get_layout() -> html.Div:
                     es_disabled_banner,
 
                     # ── Search bar ──────────────────────────────────────────
-                    dbc.InputGroup(
+                    dbc.Input(
+                        id="search-q-input",
+                        type="text",
+                        placeholder="Search entities — people, issues, pull requests, commits…",
+                        debounce=False,
+                        n_submit=0,
+                        style={
+                            **INPUT_STYLE,
+                            "borderRadius": "2px",
+                            "height": "40px",
+                            "fontSize": FONT_SIZE_MEDIUM,
+                        },
+                    ),
+
+                    # ── Filters toggle + Person only (same row) ────────────
+                    html.Div(
                         [
-                            dbc.Input(
-                                id="search-q-input",
-                                type="text",
-                                placeholder="Search entities — people, issues, pull requests, commits…",
-                                debounce=False,
-                                n_submit=0,
+                            dbc.Button(
+                                [
+                                    html.I(
+                                        className="fas fa-sliders-h me-1",
+                                        style={"fontSize": FONT_SIZE_XSMALL},
+                                    ),
+                                    html.Span(
+                                        "Filters",
+                                        id="search-filters-toggle-label",
+                                    ),
+                                    html.I(
+                                        className="fas fa-chevron-down ms-1",
+                                        id="search-filters-chevron",
+                                        style={"fontSize": FONT_SIZE_XSMALL},
+                                    ),
+                                ],
+                                id="search-filters-toggle-btn",
+                                color="link",
+                                size="sm",
+                                className="collapse-toggle-subtle",
                                 style={
-                                    **INPUT_STYLE,
-                                    "borderRadius": "2px 0 0 2px",
-                                    "height": "40px",
-                                    "fontSize": FONT_SIZE_MEDIUM,
+                                    "fontFamily": FONT_SANS,
+                                    "fontSize": FONT_SIZE_XSMALL,
+                                    "color": COLOR_GRAY_MEDIUM,
+                                    "textDecoration": "none",
+                                    "padding": f"{SPACING_XXSMALL} 0",
+                                    "letterSpacing": "0.3px",
                                 },
                             ),
-                            dbc.Button(
-                                html.I(className="fas fa-search"),
-                                id="search-submit-btn",
-                                color="primary",
-                                n_clicks=0,
+                            dbc.Checklist(
+                                options=[{"label": "Person only", "value": "person_only"}],
+                                value=[],
+                                id="search-person-only",
+                                inline=True,
                                 style={
-                                    "backgroundColor": COLOR_NAVY,
-                                    "border": f"1px solid {COLOR_NAVY}",
-                                    "borderRadius": "0 2px 2px 0",
-                                    "padding": f"0 {SPACING_SMALL}",
-                                    "fontSize": FONT_SIZE_SMALL,
+                                    "fontFamily": FONT_SANS,
+                                    "fontSize": FONT_SIZE_XSMALL,
+                                    "color": COLOR_GRAY_MEDIUM,
                                 },
                             ),
                         ],
-                        style={"marginBottom": "0"},
-                    ),
-
-                    # ── Filters toggle + collapse ───────────────────────────
-                    html.Div(
-                        dbc.Button(
-                            [
-                                html.I(
-                                    className="fas fa-sliders-h me-1",
-                                    style={"fontSize": FONT_SIZE_XSMALL},
-                                ),
-                                html.Span(
-                                    "Filters",
-                                    id="search-filters-toggle-label",
-                                ),
-                                html.I(
-                                    className="fas fa-chevron-down ms-1",
-                                    id="search-filters-chevron",
-                                    style={"fontSize": FONT_SIZE_XSMALL},
-                                ),
-                            ],
-                            id="search-filters-toggle-btn",
-                            color="link",
-                            size="sm",
-                            className="collapse-toggle-subtle",
-                            style={
-                                "fontFamily": FONT_SANS,
-                                "fontSize": FONT_SIZE_XSMALL,
-                                "color": COLOR_GRAY_MEDIUM,
-                                "textDecoration": "none",
-                                "padding": f"{SPACING_XXSMALL} 0",
-                                "letterSpacing": "0.3px",
-                            },
-                        ),
-                        style={"marginTop": SPACING_XXSMALL},
+                        style={
+                            "marginTop": SPACING_XXSMALL,
+                            "display": "flex",
+                            "alignItems": "center",
+                            "gap": SPACING_MEDIUM,
+                        },
                     ),
                     _build_filters_panel(),
 
@@ -899,6 +899,16 @@ def toggle_filters_panel(_n_clicks: int | None, is_open: bool) -> tuple:
 
 
 @callback(
+    Output("search-entity-type", "disabled"),
+    Input("search-person-only", "value"),
+    prevent_initial_call=False,
+)
+def _toggle_entity_type_disabled(person_only_values: list | None) -> bool:
+    """Disable the Entity Type dropdown while Person only is checked."""
+    return bool(person_only_values)
+
+
+@callback(
     Output("search-results-container", "children"),
     Output("search-results-count", "children"),
     Output("search-results-header", "style"),
@@ -908,7 +918,6 @@ def toggle_filters_panel(_n_clicks: int | None, is_open: bool) -> tuple:
     Output("search-prev-btn", "disabled"),
     Output("search-current-page", "data"),
     Output("search-last-query-params", "data"),
-    Input("search-submit-btn", "n_clicks"),
     Input("search-q-input", "n_submit"),
     Input("search-full-toggle", "value"),
     Input("search-url-q-store", "data"),
@@ -920,10 +929,10 @@ def toggle_filters_panel(_n_clicks: int | None, is_open: bool) -> tuple:
     State("search-date-from", "value"),
     State("search-date-to", "value"),
     State("search-last-query-params", "data"),
+    State("search-person-only", "value"),
     prevent_initial_call=True,
 )
 def execute_search(
-    _n_clicks: int | None,
     _n_submit: int | None,
     full: bool,
     url_q: str | None,
@@ -935,6 +944,7 @@ def execute_search(
     date_from: str | None,
     date_to: str | None,
     last_query_params: dict | None,
+    person_only: list | None,
 ) -> tuple:
     """Fire a search request and render result cards."""
     triggered_id = ctx.triggered_id
@@ -964,6 +974,9 @@ def execute_search(
     }
     if q and q.strip():
         params["q"] = q.strip()
+    # Person only checkbox overrides the Entity Type dropdown.
+    if person_only:
+        entity_type = "Person"
     if entity_type:
         params["entity_type"] = entity_type
     if source:
