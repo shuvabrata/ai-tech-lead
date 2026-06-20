@@ -11,8 +11,13 @@ from .catalog import (
     sync_selected_catalog_query,
     render_catalog_query_list,
     render_catalog_query_detail,
+    update_run_button_state,
     sync_catalog_parameter_values,
     load_catalog_query_into_console,
+    sync_person_suggestions,
+    handle_person_pick,
+    handle_person_chip_clear,
+    sync_person_parameter_values,
 )
 from .display import display_properties, update_layout
 from .expansion import (
@@ -55,8 +60,13 @@ __all__ = [
     'sync_selected_catalog_query',
     'render_catalog_query_list',
     'render_catalog_query_detail',
+    'update_run_button_state',
     'sync_catalog_parameter_values',
     'load_catalog_query_into_console',
+    'sync_person_suggestions',
+    'handle_person_pick',
+    'handle_person_chip_clear',
+    'sync_person_parameter_values',
     # Display callbacks
     'display_properties',
     'update_layout',

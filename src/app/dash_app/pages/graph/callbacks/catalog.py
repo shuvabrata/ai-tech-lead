@@ -6,8 +6,8 @@ from urllib.parse import parse_qs
 
 import dash_bootstrap_components as dbc
 import requests
-from dash import ALL, Input, Output, State, callback, ctx, dcc, html, no_update
-from dash.exceptions import MissingCallbackContextException
+from dash import ALL, MATCH, Input, Output, State, callback, clientside_callback, ctx, dcc, html, no_update
+from dash.exceptions import MissingCallbackContextException, PreventUpdate
 
 from common.logger import logger
 from app.dash_app.components.common import create_alert
@@ -205,6 +205,80 @@ def _build_parameter_help_text(parameter: dict):
     )
 
 
+def _build_person_picker(parameter: dict, current_value: str | None) -> html.Div:
+    """Build a custom combobox for parameters with type='person_id'.
+
+    Uses a plain ``dbc.Input`` so the user types directly without any popup
+    widget.  Suggestions appear in an absolutely-positioned panel below the
+    input.  After a person is selected a chip replaces the search area,
+    showing the canonical ``wba_id`` and a clear button.
+    """
+    parameter_name = parameter.get("name")
+    required = parameter.get("required", False)
+    label_base = _parameter_label(parameter)
+
+    label_children: list = [label_base]
+    if required:
+        label_children.append(
+            html.Span(" *", style={"color": "#dc3545", "fontWeight": 700})
+        )
+
+    return html.Div(
+        [
+            html.Label(
+                label_children,
+                style={"fontSize": "12px", "fontWeight": 600, "marginBottom": "4px"},
+            ),
+            # --- Chip (visible once a person is selected) ---
+            html.Div(
+                id={"type": "catalog-person-chip", "name": parameter_name},
+                children=[],
+                style={"display": "none"},
+                className="catalog-person-chip-area",
+            ),
+            # --- Search area (visible while searching) ---
+            html.Div(
+                [
+                    html.Div(
+                        [
+                            dbc.Input(
+                                id={"type": "catalog-person-input", "name": parameter_name},
+                                placeholder="Search by name or email (min 3 chars)",
+                                type="text",
+                                value="",
+                                autocomplete="off",
+                                size="sm",
+                                style={"fontSize": "12px"},
+                                debounce=False,
+                            ),
+                            html.Div(
+                                id={"type": "catalog-person-suggestions", "name": parameter_name},
+                                children=[],
+                                style={"display": "none"},
+                                className="catalog-person-suggestions",
+                            ),
+                        ],
+                        className="catalog-person-combobox",
+                    ),
+                ],
+                id={"type": "catalog-person-search-area", "name": parameter_name},
+            ),
+            # --- Hidden stores (self-contained within the picker) ---
+            dcc.Store(
+                id={"type": "catalog-person-debounce", "name": parameter_name},
+                storage_type="memory",
+                data=None,
+            ),
+            dcc.Store(
+                id={"type": "catalog-person-value", "name": parameter_name},
+                storage_type="memory",
+                data=None,
+            ),
+        ],
+        className="mb-3",
+    )
+
+
 @callback(
     Output("query-catalog-store", "data"),
     Output("query-catalog-load-status", "children"),
@@ -355,19 +429,17 @@ def render_catalog_query_list(
     Output("catalog-query-view-toggle", "options"),
     Output("catalog-query-view-toggle", "value"),
     Output("catalog-parameter-inputs", "children"),
-    Output("catalog-run-btn", "disabled"),
-    Output("catalog-load-console-btn", "disabled"),
     Input("selected-catalog-query-store", "data"),
     Input("query-catalog-store", "data"),
-    Input("catalog-parameters-store", "data"),
     Input("theme-store", "data"),
+    State("catalog-parameters-store", "data"),  # State only — reading store must NOT trigger re-render
     State("catalog-query-view-toggle", "value"),
 )
 def render_catalog_query_detail(
     selected_query: dict | None,
     catalog_queries: list[dict] | None,
-    parameter_values: dict | None,
     theme_name: str | None,
+    parameter_values: dict | None,
     current_view: str | None,
 ):
     """Render selected query details, view toggle, and parameter inputs."""
@@ -384,8 +456,6 @@ def render_catalog_query_detail(
             [],
             None,
             [],
-            True,
-            True,
         )
 
     selected_view = determine_catalog_view(
@@ -459,60 +529,102 @@ def render_catalog_query_detail(
     ]
     for parameter in query.get("parameters") or []:
         parameter_name = parameter.get("name")
+        parameter_type = parameter.get("type")
         required = parameter.get("required", False)
-        parameter_help = _build_parameter_help_text(parameter)
-        parameter_children.append(
-            html.Div([
-                html.Label(
-                    f"{_parameter_label(parameter)}{' *' if required else ''}",
-                    style={"fontSize": "12px", "fontWeight": 600, "marginBottom": "4px"},
-                ),
-                dbc.Input(
-                    id={"type": "catalog-parameter-input", "name": parameter_name},
-                    value=parameter_values.get(parameter_name, ""),
-                    type="text",
-                    size="sm",
-                    placeholder=_parameter_placeholder(parameter),
-                ),
-                parameter_help,
-            ], className="mb-3")
-        )
 
-    if missing_required:
-        parameter_children.append(
-            create_alert(
-                "Fill required parameters before running this query.",
-                color="warning",
-                class_name="mb-0",
-                dismissable=False,
-                style={"fontSize": "11px"},
+        if parameter_type == "person_id":
+            # Use the interactive autocomplete picker instead of a plain text input
+            parameter_children.append(
+                _build_person_picker(parameter, parameter_values.get(parameter_name))
             )
-        )
+        else:
+            parameter_help = _build_parameter_help_text(parameter)
+            label_base = _parameter_label(parameter)
+            label_children: list = [label_base]
+            if required:
+                label_children.append(
+                    html.Span(" *", style={"color": "#dc3545", "fontWeight": 700})
+                )
+            parameter_children.append(
+                html.Div([
+                    html.Label(
+                        label_children,
+                        style={"fontSize": "12px", "fontWeight": 600, "marginBottom": "4px"},
+                    ),
+                    dbc.Input(
+                        id={"type": "catalog-parameter-input", "name": parameter_name},
+                        value=parameter_values.get(parameter_name, ""),
+                        type="text",
+                        size="sm",
+                        placeholder=_parameter_placeholder(parameter),
+                    ),
+                    parameter_help,
+                ], className="mb-3")
+            )
 
     return (
         detail_children,
         view_options,
         selected_view,
         parameter_children,
-        bool(missing_required) or not bool(selected_view),
-        False,
     )
+
+
+@callback(
+    Output("catalog-run-btn", "disabled"),
+    Output("catalog-load-console-btn", "disabled"),
+    Input("catalog-parameters-store", "data"),
+    Input("selected-catalog-query-store", "data"),
+    State("query-catalog-store", "data"),
+    State("catalog-query-view-toggle", "value"),
+    prevent_initial_call=False,
+)
+def update_run_button_state(
+    parameter_values: dict | None,
+    selected_query: dict | None,
+    catalog_queries: list[dict] | None,
+    current_view: str | None,
+) -> tuple[bool, bool]:
+    """Drive the Run / Load-to-console button disabled state.
+
+    Separated from ``render_catalog_query_detail`` so that typing into a
+    person picker (which updates the parameters store) only re-evaluates
+    disabled state without re-rendering and unmounting the input fields.
+    """
+    catalog_queries = catalog_queries or []
+    parameter_values = parameter_values or {}
+    query = find_catalog_query(catalog_queries, (selected_query or {}).get("id"))
+    if not query:
+        return True, True
+    missing_required = required_parameters_missing(query, parameter_values)
+    run_disabled = bool(missing_required) or not bool(current_view)
+    return run_disabled, False
 
 
 @callback(
     Output("catalog-parameters-store", "data"),
     Input({"type": "catalog-parameter-input", "name": ALL}, "value"),
     State({"type": "catalog-parameter-input", "name": ALL}, "id"),
+    State("catalog-parameters-store", "data"),
 )
-def sync_catalog_parameter_values(values: list[str], ids: list[dict]):
-    """Persist parameter form state in a store."""
+def sync_catalog_parameter_values(
+    values: list[str],
+    ids: list[dict],
+    current_params: dict | None,
+) -> dict:
+    """Persist non-person parameter form state in the store.
+
+    Merges into the existing store so that person picker wba_ids
+    (written by ``sync_person_parameter_values``) are not overwritten.
+    """
+    params = dict(current_params or {})
     if not ids:
-        return {}
-    return {
-        component_id.get("name"): value
-        for component_id, value in zip(ids, values)
-        if component_id.get("name")
-    }
+        return params
+    for component_id, value in zip(ids, values):
+        name = component_id.get("name")
+        if name:
+            params[name] = value or ""
+    return params
 
 
 @callback(
@@ -555,3 +667,242 @@ def load_catalog_query_into_console(
         return (query.get("queries") or {}).get(selected_view, no_update), no_update
 
     return no_update, no_update
+
+
+# ===========================================================================
+# Person Autocomplete Callbacks
+# ===========================================================================
+
+# ---------------------------------------------------------------------------
+# 1. Clientside relay — forwards the input's live value into the debounce
+#    store without a Python round-trip.  Dash's own diffing prevents
+#    downstream callbacks from firing when the value hasn't changed.
+# ---------------------------------------------------------------------------
+clientside_callback(
+    """
+    function(values) {
+        return values.map(function(v) { return (v && v.length > 0) ? v : null; });
+    }
+    """,
+    Output({"type": "catalog-person-debounce", "name": ALL}, "data"),
+    Input({"type": "catalog-person-input", "name": ALL}, "value"),
+    prevent_initial_call=True,
+)
+
+
+# ---------------------------------------------------------------------------
+# 2. Server callback — fetches suggestions and renders them as plain Buttons
+#    inside the suggestions panel.  The input component itself is NOT updated
+#    here, so it retains keyboard focus between keystrokes.
+# ---------------------------------------------------------------------------
+@callback(
+    Output({"type": "catalog-person-suggestions", "name": ALL}, "children"),
+    Output({"type": "catalog-person-suggestions", "name": ALL}, "style"),
+    Input({"type": "catalog-person-debounce", "name": ALL}, "data"),
+    State({"type": "catalog-person-debounce", "name": ALL}, "id"),
+    prevent_initial_call=True,
+)
+def sync_person_suggestions(
+    debounced_queries: list[str | None],
+    debounce_ids: list[dict],
+) -> tuple[list, list]:
+    """Fetch person suggestions and render them into each picker's suggestions panel.
+
+    Only the suggestions panel (a sibling of the input) is updated, so the
+    input itself is never re-mounted and retains keyboard focus.
+    """
+    api_base = get_graph_api_base_url()
+    _hidden = {"display": "none"}
+    _visible: dict = {
+        "display": "block",
+        "position": "absolute",
+        "top": "100%",
+        "left": "0",
+        "right": "0",
+        "zIndex": "1050",
+    }
+
+    all_children: list = []
+    all_styles: list = []
+
+    for query_text, debounce_id in zip(debounced_queries, debounce_ids):
+        parameter_name = debounce_id.get("name") if isinstance(debounce_id, dict) else None
+
+        if not query_text or len(query_text.strip()) < 3:
+            all_children.append([])
+            all_styles.append(_hidden)
+            continue
+
+        try:
+            response = requests.get(
+                f"{api_base}/api/v1/search/persons",
+                params={"q": query_text.strip(), "page_size": 10},
+                timeout=TIMEOUT_SECONDS,
+            )
+            response.raise_for_status()
+            data = response.json()
+        except requests.exceptions.RequestException as exc:
+            logger.warning("[PersonSearch] API call failed: %s", exc)
+            all_children.append([
+                html.Small(
+                    "Search failed — check your connection",
+                    className="catalog-person-no-results",
+                )
+            ])
+            all_styles.append(_visible)
+            continue
+
+        suggestions = data.get("results", [])
+        if not suggestions:
+            all_children.append([
+                html.Small(
+                    "No people found — try a different name or email",
+                    className="catalog-person-no-results",
+                )
+            ])
+            all_styles.append(_visible)
+            continue
+
+        items = []
+        for i, person in enumerate(suggestions):
+            name = person.get("name") or person.get("wba_id", "Unknown")
+            email = person.get("email")
+            source = person.get("source", "")
+            login = person.get("login", "")
+            wba_id = person.get("wba_id", "")
+            secondary = email or (f"@{login}" if login else "")
+
+            items.append(
+                html.Button(
+                    html.Div([
+                        html.Div(name, className="catalog-suggestion-name"),
+                        html.Div(
+                            f"{secondary}  [{source}]" if secondary else f"[{source}]",
+                            className="catalog-suggestion-detail",
+                        ),
+                    ]),
+                    id={
+                        "type": "catalog-person-pick",
+                        "name": parameter_name,
+                        "idx": i,
+                        "wba": wba_id,
+                        "display": name,
+                    },
+                    n_clicks=0,
+                    className="catalog-suggestion-item",
+                )
+            )
+
+        all_children.append(items)
+        all_styles.append(_visible)
+
+    return all_children, all_styles
+
+
+# ---------------------------------------------------------------------------
+# 3. Handle suggestion selection — show chip, hide search area, store value.
+#    Uses MATCH so each named picker handles its own suggestions independently.
+# ---------------------------------------------------------------------------
+@callback(
+    Output({"type": "catalog-person-chip", "name": MATCH}, "children"),
+    Output({"type": "catalog-person-chip", "name": MATCH}, "style"),
+    Output({"type": "catalog-person-search-area", "name": MATCH}, "style"),
+    Output({"type": "catalog-person-suggestions", "name": MATCH}, "style"),
+    Output({"type": "catalog-person-value", "name": MATCH}, "data"),
+    Input({"type": "catalog-person-pick", "name": MATCH, "idx": ALL, "wba": ALL, "display": ALL}, "n_clicks"),
+    prevent_initial_call=True,
+)
+def handle_person_pick(all_clicks: list[int]) -> tuple:
+    """Commit a suggestion selection for one person picker.
+
+    Renders a chip showing the person's name + canonical wba_id, hides the
+    search area and suggestions, and stores the wba_id for query execution.
+    """
+    triggered = ctx.triggered_id
+    if not triggered or not any(c for c in (all_clicks or []) if c):
+        raise PreventUpdate
+
+    display: str = triggered.get("display", "Unknown")
+    wba: str = triggered.get("wba", "")
+    param_name: str = triggered.get("name", "")
+
+    chip_children = [
+        html.Div(
+            [
+                html.Span(display, className="catalog-person-chip-name"),
+                html.Span(wba, className="catalog-person-chip-id"),
+            ],
+            className="catalog-person-chip-info",
+        ),
+        html.Button(
+            "\u00d7",
+            id={"type": "catalog-person-chip-clear", "name": param_name},
+            n_clicks=0,
+            className="catalog-person-chip-clear",
+            title="Clear selection",
+        ),
+    ]
+
+    return (
+        chip_children,
+        {"display": "flex"},   # chip visible
+        {"display": "none"},   # search area hidden
+        {"display": "none"},   # suggestions panel hidden
+        wba,                   # value store
+    )
+
+
+# ---------------------------------------------------------------------------
+# 4. Handle chip clear — restore search area and wipe the stored value.
+# ---------------------------------------------------------------------------
+@callback(
+    Output({"type": "catalog-person-chip", "name": MATCH}, "style"),
+    Output({"type": "catalog-person-search-area", "name": MATCH}, "style"),
+    Output({"type": "catalog-person-input", "name": MATCH}, "value"),
+    Output({"type": "catalog-person-value", "name": MATCH}, "data"),
+    Input({"type": "catalog-person-chip-clear", "name": MATCH}, "n_clicks"),
+    prevent_initial_call=True,
+)
+def handle_person_chip_clear(n_clicks: int | None) -> tuple:
+    """Clear the person selection and restore the search input."""
+    if not n_clicks:
+        raise PreventUpdate
+    return (
+        {"display": "none"},   # hide chip
+        {"display": "block"},   # show search area
+        "",                    # clear input text
+        None,                  # clear value store
+    )
+
+
+# ---------------------------------------------------------------------------
+# 5. Sync selected person value → catalog-parameters-store
+# ---------------------------------------------------------------------------
+@callback(
+    Output("catalog-parameters-store", "data", allow_duplicate=True),
+    Input({"type": "catalog-person-value", "name": ALL}, "data"),
+    State({"type": "catalog-person-value", "name": ALL}, "id"),
+    State("catalog-parameters-store", "data"),
+    prevent_initial_call=True,
+)
+def sync_person_parameter_values(
+    values: list[str | None],
+    ids: list[dict],
+    current_params: dict | None,
+) -> dict:
+    """Merge person picker selections into the shared catalog parameters store.
+
+    Fires whenever any ``catalog-person-value`` store changes (pick or clear).
+    Merges into the existing store so the ``required_parameters_missing`` and
+    run-query logic work without modification.
+    """
+    params = dict(current_params or {})
+    for component_id, value in zip(ids, values):
+        name = component_id.get("name")
+        if not name:
+            continue
+        if value:
+            params[name] = value
+        else:
+            params.pop(name, None)
+    return params

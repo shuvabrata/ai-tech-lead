@@ -176,30 +176,55 @@ def test_render_catalog_query_detail_uses_rich_metadata_and_default_view():
         view_options,
         selected_view,
         parameter_children,
-        run_disabled,
-        load_disabled,
     ) = catalog_callbacks.render_catalog_query_detail(
         selected_query={"id": "person_to_person/direct_code_reviews"},
         catalog_queries=[catalog_query],
-        parameter_values={"person1_id": "person_123"},
         theme_name=None,
+        parameter_values={"person1_id": "person_123"},
         current_view=None,
+    )
+    run_disabled, load_disabled = catalog_callbacks.update_run_button_state(
+        parameter_values={"person1_id": "person_123"},
+        selected_query={"id": "person_to_person/direct_code_reviews"},
+        catalog_queries=[catalog_query],
+        current_view="graph",
     )
 
     detail_text = " ".join(_flatten_text(detail_children))
-    parameter_text = " ".join(_flatten_text(parameter_children))
     first_parameter_block = parameter_children[0]
-    parameter_input = first_parameter_block.children[1]
+
+    # person_id parameters now render as a dbc.Input combobox (catalog-person-input),
+    # not a dcc.Dropdown — locate the input by its id type.
+    def _find_by_id_type(root, id_type):
+        comp_id = getattr(root, "id", None)
+        if isinstance(comp_id, dict) and comp_id.get("type") == id_type:
+            return root
+        kids = getattr(root, "children", None)
+        if isinstance(kids, list):
+            for child in kids:
+                found = _find_by_id_type(child, id_type)
+                if found is not None:
+                    return found
+        elif kids is not None:
+            return _find_by_id_type(kids, id_type)
+        return None
+
+    person_input = _find_by_id_type(first_parameter_block, "catalog-person-input")
+    chip_area = _find_by_id_type(first_parameter_block, "catalog-person-chip")
 
     assert view_options[0]["value"] == "graph"
     assert view_options[1]["value"] == "tabular"
     assert selected_view == "graph"
     assert "Compare two people by direct code review activity." in detail_text
     assert "Active" in detail_text
-    assert first_parameter_block.children[0].children == "First person *"
-    assert parameter_input.placeholder == "Enter first person id"
-    assert "Neo4j Person.id for the first person." in parameter_text
-    assert "Type: person_id" in parameter_text
-    assert "Env hint: PERSON1_ID" in parameter_text
+    # Label is now a list: ["First person", Span(" *", style={color: red})]
+    label_children = first_parameter_block.children[0].children
+    label_text = "".join(c if isinstance(c, str) else c.children for c in label_children)
+    assert label_text == "First person *"
+    assert person_input is not None, "Expected catalog-person-input (dbc.Input combobox)"
+    assert person_input.id == {"type": "catalog-person-input", "name": "person1_id"}
+    assert person_input.placeholder == "Search by name or email (min 3 chars)"
+    assert chip_area is not None, "Expected catalog-person-chip area"
     assert run_disabled is False
     assert load_disabled is False
+

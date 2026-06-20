@@ -1054,3 +1054,153 @@ input::placeholder {
 .bs-popover-left > .popover-arrow::after {
     border-left-color: var(--color-background-white) !important;
 }
+
+/* ============================================================================= */
+/* Catalog — Person Autocomplete Combobox                                        */
+/* ============================================================================= */
+
+/* Wrapper that makes the suggestions panel position relative to the input */
+.catalog-person-combobox {
+    position: relative;
+}
+
+/* Suggestions dropdown panel */
+.catalog-person-suggestions {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    z-index: 1050;
+    background-color: var(--color-background-white);
+    border: 1px solid var(--color-border);
+    border-top: none;
+    border-radius: 0 0 4px 4px;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.1);
+    max-height: 220px;
+    overflow-y: auto;
+}
+
+/* Individual suggestion row */
+.catalog-suggestion-item {
+    display: block;
+    width: 100%;
+    text-align: left;
+    background: none;
+    border: none;
+    border-bottom: 1px solid var(--color-border);
+    padding: 8px 12px;
+    cursor: pointer;
+    font-family: var(--font-sans);
+    color: var(--color-charcoal-medium);
+    transition: background-color 0.12s ease;
+    line-height: 1;
+}
+
+.catalog-suggestion-item:last-child {
+    border-bottom: none;
+}
+
+.catalog-suggestion-item:hover,
+.catalog-suggestion-item:focus {
+    background-color: var(--color-background-light);
+    color: var(--color-charcoal);
+    outline: none;
+}
+
+.catalog-suggestion-name {
+    font-size: 12px;
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-charcoal);
+    margin-bottom: 2px;
+}
+
+.catalog-suggestion-detail {
+    font-size: 10px;
+    color: var(--color-text-secondary);
+}
+
+/* "No results" / error message inside the panel */
+.catalog-person-no-results {
+    display: block;
+    font-size: 11px;
+    color: var(--color-text-secondary);
+    font-style: italic;
+    padding: 10px 12px;
+}
+
+/* ---- Selected person chip ---- */
+.catalog-person-chip-area {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 6px 10px;
+    background-color: var(--color-surface-active);
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    margin-bottom: 4px;
+}
+
+.catalog-person-chip-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.catalog-person-chip-name {
+    display: block;
+    font-size: 12px;
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-charcoal);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.catalog-person-chip-id {
+    display: block;
+    font-size: 10px;
+    color: var(--color-navy);
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-top: 2px;
+}
+
+.catalog-person-chip-clear {
+    flex-shrink: 0;
+    background: none;
+    border: none;
+    color: var(--color-gray-medium);
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 1px 5px;
+    border-radius: 3px;
+    transition: color 0.12s ease, background-color 0.12s ease;
+}
+
+.catalog-person-chip-clear:hover {
+    color: var(--color-charcoal);
+    background-color: var(--color-border);
+}
+
+/* Dark theme */
+.theme-executive-dark .catalog-person-suggestions {
+    background-color: var(--color-background-light) !important;
+    border-color: var(--color-border-light) !important;
+}
+
+.theme-executive-dark .catalog-suggestion-item {
+    color: var(--color-text-dark) !important;
+    border-color: var(--color-border-light) !important;
+}
+
+.theme-executive-dark .catalog-suggestion-item:hover {
+    background-color: var(--color-surface-active) !important;
+}
+
+.theme-executive-dark .catalog-person-chip-area {
+    background-color: var(--color-background-light) !important;
+    border-color: var(--color-border-light) !important;
+}

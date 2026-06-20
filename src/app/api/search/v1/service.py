@@ -72,13 +72,37 @@ def _build_query_body(request: SearchRequest) -> Dict[str, Any]:
 
     # --- Free-text ---
     if request.q:
-        must.append({
-            "multi_match": {
-                "query": request.q,
-                "fields": _SEARCH_FIELDS,
-                "type": "best_fields",
-            }
-        })
+        if request.entity_type == "Person":
+            # Standard tokenization splits "Shuva Brata Deb" into ["shuva","brata","deb"].
+            # A plain multi_match only matches whole tokens, so "shu" never hits.
+            # Wrap in a should with prefix queries on the key Person fields so that
+            # partial typing (>= 3 chars) correctly surfaces results from the start.
+            must.append({
+                "bool": {
+                    "should": [
+                        {
+                            "multi_match": {
+                                "query": request.q,
+                                "fields": _SEARCH_FIELDS,
+                                "type": "best_fields",
+                            }
+                        },
+                        {"prefix": {"full_name": {"value": request.q.lower()}}},
+                        {"prefix": {"login": {"value": request.q.lower()}}},
+                        {"prefix": {"email": {"value": request.q.lower()}}},
+                        {"prefix": {"name": {"value": request.q.lower()}}},
+                    ],
+                    "minimum_should_match": 1,
+                }
+            })
+        else:
+            must.append({
+                "multi_match": {
+                    "query": request.q,
+                    "fields": _SEARCH_FIELDS,
+                    "type": "best_fields",
+                }
+            })
 
     # --- Categorical filters ---
     if request.entity_type:
