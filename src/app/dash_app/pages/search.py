@@ -772,17 +772,25 @@ def get_layout() -> html.Div:
                         style={**_RESULTS_HEADER_STYLE, "display": "none"},
                     ),
 
-                    # ── Results container ──────────────────────────────────
+                    # ── Results container + pagination (wrapped in Loading) ─
                     dcc.Loading(
+                        id="search-loading",
                         type="circle",
-                        children=html.Div(
-                            _build_placeholder(),
-                            id="search-results-container",
-                        ),
+                        color=COLOR_NAVY,
+                        overlay_style={
+                            "visibility": "visible",
+                            "filter": "blur(1px)",
+                            "opacity": "0.4",
+                        },
+                        delay_show=100,
+                        children=[
+                            html.Div(
+                                _build_placeholder(),
+                                id="search-results-container",
+                            ),
+                            _build_pagination_row(),
+                        ],
                     ),
-
-                    # ── Pagination ─────────────────────────────────────────
-                    _build_pagination_row(),
                 ],
                 style=CARD_CONTAINER_STYLE,
             ),
@@ -870,7 +878,7 @@ def restore_search_on_navigate(
     params = dict(last_query_params)
     params["page"] = page
     params["full"] = "true" if full else "false"
-    params.setdefault("page_size", 20)
+    params.setdefault("page_size", 10)
 
     try:
         response = requests.get(
@@ -1006,7 +1014,7 @@ def execute_search(
     # ── Build query params ─────────────────────────────────────────────────
     params: dict = {
         "page": 1,
-        "page_size": 20,
+        "page_size": 10,
         "full": "true" if full else "false",
     }
     if q and q.strip():
@@ -1143,7 +1151,7 @@ def paginate_search(
     params["full"] = "true" if full else "false"
     if "full" not in last_query_params:
         # page_size may have been stored; keep it
-        params.setdefault("page_size", 20)
+        params.setdefault("page_size", 10)
 
     try:
         response = requests.get(
