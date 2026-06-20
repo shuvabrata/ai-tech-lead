@@ -70,24 +70,13 @@ def create_dash_app():
                 dbc.Col(
                     html.Div(
                         [
-                            dbc.InputGroup(
-                                [
-                                    dbc.Input(
-                                        id="global-search-input",
-                                        type="text",
-                                        placeholder="Search people, issues, repos…",
-                                        debounce=False,
-                                        n_submit=0,
-                                        className="global-search-input",
-                                    ),
-                                    dbc.Button(
-                                        html.I(className="fas fa-search"),
-                                        id="global-search-btn",
-                                        n_clicks=0,
-                                        className="global-search-btn",
-                                    ),
-                                ],
-                                className="global-search-group",
+                            dbc.Input(
+                                id="global-search-input",
+                                type="text",
+                                placeholder="Search people, issues, repos…",
+                                debounce=False,
+                                n_submit=0,
+                                className="global-search-input global-search-group",
                             ),
                             dbc.Button(
                                 html.I(id="theme-icon", className="fas fa-moon"),
@@ -232,12 +221,11 @@ def create_dash_app():
         Output("url", "pathname"),
         Output("url", "search"),
         Output("global-search-input", "value"),
-        Input("global-search-btn", "n_clicks"),
         Input("global-search-input", "n_submit"),
         State("global-search-input", "value"),
         prevent_initial_call=True,
     )
-    def navigate_global_search(_btn_clicks, _n_submit, query: str | None):
+    def navigate_global_search(_n_submit, query: str | None):
         """Navigate to the search page with the query term in the URL."""
         if not query or not query.strip():
             raise PreventUpdate

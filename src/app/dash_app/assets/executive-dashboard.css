@@ -207,12 +207,13 @@
 .global-search-input.form-control {
     background-color: var(--color-background-light) !important;
     border: 1px solid var(--color-border) !important;
-    border-right: none !important;
     color: var(--color-charcoal) !important;
     font-size: 13px !important;
     height: 32px !important;
-    border-radius: 2px 0 0 2px !important;
-    box-shadow: none !important;
+    border-radius: 20px !important;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.07) !important;
+    padding-left: 14px !important;
+    padding-right: 14px !important;
 }
 
 .global-search-input::placeholder {
@@ -223,7 +224,7 @@
 .global-search-input:focus,
 .global-search-input.form-control:focus {
     border-color: var(--color-navy) !important;
-    box-shadow: none !important;
+    box-shadow: 0 0 0 2px var(--color-focus-ring) !important;
     background-color: var(--color-background-light) !important;
     color: var(--color-charcoal) !important;
 }
