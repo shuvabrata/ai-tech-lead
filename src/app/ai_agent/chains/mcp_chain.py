@@ -91,6 +91,7 @@ Use YES only if the user asks about any of the following:
 
     try:
         answer = provider.chat_completion([{"role": "user", "content": relevance_prompt}])
+        logger.info(f"MCP relevance check: {answer}")
         return "YES" in answer.strip().upper()
     except Exception as exc:  # noqa: BLE001 - fallback to safe behavior
         logger.warning(f"Failed MCP relevance check: {exc}")

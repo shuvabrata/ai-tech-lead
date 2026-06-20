@@ -125,6 +125,7 @@ def check_es_relevance(
     )
     try:
         answer = provider.chat_completion([{"role": "user", "content": prompt}])
+        logger.info(f"ES relevance check: {answer}")
         return "YES" in answer.strip().upper()
     except Exception as exc:  # noqa: BLE001
         logger.warning("ES relevance check failed: %s", exc)
