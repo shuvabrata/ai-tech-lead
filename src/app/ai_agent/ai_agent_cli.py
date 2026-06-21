@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 from app.ai_agent.providers import get_provider
 from app.ai_agent.ai_agent import new_chat, end_chat, do_chat
 
-from common.logger import logger
+from common.logger import logger, LogContext
 
 # Initialize LLM provider (OpenAI, Custom, etc.)
 load_dotenv()
@@ -33,7 +33,8 @@ def start_chat():
             break
         
         try:
-            ai_message, total_tokens = do_chat(session_id, user_input)
+            with LogContext(request_id=session_id):
+                ai_message, total_tokens = do_chat(session_id, user_input)
             print(f"[Token count: {total_tokens}]")
             print(f"AI: {ai_message}")
         except ValueError as ve:
