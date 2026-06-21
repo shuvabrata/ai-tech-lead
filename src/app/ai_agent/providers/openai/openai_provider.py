@@ -53,6 +53,7 @@ class OpenAIProvider(LLMProvider):
         
         openai.api_key = api_key
         self._api_key = api_key
+        self._client = openai.OpenAI(api_key=api_key)
         self._default_model = os.getenv("LLM_MODEL", "gpt-5")
         logger.info(f"OpenAI provider initialized with model: {self._default_model}")
     
@@ -71,37 +72,111 @@ class OpenAIProvider(LLMProvider):
         """OpenAI supports native token counting via tiktoken."""
         return True
     
-    def chat_completion(self, messages: List[Dict[str, str]], model: Optional[str] = None) -> str:
+    def chat_completion(
+        self,
+        messages: Optional[List[Dict[str, str]]] = None,
+        model: Optional[str] = None,
+        instructions: Optional[str] = None,
+        input_text: Optional[str] = None,
+        prompt_cache_key: Optional[str] = None,
+        prompt_cache_retention: Optional[str] = None,
+        max_output_tokens: Optional[int] = None,
+    ) -> str:
         """Send a chat completion request to OpenAI.
         
         Args:
-            messages: List of message dicts with 'role' and 'content' keys.
+            messages: Optional list of message dicts.
             model: Optional model name. If None, uses default_model.
+            instructions: Optional instructions for Responses API.
+            input_text: Optional input text for Responses API.
+            prompt_cache_key: Optional prompt cache key.
+            prompt_cache_retention: Optional prompt cache retention time.
+            max_output_tokens: Optional max output tokens.
         
         Returns:
             The AI's response text.
-            
-        Raises:
-            ValueError: If model is not supported.
-            RuntimeError: If OpenAI API call fails.
         """
         model_to_use = model or self._default_model
         
         if not self.validate_model(model_to_use):
             raise ValueError(f"Model '{model_to_use}' is not supported by OpenAI provider")
         
-        try:
-            logger.debug(f"Sending {len(messages)} messages to OpenAI model: {model_to_use}")
-            response = openai.chat.completions.create(
-                model=model_to_use,
-                messages=messages
-            )
-            ai_message = response.choices[0].message.content.strip()
-            logger.debug(f"Received response from OpenAI: {len(ai_message)} characters")
-            return ai_message
-        except Exception as e:
-            logger.error(f"OpenAI API error: {e}")
-            raise RuntimeError(f"OpenAI error: {e}") from e
+        if instructions is not None and input_text is not None:
+            # Use Responses API
+            request_kwargs: dict[str, Any] = {
+                "model": model_to_use,
+                "instructions": instructions,
+                "input": input_text,
+                "temperature": 0,
+            }
+            if max_output_tokens is not None:
+                request_kwargs["max_output_tokens"] = max_output_tokens
+            if prompt_cache_key:
+                request_kwargs["prompt_cache_key"] = prompt_cache_key
+            if prompt_cache_retention:
+                request_kwargs["prompt_cache_retention"] = prompt_cache_retention
+
+            try:
+                logger.debug(
+                    "Sending Responses API request to OpenAI model: %s (input chars=%s)",
+                    model_to_use,
+                    len(input_text),
+                )
+                response = self._client.responses.create(**request_kwargs)
+                response_text = self._extract_response_text(response)
+                usage = getattr(response, "usage", None)
+                cached_tokens = None
+                if usage is not None:
+                    prompt_details = getattr(usage, "input_tokens_details", None) or getattr(
+                        usage, "prompt_tokens_details", None
+                    )
+                    if prompt_details is not None:
+                        cached_tokens = getattr(prompt_details, "cached_tokens", None)
+                logger.debug(
+                    "Received Responses API result: output_chars=%s cached_tokens=%s",
+                    len(response_text),
+                    cached_tokens,
+                )
+                return response_text
+            except Exception as e:
+                logger.error(f"OpenAI Responses API error: {e}")
+                raise RuntimeError(f"OpenAI Responses API error: {e}") from e
+        else:
+            # Use Standard Chat Completions API
+            if not messages:
+                raise ValueError("messages must be provided if not using instructions/input_text")
+                
+            try:
+                logger.debug(f"Sending {len(messages)} messages to OpenAI model: {model_to_use}")
+                response = openai.chat.completions.create(
+                    model=model_to_use,
+                    messages=messages
+                )
+                ai_message = response.choices[0].message.content.strip()
+                logger.debug(f"Received response from OpenAI: {len(ai_message)} characters")
+                return ai_message
+            except Exception as e:
+                logger.error(f"OpenAI API error: {e}")
+                raise RuntimeError(f"OpenAI error: {e}") from e
+
+    @staticmethod
+    def _extract_response_text(response: Any) -> str:
+        """Extract aggregated text from a Responses API result."""
+        output_text = getattr(response, "output_text", "")
+        if isinstance(output_text, str) and output_text.strip():
+            return output_text.strip()
+
+        chunks: list[str] = []
+        for item in getattr(response, "output", []) or []:
+            if getattr(item, "type", None) != "message":
+                continue
+            for content in getattr(item, "content", []) or []:
+                if getattr(content, "type", None) != "output_text":
+                    continue
+                text = getattr(content, "text", None)
+                if text:
+                    chunks.append(text)
+        return "".join(chunks).strip()
 
     def chat_completion_with_tools(
         self,

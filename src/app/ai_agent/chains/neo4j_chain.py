@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import time
 from pathlib import Path
 import re
 from typing import AsyncIterator
@@ -115,7 +116,8 @@ def _query_neo4j_with_provider_pipeline(user_message, provider, graph, conversat
     schema_snapshot = _build_schema_snapshot(graph)
     history_block = _format_history_block(conversation_history)
 
-    cypher_generation_prompt = f"""You are a Neo4j expert. Generate one read-only Cypher query.
+    cypher_instructions = f"""
+You are a Neo4j expert. Generate one read-only Cypher query.
 
 ## Auto-Introspected Schema
 {schema_snapshot}
@@ -123,18 +125,23 @@ def _query_neo4j_with_provider_pipeline(user_message, provider, graph, conversat
 ## Domain Context & Guidelines
 {NEO4J_SCHEMA_PROMPT}
 
-{history_block}## User Question
-{user_message}
-
-Rules:
-- Return ONLY Cypher query text
-- Do NOT use markdown
-- Use read-only clauses only (MATCH/OPTIONAL MATCH/WITH/WHERE/RETURN/ORDER BY/LIMIT/UNION/CALL)
-- Never use CREATE, MERGE, DELETE, SET, REMOVE, DROP, FOREACH
 """
 
+    cypher_input = f"""
+{history_block}
+    
+## User Question
+{user_message}
+"""
+    cypher_generation_prompt = f"{cypher_instructions}\n{cypher_input}"
+
     cypher_response = provider.chat_completion(
-        [{"role": "user", "content": cypher_generation_prompt}]
+        messages=[{"role": "user", "content": cypher_generation_prompt}],
+        instructions=cypher_instructions,
+        input_text=cypher_input,
+        prompt_cache_key="neo4j-cypher-v1",
+        prompt_cache_retention="24h",
+        max_output_tokens=512,
     )
     cypher_query = _extract_cypher_query(cypher_response)
 
@@ -209,6 +216,7 @@ Respond with only 'YES' if relevant to the above domains, or 'NO' if not."""
         # Use provider's chat_completion method
         messages = [{"role": "user", "content": relevance_prompt}]
         answer = provider.chat_completion(messages)
+        logger.info(f"Neo4j relevance check: {answer}")
         return "YES" in answer.strip().upper()
     except Exception as e:
         logger.warning(f"Error checking Neo4j relevance: {e}")
@@ -351,7 +359,12 @@ def augment_message_with_neo4j(user_message, provider=None, _meta_out=None, conv
         return user_message
     
     # Check if query is relevant
-    if not check_neo4j_relevance(user_message, provider, conversation_history=conversation_history):
+    start_time = time.time()
+    is_relevant = check_neo4j_relevance(user_message, provider, conversation_history=conversation_history)
+    duration = time.time() - start_time
+    logger.info(f"Neo4j relevance check took {duration:.3f} seconds")
+
+    if not is_relevant:
         logger.info("User message not relevant to Neo4j data")
         return user_message
     
@@ -411,7 +424,7 @@ async def augment_message_with_neo4j_stream(
                 _meta_out=meta_out,
                 conversation_history=conversation_history,
             ),
-            timeout=60.0,
+            timeout=300.0,
         )
     except asyncio.TimeoutError:
         logger.warning("Neo4j augmentation timed out for message: %.80s", user_message)

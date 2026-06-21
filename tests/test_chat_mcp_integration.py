@@ -53,9 +53,9 @@ class _FakeProvider:
         _ = model
         return sum(len(msg.get("content", "")) for msg in messages)
 
-    def chat_completion(self, messages, model=None):
+    def chat_completion(self, messages=None, model=None, **kwargs):
         _ = model
-        content = messages[-1]["content"]
+        content = (messages or [])[-1]["content"] if messages else ""
 
         # Relevance check prompt from MCP chain.
         if content.startswith("Determine whether this question requires MCP context"):

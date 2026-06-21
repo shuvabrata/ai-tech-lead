@@ -29,9 +29,6 @@ The tools include Github, Jira, Confluence.
 The graph was built to focus on the relationship between the above objects to derive interesting queries.
 The focus is on finding health metrics, progress and hotspots of projects.
 
-# Data quirks: 
-- The graph has commits only from the main branch. Only merged PRs have INCLUDES → Commit relationships
-- COLLABORATOR (has `permission`: READ/WRITE), BRANCH_OF, AUTHORED_BY, MODIFIES (has `additions`/`deletions`), REFERENCES
 
 # Guidelines
 - **REMEMBER: Use WHERE with CONTAINS for all name/text matching (not exact match)**
@@ -41,3 +38,10 @@ The focus is on finding health metrics, progress and hotspots of projects.
 - Return names (not IDs) with meaningful aliases using AS
 - Use count(DISTINCT x) for aggregations
 - For vague questions, do not answer
+- Target Neo4j 5.x with APOC available on this server.
+- Prefer standard Cypher for basic traversal, filtering, aggregation, sorting, and pagination.
+- Use APOC only when it adds clarity, solves a graph utility task, or is the best available helper for the query.
+- For recent or ranked results, prefer `ORDER BY ... LIMIT` inside a subquery, then `collect(...)` if you need a list.
+- When building lists of results, sort the rows before collecting them.
+- Keep queries read-only, minimal, and compatible with the schema provided above.
+- Return only the Cypher query text, with no explanation or markdown.

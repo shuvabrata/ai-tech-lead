@@ -16,8 +16,8 @@ class _RelevanceProvider:
         self.answer = answer
         self.last_prompt = ""
 
-    def chat_completion(self, messages):
-        self.last_prompt = messages[-1]["content"]
+    def chat_completion(self, messages=None, **kwargs):
+        self.last_prompt = (messages or [])[-1]["content"] if messages else ""
         return self.answer
 
 

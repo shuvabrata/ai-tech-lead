@@ -85,8 +85,13 @@ class MyProvider(LLMProvider):
 
     def chat_completion(
         self,
-        messages: List[Dict[str, str]],
+        messages: Optional[List[Dict[str, str]]] = None,
         model: Optional[str] = None,
+        instructions: Optional[str] = None,
+        input_text: Optional[str] = None,
+        prompt_cache_key: Optional[str] = None,
+        prompt_cache_retention: Optional[str] = None,
+        max_output_tokens: Optional[int] = None,
     ) -> str:
         """Send messages and return the complete response as a string.
 
@@ -297,7 +302,7 @@ class CustomProvider(LLMProvider):
     def supports_native_token_counting(self) -> bool:
         return False
 
-    def chat_completion(self, messages, model=None) -> str:
+    def chat_completion(self, messages=None, model=None, **kwargs) -> str:
         model_to_use = model or self._default_model
         if not self.validate_model(model_to_use):
             raise ValueError(f"Unsupported model: {model_to_use}")
@@ -369,7 +374,7 @@ class CustomProvider(LLMProvider):
 
     # ── Non-streaming (required) ─────────────────────────────────────────────
 
-    def chat_completion(self, messages: List[Dict[str, str]], model=None) -> str:
+    def chat_completion(self, messages: Optional[List[Dict[str, str]]] = None, model=None, **kwargs) -> str:
         import requests  # sync fallback
 
         model_to_use = model or self._default_model
