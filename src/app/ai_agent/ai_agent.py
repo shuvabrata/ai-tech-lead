@@ -194,16 +194,6 @@ def do_chat(session_id, user_message, model=LLM_MODEL, max_tokens=MAX_TOKENS):
         total_tokens = _provider.count_tokens(_chat_sessions[session_id], model)
         return ai_message, total_tokens
 
-def end_chat(session_id):
-    """End a chat session and clear its history.
-    
-    Args:
-        session_id: UUID of the chat session to end
-    """
-    _chat_sessions.pop(session_id, None)
-    logger.info(f"Chat session ended: {session_id}")
-
-
 async def stream_chat(
     session_id: str,
     user_message: str,
@@ -254,10 +244,11 @@ async def stream_chat(
 
     with LogContext(request_id=session_id):
         logger.info(
-            "Stream started: session_id=%s message=%.80s",
+            "Stream started: session_id=%s user_message=%.80s",
             session_id,
             user_message,
         )
+        
         try:
             # ── Phase 1: Augmentation (thinking) ──────────────────────────
             yield f"data: {json.dumps({'type': 'thinking_start'})}\n\n"
@@ -369,35 +360,11 @@ async def stream_chat(
             )
             yield f"data: {json.dumps({'type': 'error', 'content': str(exc)})}\n\n"
 
-def start_chat():
-    """Start an interactive CLI chat session.
+def end_chat(session_id):
+    """End a chat session and clear its history.
     
-    This function provides a simple command-line interface for chatting
-    with the AI. Type 'exit' or 'quit' to end the session.
+    Args:
+        session_id: UUID of the chat session to end
     """
-    logger.info(f"AI Chat Program (Provider: {_provider.name})")
-    session_id = new_chat()
-    print(f"[Session ID: {session_id}]")
-    print("Type 'exit' or 'quit' to end the session.")
-    
-    while True:
-        user_input = input("You: ")
-        if user_input.lower() in {"exit", "quit"}:
-            print("Exiting chat.")
-            end_chat(session_id)
-            break
-        
-        try:
-            ai_message, total_tokens = do_chat(session_id, user_input)
-            print(f"[Token count: {total_tokens}]")
-            print(f"AI: {ai_message}")
-        except ValueError as ve:
-            print(f"Session error: {ve}")
-            break
-        except RuntimeError as re:
-            print(f"LLM error: {re}")
-        except Exception as e:
-            print(f"Unexpected error: {e}")
-
-if __name__ == "__main__":
-    start_chat()
+    _chat_sessions.pop(session_id, None)
+    logger.info(f"Chat session ended: {session_id}")
