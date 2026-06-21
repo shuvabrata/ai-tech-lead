@@ -138,69 +138,6 @@ def new_chat(system_prompt="You are a helpful AI assistant."):
     logger.info(f"New chat session created: {session_id}")
     return session_id
 
-def do_chat(session_id, user_message, model=LLM_MODEL, max_tokens=MAX_TOKENS):
-    """Perform chat for a session, maintaining message history.
-
-    Synchronous wrapper around :func:`stream_chat` — runs the same async streaming
-    code path used by the UI by draining the generator via ``asyncio.run``.  This
-    ensures the CLI exercises identical logic to a UI-triggered message, making it
-    a reliable dev-testing tool.
-
-    Thinking-phase chunks are printed to stdout in grey; the assembled AI response
-    is returned once the stream is complete.
-
-    Args:
-        session_id: UUID of the chat session
-        user_message: The user's message text
-        model: LLM model to use (default from LLM_MODEL env or provider default)
-        max_tokens: Maximum tokens allowed before pruning history
-
-    Returns:
-        Tuple of (ai_message, total_tokens) where:
-            - ai_message: The AI's response text
-            - total_tokens: Current total token count for the session
-
-    Raises:
-        ValueError: If session_id is not found
-        RuntimeError: If LLM API call fails
-    """
-    logger.info(f"Received message for session {session_id}: {user_message}")
-    print(f"\033[92m{user_message}\033[0m")
-
-    if session_id not in _chat_sessions:
-        raise ValueError("Session not found.")
-
-    assembled_tokens: list[str] = []
-
-    async def _drain() -> None:
-        async for raw in stream_chat(session_id, user_message, model, max_tokens):
-            # Each yielded value has the form "data: {...}\n\n"
-            payload = raw.removeprefix("data: ").strip()
-            if not payload:
-                continue
-            event = json.loads(payload)
-            event_type = event.get("type", "")
-            content = event.get("content", "")
-            if event_type.startswith("thinking_"):
-                print(f"\033[90m[{event_type}] {content}\033[0m")
-            elif event_type == "message_chunk":
-                assembled_tokens.append(content)
-            elif event_type == "message_end":
-                full_message = "".join(assembled_tokens)
-                print(f"\033[92m[{event_type}] {full_message}\033[0m")
-            elif event_type.startswith("message_") or event_type == "metadata":
-                print(f"\033[92m[{event_type}] {content}\033[0m")
-            elif event_type == "error":
-                print(f"\033[91m[{event_type}] {content}\033[0m")
-                raise RuntimeError(content or "Stream error")
-            else:
-                print(f"[{event_type}] {content}")
-
-    asyncio.run(_drain())
-
-    ai_message = "".join(assembled_tokens)
-    total_tokens = _provider.count_tokens(_chat_sessions[session_id], model)
-    return ai_message, total_tokens
 
 async def stream_chat(
     session_id: str,
