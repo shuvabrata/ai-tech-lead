@@ -138,61 +138,78 @@ def new_chat(system_prompt="You are a helpful AI assistant."):
     logger.info(f"New chat session created: {session_id}")
     return session_id
 
-def do_chat(session_id, user_message, model=LLM_MODEL, max_tokens=MAX_TOKENS):
-    """Perform chat for a session, maintaining message history.
 
-    Synchronous wrapper around :func:`stream_chat` — runs the same async streaming
-    code path used by the UI by draining the generator via ``asyncio.run``.  This
-    ensures the CLI exercises identical logic to a UI-triggered message, making it
-    a reliable dev-testing tool.
+async def _augument_user_message(session_id: str, user_message: str):
+    """Handles the augmentation phase, yielding SSE strings and finally the resulting message."""
+    yield "sse", f"data: {json.dumps({'type': 'thinking_start'})}\n\n"
 
-    Thinking-phase chunks are printed to stdout in grey; the assembled AI response
-    is returned once the stream is complete.
+    final_augmented_message = user_message
+    chain_sources: list = []
+    
+    try:
+        raw_history = _chat_sessions.get(session_id, [])
+        non_system = [m for m in raw_history if m["role"] != "system"]
+        conversation_history_window = non_system[-(settings.AUGMENTATION_HISTORY_TURNS * 2):]
+        
+        async for event in augment_message_stream(
+            user_message,
+            provider=_provider,
+            conversation_history=conversation_history_window or None,
+        ):
+            if event["type"] == "augmented_message":
+                final_augmented_message = event["content"]
+                chain_sources = event.get("sources_used", [])
+            else:
+                logger.debug("Stream thinking event: %s", event.get("type"))
+                yield "sse", f"data: {json.dumps(event)}\n\n"
+                
+    except asyncio.TimeoutError:
+        logger.warning("Augmentation phase timed out for session %s", session_id)
+        yield "sse", f"data: {json.dumps({'type': 'thinking_chunk', 'content': 'Context gathering timed out.'})}\n\n"
+    except Exception as aug_exc:
+        logger.error("Augmentation phase error for session %s: %s", session_id, aug_exc)
+        yield "sse", f"data: {json.dumps({'type': 'thinking_chunk', 'content': f'Context gathering failed: {aug_exc}'})}\n\n"
 
+    # Yield the final result tuple so the caller can extract it
+    yield "result", (final_augmented_message, chain_sources)
+
+
+def _build_message_list_for_llm_with_token_pruning(
+    session_id: str,
+    final_augmented_message: str,
+    model: str,
+    max_tokens: int,
+) -> tuple[list[dict], int]:
+    """Build message list with token pruning.
+    
     Args:
-        session_id: UUID of the chat session
-        user_message: The user's message text
-        model: LLM model to use (default from LLM_MODEL env or provider default)
-        max_tokens: Maximum tokens allowed before pruning history
-
+        session_id: UUID of the chat session.
+        final_augmented_message: The fully augmented message to append.
+        model: LLM model used for token counting.
+        max_tokens: Maximum tokens before history pruning.
+        
     Returns:
-        Tuple of (ai_message, total_tokens) where:
-            - ai_message: The AI's response text
-            - total_tokens: Current total token count for the session
-
-    Raises:
-        ValueError: If session_id is not found
-        RuntimeError: If LLM API call fails
+        A tuple of (messages, total_tokens_before_pruning).
     """
-    with LogContext(request_id=session_id):
-        logger.info(f"Received message for session {session_id}: {user_message}")
-        print(f"\033[92m{user_message}\033[0m")
+    messages = list(_chat_sessions[session_id])
+    messages.append({"role": "user", "content": final_augmented_message})
 
-        if session_id not in _chat_sessions:
-            raise ValueError("Session not found.")
+    total_tokens = _provider.count_tokens(messages, model)
+    logger.info(
+        "Stream token count before pruning: session_id=%s tokens=%d max=%d",
+        session_id,
+        total_tokens,
+        max_tokens,
+    )
 
-        assembled_tokens: list[str] = []
+    if total_tokens > max_tokens:
+        # Keep last 4 messages which is the minimum to maintain context
+        # [System, Old User, Old Assistant, Current User]
+        if len(messages) > 4:
+            messages = [messages[0]] + messages[4:]
+            
+    return messages, total_tokens
 
-        async def _drain() -> None:
-            async for raw in stream_chat(session_id, user_message, model, max_tokens):
-                # Each yielded value has the form "data: {...}\n\n"
-                payload = raw.removeprefix("data: ").strip()
-                if not payload:
-                    continue
-                event = json.loads(payload)
-                event_type = event.get("type", "")
-                if event_type == "thinking_chunk":
-                    print(f"\033[90m[thinking] {event.get('content', '')}\033[0m")
-                elif event_type == "message_chunk":
-                    assembled_tokens.append(event.get("content", ""))
-                elif event_type == "error":
-                    raise RuntimeError(event.get("content", "Stream error"))
-
-        asyncio.run(_drain())
-
-        ai_message = "".join(assembled_tokens)
-        total_tokens = _provider.count_tokens(_chat_sessions[session_id], model)
-        return ai_message, total_tokens
 
 async def stream_chat(
     session_id: str,
@@ -250,49 +267,19 @@ async def stream_chat(
         )
         
         try:
-            # ── Phase 1: Augmentation (thinking) ──────────────────────────
-            yield f"data: {json.dumps({'type': 'thinking_start'})}\n\n"
-
-            final_augmented_message = user_message
-            chain_sources: list = []
-            try:
-                # Slice the last AUGMENTATION_HISTORY_TURNS turns (excl. system msg)
-                # and pass to all chains for pronoun/entity reference resolution.
-                raw_history = _chat_sessions.get(session_id, [])
-                non_system = [m for m in raw_history if m["role"] != "system"]
-                history_window = non_system[-(settings.AUGMENTATION_HISTORY_TURNS * 2):]
-                async for event in augment_message_stream(
-                    user_message,
-                    provider=_provider,
-                    conversation_history=history_window or None,
-                ):
-                    if event["type"] == "augmented_message":
-                        final_augmented_message = event["content"]
-                        chain_sources = event.get("sources_used", [])
-                    else:
-                        logger.debug("Stream thinking event: %s", event.get("type"))
-                        yield f"data: {json.dumps(event)}\n\n"
-            except asyncio.TimeoutError:
-                logger.warning("Augmentation phase timed out for session %s", session_id)
-                yield f"data: {json.dumps({'type': 'thinking_chunk', 'content': 'Context gathering timed out.'})}\n\n"
-            except Exception as aug_exc:
-                logger.error("Augmentation phase error for session %s: %s", session_id, aug_exc)
-                yield f"data: {json.dumps({'type': 'thinking_chunk', 'content': f'Context gathering failed: {aug_exc}'})}\n\n"
+            # ── Phase 1: Augmentation (adding more info to user message) ───────────────
+            final_augmented_message = None
+            chain_sources = []       
+            async for item_type, data in _augument_user_message(session_id, user_message):
+                if item_type == "sse":
+                    yield data  # Forward the stream directly to the client
+                elif item_type == "result":
+                    final_augmented_message, chain_sources = data
 
             # ── Phase 2: Build message list with token pruning ─────────────
-            messages = list(_chat_sessions[session_id])
-            messages.append({"role": "user", "content": final_augmented_message})
-
-            total_tokens = _provider.count_tokens(messages, model)
-            logger.info(
-                "Stream token count before pruning: session_id=%s tokens=%d max=%d",
-                session_id,
-                total_tokens,
-                max_tokens,
+            messages, total_tokens = _build_message_list_for_llm_with_token_pruning(
+                session_id, final_augmented_message, model, max_tokens
             )
-            if total_tokens > max_tokens:
-                if len(messages) > 4:
-                    messages = [messages[0]] + messages[4:]
 
             # ── Phase 3: LLM streaming ─────────────────────────────────────
             yield f"data: {json.dumps({'type': 'message_start'})}\n\n"
