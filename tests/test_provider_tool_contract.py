@@ -86,7 +86,7 @@ class TestProviderContractToolExtension:
             def default_model(self):
                 return "test-model"
             
-            def chat_completion(self, messages, model=None):
+            def chat_completion(self, messages=None, model=None, **kwargs):
                 return "test"
             
             def count_tokens(self, text):

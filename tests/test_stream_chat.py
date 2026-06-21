@@ -154,7 +154,7 @@ class TestOpenAIProviderStreamChatCompletion:
             def supports_native_token_counting(self):
                 return False
 
-            def chat_completion(self, messages, model=None):
+            def chat_completion(self, messages=None, model=None, **kwargs):
                 return ""
 
             def count_tokens(self, messages, model=None):

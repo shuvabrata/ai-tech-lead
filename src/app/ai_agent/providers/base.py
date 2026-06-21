@@ -50,19 +50,30 @@ class LLMProvider(ABC):
         """
     
     @abstractmethod
-    def chat_completion(self, 
-                        messages: List[Dict[str, str]], 
-                        model: Optional[str] = None) -> str:
+    def chat_completion(
+        self,
+        messages: Optional[List[Dict[str, str]]] = None,
+        model: Optional[str] = None,
+        instructions: Optional[str] = None,
+        input_text: Optional[str] = None,
+        prompt_cache_key: Optional[str] = None,
+        prompt_cache_retention: Optional[str] = None,
+        max_output_tokens: Optional[int] = None,
+    ) -> str:
         """Send a chat completion request and return the AI's response.
         
         This method handles the provider-specific API call to get a chat completion.
-        It should handle message format conversion if needed (e.g., OpenAI's message
-        array vs Custom provider's single prompt string).
+        It accepts either a standard `messages` list OR `instructions` and `input_text`
+        for providers that support advanced features like the Responses API.
         
         Args:
-            messages: List of message dictionaries with 'role' and 'content' keys.
-                     Format: [{"role": "system|user|assistant", "content": "..."}]
+            messages: Optional list of message dictionaries with 'role' and 'content' keys.
             model: Optional model name to use. If None, uses provider's default_model.
+            instructions: Optional system instructions for the model.
+            input_text: Optional user input text.
+            prompt_cache_key: Optional key for prompt caching.
+            prompt_cache_retention: Optional duration for caching (e.g., '24h').
+            max_output_tokens: Optional maximum output tokens.
         
         Returns:
             The AI's response text as a string.

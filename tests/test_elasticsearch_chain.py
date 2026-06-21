@@ -184,8 +184,8 @@ class _MockProvider:
         self._response = response
         self.last_messages: list = []
 
-    def chat_completion(self, messages: list) -> str:
-        self.last_messages = messages
+    def chat_completion(self, messages: list = None, **kwargs) -> str:
+        self.last_messages = messages or []
         return self._response
 
     def chat_completion_with_tools(self, **_kwargs):
@@ -207,7 +207,7 @@ class TestCheckEsRelevance:
 
     def test_returns_false_on_exception(self):
         class _FailProvider:
-            def chat_completion(self, _messages):
+            def chat_completion(self, _messages=None, **kwargs):
                 raise RuntimeError("LLM is down")
         assert check_es_relevance("find bugs", _FailProvider()) is False
 
@@ -291,7 +291,7 @@ class TestGenerateSearchRequest:
 
     def test_llm_exception_returns_none(self):
         class _FailProvider:
-            def chat_completion(self, _messages):
+            def chat_completion(self, _messages=None, **kwargs):
                 raise RuntimeError("timeout")
         result = generate_search_request("find bugs", _FailProvider())
         assert result is None
@@ -306,7 +306,7 @@ class TestGenerateSearchRequest:
     def test_raw_message_never_used_as_fallback(self):
         """Ensure that even on total LLM failure, the raw user message is not sent to ES."""
         class _FailProvider:
-            def chat_completion(self, _messages):
+            def chat_completion(self, _messages=None, **kwargs):
                 raise RuntimeError("LLM error")
         result = generate_search_request("Fetch me non-security related issues", _FailProvider())
         # Must return None, not a SearchRequest with q="Fetch me non-security related issues"
