@@ -1,14 +1,13 @@
 import sys
 import os
+import json
+import asyncio
 from dotenv import load_dotenv
 
 from app.ai_agent.providers import get_provider
-from app.ai_agent.ai_agent import new_chat, end_chat, stream_chat
+from app.ai_agent.ai_agent import new_chat, end_chat, stream_chat, _chat_sessions
 
 from common.logger import logger, LogContext
-
-# In-memory session store: {session_id: [messages]}
-_chat_sessions = {}
 
 # Initialize LLM provider (OpenAI, Custom, etc.)
 load_dotenv()
