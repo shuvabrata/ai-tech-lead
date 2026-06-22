@@ -211,7 +211,7 @@ async def test_es_context_included_in_composed_message(monkeypatch):
 
     assert "ELASTICSEARCH Context" in content
     assert "ES entity context here" in content
-    assert "User Question" in content
+    assert "User message" in content
 
 
 @pytest.mark.asyncio
@@ -256,7 +256,7 @@ async def test_neo4j_only_special_case_preserved_with_es_disabled(monkeypatch):
 
     assert "NEO4J Context" in content
     assert "neo4j-only-result" in content
-    assert "User Question" in content
+    assert "User message" in content
 
 
 @pytest.mark.asyncio

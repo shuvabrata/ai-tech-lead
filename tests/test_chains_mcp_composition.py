@@ -36,7 +36,7 @@ async def test_augment_message_preserves_neo4j_only_behavior(monkeypatch):
 
     assert "NEO4J Context" in result
     assert "neo4j-only-result" in result
-    assert "User Question" in result
+    assert "User message" in result
 
 
 @pytest.mark.asyncio
@@ -58,7 +58,7 @@ async def test_augment_message_combines_neo4j_and_mcp_context(monkeypatch):
 
     result = await _collect_augmented_message("original question")
 
-    assert "User Question" in result
+    assert "User message" in result
     assert "NEO4J Context" in result
     assert "MCP Context" in result
     assert "neo4j-context" in result
