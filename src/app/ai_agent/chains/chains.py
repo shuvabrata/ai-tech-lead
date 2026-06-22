@@ -26,10 +26,11 @@ def _compose_multi_source_message(user_message, envelopes):
 
     combined_context = "\n\n".join(sections)
     return (
-        "Use the context below to answer the user question.\n\n"
-        f"## User Question\n{user_message}\n\n"
+        "Use the context below to respond to the user message.\n\n"
+        f"## User message\n{user_message}\n\n"
         f"{combined_context}\n\n"
         "Rules:\n"
+        "- Please respond with this information in a natural, conversational way.\n"
         "- Use only relevant context\n"
         "- If context is insufficient, say so clearly\n"
         "- Do not mention internal implementation details"
