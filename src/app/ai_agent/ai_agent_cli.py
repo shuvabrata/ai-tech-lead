@@ -90,6 +90,7 @@ def do_chat(session_id, user_message, model=LLM_MODEL, max_tokens=MAX_TOKENS):
     assembled_tokens: list[str] = []
 
     async def _drain() -> None:
+        formatted_metadata = None
         async for raw in stream_chat(session_id, user_message, model, max_tokens):
             # Each yielded value has the form "data: {...}\n\n"
             payload = raw.removeprefix("data: ").strip()
@@ -105,13 +106,18 @@ def do_chat(session_id, user_message, model=LLM_MODEL, max_tokens=MAX_TOKENS):
             elif event_type == "message_end":
                 full_message = "".join(assembled_tokens)
                 print(f"\033[92m[{event_type}] {full_message}\033[0m")
-            elif event_type.startswith("message_") or event_type == "metadata":
+            elif event_type.startswith("message_"):
                 print(f"\033[92m[{event_type}] {content}\033[0m")
+            elif event_type == "metadata":
+                formatted_metadata = json.dumps(content, indent=2) if isinstance(content, dict) else content
             elif event_type == "error":
                 print(f"\033[91m[{event_type}] {content}\033[0m")
                 raise RuntimeError(content or "Stream error")
             else:
                 print(f"[{event_type}] {content}")
+
+        if formatted_metadata:
+            print(f"\033[95m['metadata'] {formatted_metadata}\033[0m")
 
     asyncio.run(_drain())
 
