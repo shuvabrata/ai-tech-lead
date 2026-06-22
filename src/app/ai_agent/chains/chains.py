@@ -7,6 +7,8 @@ from app.ai_agent.chains.mcp_chain import augment_message_with_mcp_stream
 from app.ai_agent.chains.elasticsearch_chain import augment_message_with_es_stream
 from app.settings import settings
 
+from common.logger import logger
+
 
 def _compose_multi_source_message(user_message, envelopes):
     """Compose one bounded prompt block from multiple augmentation sources."""
@@ -32,6 +34,94 @@ def _compose_multi_source_message(user_message, envelopes):
         "- If context is insufficient, say so clearly\n"
         "- Do not mention internal implementation details"
     )
+
+
+async def _augment_message_with_neo4j_stream(
+    user_message: str,
+    provider,
+    conversation_history: list[dict] | None,
+    envelopes: list[dict],
+    sources_used: list[dict],
+) -> AsyncIterator[dict]:
+    if not settings.NEO4J_ENABLED:
+        logger.info("Neo4j not enabled")
+        return
+
+    async for event in augment_message_with_neo4j_stream(
+        user_message, provider=provider, conversation_history=conversation_history
+    ):
+        if event["type"] == "augmented_message":
+            neo4j_augmented_message = event["content"]
+            if neo4j_augmented_message != user_message:
+                envelopes.append({
+                    "source": "neo4j",
+                    "context": neo4j_augmented_message,
+                    "applied": True,
+                })
+                neo4j_source: dict = {"type": "neo4j", "applied": True}
+                neo4j_source.update(event.get("meta") or {})
+                sources_used.append(neo4j_source)
+            else:
+                sources_used.append({"type": "neo4j", "applied": False})
+        else:
+            yield event
+
+
+async def _augment_message_with_elasticsearch_stream(
+    user_message: str,
+    provider,
+    conversation_history: list[dict] | None,
+    envelopes: list[dict],
+    sources_used: list[dict],
+) -> AsyncIterator[dict]:
+    if not settings.ELASTICSEARCH_ENABLED:
+        logger.info("Elasticsearch not enabled")
+        return
+
+    async for event in augment_message_with_es_stream(
+        user_message, provider=provider, conversation_history=conversation_history
+    ):
+        if event["type"] == "augmented_message":
+            es_content = event["content"]
+            if isinstance(es_content, dict) and es_content.get("applied"):
+                envelopes.append(es_content)
+                sources_used.append({
+                    "type": "elasticsearch",
+                    "applied": True,
+                    "query": es_content.get("query"),
+                    "total_hits": es_content.get("total_hits"),
+                })
+            else:
+                sources_used.append({"type": "elasticsearch", "applied": False})
+        else:
+            yield event
+
+
+async def _augment_message_with_mcp_stream(
+    user_message: str,
+    provider,
+    conversation_history: list[dict] | None,
+    envelopes: list[dict],
+    sources_used: list[dict],
+) -> AsyncIterator[dict]:
+    async for event in augment_message_with_mcp_stream(
+        user_message, provider=provider, conversation_history=conversation_history
+    ):
+        if event["type"] == "augmented_message":
+            mcp_envelope = event["content"]
+            if isinstance(mcp_envelope, dict) and mcp_envelope.get("applied"):
+                envelopes.append(mcp_envelope)
+                sources_used.append({
+                    "type": "mcp",
+                    "applied": True,
+                    "tools": [
+                        tc.get("name") for tc in mcp_envelope.get("tool_calls", []) if tc.get("name")
+                    ],
+                })
+            else:
+                sources_used.append({"type": "mcp", "applied": False})
+        else:
+            yield event
 
 
 async def augment_message_stream(
@@ -63,74 +153,30 @@ async def augment_message_stream(
     Yields:
         dict: SSE-compatible event dictionaries.
     """
-    envelopes = []
-    neo4j_augmented_message = user_message
+    envelopes: list[dict] = []
     sources_used: list[dict] = []
 
-    if settings.NEO4J_ENABLED:
-        async for event in augment_message_with_neo4j_stream(
-            user_message, provider=provider, conversation_history=conversation_history
-        ):
-            if event["type"] == "augmented_message":
-                neo4j_augmented_message = event["content"]
-                if neo4j_augmented_message != user_message:
-                    envelopes.append({
-                        "source": "neo4j",
-                        "context": neo4j_augmented_message,
-                        "applied": True,
-                    })
-                    neo4j_source: dict = {"type": "neo4j", "applied": True}
-                    neo4j_source.update(event.get("meta") or {})
-                    sources_used.append(neo4j_source)
-                else:
-                    sources_used.append({"type": "neo4j", "applied": False})
-            else:
-                yield event
-
-    if settings.ELASTICSEARCH_ENABLED:
-        async for event in augment_message_with_es_stream(
-            user_message, provider=provider, conversation_history=conversation_history
-        ):
-            if event["type"] == "augmented_message":
-                es_content = event["content"]
-                if isinstance(es_content, dict) and es_content.get("applied"):
-                    envelopes.append(es_content)
-                    sources_used.append({
-                        "type": "elasticsearch",
-                        "applied": True,
-                        "query": es_content.get("query"),
-                        "total_hits": es_content.get("total_hits"),
-                    })
-                else:
-                    sources_used.append({"type": "elasticsearch", "applied": False})
-            else:
-                yield event
-
-    async for event in augment_message_with_mcp_stream(
-        user_message, provider=provider, conversation_history=conversation_history
+    async for event in _augment_message_with_neo4j_stream(
+        user_message, provider, conversation_history, envelopes, sources_used
     ):
-        if event["type"] == "augmented_message":
-            mcp_envelope = event["content"]
-            if isinstance(mcp_envelope, dict) and mcp_envelope.get("applied"):
-                envelopes.append(mcp_envelope)
-                sources_used.append({
-                    "type": "mcp",
-                    "applied": True,
-                    "tools": [
-                        tc.get("name") for tc in mcp_envelope.get("tool_calls", []) if tc.get("name")
-                    ],
-                })
-            else:
-                sources_used.append({"type": "mcp", "applied": False})
-        else:
-            yield event
+        yield event
+
+    async for event in _augment_message_with_elasticsearch_stream(
+        user_message, provider, conversation_history, envelopes, sources_used
+    ):
+        yield event
+
+    async for event in _augment_message_with_mcp_stream(
+        user_message, provider, conversation_history, envelopes, sources_used
+    ):
+        yield event
 
     if not envelopes:
         yield {"type": "augmented_message", "content": user_message, "sources_used": sources_used}
         return
 
     if len(envelopes) == 1 and envelopes[0].get("source") == "neo4j":
-        yield {"type": "augmented_message", "content": neo4j_augmented_message, "sources_used": sources_used}
+        yield {"type": "augmented_message", "content": envelopes[0]["context"], "sources_used": sources_used}
         return
 
     yield {"type": "augmented_message", "content": _compose_multi_source_message(user_message, envelopes), "sources_used": sources_used}
