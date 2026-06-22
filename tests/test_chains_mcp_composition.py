@@ -24,7 +24,7 @@ async def test_augment_message_preserves_neo4j_only_behavior(monkeypatch):
     monkeypatch.setattr(settings, "NEO4J_ENABLED", True)
     
     async def _neo4j_stream(*_args, **_kwargs):
-        yield {"type": "augmented_message", "content": "neo4j-only-result"}
+        yield {"type": "augmented_message", "content": {"source": "neo4j", "applied": True, "context": "neo4j-only-result"}}
 
     async def _mcp_stream(*_args, **_kwargs):
         yield {"type": "augmented_message", "content": {"source": "mcp", "applied": False, "context": ""}}
@@ -34,7 +34,9 @@ async def test_augment_message_preserves_neo4j_only_behavior(monkeypatch):
 
     result = await _collect_augmented_message("original question")
 
-    assert result == "neo4j-only-result"
+    assert "NEO4J Context" in result
+    assert "neo4j-only-result" in result
+    assert "User Question" in result
 
 
 @pytest.mark.asyncio
@@ -43,7 +45,7 @@ async def test_augment_message_combines_neo4j_and_mcp_context(monkeypatch):
     monkeypatch.setattr(settings, "NEO4J_ENABLED", True)
     
     async def _neo4j_stream(*_args, **_kwargs):
-        yield {"type": "augmented_message", "content": "neo4j-context"}
+        yield {"type": "augmented_message", "content": {"source": "neo4j", "applied": True, "context": "neo4j-context"}}
 
     async def _mcp_stream(*_args, **_kwargs):
         yield {

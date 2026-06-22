@@ -51,13 +51,9 @@ async def _augment_message_with_neo4j_stream(
         user_message, provider=provider, conversation_history=conversation_history
     ):
         if event["type"] == "augmented_message":
-            neo4j_augmented_message = event["content"]
-            if neo4j_augmented_message != user_message:
-                envelopes.append({
-                    "source": "neo4j",
-                    "context": neo4j_augmented_message,
-                    "applied": True,
-                })
+            neo4j_envelope = event["content"]
+            if isinstance(neo4j_envelope, dict) and neo4j_envelope.get("applied"):
+                envelopes.append(neo4j_envelope)
                 neo4j_source: dict = {"type": "neo4j", "applied": True}
                 neo4j_source.update(event.get("meta") or {})
                 sources_used.append(neo4j_source)
@@ -173,10 +169,6 @@ async def augment_message_stream(
 
     if not envelopes:
         yield {"type": "augmented_message", "content": user_message, "sources_used": sources_used}
-        return
-
-    if len(envelopes) == 1 and envelopes[0].get("source") == "neo4j":
-        yield {"type": "augmented_message", "content": envelopes[0]["context"], "sources_used": sources_used}
         return
 
     yield {"type": "augmented_message", "content": _compose_multi_source_message(user_message, envelopes), "sources_used": sources_used}

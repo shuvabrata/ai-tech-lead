@@ -356,7 +356,7 @@ def augment_message_with_neo4j(user_message, provider=None, _meta_out=None, conv
         provider = get_provider()
         
     if not settings.NEO4J_ENABLED:
-        return user_message
+        return None
     
     # Check if query is relevant
     start_time = time.time()
@@ -366,7 +366,7 @@ def augment_message_with_neo4j(user_message, provider=None, _meta_out=None, conv
 
     if not is_relevant:
         logger.info("User message not relevant to Neo4j data")
-        return user_message
+        return None
     
     logger.info("User message is relevant to Neo4j")
     
@@ -377,17 +377,9 @@ def augment_message_with_neo4j(user_message, provider=None, _meta_out=None, conv
     context_data = query_neo4j_with_chain(user_message, provider, _meta_out=_meta_out)
     
     if context_data:
-        augmented_message = f"""The following answer was retrieved from the database:
-
-{context_data}
-
-This is the answer to the user's question: "{user_message}"
-
-Please respond with this information in a natural, conversational way."""
-        logger.debug(f"Augmented message: {augmented_message}")
-        return augmented_message
+        return str(context_data)
     
-    return user_message
+    return None
 
 
 async def augment_message_with_neo4j_stream(
@@ -428,11 +420,17 @@ async def augment_message_with_neo4j_stream(
         )
     except asyncio.TimeoutError:
         logger.warning("Neo4j augmentation timed out for message: %.80s", user_message)
-        result = user_message
+        result = None
         yield {"type": "thinking_chunk", "content": "Graph database query timed out; proceeding without graph context."}
     except Exception as exc:
         logger.error("Neo4j augmentation error: %s", exc)
-        result = user_message
+        result = None
         yield {"type": "thinking_chunk", "content": f"Graph database query failed: {exc}"}
     yield {"type": "thinking_end"}
-    yield {"type": "augmented_message", "content": result, "meta": meta_out}
+    
+    if result is None:
+        envelope = {"source": "neo4j", "applied": False, "context": ""}
+    else:
+        envelope = {"source": "neo4j", "applied": True, "context": str(result)}
+        
+    yield {"type": "augmented_message", "content": envelope, "meta": meta_out}

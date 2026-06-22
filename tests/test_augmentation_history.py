@@ -244,7 +244,7 @@ async def test_neo4j_only_special_case_preserved_with_es_disabled(monkeypatch):
     monkeypatch.setattr(settings, "ELASTICSEARCH_ENABLED", False)
 
     async def _neo4j_stub(msg, provider=None, conversation_history=None):
-        yield {"type": "augmented_message", "content": "neo4j-only-result"}
+        yield {"type": "augmented_message", "content": {"source": "neo4j", "applied": True, "context": "neo4j-only-result"}}
 
     async def _mcp_stub(msg, provider=None, conversation_history=None):
         yield {"type": "augmented_message", "content": {"source": "mcp", "applied": False, "context": ""}}
@@ -254,7 +254,9 @@ async def test_neo4j_only_special_case_preserved_with_es_disabled(monkeypatch):
 
     content, _ = await _collect("who reviewed Alice's PR?")
 
-    assert content == "neo4j-only-result"
+    assert "NEO4J Context" in content
+    assert "neo4j-only-result" in content
+    assert "User Question" in content
 
 
 @pytest.mark.asyncio
@@ -264,7 +266,7 @@ async def test_neo4j_and_es_both_applied_compose_correctly(monkeypatch):
     monkeypatch.setattr(settings, "ELASTICSEARCH_ENABLED", True)
 
     async def _neo4j_stub(msg, provider=None, conversation_history=None):
-        yield {"type": "augmented_message", "content": "neo4j graph context"}
+        yield {"type": "augmented_message", "content": {"source": "neo4j", "applied": True, "context": "neo4j graph context"}}
 
     async def _es_stub(msg, provider=None, conversation_history=None):
         yield {
