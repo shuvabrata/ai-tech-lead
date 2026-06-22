@@ -428,9 +428,10 @@ async def augment_message_with_neo4j_stream(
         yield {"type": "thinking_chunk", "content": f"Graph database query failed: {exc}"}
     yield {"type": "thinking_end"}
     
-    if result is None:
-        envelope = {"source": "neo4j", "applied": False, "context": ""}
-    else:
-        envelope = {"source": "neo4j", "applied": True, "context": str(result)}
+    envelope = {
+        "source": "neo4j",
+        "applied": result is not None,
+        "context": result,
+    }
         
     yield {"type": "augmented_message", "content": envelope, "meta": meta_out}
