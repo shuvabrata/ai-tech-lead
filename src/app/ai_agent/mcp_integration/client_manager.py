@@ -19,6 +19,8 @@ import httpx
 from mcp.client.session import ClientSession
 from mcp.client.streamable_http import streamable_http_client
 
+from common.logger import logger
+
 
 def _default_function_schema() -> dict[str, Any]:
     """Provide a minimal JSON schema fallback when server schema is missing."""
@@ -146,7 +148,8 @@ class GithubMCPClientManager(_MCPClientBase):
 
         try:
             return self._run_sync(self._with_github_session, _list)
-        except Exception:
+        except Exception as exc:
+            logger.exception("Failed to list tools from GitHub MCP server: %s", exc)
             return []
 
     def call_tool(self, tool_name: str, arguments: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -272,7 +275,8 @@ class AtlassianMCPClientManager(_MCPClientBase):
 
         try:
             return self._run_sync(self._with_atlassian_session, _list)
-        except Exception:
+        except Exception as exc:
+            logger.exception("Failed to list tools from Atlassian MCP server: %s", exc)
             return []
 
     def call_tool(self, tool_name: str, arguments: dict[str, Any] | None = None) -> dict[str, Any]:

@@ -168,7 +168,8 @@ def _format_event_time(event_time_str: str | None) -> str:
         dt = datetime.fromisoformat(event_time_str.replace("Z", "+00:00"))
         dt = to_app_timezone(dt)
         return dt.strftime(settings.UI_DATETIME_FORMAT)
-    except Exception:
+    except Exception as exc:
+        logger.warning("Failed to parse event time '%s': %s", event_time_str, exc)
         return event_time_str
 
 
