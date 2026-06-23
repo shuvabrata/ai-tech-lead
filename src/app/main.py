@@ -2,8 +2,9 @@ import time
 from contextlib import asynccontextmanager
 from uuid import uuid4
 
-from fastapi import FastAPI, Request
-from starlette.middleware.wsgi import WSGIMiddleware
+from typing import AsyncGenerator, Callable, Awaitable
+from fastapi import FastAPI, Request, Response
+from a2wsgi import WSGIMiddleware
 from app.api import endpoints
 from app.api.projects.v1.router import router as projects_v1_router
 from app.api.chats.v1.router import router as chats_v1_router
@@ -18,7 +19,7 @@ from app.settings import settings
 
 
 @asynccontextmanager
-async def lifespan(_: FastAPI):
+async def lifespan(_: FastAPI) -> AsyncGenerator[None, None]:
     logger.info(
         "[Startup] feature_flags "
         f"github_mcp_enabled={settings.GITHUB_MCP_ENABLED} "
@@ -31,7 +32,7 @@ app = FastAPI(lifespan=lifespan)
 
 
 @app.middleware("http")
-async def add_request_context(request: Request, call_next):
+async def add_request_context(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
     request_id = request.headers.get("x-request-id") or str(uuid4())
     start_time = time.time()
     with LogContext(request_id=request_id):
@@ -64,5 +65,5 @@ app.include_router(queries_v1_router, prefix="/api/v1")
 app.include_router(search_v1_router, prefix="/api/v1")
 app.include_router(persons_v1_router, prefix="/api/v1")
 
-dash_app = create_dash_app()
-app.mount("/app", WSGIMiddleware(dash_app.server))
+dash_app = create_dash_app()  # type: ignore[no-untyped-call]
+app.mount("/app", WSGIMiddleware(dash_app.server))  # type: ignore[arg-type]
