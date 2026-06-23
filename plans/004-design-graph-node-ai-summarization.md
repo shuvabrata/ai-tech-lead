@@ -17,8 +17,9 @@
 - **Effort**: M (Spike/Design)
 - **Risk**: LOW
 - **Depends on**: none
-- **Category**: direction
-- **Planned at**: commit `5b3a7f7`, 2026-06-23
+- **Category**: feature
+- **Planned at**: commit `c832d0c`, 2026-06-20
+- **Issue**: https://github.com/shuvabrata/work-behavior-analytics-ai/issues/166
 
 ## Why this matters
 
