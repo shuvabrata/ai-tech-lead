@@ -18,7 +18,7 @@ router = APIRouter(prefix="/graph", tags=["graph"])
 
 
 @router.post("/execute", response_model=GraphResponse)
-async def execute_graph(request: GraphExecuteRequest):
+async def execute_graph(request: GraphExecuteRequest) -> GraphResponse:
     """
     Execute either a raw Cypher query or a YAML catalog query.
 
@@ -86,7 +86,7 @@ async def execute_graph(request: GraphExecuteRequest):
 
 
 @router.post("/expand", response_model=NodeExpansionResponse)
-async def expand_node(request: NodeExpansionRequest):
+async def expand_node(request: NodeExpansionRequest) -> NodeExpansionResponse:
     """
     Expand a node to retrieve connected neighbors (nodes and relationships).
     
@@ -206,7 +206,7 @@ async def get_collaboration_network(
     w_confluence_comment_engagement: float = Query(default=2.0, ge=0),
     w_confluence_co_commenters: float = Query(default=1.0, ge=0),
     w_confluence_mentions: float = Query(default=2.0, ge=0),
-):
+) -> CollaborationNetworkResponse:
     """
     Build and return a collaboration network with Louvain community detection.
 
@@ -309,7 +309,7 @@ async def get_collaboration_network(
 
 
 @router.get("/health")
-async def health_check():
+async def health_check() -> dict[str, str]:
     """
     Health check endpoint to verify Neo4j connectivity.
     
