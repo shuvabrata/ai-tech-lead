@@ -229,10 +229,10 @@ def fetch_relationships_between_nodes(node_ids: List[str]) -> List[Dict[str, Any
 def expand_node_query(
     node_id: str,
     direction: str = "both",
-    relationship_types: List[str] = None,
-    limit: int = None,
+    relationship_types: List[str] | None = None,
+    limit: int | None = None,
     offset: int = 0,
-    exclude_node_ids: List[str] = None
+    exclude_node_ids: List[str] | None = None
 ) -> Dict[str, Any]:
     """Execute a query to expand a node and return connected nodes and relationships.
     

@@ -22,6 +22,12 @@ from .model import (
     GraphNode, GraphRelationship, GraphResponse,
     NodeExpansionResponse, PaginationMeta
     )
+from .transformers import (
+    _transform_node,
+    _transform_relationship,
+    _extract_graph_elements_from_value,
+    _make_serializable,
+)
 from .query import (
     validate_read_only_query, 
     execute_cypher_query, 
@@ -236,179 +242,14 @@ def _format_query_results(
         )
 
 
-def _transform_node(neo4j_node: Node) -> GraphNode:
-    """Transform a Neo4j Node to GraphNode model.
-    
-    Args:
-        neo4j_node: Neo4j Node object
-        
-    Returns:
-        GraphNode Pydantic model
-    """
-    # Serialize properties to handle Neo4j-specific types (DateTime, Date, etc.)
-    serialized_props = {k: _make_serializable(v) for k, v in dict(neo4j_node).items()}
-
-    # Use the 'id' property from Neo4j data as the wba_id, fall back to element_id
-    wba_id = serialized_props.get("id") or neo4j_node.element_id
-
-    return GraphNode(
-        wba_id=wba_id,
-        elementId=neo4j_node.element_id,
-        labels=list(neo4j_node.labels),
-        properties=serialized_props
-    )
-
-
-def _transform_relationship(neo4j_rel: Relationship) -> GraphRelationship:
-    """Transform a Neo4j Relationship to GraphRelationship model.
-    
-    Args:
-        neo4j_rel: Neo4j Relationship object
-        
-    Returns:
-        GraphRelationship Pydantic model
-    """
-    # Serialize properties to handle Neo4j-specific types (DateTime, Date, etc.)
-    serialized_props = {k: _make_serializable(v) for k, v in dict(neo4j_rel).items()}
-    
-    return GraphRelationship(
-        id=neo4j_rel.element_id,
-        type=neo4j_rel.type,
-        startNode=neo4j_rel.start_node.element_id,
-        endNode=neo4j_rel.end_node.element_id,
-        properties=serialized_props
-    )
-
-
-def _extract_graph_elements_from_value(
-    value: Any,
-    nodes_dict: Dict[str, GraphNode],
-    relationships_list: List[GraphRelationship],
-    relationship_ids: Set[str],
-) -> bool:
-    """Recursively extract graph nodes/relationships from a Neo4j result value.
-
-    Supports direct Node/Relationship values, Path objects, and nested structures
-    (lists/tuples/sets/dicts) that may contain graph values.
-
-    Args:
-        value: Raw value from a Neo4j record
-        nodes_dict: Target node map for deduplication
-        relationships_list: Target relationship list
-        relationship_ids: Target relationship ID set for deduplication
-
-    Returns:
-        True if at least one graph element was extracted, else False
-    """
-    extracted = False
-
-    if isinstance(value, Node):
-        node = _transform_node(value)
-        nodes_dict[node.elementId] = node
-        return True
-
-    if isinstance(value, Relationship):
-        rel = _transform_relationship(value)
-        if rel.id not in relationship_ids:
-            relationships_list.append(rel)
-            relationship_ids.add(rel.id)
-
-        start_node = _transform_node(value.start_node)
-        end_node = _transform_node(value.end_node)
-        nodes_dict[start_node.elementId] = start_node
-        nodes_dict[end_node.elementId] = end_node
-        return True
-
-    if isinstance(value, Path):
-        for node in value.nodes:
-            transformed_node = _transform_node(node)
-            nodes_dict[transformed_node.elementId] = transformed_node
-
-        for relationship in value.relationships:
-            transformed_rel = _transform_relationship(relationship)
-            if transformed_rel.id not in relationship_ids:
-                relationships_list.append(transformed_rel)
-                relationship_ids.add(transformed_rel.id)
-
-        return bool(value.nodes or value.relationships)
-
-    if isinstance(value, (list, tuple, set)):
-        for item in value:
-            extracted = _extract_graph_elements_from_value(
-                value=item,
-                nodes_dict=nodes_dict,
-                relationships_list=relationships_list,
-                relationship_ids=relationship_ids,
-            ) or extracted
-        return extracted
-
-    if isinstance(value, dict):
-        for item in value.values():
-            extracted = _extract_graph_elements_from_value(
-                value=item,
-                nodes_dict=nodes_dict,
-                relationships_list=relationships_list,
-                relationship_ids=relationship_ids,
-            ) or extracted
-        return extracted
-
-    return False
-
-
-def _make_serializable(value: Any) -> Any:
-    """Convert Neo4j types to JSON-serializable Python types.
-    
-    Handles Node, Relationship, temporal types (DateTime, Date, Time), 
-    and other Neo4j-specific types.
-    
-    Args:
-        value: Value to convert
-        
-    Returns:
-        JSON-serializable equivalent
-    """
-    if isinstance(value, Node):
-        return {
-            "id": value.element_id,
-            "labels": list(value.labels),
-            "properties": dict(value)
-        }
-    elif isinstance(value, Relationship):
-        return {
-            "id": value.element_id,
-            "type": value.type,
-            "startNode": value.start_node.element_id,
-            "endNode": value.end_node.element_id,
-            "properties": dict(value)
-        }
-    elif isinstance(value, Path):
-        return {
-            "nodes": [_make_serializable(node) for node in value.nodes],
-            "relationships": [_make_serializable(rel) for rel in value.relationships],
-        }
-    elif isinstance(value, (list, tuple)):
-        return [_make_serializable(item) for item in value]
-    elif isinstance(value, dict):
-        return {k: _make_serializable(v) for k, v in value.items()}
-    elif hasattr(value, 'iso_format'):
-        # Neo4j temporal types (DateTime, Date, Time, Duration)
-        # They have an iso_format() method
-        return value.iso_format()
-    elif hasattr(value, '__str__') and type(value).__module__ == 'neo4j.time':
-        # Fallback for any Neo4j time types
-        return str(value)
-    else:
-        # Primitive types (str, int, float, bool, None) are already serializable
-        return value
-
 
 def expand_node(
     node_id: str,
     direction: str = "both",
-    relationship_types: List[str] = None,
-    limit: int = None,
+    relationship_types: List[str] | None = None,
+    limit: int | None = None,
     offset: int = 0,
-    exclude_node_ids: List[str] = None
+    exclude_node_ids: List[str] | None = None
 ) -> NodeExpansionResponse:
     """Expand a node to retrieve and format connected nodes and relationships.
     
