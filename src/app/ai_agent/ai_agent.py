@@ -151,17 +151,18 @@ async def _augument_user_message(session_id: str, user_message: str):
         non_system = [m for m in raw_history if m["role"] != "system"]
         conversation_history_window = non_system[-(settings.AUGMENTATION_HISTORY_TURNS * 2):]
         
-        async for event in augment_message_stream(
-            user_message,
-            provider=_provider,
-            conversation_history=conversation_history_window or None,
-        ):
-            if event["type"] == "augmented_message":
-                final_augmented_message = event["content"]
-                chain_sources = event.get("sources_used", [])
-            else:
-                logger.debug("Stream thinking event: %s", event.get("type"))
-                yield "sse", f"data: {json.dumps(event)}\n\n"
+        async with asyncio.timeout(300.0):
+            async for event in augment_message_stream(
+                user_message,
+                provider=_provider,
+                conversation_history=conversation_history_window or None,
+            ):
+                if event["type"] == "augmented_message":
+                    final_augmented_message = event["content"]
+                    chain_sources = event.get("sources_used", [])
+                else:
+                    logger.debug("Stream thinking event: %s", event.get("type"))
+                    yield "sse", f"data: {json.dumps(event)}\n\n"
                 
     except asyncio.TimeoutError:
         logger.warning("Augmentation phase timed out for session %s", session_id)
@@ -191,8 +192,7 @@ def _build_message_list_for_llm_with_token_pruning(
     Returns:
         A tuple of (messages, total_tokens_before_pruning).
     """
-    messages = list(_chat_sessions[session_id])
-    messages.append({"role": "user", "content": final_augmented_message})
+    messages = _chat_sessions[session_id] + [{"role": "user", "content": final_augmented_message}]
 
     total_tokens = _provider.count_tokens(messages, model)
     logger.info(
@@ -205,8 +205,11 @@ def _build_message_list_for_llm_with_token_pruning(
     if total_tokens > max_tokens:
         # Keep last 4 messages which is the minimum to maintain context
         # [System, Old User, Old Assistant, Current User]
-        if len(messages) > 4:
-            messages = [messages[0]] + messages[4:]
+        # We must prune the global list to prevent a memory leak
+        if len(_chat_sessions[session_id]) > 4:
+            _chat_sessions[session_id] = [_chat_sessions[session_id][0]] + _chat_sessions[session_id][4:]
+            # Rebuild messages with the newly pruned history
+            messages = _chat_sessions[session_id] + [{"role": "user", "content": final_augmented_message}]
             
     return messages, total_tokens
 
