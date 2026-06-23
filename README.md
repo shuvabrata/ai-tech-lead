@@ -46,4 +46,11 @@ The system analyzes project data from various enterprise productivity tools (suc
 
 - [User Guide](USER_GUIDE.md)
 - [Developer Quick Start Guide](DEVELOPER_QUICK_START.md)
-- [High Level Design](docs/high-level-design.md)
+- [High Level Design](docs/design/high-level-design.md)
+- [Activity Signal Spec](docs/design/spec-activity-signal.md)
+- [Frontend Design](docs/design/frontend-design-skill.md)
+- [AI Agent Design](docs/design/ai_agent_design_workflow.md)
+- [Cosumer Development Guide](docs/design/consumer-development-guide.md)
+- [Graph Dn Design](docs/design/graph-db-high-level-design.md)
+- [Graph Relationship Design](docs/design/RELATIONSHIPS_DESIGN.md)
+- [Index Strategy](docs/design/INDEX_STRATEGY.md)
