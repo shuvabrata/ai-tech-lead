@@ -19,7 +19,8 @@ READ_ONLY_KEYWORDS = [
 # Write operation keywords that should be rejected
 WRITE_KEYWORDS = [
     'CREATE', 'MERGE', 'DELETE', 'DETACH', 'SET', 
-    'REMOVE', 'DROP', 'FOREACH'
+    'REMOVE', 'DROP', 'FOREACH',
+    'APOC.CYPHER.DOIT', 'APOC.CYPHER.RUN', 'APOC.PERIODIC.ITERATE'
 ]
 
 
@@ -49,11 +50,17 @@ def validate_read_only_query(query: str) -> bool:
     
     # Check for write keywords using word boundaries to avoid false positives
     for write_keyword in WRITE_KEYWORDS:
-        # Use word boundary regex to match whole words only
-        pattern = r'\b' + re.escape(write_keyword) + r'\b'
-        if re.search(pattern, normalized):
-            logger.warning(f"Query validation failed: Contains write operation '{write_keyword}'")
-            return False
+        # Avoid \b for APOC checks because dots (.) are not word characters
+        if "APOC" in write_keyword:
+            if write_keyword in normalized:
+                logger.warning(f"Query validation failed: Contains write operation '{write_keyword}'")
+                return False
+        else:
+            # Use word boundary regex to match whole words only
+            pattern = r'\b' + re.escape(write_keyword) + r'\b'
+            if re.search(pattern, normalized):
+                logger.warning(f"Query validation failed: Contains write operation '{write_keyword}'")
+                return False
     
     # Additional safety check: query should start with a read operation
     # (allowing comments with //)
@@ -229,10 +236,10 @@ def fetch_relationships_between_nodes(node_ids: List[str]) -> List[Dict[str, Any
 def expand_node_query(
     node_id: str,
     direction: str = "both",
-    relationship_types: List[str] = None,
-    limit: int = None,
+    relationship_types: List[str] | None = None,
+    limit: int | None = None,
     offset: int = 0,
-    exclude_node_ids: List[str] = None
+    exclude_node_ids: List[str] | None = None
 ) -> Dict[str, Any]:
     """Execute a query to expand a node and return connected nodes and relationships.
     

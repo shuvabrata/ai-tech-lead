@@ -106,6 +106,21 @@ class TestQueryValidation:
         query = "FOREACH (x IN [1,2,3] | CREATE (:Node {val: x}))"
         assert validate_read_only_query(query) is False
 
+    def test_reject_apoc_cypher_doit(self):
+        """Test that APOC.CYPHER.DOIT queries are rejected."""
+        query = 'CALL apoc.cypher.doIt("CREATE (n)") YIELD value RETURN value'
+        assert validate_read_only_query(query) is False
+
+    def test_reject_apoc_cypher_run(self):
+        """Test that APOC.CYPHER.RUN queries are rejected."""
+        query = 'CALL apoc.cypher.run("MERGE (n)", {}) YIELD value RETURN value'
+        assert validate_read_only_query(query) is False
+
+    def test_reject_apoc_periodic_iterate(self):
+        """Test that APOC.PERIODIC.ITERATE queries are rejected."""
+        query = 'CALL apoc.periodic.iterate("MATCH (n)", "SET n.prop=1", {}) YIELD batches RETURN batches'
+        assert validate_read_only_query(query) is False
+
     def test_reject_create_in_middle(self):
         """Test that CREATE is detected even in middle of query."""
         query = "MATCH (n) CREATE (m:NewNode) RETURN n, m"
