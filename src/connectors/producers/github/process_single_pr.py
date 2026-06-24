@@ -142,16 +142,32 @@ async def process_single_pr(pr: Any,
         commit_shas = []
 
     # Fetch comments to extract commenters
-    issue_comments_raw = await asyncio.to_thread(fetch_pr_issue_comments, pr)
-    review_comments_raw = await asyncio.to_thread(fetch_pr_review_comments, pr)
+    issue_comments_raw = []
+    try:
+        issue_comments_raw = await asyncio.to_thread(fetch_pr_issue_comments, pr)
+    except Exception as exc:
+        logger.warning("Could not fetch issue comments for PR #%s: %s", pr.number, exc)
+
+    review_comments_raw = []
+    try:
+        review_comments_raw = await asyncio.to_thread(fetch_pr_review_comments, pr)
+    except Exception as exc:
+        logger.warning("Could not fetch review comments for PR #%s: %s", pr.number, exc)
     
     def fetch_all_commit_comments() -> List[Any]:
         all_comments = []
         for c in pr_commits_raw:
-            all_comments.extend(fetch_commit_comments(c))
+            try:
+                all_comments.extend(fetch_commit_comments(c))
+            except Exception as e:
+                logger.warning("Could not fetch comments for commit %s: %s", getattr(c, "sha", "unknown"), e)
         return all_comments
     
-    commit_comments_raw = await asyncio.to_thread(fetch_all_commit_comments)
+    commit_comments_raw = []
+    try:
+        commit_comments_raw = await asyncio.to_thread(fetch_all_commit_comments)
+    except Exception as exc:
+        logger.warning("Could not fetch commit comments for PR #%s: %s", pr.number, exc)
 
     def build_commenter_user_data() -> Dict[str, Dict[str, Any]]:
         commenter_data = {}

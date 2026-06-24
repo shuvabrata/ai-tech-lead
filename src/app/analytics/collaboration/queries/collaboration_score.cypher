@@ -123,6 +123,30 @@ CALL () {
     CASE WHEN elementId(author) < elementId(mentioned) THEN mentioned ELSE author END AS p2,
     doc
   RETURN p1, p2, count(DISTINCT doc) * $weight_confluence_mentions AS sub_score
+
+  UNION ALL
+
+  // 11. Find GitHub PR Comment Engagement (Weight: 3)
+  // Person A commented on a PullRequest that Person B created
+  MATCH (commenter:Person)-[:COMMENTED_ON]->(pr:PullRequest)<-[:CREATED_BY]-(author:Person)
+  WHERE $include_github_pr_comment_engagement
+    AND elementId(commenter) <> elementId(author)
+    AND pr.created_at >= datetime() - duration({days: $lookback_days})
+  WITH
+    CASE WHEN elementId(commenter) < elementId(author) THEN commenter ELSE author END AS p1,
+    CASE WHEN elementId(commenter) < elementId(author) THEN author ELSE commenter END AS p2,
+    pr
+  RETURN p1, p2, count(DISTINCT pr) * $weight_github_pr_comment_engagement AS sub_score
+
+  UNION ALL
+
+  // 12. Find GitHub PR Co-commenters (Weight: 2)
+  // Both people commented on the same PullRequest
+  MATCH (p1:Person)-[:COMMENTED_ON]->(pr:PullRequest)<-[:COMMENTED_ON]-(p2:Person)
+  WHERE $include_github_pr_co_commenters
+    AND elementId(p1) < elementId(p2)
+    AND pr.created_at >= datetime() - duration({days: $lookback_days})
+  RETURN p1, p2, count(DISTINCT pr) * $weight_github_pr_co_commenters AS sub_score
 }
 // Sum the scores from all independent systems
 WITH p1, p2, sum(sub_score) AS total_collaboration_score

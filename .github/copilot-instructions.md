@@ -163,6 +163,8 @@ Feature flags: `GITHUB_MCP_ENABLED`, `ATLASSIAN_MCP_ENABLED`
 ### Testing
 Tests are in `tests/`. Markers are defined in `pytest.ini`: `unit`, `integration`, `server`, `neo4j`, `rabbitmq`.
 
+**CRITICAL: Always decorate your test functions!** When adding new tests, you MUST add the appropriate custom `pytest` marker decorator (e.g., `@pytest.mark.unit`, `@pytest.mark.integration`) to your test functions. If you omit the marker, your tests will be silently skipped when running filtered suites like `pytest -m unit tests/`.
+
 ```bash
 # Unit tests only (no external services)
 pytest -m unit tests -q
