@@ -28,7 +28,7 @@ Translate natural language questions into Cypher queries for a graph database mo
 **Organizational**: MEMBER_OF, REPORTS_TO, MANAGES, MAPS_TO
 **Work Hierarchy**: PART_OF, ASSIGNED_TO, REPORTED_BY, TEAM, IN_SPRINT, BLOCKS, DEPENDS_ON, RELATES_TO
 **Source Control**: COLLABORATOR (has `permission`: READ/WRITE), BRANCH_OF, AUTHORED_BY, MODIFIES (has `additions`/`deletions`), REFERENCES
-**Pull Requests**: INCLUDES, TARGETS, FROM, CREATED_BY, REVIEWED_BY (has `state`), REQUESTED_REVIEWER, MERGED_BY
+**Pull Requests**: INCLUDES, TARGETS, FROM, CREATED_BY, REVIEWED_BY (has `state`), REQUESTED_REVIEWER, MERGED_BY, COMMENTED_ON
 
 ### Key Constraints
 - Commits tracked on default branches only

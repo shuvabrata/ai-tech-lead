@@ -1571,6 +1571,9 @@ def merge_pull_request(session: Session, pull_request: PullRequest, relationship
     session.run(query, **props)
     
     # Create relationships if provided
+    # TODO: For Confluence, we use `replace_snapshot_interaction_relationships` 
+    # to handle comment deletion idempotency. For GitHub, we are intentionally 
+    # skipping this for now and just appending relationships. We need to revisit this later.
     if relationships:
         for rel in relationships:
             merge_relationship(session, rel)
