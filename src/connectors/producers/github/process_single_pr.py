@@ -7,6 +7,9 @@ from typing import Any, Dict, List, Optional, Awaitable, Callable
 from connectors.producers.fetch_github import (
     fetch_pr_commits,
     fetch_pr_reviews,
+    fetch_pr_issue_comments,
+    fetch_pr_review_comments,
+    fetch_commit_comments,
 )
 
 from connectors.producers.github.build_commit_signal import build_commit_signal
@@ -90,6 +93,7 @@ async def process_single_pr(pr: Any,
     requested_reviewer_logins: List[str] = list(requested_reviewer_user_data.keys())
 
     # Commit SHAs for INCLUDES relationships
+    pr_commits_raw = []
     try:
         pr_commits_raw = await asyncio.to_thread(fetch_pr_commits, pr)
         commit_shas = []
@@ -137,6 +141,31 @@ async def process_single_pr(pr: Any,
         logger.warning("Could not fetch commits for PR #%s: %s", pr.number, exc)
         commit_shas = []
 
+    # Fetch comments to extract commenters
+    issue_comments_raw = await asyncio.to_thread(fetch_pr_issue_comments, pr)
+    review_comments_raw = await asyncio.to_thread(fetch_pr_review_comments, pr)
+    
+    def fetch_all_commit_comments() -> List[Any]:
+        all_comments = []
+        for c in pr_commits_raw:
+            all_comments.extend(fetch_commit_comments(c))
+        return all_comments
+    
+    commit_comments_raw = await asyncio.to_thread(fetch_all_commit_comments)
+
+    def build_commenter_user_data() -> Dict[str, Dict[str, Any]]:
+        commenter_data = {}
+        for comment in issue_comments_raw + review_comments_raw + commit_comments_raw:
+            if comment.user and comment.user.login:
+                if comment.user.login not in commenter_data:
+                    commenter_data[comment.user.login] = fetch_github_user(comment.user)
+        return commenter_data
+
+    commenter_user_data: Dict[str, Dict[str, Any]] = await asyncio.to_thread(
+        build_commenter_user_data
+    )
+    commenter_logins = list(commenter_user_data.keys())
+
     # Emit Person signals for author + reviewers
     for person_login, _ in [(author_data.get("login") or author_data.get("name", "unknown"), None)]:
         if person_login not in published_persons:
@@ -177,6 +206,18 @@ async def process_single_pr(pr: Any,
             )
             await _pub(build_person_signal(rr_data))
 
+    for c_login, c_data in commenter_user_data.items():
+        if c_login not in published_persons:
+            published_persons.add(c_login)
+            logger.debug(
+                "[person:pr_commenter] login=%r  name=%r  email=%r  pr=#%s",
+                c_login,
+                c_data.get("name"),
+                c_data.get("email"),
+                pr.number,
+            )
+            await _pub(build_person_signal(c_data))
+
     if merger_login and merger_data and merger_login not in published_persons:
         published_persons.add(merger_login)
         logger.debug(
@@ -196,5 +237,6 @@ async def process_single_pr(pr: Any,
         requested_reviewer_logins=requested_reviewer_logins,
         merger_login=merger_login,
         commit_shas=commit_shas,
+        commenter_logins=commenter_logins,
     )
     await _pub(pr_sig)

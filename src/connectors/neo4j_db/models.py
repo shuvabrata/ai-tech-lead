@@ -832,36 +832,36 @@ UNDIRECTED_RELATIONSHIPS = {
 # Directional relationships that should create explicit reverse edges.
 DIRECTIONAL_RELATIONSHIPS = {
     # Layer 1
-    "REPORTS_TO": "MANAGES",        # Person → Person (reports to) / Person ← Person (manages)
-    "MANAGES": "MANAGED_BY",        # Person → Team (manages) / Team ← Person (managed by)
+    "REPORTS_TO": "MANAGES",        # Person → Person (reports to) / Person → Person (manages)
+    "MANAGES": "MANAGED_BY",        # Person → Team (manages) / Team → Person (managed by)
     
     # Layer 2
-    "PART_OF": "CONTAINS",          # Initiative → Project / Project ← Initiative
+    "PART_OF": "CONTAINS",          # Initiative → Project / Project → Initiative
     
     # Layer 4
-    "IN_SPRINT": "CONTAINS",        # Issue → Sprint / Sprint ← Issue
-    "BLOCKS": "BLOCKED_BY",         # Issue → Issue (blocks) / Issue ← Issue (blocked by)
-    "DEPENDS_ON": "DEPENDENCY_OF",  # Issue → Issue (depends on) / Issue ← Issue (dependency of)
+    "IN_SPRINT": "CONTAINS",        # Issue → Sprint / Sprint → Issue
+    "BLOCKS": "BLOCKED_BY",         # Issue → Issue (blocks) / Issue → Issue (blocked by)
+    "DEPENDS_ON": "DEPENDENCY_OF",  # Issue → Issue (depends on) / Issue → Issue (dependency of)
     
     # Layer 7
-    "MODIFIES": "MODIFIED_BY",      # Commit → File (modifies) / File ← Commit (modified by) - with properties
-    "REFERENCES": "REFERENCED_BY",  # Commit → Issue (references) / Issue ← Commit (referenced by)
+    "MODIFIES": "MODIFIED_BY",      # Commit → File (modifies) / File → Commit (modified by) - with properties
+    "REFERENCES": "REFERENCED_BY",  # Commit → Issue (references) / Issue → Commit (referenced by)
     
     # Layer 8
-    "INCLUDES": "INCLUDED_IN",      # PullRequest → Commit (includes) / Commit ← PullRequest (included in)
-    "TARGETS": "TARGETED_BY",       # PullRequest → Branch (targets) / Branch ← PullRequest (targeted by)
-    "CREATED_BY": "CREATED",        # PullRequest → Person (created by) / Person ← PullRequest (created)
-    "REVIEWED_BY": "REVIEWED",      # PullRequest → Person (reviewed by) / Person ← PullRequest (reviewed) - with state property
-    "REQUESTED_REVIEWER": "REVIEW_REQUESTED_BY",  # PullRequest → Person / Person ← PullRequest
-    "MERGED_BY": "MERGED",          # PullRequest → Person (merged by) / Person ← PullRequest (merged)
+    "INCLUDES": "INCLUDED_IN",      # PullRequest → Commit (includes) / Commit → PullRequest (included in)
+    "TARGETS": "TARGETED_BY",       # PullRequest → Branch (targets) / Branch → PullRequest (targeted by)
+    "CREATED_BY": "CREATED",        # PullRequest → Person (created by) / Person → PullRequest (created)
+    "REVIEWED_BY": "REVIEWED",      # PullRequest → Person (reviewed by) / Person → PullRequest (reviewed) - with state property
+    "REQUESTED_REVIEWER": "REVIEW_REQUESTED_BY",  # PullRequest → Person / Person → PullRequest
+    "MERGED_BY": "MERGED",          # PullRequest → Person (merged by) / Person → PullRequest (merged)
     
     # Layer 9 (Confluence)
-    "CHILD_OF": "PARENT_OF",        # Page → Page (child of) / Page ← Page (parent of)
-    "IN_SPACE": "CONTAINS",         # Page → Space (in space) / Space ← Page (contains)
-    "MENTIONS": "MENTIONED_IN",     # Page → Person (mentions) / Person ← Page (mentioned in)
-    "COMMENTED_ON": "HAS_COMMENT",  # Person → Page (commented on) / Page ← Person (has comment)
-    "REACTED_TO": "HAS_REACTION",   # Person → Page (reacted to) / Page ← Person (has reaction)
-    "MODIFIED": "MODIFIED_BY",      # Person → Page (modified) / Page ← Person (modified by)
+    "CHILD_OF": "PARENT_OF",        # Page → Page (child of) / Page → Page (parent of)
+    "IN_SPACE": "CONTAINS",         # Page → Space (in space) / Space → Page (contains)
+    "MENTIONS": "MENTIONED_IN",     # Page → Person (mentions) / Person → Page (mentioned in)
+    "COMMENTED_ON": "COMMENTED_BY", # Person → Page (commented on) / Page → Person (commented by)
+    "REACTED_TO": "REACTED_BY",     # Person → Page (reacted to) / Page → Person (reacted by)
+    "MODIFIED": "MODIFIED_BY",      # Person → Page (modified) / Page → Person (modified by)
 }
 
 
@@ -1709,7 +1709,7 @@ def replace_snapshot_interaction_relationships(
             **params,
         )
 
-        # Reverse edge: e.g. (Page)-[:HAS_COMMENT]->(Person)
+        # Reverse edge: e.g. (Page)-[:COMMENTED_BY]->(Person)
         reverse_type = DIRECTIONAL_RELATIONSHIPS.get(rel_type)
         if reverse_type:
             session.run(

@@ -80,6 +80,18 @@ def fetch_commit_files(commit: Any) -> List[Any]:
     return retry_with_backoff(lambda: list(commit.files))
 
 
+def fetch_commit_comments(commit: Any) -> List[Any]:
+    """Fetch all comments on a specific commit.
+
+    Args:
+        commit: PyGithub Commit object.
+
+    Returns:
+        List of PyGithub CommitComment objects.
+    """
+    return retry_with_backoff(lambda: list(commit.get_comments()))
+
+
 # ---------------------------------------------------------------------------
 # Pull request fetchers
 # ---------------------------------------------------------------------------
@@ -159,6 +171,30 @@ def fetch_pr_reviews(pr: Any) -> List[Any]:
         List of PyGithub PullRequestReview objects.
     """
     return retry_with_backoff(lambda: list(pr.get_reviews()))
+
+
+def fetch_pr_issue_comments(pr: Any) -> List[Any]:
+    """Fetch all issue comments (PR-level) for a pull request.
+
+    Args:
+        pr: PyGithub PullRequest object.
+
+    Returns:
+        List of PyGithub IssueComment objects.
+    """
+    return retry_with_backoff(lambda: list(pr.get_issue_comments()))
+
+
+def fetch_pr_review_comments(pr: Any) -> List[Any]:
+    """Fetch all review comments (file/line-level) for a pull request.
+
+    Args:
+        pr: PyGithub PullRequest object.
+
+    Returns:
+        List of PyGithub PullRequestComment objects.
+    """
+    return retry_with_backoff(lambda: list(pr.get_review_comments()))
 
 
 def fetch_pr_commits(pr: Any) -> List[Any]:
