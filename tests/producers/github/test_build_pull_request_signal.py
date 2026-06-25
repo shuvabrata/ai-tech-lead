@@ -31,7 +31,10 @@ def test_build_pull_request_signal_with_commenters():
     requested_reviewer_logins = ["req_reviewer_1"]
     merger_login = None
     commit_shas = ["sha123"]
-    commenter_logins = ["commenter_1", "commenter_2"]
+    comments_data = [
+        {"login": "commenter_1", "timestamp": "2026-06-20T11:00:00+00:00"},
+        {"login": "commenter_2", "timestamp": "2026-06-20T11:30:00+00:00"},
+    ]
 
     signal = build_pull_request_signal(
         pr_data=pr_data,
@@ -41,7 +44,7 @@ def test_build_pull_request_signal_with_commenters():
         requested_reviewer_logins=requested_reviewer_logins,
         merger_login=merger_login,
         commit_shas=commit_shas,
-        commenter_logins=commenter_logins,
+        comments_data=comments_data,
     )
 
     assert signal is not None
