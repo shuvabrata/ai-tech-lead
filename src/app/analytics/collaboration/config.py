@@ -16,6 +16,8 @@ LAYER_ORDER = [
     "confluence_comment_engagement",
     "confluence_co_commenters",
     "confluence_mentions",
+    "github_pr_comment_engagement",
+    "github_pr_co_commenters",
 ]
 
 LAYER_LABELS: Dict[str, str] = {
@@ -29,6 +31,8 @@ LAYER_LABELS: Dict[str, str] = {
     "confluence_comment_engagement": "Comment Engagement (Confluence)",
     "confluence_co_commenters": "Co-commenters (Confluence)",
     "confluence_mentions": "Mentions (Confluence)",
+    "github_pr_comment_engagement": "Comment Engagement (GitHub PR)",
+    "github_pr_co_commenters": "Co-commenters (GitHub PR)",
 }
 
 DEFAULT_LAYER_WEIGHTS: Dict[str, float] = {
@@ -42,6 +46,8 @@ DEFAULT_LAYER_WEIGHTS: Dict[str, float] = {
     "confluence_comment_engagement": 2.0,
     "confluence_co_commenters": 1.0,
     "confluence_mentions": 2.0,
+    "github_pr_comment_engagement": 3.0,
+    "github_pr_co_commenters": 2.0,
 }
 
 DEFAULT_LOOKBACK_DAYS = 90

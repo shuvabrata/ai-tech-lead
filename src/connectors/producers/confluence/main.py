@@ -746,6 +746,7 @@ async def process_account(
             fetch_body = True
             if last_mod_dt and last_mod_dt < body_last_synced_at:
                 fetch_body = False
+                logger.debug(f"Skipping body fetch for content {content.get('id')} because its last modified date {last_mod_dt} is before the body sync cursor {body_last_synced_at}")
                 
             entity_type = _content_entity_type(content)
             published_count = await _publish_content_signal(
