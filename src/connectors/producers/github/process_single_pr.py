@@ -237,6 +237,11 @@ async def process_single_pr(pr: Any,
     logger.info(f"Total Number of commenters: {len(commenter_user_data)} for PR #{pr.number}")
     logger.info(f"Total Number of comments: {len(comments_data)} for PR #{pr.number}")
 
+    # NOTE: PR reactions (GitHub's emoji reactions on the PR body and comments) are
+    # intentionally not tracked here. Reactions on PRs are rare, and fetching them
+    # requires one API call per comment object (PR body + each issue/review/commit comment),
+    # making the cost far too high relative to the relationship signal value they provide.
+
     # Emit Person signals for author + reviewers
     for person_login, _ in [(author_data.get("login") or author_data.get("name", "unknown"), None)]:
         if person_login not in published_persons:
