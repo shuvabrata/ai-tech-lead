@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from typing import Any, Dict, List, Optional, Awaitable, Callable
+from datetime import datetime, timezone
 
 
 from connectors.producers.fetch_github import (
@@ -145,12 +146,14 @@ async def process_single_pr(pr: Any,
     issue_comments_raw = []
     try:
         issue_comments_raw = await asyncio.to_thread(fetch_pr_issue_comments, pr)
+        logger.info(f"Fetched {len(issue_comments_raw)} issue comments for PR #{pr.number}")
     except Exception as exc:
         logger.warning("Could not fetch issue comments for PR #%s: %s", pr.number, exc)
 
     review_comments_raw = []
     try:
         review_comments_raw = await asyncio.to_thread(fetch_pr_review_comments, pr)
+        logger.info(f"Fetched {len(review_comments_raw)} review comments for PR #{pr.number}")
     except Exception as exc:
         logger.warning("Could not fetch review comments for PR #%s: %s", pr.number, exc)
     
@@ -166,21 +169,39 @@ async def process_single_pr(pr: Any,
     commit_comments_raw = []
     try:
         commit_comments_raw = await asyncio.to_thread(fetch_all_commit_comments)
+        logger.info(f"Fetched {len(commit_comments_raw)} commit comments for PR #{pr.number}")
     except Exception as exc:
         logger.warning("Could not fetch commit comments for PR #%s: %s", pr.number, exc)
 
-    def build_commenter_user_data() -> Dict[str, Dict[str, Any]]:
+    def extract_comments_and_user_data() -> tuple[Dict[str, Dict[str, Any]], List[Dict[str, Any]]]:
         commenter_data = {}
+        comments_list = []
         for comment in issue_comments_raw + review_comments_raw + commit_comments_raw:
             if comment.user and comment.user.login:
-                if comment.user.login not in commenter_data:
-                    commenter_data[comment.user.login] = fetch_github_user(comment.user)
-        return commenter_data
+                login = comment.user.login
+                if login not in commenter_data:
+                    commenter_data[login] = fetch_github_user(comment.user)
+                
+                dt = getattr(comment, "created_at", None)
+                if dt:
+                    if not dt.tzinfo:
+                        dt = dt.replace(tzinfo=timezone.utc)
+                    ts = dt.isoformat()
+                else:
+                    logger.warning("Comment %s does not have a created_at timestamp. Using current timestamp.", getattr(comment, "id", "unknown"))
+                    ts = datetime.now(timezone.utc).isoformat()
 
-    commenter_user_data: Dict[str, Dict[str, Any]] = await asyncio.to_thread(
-        build_commenter_user_data
+                comments_list.append({
+                    "login": login,
+                    "timestamp": ts,
+                })
+        return commenter_data, comments_list
+
+    commenter_user_data, comments_data = await asyncio.to_thread(
+        extract_comments_and_user_data
     )
-    commenter_logins = list(commenter_user_data.keys())
+    logger.info(f"Total Number of commenters: {len(commenter_user_data)} for PR #{pr.number}")
+    logger.info(f"Total Number of comments: {len(comments_data)} for PR #{pr.number}")
 
     # Emit Person signals for author + reviewers
     for person_login, _ in [(author_data.get("login") or author_data.get("name", "unknown"), None)]:
@@ -253,6 +274,6 @@ async def process_single_pr(pr: Any,
         requested_reviewer_logins=requested_reviewer_logins,
         merger_login=merger_login,
         commit_shas=commit_shas,
-        commenter_logins=commenter_logins,
+        comments_data=comments_data,
     )
     await _pub(pr_sig)

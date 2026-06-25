@@ -858,10 +858,12 @@ DIRECTIONAL_RELATIONSHIPS = {
     # Layer 9 (Confluence)
     "CHILD_OF": "PARENT_OF",        # Page → Page (child of) / Page → Page (parent of)
     "IN_SPACE": "CONTAINS",         # Page → Space (in space) / Space → Page (contains)
-    "MENTIONS": "MENTIONED_IN",     # Page → Person (mentions) / Person → Page (mentioned in)
-    "COMMENTED_ON": "COMMENTED_BY", # Person → Page (commented on) / Page → Person (commented by)
-    "REACTED_TO": "REACTED_BY",     # Person → Page (reacted to) / Page → Person (reacted by)
-    "MODIFIED": "MODIFIED_BY",      # Person → Page (modified) / Page → Person (modified by)
+    "MENTIONS": "MENTIONED_IN",     # Content → Person (mentions) / Person → Content (mentioned in)
+    "MODIFIED": "MODIFIED_BY",      # Person → Content (modified) / Content → Person (modified by)
+
+    # Cross-Platform Interactions
+    "COMMENTED_ON": "COMMENTED_BY", # Person → Page/PR (commented on) / Page/PR → Person (commented by)
+    "REACTED_TO": "REACTED_BY",     # Person → Page/PR (reacted to) / Page/PR → Person (reacted by)
 }
 
 
@@ -1571,11 +1573,11 @@ def merge_pull_request(session: Session, pull_request: PullRequest, relationship
     session.run(query, **props)
     
     # Create relationships if provided
-    # TODO: For Confluence, we use `replace_snapshot_interaction_relationships` 
-    # to handle comment deletion idempotency. For GitHub, we are intentionally 
-    # skipping this for now and just appending relationships. We need to revisit this later.
     if relationships:
-        for rel in relationships:
+        interaction_rels = [r for r in relationships if r.type in ("COMMENTED_ON", "REACTED_TO")]
+        other_rels = [r for r in relationships if r.type not in ("COMMENTED_ON", "REACTED_TO")]
+        replace_snapshot_interaction_relationships(session, pull_request.id, "PullRequest", interaction_rels)
+        for rel in other_rels:
             merge_relationship(session, rel)
 
 
@@ -1708,6 +1710,7 @@ def replace_snapshot_interaction_relationships(
             MERGE (to:{page_type} {{id: $to_id}})
             MERGE (from)-[r:{rel_type}]->(to)
             SET {set_str}
+            SET r._display_in_graph = true
             """,
             **params,
         )
@@ -1721,6 +1724,7 @@ def replace_snapshot_interaction_relationships(
                 MERGE (to:{from_type} {{id: $from_id}})
                 MERGE (from)-[r:{reverse_type}]->(to)
                 SET {set_str}
+                SET r._display_in_graph = false
                 """,
                 **params,
             )

@@ -29,7 +29,7 @@ def build_pull_request_signal(
     requested_reviewer_logins: Optional[List[str]] = None,
     merger_login: Optional[str] = None,
     commit_shas: Optional[List[str]] = None,
-    commenter_logins: Optional[List[str]] = None,
+    comments_data: Optional[List[Dict[str, Any]]] = None,
 ) -> Optional[ActivitySignal]:
     """Build an ActivitySignal for a GitHub PullRequest."""
     try:
@@ -138,7 +138,7 @@ def build_pull_request_signal(
                 )
             )
 
-        for commenter_login in (commenter_logins or []):
+        for comment in (comments_data or []):
             rels.append(
                 Relationship(
                     type="COMMENTED_ON",
@@ -146,8 +146,11 @@ def build_pull_request_signal(
                     target=RelationshipTarget(
                         source=_SOURCE,
                         entity_type="Person",
-                        id=commenter_login,
+                        id=comment["login"],
                     ),
+                    properties={
+                        "timestamp": comment["timestamp"],
+                    },
                 )
             )
 
