@@ -2,6 +2,7 @@
 
 import re
 from typing import Any, Dict, List
+import neo4j
 from neo4j import GraphDatabase
 from neo4j.exceptions import Neo4jError, ServiceUnavailable
 
@@ -125,7 +126,7 @@ def execute_cypher_query(
         logger.info(f"Executing query with timeout={timeout}s")
         
         # Execute query with timeout
-        with driver.session() as session:
+        with driver.session(default_access_mode=neo4j.READ_ACCESS) as session:
             result = session.run(query, parameters=parameters or {}, timeout=timeout)
             
             # Convert to list of dictionaries
@@ -206,7 +207,7 @@ def fetch_relationships_between_nodes(node_ids: List[str]) -> List[Dict[str, Any
         
         logger.info(f"Fetching relationships between {len(node_ids)} nodes")
         
-        with driver.session() as session:
+        with driver.session(default_access_mode=neo4j.READ_ACCESS) as session:
             result = session.run(query, node_ids=node_ids)
             
             records = []
@@ -399,7 +400,7 @@ def expand_node_query(
         
         # Execute count query first to get total
 
-        with driver.session() as session:
+        with driver.session(default_access_mode=neo4j.READ_ACCESS) as session:
             # Get total count of unique nodes
             count_result = session.run(
                 count_query,
