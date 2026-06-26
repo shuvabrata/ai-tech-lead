@@ -1,5 +1,4 @@
 import pytest
-from datetime import datetime
 from common.activity_signal.models import ActivitySignal
 from connectors.producers.github.build_pull_request_signal import build_pull_request_signal
 
