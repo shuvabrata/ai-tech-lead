@@ -19,6 +19,10 @@ import os
 
 import pytest
 from elasticsearch import Elasticsearch
+import importlib
+import neo4j
+
+importlib.reload(neo4j)
 from neo4j import GraphDatabase
 
 from app.scripts.create_es_indexes import MANAGED_INDEXES, _index_name
