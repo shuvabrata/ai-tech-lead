@@ -142,64 +142,98 @@ async def process_single_pr(pr: Any,
         logger.warning("Could not fetch commits for PR #%s: %s", pr.number, exc)
         commit_shas = []
 
-    # Fetch comments to extract commenters
-    issue_comments_raw = []
-    try:
-        issue_comments_raw = await asyncio.to_thread(fetch_pr_issue_comments, pr)
-        logger.info(f"Fetched {len(issue_comments_raw)} issue comments for PR #{pr.number}")
-    except Exception as exc:
-        logger.warning("Could not fetch issue comments for PR #%s: %s", pr.number, exc)
+    # Fetch comments to extract commenters.
+    # _sem caps concurrent GitHub API calls within this invocation (commit-comment
+    # fetches in Step 1 + user-data fetches in Step 3 share the same semaphore).
+    _sem = asyncio.Semaphore(3)
 
-    review_comments_raw = []
-    try:
-        review_comments_raw = await asyncio.to_thread(fetch_pr_review_comments, pr)
-        logger.info(f"Fetched {len(review_comments_raw)} review comments for PR #{pr.number}")
-    except Exception as exc:
-        logger.warning("Could not fetch review comments for PR #%s: %s", pr.number, exc)
-    
-    def fetch_all_commit_comments() -> List[Any]:
-        all_comments = []
-        for c in pr_commits_raw:
-            try:
-                all_comments.extend(fetch_commit_comments(c))
-            except Exception as e:
-                logger.warning("Could not fetch comments for commit %s: %s", getattr(c, "sha", "unknown"), e)
+    # Step 1: fetch per-commit comments concurrently, each guarded by _sem.
+    async def _fetch_all_commit_comments_async() -> List[Any]:
+        async def _one(c: Any) -> List[Any]:
+            async with _sem:
+                try:
+                    return await asyncio.to_thread(fetch_commit_comments, c)
+                except Exception as e:
+                    logger.warning(
+                        "Could not fetch comments for commit %s: %s",
+                        getattr(c, "sha", "unknown"), e,
+                    )
+                    return []
+
+        results = await asyncio.gather(*[_one(c) for c in pr_commits_raw])
+        all_comments: List[Any] = []
+        for chunk in results:
+            all_comments.extend(chunk)
         return all_comments
-    
-    commit_comments_raw = []
-    try:
-        commit_comments_raw = await asyncio.to_thread(fetch_all_commit_comments)
-        logger.info(f"Fetched {len(commit_comments_raw)} commit comments for PR #{pr.number}")
-    except Exception as exc:
-        logger.warning("Could not fetch commit comments for PR #%s: %s", pr.number, exc)
 
-    def extract_comments_and_user_data() -> tuple[Dict[str, Dict[str, Any]], List[Dict[str, Any]]]:
-        commenter_data = {}
-        comments_list = []
-        for comment in issue_comments_raw + review_comments_raw + commit_comments_raw:
-            if comment.user and comment.user.login:
-                login = comment.user.login
-                if login not in commenter_data:
-                    commenter_data[login] = fetch_github_user(comment.user)
-                
-                dt = getattr(comment, "created_at", None)
-                if dt:
-                    if not dt.tzinfo:
-                        dt = dt.replace(tzinfo=timezone.utc)
-                    ts = dt.isoformat()
-                else:
-                    logger.warning("Comment %s does not have a created_at timestamp. Using current timestamp.", getattr(comment, "id", "unknown"))
-                    ts = datetime.now(timezone.utc).isoformat()
+    # Step 2: gather issue + review comments concurrently; commit comments awaited
+    # separately because _fetch_all_commit_comments_async never raises (errors are
+    # handled per-commit internally), so including it in the gather would produce
+    # a dead-code isinstance(_, Exception) branch.
+    _issue_task = asyncio.to_thread(fetch_pr_issue_comments, pr)
+    _review_task = asyncio.to_thread(fetch_pr_review_comments, pr)
 
-                comments_list.append({
-                    "login": login,
-                    "timestamp": ts,
-                })
-        return commenter_data, comments_list
+    _ir_results = await asyncio.gather(_issue_task, _review_task, return_exceptions=True)
 
-    commenter_user_data, comments_data = await asyncio.to_thread(
-        extract_comments_and_user_data
+    issue_comments_raw: List[Any] = []
+    if isinstance(_ir_results[0], Exception):
+        logger.warning("Could not fetch issue comments for PR #%s: %s", pr.number, _ir_results[0])
+    else:
+        issue_comments_raw = _ir_results[0]
+        logger.info(f"Fetched {len(issue_comments_raw)} issue comments for PR #{pr.number}")
+
+    review_comments_raw: List[Any] = []
+    if isinstance(_ir_results[1], Exception):
+        logger.warning("Could not fetch review comments for PR #%s: %s", pr.number, _ir_results[1])
+    else:
+        review_comments_raw = _ir_results[1]
+        logger.info(f"Fetched {len(review_comments_raw)} review comments for PR #{pr.number}")
+
+    # Commit comments: always returns a list (errors handled inside the helper).
+    commit_comments_raw = await _fetch_all_commit_comments_async()
+    logger.info(f"Fetched {len(commit_comments_raw)} commit comments for PR #{pr.number}")
+
+    # Step 3: extract comments + fetch user data.
+    # Pass 1: build comments_list and collect unique users (no API calls).
+    comments_list: List[Dict[str, Any]] = []
+    unique_users: Dict[str, Any] = {}  # login -> user object
+    for comment in issue_comments_raw + review_comments_raw + commit_comments_raw:
+        if comment.user and comment.user.login:
+            login = comment.user.login
+            if login not in unique_users:
+                unique_users[login] = comment.user
+            dt = getattr(comment, "created_at", None)
+            if dt:
+                if not dt.tzinfo:
+                    dt = dt.replace(tzinfo=timezone.utc)
+                ts = dt.isoformat()
+            else:
+                logger.warning(
+                    "Comment %s does not have a created_at timestamp. Using current timestamp.",
+                    getattr(comment, "id", "unknown"),
+                )
+                ts = datetime.now(timezone.utc).isoformat()
+            comments_list.append({"login": login, "timestamp": ts})
+
+    # Pass 2: fetch user data concurrently, reusing _sem.
+    async def _fetch_user(login: str) -> tuple[str, Any]:
+        async with _sem:
+            return login, await asyncio.to_thread(fetch_github_user, unique_users[login])
+
+    logins = list(unique_users.keys())
+    user_results = await asyncio.gather(
+        *[_fetch_user(login) for login in logins],
+        return_exceptions=True,
     )
+    commenter_user_data: Dict[str, Dict[str, Any]] = {}
+    for item in user_results:
+        if isinstance(item, Exception):
+            logger.warning("Could not fetch user data for a commenter: %s", item)
+        else:
+            _login, _data = item
+            commenter_user_data[_login] = _data
+
+    comments_data = comments_list
     logger.info(f"Total Number of commenters: {len(commenter_user_data)} for PR #{pr.number}")
     logger.info(f"Total Number of comments: {len(comments_data)} for PR #{pr.number}")
 
