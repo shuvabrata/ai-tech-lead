@@ -1,5 +1,6 @@
 """Pydantic models for Graph API v1 - Cypher query execution and graph data."""
 
+import re
 from typing import Any, Dict, List, Literal, Optional
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -194,6 +195,27 @@ class NodeExpansionRequest(BaseModel):
         default=None,
         description="List of node IDs to exclude from results (already loaded nodes)"
     )
+    
+    # Add regex validation to relationship_types to prevent Cypher injection
+    # The `/api/v1/graph/expand` endpoint takes a list of `relationship_types` and interpolates them 
+    # directly into a Cypher query string (e.g. `MATCH (m)-[r:{relationship_filter}]->(n)`). 
+    # Because these strings are not validated, an attacker can pass arbitrary Cypher strings 
+    # (like `["KNOWS]-(x) DETACH DELETE x //"]`) to execute malicious write or drop commands, 
+    # bypassing the read-only checks used elsewhere. Validating these fields to only contain safe 
+    # alphanumeric characters eliminates the injection vector.
+    @field_validator('relationship_types')
+    @classmethod
+    def validate_relationship_types(
+        cls, v: Optional[List[str]]
+    ) -> Optional[List[str]]:
+        if v is not None:
+            for rel_type in v:
+                if not re.match(r"^[A-Za-z0-9_]+$", rel_type):
+                    raise ValueError(
+                        f"Invalid relationship type: {rel_type}. "
+                        "Must be alphanumeric."
+                    )
+        return v
     
     @field_validator('direction')
     @classmethod
