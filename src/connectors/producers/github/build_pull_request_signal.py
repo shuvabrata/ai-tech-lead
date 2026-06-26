@@ -11,7 +11,6 @@ from common.activity_signal.models import (
     Relationship,
     RelationshipTarget,
 )
-from common.activity_signal.wba_node_id import wba_format
 
 from connectors.producers.github.constants import (
     _SOURCE,

@@ -1,7 +1,6 @@
-"""
-Neo4j Models and Utilities for Project Graph
-Provides dataclasses for all layers and utility functions for merging into Neo4j.
-"""
+"""Neo4j Models and Utilities for Project Graph Provides dataclasses for all
+layers and utility functions for merging into Neo4j."""
+
 from __future__ import annotations
 
 from collections import defaultdict
@@ -31,6 +30,7 @@ def _has_value(props: Dict[str, Any], key: str) -> bool:
 @dataclass
 class Person:
     """Person node in the organizational graph."""
+
     id: str
     name: Optional[str] = None
     email: Optional[str] = None
@@ -43,7 +43,7 @@ class Person:
 
     def to_neo4j_properties(self) -> Dict[str, Any]:
         return asdict(self)
-    
+
     def print_cli(self) -> None:
         """Print the Person object in an easy-to-read CLI format."""
         print(f"\n{'='*60}")
@@ -64,6 +64,7 @@ class Person:
 @dataclass
 class Team:
     """Team node in the organizational graph."""
+
     id: str
     name: Optional[str] = None
     target_size: Optional[int] = None
@@ -73,7 +74,7 @@ class Team:
 
     def to_neo4j_properties(self) -> Dict[str, Any]:
         return asdict(self)
-    
+
     def print_cli(self) -> None:
         """Print the Team object in an easy-to-read CLI format."""
         print(f"\n{'='*60}")
@@ -90,14 +91,14 @@ class Team:
 @dataclass
 class IdentityMapping:
     """Identity mapping node linking external provider identities to Person.
-    
+
     This represents an external identity (GitHub, Jira, etc.) that maps to a Person.
     Multiple IdentityMapping nodes can point to the same Person via MAPS_TO relationships.
-    
+
     Note: The 'person_id' field is NOT part of this dataclass. In batch loading scenarios
     where JSON includes person_id, that field should be extracted separately and used to
     create the MAPS_TO relationship.
-    
+
     Example:
         identity = IdentityMapping(
             id="identity_github_alice",
@@ -106,7 +107,7 @@ class IdentityMapping:
             email="alice@company.com",
             last_updated_at="2026-02-04T10:30:00Z"
         )
-        
+
         rel = Relationship(
             type="MAPS_TO",
             from_id=identity.id,
@@ -114,7 +115,7 @@ class IdentityMapping:
             from_type="IdentityMapping",
             to_type="Person"
         )
-        
+
         merge_identity_mapping(session, identity, relationships=[rel])
     """
     id: str
@@ -125,7 +126,7 @@ class IdentityMapping:
 
     def to_neo4j_properties(self) -> Dict[str, Any]:
         return asdict(self)
-    
+
     def print_cli(self) -> None:
         """Print the IdentityMapping object in an easy-to-read CLI format."""
         print(f"\n{'='*60}")
@@ -145,18 +146,19 @@ class IdentityMapping:
 @dataclass
 class Project:
     """Project node representing a Jira project."""
+
     id: str
     key: str
     name: str
     status: Optional[str] = None
     project_type: Optional[str] = None  # e.g., "software", "business"
     url: Optional[str] = None  # URL to view the project in Jira
-    
+
     def to_neo4j_properties(self) -> Dict[str, Any]:
         props = asdict(self)
         # Remove None values for cleaner storage
         return {k: v for k, v in props.items() if v is not None}
-    
+
     def print_cli(self) -> None:
         """Print the Project object in an easy-to-read CLI format."""
         print(f"\n{'='*60}")
@@ -173,13 +175,15 @@ class Project:
 
 @dataclass
 class JiraIssueBase:
-    """Base dataclass for all Jira issue types (Initiative, Epic, Story, Bug, etc).
-    
+    """Base dataclass for all Jira issue types (Initiative, Epic, Story, Bug,
+    etc).
+
     Contains common fields that all Jira issues share. Specific issue types can extend this.
-    
+
     Note: User relationship fields like 'assignee', 'reporter' are NOT part of this dataclass.
     They should be extracted separately and used to create relationships to Person nodes.
     """
+
     id: str
     key: str
     summary: str
@@ -187,19 +191,21 @@ class JiraIssueBase:
     status: str
     created_at: str              # ISO format string (YYYY-MM-DD)
     updated_at: str              # ISO format string (YYYY-MM-DD)
-    duedate: Optional[str] = None    # ISO format string (YYYY-MM-DD), can be None
+    # ISO format string (YYYY-MM-DD), can be None
+    duedate: Optional[str] = None
     project_id: Optional[str] = None  # Project ID for PART_OF relationship
     labels: Optional[List[str]] = field(default_factory=list)
     components: Optional[List[str]] = field(default_factory=list)
     url: Optional[str] = None  # URL to view the issue in Jira
-    _last_synced_at: Optional[str] = None  # ISO format datetime string - tracks last successful sync
-    
+    # ISO format datetime string - tracks last successful sync
+    _last_synced_at: Optional[str] = None
+
     def to_neo4j_properties(self) -> Dict[str, Any]:
         """Convert to Neo4j properties."""
         props = asdict(self)
         # Remove None values and empty lists for cleaner storage
         return {k: v for k, v in props.items() if v is not None and v != []}
-    
+
     def print_cli(self) -> None:
         """Print the Jira issue in an easy-to-read CLI format."""
         issue_type = self.__class__.__name__
@@ -224,13 +230,13 @@ class JiraIssueBase:
 @dataclass
 class Initiative(JiraIssueBase):
     """Initiative node representing a high-level Jira work item.
-    
+
     Extends JiraIssueBase with all common Jira fields.
-    
+
     Note: The 'assignee' and 'reporter' user objects are NOT part of this dataclass.
     They should be extracted and used to create ASSIGNED_TO and REPORTED_BY
     relationships directly to Person nodes.
-    
+
     Example:
         initiative = Initiative(
             id="initiative_init_1",
@@ -245,7 +251,7 @@ class Initiative(JiraIssueBase):
             labels=["platform", "kubernetes"],
             components=["Infrastructure"]
         )
-        
+
         # Relationships point directly to Person nodes
         assignee_rel = Relationship(
             type="ASSIGNED_TO",
@@ -261,13 +267,13 @@ class Initiative(JiraIssueBase):
 @dataclass
 class Epic:
     """Epic node representing a Jira Epic.
-    
+
     Note: The 'assignee_id', 'team_id', and 'initiative_id' fields are NOT part of this dataclass.
     They should be extracted from JSON and used to create relationships:
     - ASSIGNED_TO (undirected) - Person
     - TEAM (undirected) - Team
     - PART_OF -> Initiative
-    
+
     Example:
         epic = Epic(
             id="epic_plat_1",
@@ -275,7 +281,7 @@ class Epic:
             summary="Migrate to Kubernetes",
             ...
         )
-        
+
         # Relationships point directly to Person, Team, and Initiative nodes
         assignee_rel = Relationship(
             type="ASSIGNED_TO",
@@ -295,12 +301,13 @@ class Epic:
     created_at: str   # ISO format string (YYYY-MM-DD)
     updated_at: Optional[str] = None  # ISO format string (YYYY-MM-DD)
     url: Optional[str] = None
-    _last_synced_at: Optional[str] = None  # ISO format datetime string - tracks last successful sync
-    
+    # ISO format datetime string - tracks last successful sync
+    _last_synced_at: Optional[str] = None
+
     def to_neo4j_properties(self) -> Dict[str, Any]:
         """Convert to Neo4j properties."""
         return asdict(self)
-    
+
     def print_cli(self) -> None:
         """Print the Epic object in an easy-to-read CLI format."""
         print(f"\n{'='*60}")
@@ -321,7 +328,7 @@ class Epic:
 @dataclass
 class Issue:
     """Issue node representing a Jira work item (Story, Bug, or Task).
-    
+
     Note: The 'epic_id', 'assignee_id', 'reporter_id', and 'related_story_id' fields
     are NOT part of this dataclass. They should be extracted from JSON and used to
     create relationships:
@@ -329,7 +336,7 @@ class Issue:
     - ASSIGNED_TO (undirected) - Person
     - REPORTED_BY (undirected) - Person
     - RELATES_TO (undirected) - Issue (for bugs related to stories)
-    
+
     Example:
         issue = Issue(
             id="issue_plat_1",
@@ -338,7 +345,7 @@ class Issue:
             summary="Implement Kubernetes deployment",
             ...
         )
-        
+
         # Relationships point directly to Epic, Person nodes
         epic_rel = Relationship(
             type="PART_OF",
@@ -358,12 +365,13 @@ class Issue:
     created_at: str   # ISO format datetime string
     updated_at: Optional[str] = None  # ISO format datetime string
     url: Optional[str] = None
-    _last_synced_at: Optional[str] = None  # ISO format datetime string - tracks last successful sync
-    
+    # ISO format datetime string - tracks last successful sync
+    _last_synced_at: Optional[str] = None
+
     def to_neo4j_properties(self) -> Dict[str, Any]:
         """Convert to Neo4j properties."""
         return asdict(self)
-    
+
     def print_cli(self) -> None:
         """Print the Issue object in an easy-to-read CLI format."""
         print(f"\n{'='*60}")
@@ -383,7 +391,7 @@ class Issue:
 @dataclass
 class Sprint:
     """Sprint node representing a time-boxed iteration.
-    
+
     Example:
         sprint = Sprint(
             id="sprint_1",
@@ -401,18 +409,19 @@ class Sprint:
     end_date: str     # ISO format string (YYYY-MM-DD)
     status: str
     url: Optional[str] = None
-    
+
     def to_neo4j_properties(self) -> Dict[str, Any]:
         """Convert to Neo4j properties."""
         return asdict(self)
-    
+
     def print_cli(self) -> None:
         """Print the Sprint object in an easy-to-read CLI format."""
         print(f"\n{'='*60}")
         print(f"SPRINT: {self.name}")
         print(f"{'='*60}")
         print(f"  ID:         {self.id}")
-        print(f"  Goal:       {self.goal[:50]}..." if len(self.goal) > 50 else f"  Goal:       {self.goal}")
+        print(f"  Goal:       {self.goal[:50]}..." if len(
+            self.goal) > 50 else f"  Goal:       {self.goal}")
         print(f"  Start Date: {self.start_date}")
         print(f"  End Date:   {self.end_date}")
         print(f"  Status:     {self.status}")
@@ -424,10 +433,10 @@ class Sprint:
 @dataclass
 class Repository:
     """Repository node representing a Git repository.
-    
+
     Note: Relationships (COLLABORATOR from Team/Person) are handled separately
     and may include properties like permission, granted_at, role.
-    
+
     Example:
         repository = Repository(
             id="repo_api_gateway",
@@ -439,7 +448,7 @@ class Repository:
             created_at="2023-11-10",
             _last_synced_at="2026-02-04T10:30:00Z"
         )
-        
+
         # COLLABORATOR relationships with properties
         collab_rel = Relationship(
             type="COLLABORATOR",
@@ -457,12 +466,13 @@ class Repository:
     is_private: bool
     topics: List[str]      # List of topic strings
     created_at: str  # ISO format string (YYYY-MM-DD)
-    _last_synced_at: Optional[str] = None  # ISO format datetime string - tracks last successful sync
-    
+    # ISO format datetime string - tracks last successful sync
+    _last_synced_at: Optional[str] = None
+
     def to_neo4j_properties(self) -> Dict[str, Any]:
         """Convert to Neo4j properties."""
         return asdict(self)
-    
+
     def print_cli(self) -> None:
         """Print the Repository object in an easy-to-read CLI format."""
         print(f"\n{'='*60}")
@@ -472,7 +482,8 @@ class Repository:
         print(f"  URL:         {self.url}")
         print(f"  Language:    {self.language}")
         print(f"  Is Private:  {self.is_private}")
-        print(f"  Topics:      {', '.join(self.topics) if self.topics else 'None'}")
+        print(
+            f"  Topics:      {', '.join(self.topics) if self.topics else 'None'}")
         print(f"  Created At:  {self.created_at}")
         print(f"{'='*60}\n")
 
@@ -480,7 +491,7 @@ class Repository:
 @dataclass
 class Commit:
     """Commit node representing a Git commit.
-    
+
     Example:
         commit = Commit(
             id="commit_1",
@@ -491,7 +502,7 @@ class Commit:
             deletions=12,
             files_changed=3
         )
-        
+
         # Relationships
         part_of_rel = Relationship(
             type="PART_OF",
@@ -500,7 +511,7 @@ class Commit:
             from_type="Commit",
             to_type="Branch"
         )
-        
+
         authored_by_rel = Relationship(
             type="AUTHORED_BY",
             from_id=commit.id,
@@ -508,7 +519,7 @@ class Commit:
             from_type="Commit",
             to_type="Person"
         )
-        
+
         modifies_rel = Relationship(
             type="MODIFIES",
             from_id=commit.id,
@@ -526,18 +537,20 @@ class Commit:
     deletions: int
     files_changed: int
     url: Optional[str] = None  # GitHub URL to view commit in browser
-    
+
     def to_neo4j_properties(self) -> Dict[str, Any]:
         """Convert to Neo4j properties."""
         return asdict(self)
-    
+
     def print_cli(self) -> None:
         """Print the Commit object in an easy-to-read CLI format."""
         print(f"\n{'='*60}")
-        print(f"COMMIT: {self.message[:40]}..." if len(self.message) > 40 else f"COMMIT: {self.message}")
+        print(f"COMMIT: {self.message[:40]}..." if len(
+            self.message) > 40 else f"COMMIT: {self.message}")
         print(f"{'='*60}")
         print(f"  ID:            {self.id}")
-        print(f"  SHA:           {self.sha[:10]}..." if len(self.sha) > 10 else f"  SHA:           {self.sha}")
+        print(f"  SHA:           {self.sha[:10]}..." if len(
+            self.sha) > 10 else f"  SHA:           {self.sha}")
         print(f"  Created At:    {self.created_at}")
         print(f"  Additions:     {self.additions}")
         print(f"  Deletions:     {self.deletions}")
@@ -599,7 +612,7 @@ class File:
 @dataclass
 class PullRequest:
     """PullRequest node representing a GitHub/GitLab pull/merge request.
-    
+
     Example:
         pr = PullRequest(
             id="pr_repo_1",
@@ -622,7 +635,7 @@ class PullRequest:
             mergeable_state="clean",
             url="https://github.com/owner/repo/pull/42"
         )
-        
+
         # Relationships
         created_by_rel = Relationship(
             type="CREATED_BY",
@@ -631,7 +644,7 @@ class PullRequest:
             from_type="PullRequest",
             to_type="Person"
         )
-        
+
         reviewed_by_rel = Relationship(
             type="REVIEWED_BY",
             from_id=pr.id,
@@ -660,11 +673,11 @@ class PullRequest:
     labels: List[str]   # List of label strings
     mergeable_state: str
     url: Optional[str] = None  # GitHub URL to view PR in browser
-    
+
     def to_neo4j_properties(self) -> Dict[str, Any]:
         """Convert to Neo4j properties."""
         return asdict(self)
-    
+
     def print_cli(self) -> None:
         """Print the PullRequest object in an easy-to-read CLI format."""
         print(f"\n{'='*60}")
@@ -676,15 +689,17 @@ class PullRequest:
         print(f"  Updated At:       {self.updated_at}")
         print(f"  Merged At:        {self.merged_at or 'N/A'}")
         print(f"  Closed At:        {self.closed_at or 'N/A'}")
-        print(f"  Branches:         {self.head_branch_name} → {self.base_branch_name}")
+        print(
+            f"  Branches:         {self.head_branch_name} → {self.base_branch_name}")
         print(f"  Commits:          {self.commits_count}")
-        print(f"  Changes:          +{self.additions} -{self.deletions} ({self.changed_files} files)")
-        print(f"  Comments:         {self.comments} ({self.review_comments} in review)")
-        print(f"  Labels:           {', '.join(self.labels) if self.labels else 'None'}")
+        print(
+            f"  Changes:          +{self.additions} -{self.deletions} ({self.changed_files} files)")
+        print(
+            f"  Comments:         {self.comments} ({self.review_comments} in review)")
+        print(
+            f"  Labels:           {', '.join(self.labels) if self.labels else 'None'}")
         print(f"  Mergeable State:  {self.mergeable_state}")
         print(f"{'='*60}\n")
-
-
 # ============================================================================
 # LAYER 9: Confluence
 # ============================================================================
@@ -692,17 +707,18 @@ class PullRequest:
 @dataclass
 class Space:
     """Space node representing a Confluence Space."""
+
     id: str
     key: str
     name: str
     type: Optional[str] = None
     url: Optional[str] = None
     _last_synced_at: Optional[str] = None
-    
+
     def to_neo4j_properties(self) -> Dict[str, Any]:
         """Convert to Neo4j properties."""
         return {k: v for k, v in asdict(self).items() if v is not None}
-    
+
     def print_cli(self) -> None:
         """Print the Space object in an easy-to-read CLI format."""
         print(f"\n{'='*60}")
@@ -713,11 +729,10 @@ class Space:
         print(f"  Type:        {self.type}")
         print(f"  URL:         {self.url}")
         print(f"{'='*60}\n")
-
-
 @dataclass
 class Page:
     """Page node representing a Confluence Page."""
+
     id: str
     title: str
     created_at: str
@@ -726,7 +741,7 @@ class Page:
     version: Optional[int] = None
     status: Optional[str] = None
     _last_synced_at: Optional[str] = None
-    
+
     def to_neo4j_properties(self) -> Dict[str, Any]:
         """Convert to Neo4j properties."""
         return {k: v for k, v in asdict(self).items() if v is not None}
@@ -742,11 +757,10 @@ class Page:
         print(f"  Version:         {self.version}")
         print(f"  Status:          {self.status}")
         print(f"{'='*60}\n")
-
-
 @dataclass
 class Blogpost:
     """Blogpost node representing a Confluence Blogpost."""
+
     id: str
     title: str
     created_at: str
@@ -755,7 +769,7 @@ class Blogpost:
     version: Optional[int] = None
     status: Optional[str] = None
     _last_synced_at: Optional[str] = None
-    
+
     def to_neo4j_properties(self) -> Dict[str, Any]:
         """Convert to Neo4j properties."""
         return {k: v for k, v in asdict(self).items() if v is not None}
@@ -769,8 +783,6 @@ class Blogpost:
         print(f"  Created At:      {self.created_at}")
         print(f"  Last Updated At: {self.last_updated_at}")
         print(f"{'='*60}\n")
-
-
 # ============================================================================
 # RELATIONSHIP DATACLASS
 # ============================================================================
@@ -778,6 +790,7 @@ class Blogpost:
 @dataclass
 class Relationship:
     """Represents a relationship between two nodes."""
+
     type: str
     from_id: str
     to_id: str
@@ -785,7 +798,7 @@ class Relationship:
     to_type: str
     properties: Dict[str, Any] = field(default_factory=dict)
     _display_in_graph: bool = field(default=True)
-    
+
     def print_cli(self) -> None:
         """Print the Relationship object in an easy-to-read CLI format."""
         print(f"\n{'='*60}")
@@ -794,7 +807,7 @@ class Relationship:
         print(f"  From: ({self.from_type}) {self.from_id}")
         print(f"  To:   ({self.to_type}) {self.to_id}")
         if self.properties:
-            print(f"  Properties:")
+            print("  Properties:")
             for key, value in self.properties.items():
                 print(f"    - {key}: {value}")
         print(f"{'='*60}\n")
@@ -809,22 +822,22 @@ UNDIRECTED_RELATIONSHIPS = {
     # Layer 1
     "MEMBER_OF",        # Person ↔ Team
     "MAPS_TO",          # IdentityMapping ↔ Person
-    
+
     # Layer 2
     "ASSIGNED_TO",      # Initiative ↔ Person
     "REPORTED_BY",      # Initiative ↔ Person
-    
+
     # Layer 3
     "TEAM",             # Epic ↔ Team
-    
+
     # Layer 4
     "RELATES_TO",       # Issue ↔ Issue (symmetric)
-    
+
     # Layer 5
     "COLLABORATOR",     # Team/Person ↔ Repository
-    
+
     # Layer 6
-    
+
     # Layer 7
     "AUTHORED_BY",      # Commit ↔ Person
 }
@@ -832,38 +845,56 @@ UNDIRECTED_RELATIONSHIPS = {
 # Directional relationships that should create explicit reverse edges.
 DIRECTIONAL_RELATIONSHIPS = {
     # Layer 1
-    "REPORTS_TO": "MANAGES",        # Person → Person (reports to) / Person → Person (manages)
-    "MANAGES": "MANAGED_BY",        # Person → Team (manages) / Team → Person (managed by)
-    
+    # Person → Person (reports to) / Person → Person (manages)
+    "REPORTS_TO": "MANAGES",
+    # Person → Team (manages) / Team → Person (managed by)
+    "MANAGES": "MANAGED_BY",
+
     # Layer 2
     "PART_OF": "CONTAINS",          # Initiative → Project / Project → Initiative
-    
+
     # Layer 4
     "IN_SPRINT": "CONTAINS",        # Issue → Sprint / Sprint → Issue
-    "BLOCKS": "BLOCKED_BY",         # Issue → Issue (blocks) / Issue → Issue (blocked by)
-    "DEPENDS_ON": "DEPENDENCY_OF",  # Issue → Issue (depends on) / Issue → Issue (dependency of)
-    
+    # Issue → Issue (blocks) / Issue → Issue (blocked by)
+    "BLOCKS": "BLOCKED_BY",
+    # Issue → Issue (depends on) / Issue → Issue (dependency of)
+    "DEPENDS_ON": "DEPENDENCY_OF",
+
     # Layer 7
-    "MODIFIES": "MODIFIED_BY",      # Commit → File (modifies) / File → Commit (modified by) - with properties
-    "REFERENCES": "REFERENCED_BY",  # Commit → Issue (references) / Issue → Commit (referenced by)
-    
+    # Commit → File (modifies) / File → Commit (modified by) - with properties
+    "MODIFIES": "MODIFIED_BY",
+    # Commit → Issue (references) / Issue → Commit (referenced by)
+    "REFERENCES": "REFERENCED_BY",
+
     # Layer 8
-    "INCLUDES": "INCLUDED_IN",      # PullRequest → Commit (includes) / Commit → PullRequest (included in)
-    "TARGETS": "TARGETED_BY",       # PullRequest → Branch (targets) / Branch → PullRequest (targeted by)
-    "CREATED_BY": "CREATED",        # PullRequest → Person (created by) / Person → PullRequest (created)
-    "REVIEWED_BY": "REVIEWED",      # PullRequest → Person (reviewed by) / Person → PullRequest (reviewed) - with state property
-    "REQUESTED_REVIEWER": "REVIEW_REQUESTED_BY",  # PullRequest → Person / Person → PullRequest
-    "MERGED_BY": "MERGED",          # PullRequest → Person (merged by) / Person → PullRequest (merged)
-    
+    # PullRequest → Commit (includes) / Commit → PullRequest (included in)
+    "INCLUDES": "INCLUDED_IN",
+    # PullRequest → Branch (targets) / Branch → PullRequest (targeted by)
+    "TARGETS": "TARGETED_BY",
+    # PullRequest → Person (created by) / Person → PullRequest (created)
+    "CREATED_BY": "CREATED",
+    # PullRequest → Person (reviewed by) / Person → PullRequest (reviewed) - with state property
+    "REVIEWED_BY": "REVIEWED",
+    # PullRequest → Person / Person → PullRequest
+    "REQUESTED_REVIEWER": "REVIEW_REQUESTED_BY",
+    # PullRequest → Person (merged by) / Person → PullRequest (merged)
+    "MERGED_BY": "MERGED",
+
     # Layer 9 (Confluence)
-    "CHILD_OF": "PARENT_OF",        # Page → Page (child of) / Page → Page (parent of)
-    "IN_SPACE": "CONTAINS",         # Page → Space (in space) / Space → Page (contains)
-    "MENTIONS": "MENTIONED_IN",     # Content → Person (mentions) / Person → Content (mentioned in)
-    "MODIFIED": "MODIFIED_BY",      # Person → Content (modified) / Content → Person (modified by)
+    # Page → Page (child of) / Page → Page (parent of)
+    "CHILD_OF": "PARENT_OF",
+    # Page → Space (in space) / Space → Page (contains)
+    "IN_SPACE": "CONTAINS",
+    # Content → Person (mentions) / Person → Content (mentioned in)
+    "MENTIONS": "MENTIONED_IN",
+    # Person → Content (modified) / Content → Person (modified by)
+    "MODIFIED": "MODIFIED_BY",
 
     # Cross-Platform Interactions
-    "COMMENTED_ON": "COMMENTED_BY", # Person → Page/PR (commented on) / Page/PR → Person (commented by)
-    "REACTED_TO": "REACTED_BY",     # Person → Page/PR (reacted to) / Page/PR → Person (reacted by)
+    # Person → Page/PR (commented on) / Page/PR → Person (commented by)
+    "COMMENTED_ON": "COMMENTED_BY",
+    # Person → Page/PR (reacted to) / Page/PR → Person (reacted by)
+    "REACTED_TO": "REACTED_BY",
 }
 
 
@@ -873,7 +904,7 @@ DIRECTIONAL_RELATIONSHIPS = {
 
 def create_constraints(session: Session, layers: Optional[List[int]] = None) -> None:
     """Create uniqueness constraints for node types.
-    
+
     Args:
         session: Neo4j session
         layers: Optional list of layer numbers to create constraints for.
@@ -916,7 +947,7 @@ def create_constraints(session: Session, layers: Optional[List[int]] = None) -> 
             "CREATE INDEX blogpost_last_updated_at IF NOT EXISTS FOR (b:Blogpost) ON (b.last_updated_at)",
         ]
     }
-    
+
     # Determine which constraints to create
     constraints: List[str] = []
     if layers is None:
@@ -935,16 +966,15 @@ def create_constraints(session: Session, layers: Optional[List[int]] = None) -> 
 # ============================================================================
 
 def merge_person(session: Session, person: Person, relationships: Optional[List[Relationship]] = None) -> None:
-    """
-    Merge a Person node into Neo4j.
-    
+    """Merge a Person node into Neo4j.
+
     Args:
         session: Neo4j session
         person: Person dataclass instance
         relationships: Optional list of relationships to create
     """
     props = person.to_neo4j_properties()
-    
+
     # MERGE the Person node
     # Build SET clause dynamically for optional fields (additive updates only)
     set_clauses = []
@@ -958,17 +988,17 @@ def merge_person(session: Session, person: Person, relationships: Optional[List[
         set_clauses.append("p.seniority = $seniority")
     if _has_value(props, 'is_manager'):
         set_clauses.append("p.is_manager = $is_manager")
-    
+
     # Email can be NULL (for users without email) - UNIQUE constraint allows multiple NULLs
     if _has_value(props, 'email'):
         set_clauses.append("p.email = $email")
-    
+
     # Only set hire_date if not empty
     if _has_value(props, 'hire_date'):
         set_clauses.append("p.hire_date = date($hire_date)")
     if _has_value(props, 'url'):
         set_clauses.append("p.url = $url")
-    
+
     if set_clauses:
         query = f"""
         MERGE (p:Person {{id: $id}})
@@ -980,9 +1010,9 @@ def merge_person(session: Session, person: Person, relationships: Optional[List[
         MERGE (p:Person {id: $id})
         RETURN p
         """
-    
+
     session.run(query, **props)
-    
+
     # Create relationships if provided
     if relationships:
         for rel in relationships:
@@ -990,20 +1020,19 @@ def merge_person(session: Session, person: Person, relationships: Optional[List[
 
 
 def merge_team(session: Session, team: Team, relationships: Optional[List[Relationship]] = None) -> None:
-    """
-    Merge a Team node into Neo4j.
-    
+    """Merge a Team node into Neo4j.
+
     This function updates existing Team nodes (including stubs created from Jira references)
     with complete GitHub data. Stub teams created with source='jira_reference' will be
     enriched with full properties when GitHub data loads.
-    
+
     Args:
         session: Neo4j session
         team: Team dataclass instance
         relationships: Optional list of relationships to create
     """
     props = team.to_neo4j_properties()
-    
+
     # Build SET clause dynamically based on available properties (additive updates only)
     set_clauses = []
     if _has_value(props, 'name'):
@@ -1012,13 +1041,13 @@ def merge_team(session: Session, team: Team, relationships: Optional[List[Relati
         set_clauses.append("t.target_size = $target_size")
     # Mark as enriched by GitHub (overwrites 'jira_reference' if it was a stub)
     set_clauses.append("t.source = 'github'")
-    
+
     # Only set created_at if it's not empty
     if _has_value(props, 'created_at'):
         set_clauses.append("t.created_at = date($created_at)")
     if _has_value(props, 'url'):
         set_clauses.append("t.url = $url")
-    
+
     # MERGE the Team node
     if set_clauses:
         query = f"""
@@ -1031,9 +1060,9 @@ def merge_team(session: Session, team: Team, relationships: Optional[List[Relati
         MERGE (t:Team {id: $id})
         RETURN t
         """
-    
+
     session.run(query, **props)
-    
+
     # Create relationships if provided
     if relationships:
         for rel in relationships:
@@ -1041,16 +1070,15 @@ def merge_team(session: Session, team: Team, relationships: Optional[List[Relati
 
 
 def merge_identity_mapping(session: Session, identity: IdentityMapping, relationships: Optional[List[Relationship]] = None) -> None:
-    """
-    Merge an IdentityMapping node into Neo4j.
-    
+    """Merge an IdentityMapping node into Neo4j.
+
     Args:
         session: Neo4j session
         identity: IdentityMapping dataclass instance
         relationships: Optional list of relationships to create
     """
     props = identity.to_neo4j_properties()
-    
+
     # Build SET clause dynamically based on available properties (additive updates only)
     set_clauses = []
     if _has_value(props, 'provider'):
@@ -1059,11 +1087,11 @@ def merge_identity_mapping(session: Session, identity: IdentityMapping, relation
         set_clauses.append("i.username = $username")
     if _has_value(props, 'email'):
         set_clauses.append("i.email = $email")
-    
+
     # Only set last_updated_at if provided
     if _has_value(props, 'last_updated_at'):
         set_clauses.append("i.last_updated_at = datetime($last_updated_at)")
-    
+
     # MERGE the IdentityMapping node
     if set_clauses:
         query = f"""
@@ -1076,9 +1104,9 @@ def merge_identity_mapping(session: Session, identity: IdentityMapping, relation
         MERGE (i:IdentityMapping {id: $id})
         RETURN i
         """
-    
+
     session.run(query, **props)
-    
+
     # Create relationships if provided
     if relationships:
         for rel in relationships:
@@ -1090,16 +1118,15 @@ def merge_identity_mapping(session: Session, identity: IdentityMapping, relation
 # ============================================================================
 
 def merge_project(session: Session, project: Project, relationships: Optional[List[Relationship]] = None) -> None:
-    """
-    Merge a Project node into Neo4j.
-    
+    """Merge a Project node into Neo4j.
+
     Args:
         session: Neo4j session
         project: Project dataclass instance
         relationships: Optional list of relationships to create
     """
     props = project.to_neo4j_properties()
-    
+
     # Build SET clause dynamically based on available properties (additive updates only)
     set_clauses = []
     if _has_value(props, 'key'):
@@ -1112,7 +1139,7 @@ def merge_project(session: Session, project: Project, relationships: Optional[Li
         set_clauses.append("p.project_type = $project_type")
     if _has_value(props, 'url'):
         set_clauses.append("p.url = $url")
-    
+
     # MERGE the Project node
     if set_clauses:
         query = f"""
@@ -1125,9 +1152,9 @@ def merge_project(session: Session, project: Project, relationships: Optional[Li
         MERGE (p:Project {id: $id})
         RETURN p
         """
-    
+
     session.run(query, **props)
-    
+
     # Create relationships if provided
     if relationships:
         for rel in relationships:
@@ -1135,16 +1162,15 @@ def merge_project(session: Session, project: Project, relationships: Optional[Li
 
 
 def merge_initiative(session: Session, initiative: Initiative, relationships: Optional[List[Relationship]] = None) -> None:
-    """
-    Merge an Initiative node into Neo4j.
-    
+    """Merge an Initiative node into Neo4j.
+
     Args:
         session: Neo4j session
         initiative: Initiative dataclass instance (extends JiraIssueBase)
         relationships: Optional list of relationships to create
     """
     props = initiative.to_neo4j_properties()
-    
+
     # Build SET clause dynamically based on available properties (additive updates only)
     set_clauses = []
     if _has_value(props, 'key'):
@@ -1155,7 +1181,7 @@ def merge_initiative(session: Session, initiative: Initiative, relationships: Op
         set_clauses.append("i.priority = $priority")
     if _has_value(props, 'status'):
         set_clauses.append("i.status = $status")
-    
+
     # Only set date fields if they are not empty strings
     if _has_value(props, 'created_at'):
         set_clauses.append("i.created_at = date($created_at)")
@@ -1174,7 +1200,7 @@ def merge_initiative(session: Session, initiative: Initiative, relationships: Op
     # Only set _last_synced_at if provided (for incremental sync tracking)
     if _has_value(props, '_last_synced_at'):
         set_clauses.append("i._last_synced_at = datetime($_last_synced_at)")
-    
+
     # MERGE the Initiative node
     if set_clauses:
         query = f"""
@@ -1187,9 +1213,9 @@ def merge_initiative(session: Session, initiative: Initiative, relationships: Op
         MERGE (i:Initiative {id: $id})
         RETURN i
         """
-    
+
     session.run(query, **props)
-    
+
     # Create relationships if provided
     if relationships:
         for rel in relationships:
@@ -1197,16 +1223,15 @@ def merge_initiative(session: Session, initiative: Initiative, relationships: Op
 
 
 def merge_epic(session: Session, epic: Epic, relationships: Optional[List[Relationship]] = None) -> None:
-    """
-    Merge an Epic node into Neo4j.
-    
+    """Merge an Epic node into Neo4j.
+
     Args:
         session: Neo4j session
         epic: Epic dataclass instance
         relationships: Optional list of relationships to create
     """
     props = epic.to_neo4j_properties()
-    
+
     # Build SET clause dynamically based on available properties (additive updates only)
     set_clauses = []
     if _has_value(props, 'key'):
@@ -1217,7 +1242,7 @@ def merge_epic(session: Session, epic: Epic, relationships: Optional[List[Relati
         set_clauses.append("e.priority = $priority")
     if _has_value(props, 'status'):
         set_clauses.append("e.status = $status")
-    
+
     # Only set date fields if they are not empty strings
     if _has_value(props, 'start_date'):
         set_clauses.append("e.start_date = date($start_date)")
@@ -1232,7 +1257,7 @@ def merge_epic(session: Session, epic: Epic, relationships: Optional[List[Relati
     # Only set _last_synced_at if provided (for incremental sync tracking)
     if _has_value(props, '_last_synced_at'):
         set_clauses.append("e._last_synced_at = datetime($_last_synced_at)")
-    
+
     # MERGE the Epic node
     if set_clauses:
         query = f"""
@@ -1245,9 +1270,9 @@ def merge_epic(session: Session, epic: Epic, relationships: Optional[List[Relati
         MERGE (e:Epic {id: $id})
         RETURN e
         """
-    
+
     session.run(query, **props)
-    
+
     # Create relationships if provided
     if relationships:
         for rel in relationships:
@@ -1255,20 +1280,19 @@ def merge_epic(session: Session, epic: Epic, relationships: Optional[List[Relati
 
 
 def merge_issue(session: Session, issue: Issue, relationships: Optional[List[Relationship]] = None) -> None:
-    """
-    Merge an Issue node into Neo4j.
-    
+    """Merge an Issue node into Neo4j.
+
     This function updates existing Issue nodes (including stubs created from GitHub references)
     with complete Jira data. Stub issues created with source='github_reference' will be
     enriched with full properties when Jira data loads.
-    
+
     Args:
         session: Neo4j session
         issue: Issue dataclass instance
         relationships: Optional list of relationships to create
     """
     props = issue.to_neo4j_properties()
-    
+
     # Build SET clause dynamically based on available properties (additive updates only)
     set_clauses = []
     if _has_value(props, 'key'):
@@ -1285,7 +1309,7 @@ def merge_issue(session: Session, issue: Issue, relationships: Optional[List[Rel
         set_clauses.append("i.story_points = $story_points")
     # Mark as enriched by Jira (overwrites 'github_reference' if it was a stub)
     set_clauses.append("i.source = 'jira'")
-    
+
     # Only set created_at/updated_at if it's not empty
     if _has_value(props, 'created_at'):
         set_clauses.append("i.created_at = datetime($created_at)")
@@ -1296,7 +1320,7 @@ def merge_issue(session: Session, issue: Issue, relationships: Optional[List[Rel
     # Only set _last_synced_at if provided (for incremental sync tracking)
     if _has_value(props, '_last_synced_at'):
         set_clauses.append("i._last_synced_at = datetime($_last_synced_at)")
-    
+
     # MERGE the Issue node
     if set_clauses:
         query = f"""
@@ -1309,9 +1333,9 @@ def merge_issue(session: Session, issue: Issue, relationships: Optional[List[Rel
         MERGE (i:Issue {id: $id})
         RETURN i
         """
-    
+
     session.run(query, **props)
-    
+
     # Create relationships if provided
     if relationships:
         for rel in relationships:
@@ -1319,16 +1343,15 @@ def merge_issue(session: Session, issue: Issue, relationships: Optional[List[Rel
 
 
 def merge_sprint(session: Session, sprint: Sprint, relationships: Optional[List[Relationship]] = None) -> None:
-    """
-    Merge a Sprint node into Neo4j.
-    
+    """Merge a Sprint node into Neo4j.
+
     Args:
         session: Neo4j session
         sprint: Sprint dataclass instance
         relationships: Optional list of relationships to create
     """
     props = sprint.to_neo4j_properties()
-    
+
     # Build SET clause dynamically based on available properties (additive updates only)
     set_clauses = []
     if _has_value(props, 'name'):
@@ -1337,7 +1360,7 @@ def merge_sprint(session: Session, sprint: Sprint, relationships: Optional[List[
         set_clauses.append("s.goal = $goal")
     if _has_value(props, 'status'):
         set_clauses.append("s.status = $status")
-    
+
     # Only set date fields if they are not empty strings
     if _has_value(props, 'start_date'):
         set_clauses.append("s.start_date = date($start_date)")
@@ -1345,7 +1368,7 @@ def merge_sprint(session: Session, sprint: Sprint, relationships: Optional[List[
         set_clauses.append("s.end_date = date($end_date)")
     if _has_value(props, 'url'):
         set_clauses.append("s.url = $url")
-    
+
     # MERGE the Sprint node
     if set_clauses:
         query = f"""
@@ -1358,9 +1381,9 @@ def merge_sprint(session: Session, sprint: Sprint, relationships: Optional[List[
         MERGE (s:Sprint {id: $id})
         RETURN s
         """
-    
+
     session.run(query, **props)
-    
+
     # Create relationships if provided
     if relationships:
         for rel in relationships:
@@ -1372,16 +1395,15 @@ def merge_sprint(session: Session, sprint: Sprint, relationships: Optional[List[
 # ============================================================================
 
 def merge_repository(session: Session, repository: Repository, relationships: Optional[List[Relationship]] = None) -> None:
-    """
-    Merge a Repository node into Neo4j.
-    
+    """Merge a Repository node into Neo4j.
+
     Args:
         session: Neo4j session
         repository: Repository dataclass instance
         relationships: Optional list of relationships to create
     """
     props = repository.to_neo4j_properties()
-    
+
     # Build SET clause dynamically based on available properties (additive updates only)
     set_clauses = []
     if _has_value(props, 'name'):
@@ -1396,11 +1418,11 @@ def merge_repository(session: Session, repository: Repository, relationships: Op
         set_clauses.append("r.is_private = $is_private")
     if _has_value(props, 'topics'):
         set_clauses.append("r.topics = $topics")
-    
+
     # Only set _last_synced_at if provided (for incremental sync tracking)
     if _has_value(props, '_last_synced_at'):
         set_clauses.append("r._last_synced_at = datetime($_last_synced_at)")
-    
+
     # MERGE the Repository node
     if set_clauses:
         query = f"""
@@ -1413,9 +1435,9 @@ def merge_repository(session: Session, repository: Repository, relationships: Op
         MERGE (r:Repository {id: $id})
         RETURN r
         """
-    
+
     session.run(query, **props)
-    
+
     # Create relationships if provided
     if relationships:
         for rel in relationships:
@@ -1427,16 +1449,15 @@ def merge_repository(session: Session, repository: Repository, relationships: Op
 # ============================================================================
 
 def merge_commit(session: Session, commit: Commit, relationships: Optional[List[Relationship]] = None) -> None:
-    """
-    Merge a Commit node into Neo4j.
-    
+    """Merge a Commit node into Neo4j.
+
     Args:
         session: Neo4j session
         commit: Commit dataclass instance
         relationships: Optional list of relationships to create
     """
     props = commit.to_neo4j_properties()
-    
+
     # Build SET clause dynamically based on available properties (additive updates only)
     set_clauses = []
     if _has_value(props, 'sha'):
@@ -1451,10 +1472,10 @@ def merge_commit(session: Session, commit: Commit, relationships: Optional[List[
         set_clauses.append("c.deletions = $deletions")
     if _has_value(props, 'files_changed'):
         set_clauses.append("c.files_changed = $files_changed")
-    
+
     if _has_value(props, 'url'):
         set_clauses.append("c.url = $url")
-    
+
     # MERGE the Commit node
     if set_clauses:
         query = f"""
@@ -1467,9 +1488,9 @@ def merge_commit(session: Session, commit: Commit, relationships: Optional[List[
         MERGE (c:Commit {id: $id})
         RETURN c
         """
-    
+
     session.run(query, **props)
-    
+
     # Create relationships if provided
     if relationships:
         for rel in relationships:
@@ -1477,8 +1498,7 @@ def merge_commit(session: Session, commit: Commit, relationships: Optional[List[
 
 
 def merge_file(session: Session, file: File, relationships: Optional[List[Relationship]] = None) -> None:
-    """
-    Merge a File node into Neo4j.
+    """Merge a File node into Neo4j.
 
     Uses ``SET n += $props`` for additive updates and ``REMOVE f.stub`` to
     clear the stub flag when a full signal arrives for a previously-stubbed node.
@@ -1490,11 +1510,8 @@ def merge_file(session: Session, file: File, relationships: Optional[List[Relati
     """
     props = file.to_neo4j_properties()
     session.run(
-        """
-        MERGE (f:File {id: $id})
-        SET f += $props
-        REMOVE f.stub
-        """,
+        """MERGE (f:File {id: $id}) SET f += $props REMOVE f.stub."""
+           ,
         id=file.id,
         props=props,
     )
@@ -1508,16 +1525,15 @@ def merge_file(session: Session, file: File, relationships: Optional[List[Relati
 # ============================================================================
 
 def merge_pull_request(session: Session, pull_request: PullRequest, relationships: Optional[List[Relationship]] = None) -> None:
-    """
-    Merge a PullRequest node into Neo4j.
-    
+    """Merge a PullRequest node into Neo4j.
+
     Args:
         session: Neo4j session
         pull_request: PullRequest dataclass instance
         relationships: Optional list of relationships to create
     """
     props = pull_request.to_neo4j_properties()
-    
+
     # Build SET clause dynamically based on available properties (additive updates only)
     set_clauses = []
     if _has_value(props, 'number'):
@@ -1556,7 +1572,7 @@ def merge_pull_request(session: Session, pull_request: PullRequest, relationship
         set_clauses.append("pr.mergeable_state = $mergeable_state")
     if _has_value(props, 'url'):
         set_clauses.append("pr.url = $url")
-    
+
     # MERGE the PullRequest node
     if set_clauses:
         query = f"""
@@ -1569,14 +1585,17 @@ def merge_pull_request(session: Session, pull_request: PullRequest, relationship
         MERGE (pr:PullRequest {id: $id})
         RETURN pr
         """
-    
+
     session.run(query, **props)
-    
+
     # Create relationships if provided
     if relationships:
-        interaction_rels = [r for r in relationships if r.type in ("COMMENTED_ON", "REACTED_TO")]
-        other_rels = [r for r in relationships if r.type not in ("COMMENTED_ON", "REACTED_TO")]
-        replace_snapshot_interaction_relationships(session, pull_request.id, "PullRequest", interaction_rels)
+        interaction_rels = [r for r in relationships if r.type in (
+            "COMMENTED_ON", "REACTED_TO")]
+        other_rels = [r for r in relationships if r.type not in (
+            "COMMENTED_ON", "REACTED_TO")]
+        replace_snapshot_interaction_relationships(
+            session, pull_request.id, "PullRequest", interaction_rels)
         for rel in other_rels:
             merge_relationship(session, rel)
 
@@ -1586,10 +1605,10 @@ def merge_pull_request(session: Session, pull_request: PullRequest, relationship
 # ============================================================================
 
 def merge_relationship(session: Session, relationship: Relationship) -> None:
-    """
-    Merge a relationship between two nodes, creating nodes if they don't exist.
-    Automatically creates reverse edges for directional relationship pairs.
-    
+    """Merge a relationship between two nodes, creating nodes if they don't
+    exist. Automatically creates reverse edges for directional relationship
+    pairs.
+
     Args:
         session: Neo4j session
         relationship: Relationship dataclass instance
@@ -1600,13 +1619,13 @@ def merge_relationship(session: Session, relationship: Relationship) -> None:
     from_type = relationship.from_type
     to_type = relationship.to_type
     props = relationship.properties
-    
+
     # Build property string for Cypher
     props_str = ""
     if props:
         props_items = [f"{k}: ${k}" for k in props.keys()]
         props_str = "{" + ", ".join(props_items) + "}"
-    
+
     # Create the forward relationship
     forward_query = f"""
     MERGE (from:{from_type} {{id: $from_id}})
@@ -1615,16 +1634,16 @@ def merge_relationship(session: Session, relationship: Relationship) -> None:
     SET r._display_in_graph = $_display_in_graph
     RETURN r
     """
-    
+
     params = {
         "from_id": from_id,
         "to_id": to_id,
         **props,
         "_display_in_graph": relationship._display_in_graph,
     }
-    
+
     session.run(forward_query, **params)
-    
+
     # Create the reverse relationship for directional pairs only
     if rel_type in DIRECTIONAL_RELATIONSHIPS:
         reverse_type = DIRECTIONAL_RELATIONSHIPS[rel_type]
@@ -1635,7 +1654,7 @@ def merge_relationship(session: Session, relationship: Relationship) -> None:
         SET r._display_in_graph = false
         RETURN r
         """
-        
+
         session.run(reverse_query, **params)
 
 
@@ -1645,7 +1664,8 @@ def replace_snapshot_interaction_relationships(
     page_type: str,
     interaction_rels: List[Relationship],
 ) -> None:
-    """Replace interaction relationships for a page/blogpost using snapshot semantics.
+    """Replace interaction relationships for a page/blogpost using snapshot
+    semantics.
 
     Treats the incoming relationships as the authoritative
     full set for this page.  It deletes all existing interaction edges connected
@@ -1681,7 +1701,8 @@ def replace_snapshot_interaction_relationships(
     # Write new aggregated edges.
     for (from_id, from_type, rel_type), rels in groups.items():
         timestamps = [
-            r.properties.get("timestamp") or r.properties.get("last_interaction_at")
+            r.properties.get("timestamp") or r.properties.get(
+                "last_interaction_at")
             for r in rels
             if r.properties.get("timestamp") or r.properties.get("last_interaction_at")
         ]
@@ -1735,73 +1756,89 @@ def replace_snapshot_interaction_relationships(
 # ============================================================================
 
 def merge_space(session: Session, space: Space, relationships: Optional[List[Relationship]] = None) -> None:
-    """
-    Merge a Space node into Neo4j.
-    """
+    """Merge a Space node into Neo4j."""
     props = space.to_neo4j_properties()
-    
+
     set_clauses = []
-    if _has_value(props, 'key'): set_clauses.append("s.key = $key")
-    if _has_value(props, 'name'): set_clauses.append("s.name = $name")
-    if _has_value(props, 'type'): set_clauses.append("s.type = $type")
-    if _has_value(props, 'url'): set_clauses.append("s.url = $url")
-    if _has_value(props, '_last_synced_at'): set_clauses.append("s._last_synced_at = datetime($_last_synced_at)")
-    
+    if _has_value(props, 'key'):
+        set_clauses.append("s.key = $key")
+    if _has_value(props, 'name'):
+        set_clauses.append("s.name = $name")
+    if _has_value(props, 'type'):
+        set_clauses.append("s.type = $type")
+    if _has_value(props, 'url'):
+        set_clauses.append("s.url = $url")
+    if _has_value(props, '_last_synced_at'):
+        set_clauses.append("s._last_synced_at = datetime($_last_synced_at)")
+
     if set_clauses:
         query = f"MERGE (s:Space {{id: $id}}) SET {', '.join(set_clauses)} RETURN s"
     else:
         query = "MERGE (s:Space {id: $id}) RETURN s"
-        
+
     session.run(query, **props)
-    
+
     for rel in (relationships or []):
         merge_relationship(session, rel)
 
 
 def merge_page(session: Session, page: Page, relationships: Optional[List[Relationship]] = None) -> None:
-    """
-    Merge a Page node into Neo4j.
-    """
+    """Merge a Page node into Neo4j."""
     props = page.to_neo4j_properties()
-    
+
     set_clauses = []
-    if _has_value(props, 'title'): set_clauses.append("p.title = $title")
-    if _has_value(props, 'created_at'): set_clauses.append("p.created_at = datetime($created_at)")
-    if _has_value(props, 'last_updated_at'): set_clauses.append("p.last_updated_at = datetime($last_updated_at)")
-    if _has_value(props, 'url'): set_clauses.append("p.url = $url")
-    if _has_value(props, 'version'): set_clauses.append("p.version = $version")
-    if _has_value(props, 'status'): set_clauses.append("p.status = $status")
-    if _has_value(props, '_last_synced_at'): set_clauses.append("p._last_synced_at = datetime($_last_synced_at)")
-    
+    if _has_value(props, 'title'):
+        set_clauses.append("p.title = $title")
+    if _has_value(props, 'created_at'):
+        set_clauses.append("p.created_at = datetime($created_at)")
+    if _has_value(props, 'last_updated_at'):
+        set_clauses.append("p.last_updated_at = datetime($last_updated_at)")
+    if _has_value(props, 'url'):
+        set_clauses.append("p.url = $url")
+    if _has_value(props, 'version'):
+        set_clauses.append("p.version = $version")
+    if _has_value(props, 'status'):
+        set_clauses.append("p.status = $status")
+    if _has_value(props, '_last_synced_at'):
+        set_clauses.append("p._last_synced_at = datetime($_last_synced_at)")
+
     if set_clauses:
         query = f"MERGE (p:Page {{id: $id}}) SET {', '.join(set_clauses)} RETURN p"
     else:
         query = "MERGE (p:Page {id: $id}) RETURN p"
-        
+
     session.run(query, **props)
-    
-    interaction_rels = [r for r in (relationships or []) if r.type in ("COMMENTED_ON", "REACTED_TO")]
-    other_rels = [r for r in (relationships or []) if r.type not in ("COMMENTED_ON", "REACTED_TO")]
-    replace_snapshot_interaction_relationships(session, page.id, "Page", interaction_rels)
+
+    interaction_rels = [r for r in (relationships or []) if r.type in (
+        "COMMENTED_ON", "REACTED_TO")]
+    other_rels = [r for r in (relationships or [])
+                              if r.type not in ("COMMENTED_ON", "REACTED_TO")]
+    replace_snapshot_interaction_relationships(
+        session, page.id, "Page", interaction_rels)
     for rel in other_rels:
         merge_relationship(session, rel)
 
 
 def merge_blogpost(session: Session, blogpost: Blogpost, relationships: Optional[List[Relationship]] = None) -> None:
-    """
-    Merge a Blogpost node into Neo4j.
-    """
+    """Merge a Blogpost node into Neo4j."""
     props = blogpost.to_neo4j_properties()
-    
+
     set_clauses = []
-    if _has_value(props, 'title'): set_clauses.append("b.title = $title")
-    if _has_value(props, 'created_at'): set_clauses.append("b.created_at = datetime($created_at)")
-    if _has_value(props, 'last_updated_at'): set_clauses.append("b.last_updated_at = datetime($last_updated_at)")
-    if _has_value(props, 'url'): set_clauses.append("b.url = $url")
-    if _has_value(props, 'version'): set_clauses.append("b.version = $version")
-    if _has_value(props, 'status'): set_clauses.append("b.status = $status")
-    if _has_value(props, '_last_synced_at'): set_clauses.append("b._last_synced_at = datetime($_last_synced_at)")
-    
+    if _has_value(props, 'title'):
+        set_clauses.append("b.title = $title")
+    if _has_value(props, 'created_at'):
+        set_clauses.append("b.created_at = datetime($created_at)")
+    if _has_value(props, 'last_updated_at'):
+        set_clauses.append("b.last_updated_at = datetime($last_updated_at)")
+    if _has_value(props, 'url'):
+        set_clauses.append("b.url = $url")
+    if _has_value(props, 'version'):
+        set_clauses.append("b.version = $version")
+    if _has_value(props, 'status'):
+        set_clauses.append("b.status = $status")
+    if _has_value(props, '_last_synced_at'):
+        set_clauses.append("b._last_synced_at = datetime($_last_synced_at)")
+
     if set_clauses:
         query = f"MERGE (b:Blogpost {{id: $id}}) SET {', '.join(set_clauses)} RETURN b"
     else:
@@ -1809,9 +1846,12 @@ def merge_blogpost(session: Session, blogpost: Blogpost, relationships: Optional
 
     session.run(query, **props)
 
-    interaction_rels = [r for r in (relationships or []) if r.type in ("COMMENTED_ON", "REACTED_TO")]
-    other_rels = [r for r in (relationships or []) if r.type not in ("COMMENTED_ON", "REACTED_TO")]
-    replace_snapshot_interaction_relationships(session, blogpost.id, "Blogpost", interaction_rels)
+    interaction_rels = [r for r in (relationships or []) if r.type in (
+        "COMMENTED_ON", "REACTED_TO")]
+    other_rels = [r for r in (relationships or [])
+                              if r.type not in ("COMMENTED_ON", "REACTED_TO")]
+    replace_snapshot_interaction_relationships(
+        session, blogpost.id, "Blogpost", interaction_rels)
     for rel in other_rels:
         merge_relationship(session, rel)
 
