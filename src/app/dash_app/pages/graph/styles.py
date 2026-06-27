@@ -329,10 +329,46 @@ def build_cytoscape_stylesheet(theme_name: str = ACTIVE_THEME):
         {
             'selector': 'edge:selected',
             'style': {
-                'width': 4,
-                'line-color': tokens["graph.selection"],
-                'target-arrow-color': tokens["graph.selection"],
-                'z-index': 9999
+                'z-index': 9999,
+            }
+        },
+        {
+            'selector': '.selected-highlight',
+            'style': {
+                'opacity': 1.0,
+                'z-index': 9997,
+            }
+        },
+        {
+            'selector': 'node.selected-highlight',
+            'style': {
+                'text-opacity': 1.0,
+            }
+        },
+        {
+            'selector': 'edge.selected-highlight',
+            'style': {
+                'text-opacity': 1.0,
+            }
+        },
+        {
+            'selector': '.selected-dim',
+            'style': {
+                'opacity': 0.3,
+            }
+        },
+        {
+            'selector': 'node.selected-dim',
+            'style': {
+                'text-opacity': 0.35,
+                'z-index': 1,
+            }
+        },
+        {
+            'selector': 'edge.selected-dim',
+            'style': {
+                'text-opacity': 0.0,
+                'z-index': 1,
             }
         },
         {

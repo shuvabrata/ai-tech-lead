@@ -273,12 +273,21 @@ def register_fullwidth_callback(id_prefix: str) -> None:
 
 
 def register_edge_hover_dimming_callback(cytoscape_id: str) -> None:
-    """Register the edge-hover dimming clientside callback for a Cytoscape component.
+    """Register edge hover AND selection dimming callbacks for a Cytoscape component.
 
-    On edge mouseover, the hovered edge and its two endpoint nodes are highlighted
-    and all other elements are dimmed.  On mouseout the classes are cleared.
-    The listener is attached once (guarded by ``cy._edgeHoverListenerAttached``) so
-    re-renders that re-invoke this callback do not stack duplicate listeners.
+    **Hover behavior** (temporary — clears on mouseout):
+    - ``mouseover`` an edge: the edge + its two endpoint nodes get class
+      ``highlighted``; all other elements get class ``dimmed``.
+    - ``mouseout``: ``highlighted`` and ``dimmed`` are cleared.
+
+    **Selection behavior** (persistent — clears only on deselect):
+    - ``select`` an edge: the edge + its two endpoint nodes get class
+      ``selected-highlight``; all other elements get class ``selected-dim``.
+    - ``unselect``: ``selected-highlight`` and ``selected-dim`` are cleared.
+
+    Hover and selection use separate class names so they do not interfere:
+    hovering *over* a selected edge works correctly, and mouseout of the
+    selected edge does *not* clear the selection dim state.
 
     Component IDs expected:
         ``{cytoscape_id}`` — the ``cyto.Cytoscape`` component
@@ -303,6 +312,7 @@ def register_edge_hover_dimming_callback(cytoscape_id: str) -> None:
                 let hoverTimeout = null;
                 let isHovering = false;
 
+                // --- Hover (temporary) ---
                 cy.on('mouseover', 'edge', function(evt) {
                     const edge = evt.target;
 
@@ -331,9 +341,27 @@ def register_edge_hover_dimming_callback(cytoscape_id: str) -> None:
                     }
 
                     if (isHovering) {
+                        // Only remove hover classes — leave selection classes intact.
                         cy.elements().removeClass('highlighted dimmed');
                         isHovering = false;
                     }
+                });
+
+                // --- Selection (persistent) ---
+                cy.on('select', 'edge', function(evt) {
+                    const edge = evt.target;
+                    const sourceNode = edge.source();
+                    const targetNode = edge.target();
+
+                    edge.addClass('selected-highlight');
+                    sourceNode.addClass('selected-highlight');
+                    targetNode.addClass('selected-highlight');
+
+                    cy.elements().not(edge).not(sourceNode).not(targetNode).addClass('selected-dim');
+                });
+
+                cy.on('unselect', 'edge', function() {
+                    cy.elements().removeClass('selected-highlight selected-dim');
                 });
 
                 cy._edgeHoverListenerAttached = true;
