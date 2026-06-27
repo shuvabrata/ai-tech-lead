@@ -1,5 +1,7 @@
 """FastAPI router for Graph API v1 - Cypher query execution endpoints."""
 
+import asyncio
+
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import ValidationError
 
@@ -31,7 +33,7 @@ async def execute_graph(request: GraphExecuteRequest) -> GraphResponse:
             "Received graph execute request: "
             f"source={request.source} catalog_id={request.catalog_id} view={request.view}"
         )
-        response = service.execute_graph_request(request)
+        response = await asyncio.to_thread(service.execute_graph_request, request)
         logger.info(
             "Graph execute request completed. "
             f"isGraph={response.isGraph}, nodes={len(response.nodes)}, "
@@ -122,13 +124,14 @@ async def expand_node(request: NodeExpansionRequest) -> NodeExpansionResponse:
         logger.info(f"Expanding node {request.node_id} with direction={request.direction}, "
                    f"limit={request.limit}, offset={request.offset}")
         
-        response = service.expand_node(
+        response = await asyncio.to_thread(
+            service.expand_node,
             node_id=request.node_id,
             direction=request.direction,
             relationship_types=request.relationship_types,
             limit=request.limit,
             offset=request.offset,
-            exclude_node_ids=request.exclude_node_ids
+            exclude_node_ids=request.exclude_node_ids,
         )
         
         # Log expansion results
@@ -251,7 +254,7 @@ async def get_collaboration_network(
                 "w_confluence_mentions": w_confluence_mentions,
             }
         )
-        response = service.get_collaboration_network(config=config)
+        response = await asyncio.to_thread(service.get_collaboration_network, config=config)
         logger.info(
             f"Collaboration network built: people={response.num_people}, "
             f"pairs={response.num_pairs}, communities={response.num_communities}, "
@@ -330,7 +333,7 @@ async def health_check() -> dict[str, str]:
     # Try to execute a simple query to verify connectivity
     try:
         test_query = "RETURN 1 as test"
-        response = service.execute_and_format_query(test_query)
+        response = await asyncio.to_thread(service.execute_and_format_query, test_query)
         
         return {
             "status": "healthy",
