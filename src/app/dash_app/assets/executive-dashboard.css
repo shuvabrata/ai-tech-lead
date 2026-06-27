@@ -824,29 +824,6 @@ input::placeholder {
 }
 
 /* ============================================================================= */
-/* Loading Overlay                                                                */
-/* ============================================================================= */
-
-.loading-overlay {
-    position: absolute;
-    inset: 0;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    background: var(--color-overlay-bg);
-    transition: opacity 0.3s ease;
-    z-index: 5;
-    pointer-events: auto;
-}
-
-.loading-overlay--hidden {
-    opacity: 0;
-    pointer-events: none;
-}
-
-/* ============================================================================= */
 /* Chat Thinking Dots Animation                                                   */
 /* ============================================================================= */
 
