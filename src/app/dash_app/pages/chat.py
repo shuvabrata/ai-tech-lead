@@ -5,7 +5,7 @@ import dash_bootstrap_components as dbc
 from dash import html, dcc, Input, Output, State, callback, clientside_callback, ClientsideFunction, no_update
 import requests
 
-from app.common.timezone import now_in_app_timezone
+from app.common.timezone import now_in_app_timezone, humanize_duration
 from app.settings import settings
 from app.dash_app.components.common import create_diamond_icon
 from app.dash_app.styles import (
@@ -37,7 +37,7 @@ TIMEOUT_SECONDS = settings.HTTP_REQUEST_TIMEOUT
 
 
 def _ui_timestamp() -> str:
-    return now_in_app_timezone().strftime("%I:%M %p")
+    return now_in_app_timezone().isoformat()
 
 
 def get_layout():
@@ -407,8 +407,20 @@ def render_messages(messages):
         client_id = msg.get("client_id", "")
         is_pending = msg.get("status") == "pending"
         display_timestamp = timestamp
+        if timestamp:
+            try:
+                dt = datetime.fromisoformat(timestamp)
+                actual_time = dt.strftime(getattr(settings, "UI_DATETIME_FORMAT", "%b %d, %Y %I:%M %p"))
+                duration_str = humanize_duration(dt)
+                display_timestamp = html.Span(duration_str, title=actual_time)
+            except Exception:
+                pass
+
         if is_pending:
-            display_timestamp = f"{timestamp} (waiting for response...)" if timestamp else "Waiting for response..."
+            if isinstance(display_timestamp, str):
+                display_timestamp = f"{timestamp} (waiting for response...)" if timestamp else "Waiting for response..."
+            else:
+                display_timestamp = html.Span([display_timestamp, " (waiting for response...)"])
         
         if role == "user":
             # User message - refined right-aligned design
@@ -498,7 +510,7 @@ def render_messages(messages):
                                 }
                             ),
                             html.Div(
-                                timestamp,
+                                display_timestamp,
                                 style={
                                     "fontFamily": FONT_SANS,
                                     "fontSize": "11px",
@@ -572,7 +584,7 @@ def render_messages(messages):
                                 }
                             ),
                             html.Div(
-                                timestamp,
+                                display_timestamp,
                                 style={
                                     "fontFamily": FONT_SANS,
                                     "fontSize": "11px",

@@ -82,21 +82,7 @@ window.dash_clientside.stream = {
             }
 
             function formatTimestamp() {
-                var timezone = (timeConfig && timeConfig.timezone) ? timeConfig.timezone : 'UTC';
-                try {
-                    return new Intl.DateTimeFormat('en-US', {
-                        timeZone: timezone,
-                        hour: '2-digit',
-                        minute: '2-digit',
-                        hour12: true
-                    }).format(new Date());
-                } catch (err) {
-                    return new Intl.DateTimeFormat('en-US', {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                        hour12: true
-                    }).format(new Date());
-                }
+                return new Date().toISOString();
             }
 
             /* ── Session-store builder ────────────────────────────────── */
