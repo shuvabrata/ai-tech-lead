@@ -14,9 +14,46 @@ from typing import Any, Dict, List
 
 import networkx as nx
 import community.community_louvain as community_louvain
+from matplotlib.colors import LinearSegmentedColormap
 
 from app.common.node_size import apply_node_size
 
+
+# ---------------------------------------------------------------------------
+# Edge colour palette
+# ---------------------------------------------------------------------------
+
+# Sequential colormap across the full visible spectrum (VIBGYOR).
+# Violet (weakest) → Indigo → Blue → Green → Yellow → Orange → Red (strongest).
+# Using the full spectrum maximises perceptual colour range so collaborators
+# at every strength level map to a visually distinct hue — far more readable
+# than any single-hue or two-colour gradient in a dense graph.
+COLLAB_EDGE_CMAP: LinearSegmentedColormap = LinearSegmentedColormap.from_list(
+    "collab_edge",
+    [
+        "#7C3AED",  # 0.00 — violet   (weakest connections)
+        "#4F46E5",  # 0.17 — indigo
+        "#3B82F6",  # 0.33 — blue
+        "#22C55E",  # 0.50 — green
+        "#EAB308",  # 0.67 — yellow
+        "#F97316",  # 0.83 — orange
+        "#EF4444",  # 1.00 — red      (strongest connections)
+    ],
+)
+
+
+def _weight_to_hex(normalized: float) -> str:
+    """Map a normalized weight in [0, 1] to a CSS hex colour string.
+
+    Args:
+        normalized: Float in [0.0, 1.0] where 0 is the weakest edge and 1 is
+                    the strongest edge in the current graph load.
+
+    Returns:
+        Six-digit CSS hex string, e.g. ``"#b91c1c"``.
+    """
+    r, g, b, _ = COLLAB_EDGE_CMAP(max(0.0, min(1.0, normalized)))
+    return "#{:02x}{:02x}{:02x}".format(int(r * 255), int(g * 255), int(b * 255))
 
 # Number of distinct community colours supported in the Cytoscape stylesheet.
 # Community IDs are clamped to this range so we never exceed the defined styles.
@@ -234,15 +271,27 @@ def to_cytoscape_elements(
         apply_node_size(element)
         elements.append(element)
 
+    # Pre-compute log-normalized display weights in [0, 100].
+    # Raw edge weights are heavily skewed (e.g. max=17500, median=5), so linear
+    # normalization makes all but the single heaviest edge look near-white.
+    # log(w + 1) compresses the outlier without hiding the relative differences
+    # between strong collaborators — exactly the same technique used for hub scores.
+    all_edge_weights = [d.get("weight", 1) for _, _, d in g.edges(data=True)]
+    max_log_weight = math.log(max(all_edge_weights, default=1) + 1) or 1  # guard against zero
+
     for source, target, edge_data in g.edges(data=True):
         canonical_source, canonical_target = sorted((source, target))
         edge_id = f"collab:{canonical_source}:{canonical_target}"
+        raw_weight = edge_data.get("weight", 1)
+        normalized_0_1 = math.log(raw_weight + 1) / max_log_weight
         elements.append({
             "data": {
                 "id": edge_id,
                 "source": canonical_source,
                 "target": canonical_target,
-                "weight": edge_data.get("weight", 1),
+                "weight": raw_weight,                                                             # raw — used by filters and details panel
+                "normalized_weight": round(normalized_0_1 * 100, 1),                             # 0–100 log-scaled — retained for potential future use
+                "line_color": _weight_to_hex(normalized_0_1),                                    # pre-computed hex — read directly by stylesheet via data(line_color)
                 "relType": "COLLABORATES",
                 "elementType": "edge",
             },

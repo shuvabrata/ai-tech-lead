@@ -279,10 +279,22 @@ def build_cytoscape_stylesheet(theme_name: str = ACTIVE_THEME):
             }
         },
         {
-            'selector': 'edge[weight]',
+            # normalized_weight is a 0–100 value computed server-side relative to the
+            # heaviest edge in the current graph load. Raw 'weight' is preserved
+            # separately for display and filter logic.
+            'selector': 'edge[normalized_weight]',
             'style': {
-                'width': 'mapData(weight, 0, 100, 1, 8)',
-                'arrow-scale': 'mapData(weight, 0, 100, 0.8, 2.0)',
+                # line_color is a pre-computed hex string set server-side via
+                # algorithm._weight_to_hex() using a matplotlib multi-stop colormap
+                # (grey → light red → deep crimson). Using data() instead of mapData()
+                # bypasses Cytoscape's two-color-only interpolation limit.
+                'line-color': 'data(line_color)',
+                # Opacity: weak edges fade to near-invisible, strong ones are opaque.
+                # This naturally de-clutters the graph without hiding data.
+                'opacity': 'mapData(normalized_weight, 0, 100, 0.5, 0.9)',
+                # Z-index: strong edges render on top of weak ones so they are
+                # never buried under the noise of low-weight connections.
+                'z-index': 'mapData(normalized_weight, 0, 100, 1, 500)',
             }
         },
         {
