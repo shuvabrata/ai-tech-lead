@@ -1510,7 +1510,7 @@ def merge_file(session: Session, file: File, relationships: Optional[List[Relati
     """
     props = file.to_neo4j_properties()
     session.run(
-        """MERGE (f:File {id: $id}) SET f += $props REMOVE f.stub."""
+        """MERGE (f:File {id: $id}) SET f += $props REMOVE f.stub"""
            ,
         id=file.id,
         props=props,
