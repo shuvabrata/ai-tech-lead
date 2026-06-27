@@ -9,7 +9,7 @@ from dash.exceptions import PreventUpdate
 
 from app.analytics.collaboration.config import CollaborationNetworkConfig
 from app.api.graph.v1.service import get_collaboration_network
-from app.dash_app.components.common import create_alert
+from app.dash_app.components.common import create_alert, register_loading_overlay_hider
 from app.dash_app.styles import FONT_SIZE_SMALL
 from common.logger import logger
 from ..layout import (
@@ -26,11 +26,12 @@ from ..layout import (
 # ---------------------------------------------------------------------------
 
 @callback(
-    [Output("collab-elements-store",  "data"),
-     Output("collab-cytoscape",       "layout"),
-     Output("collab-banner",          "children"),
-     Output("collab-banner",          "style"),
-     Output("collab-empty-state",     "style")],
+    [Output("collab-elements-store",       "data"),
+     Output("collab-cytoscape",            "layout"),
+     Output("collab-banner",               "children"),
+     Output("collab-banner",               "style"),
+     Output("collab-empty-state",          "style"),
+     Output("collab-loading-state",        "data")],
     [Input("url", "search"),
      Input("url", "pathname")],
 )
@@ -84,7 +85,7 @@ def load_collaboration_network(search: str | None, pathname: str | None):
 
         if not elements:
             logger.warning("[COLLAB-PAGE] No elements returned")
-            return [], _COLLABORATION_LAYOUT, [], hide, {**empty_state_style, "display": "block"}
+            return [], _COLLABORATION_LAYOUT, [], hide, {**empty_state_style, "display": "block"}, False
 
         applied_config = data.config or {}
         lookback_days  = applied_config.get("lookback_days", 90)
@@ -112,15 +113,15 @@ def load_collaboration_network(search: str | None, pathname: str | None):
             len(elements), data.num_people, data.num_communities, data.modularity,
         )
 
-        return elements, _COLLABORATION_LAYOUT, [banner_content], {**show, "flex": "1"}, hide
+        return elements, _COLLABORATION_LAYOUT, [banner_content], {**show, "flex": "1"}, hide, False
 
     except ValueError as exc:
         logger.warning("[COLLAB-PAGE] No data: %s", exc)
-        return [], _COLLABORATION_LAYOUT, [_error_banner(str(exc))], show, hide
+        return [], _COLLABORATION_LAYOUT, [_error_banner(str(exc))], show, hide, False
 
     except Exception as exc:  # pylint: disable=broad-except
         logger.exception("[COLLAB-PAGE] Unexpected error: %s", exc)
-        return [], _COLLABORATION_LAYOUT, [_error_banner("An unexpected error occurred.")], show, hide
+        return [], _COLLABORATION_LAYOUT, [_error_banner("An unexpected error occurred.")], show, hide, False
 
 
 # ---------------------------------------------------------------------------
@@ -258,6 +259,12 @@ def toggle_collab_filter_panel(n_clicks, is_open):
     btn_class = "graph-right-panel-tab-icon active" if new_open else "graph-right-panel-tab-icon"
     return new_open, btn_class
 
+
+# ---------------------------------------------------------------------------
+# Clientside loading overlay hider
+# ---------------------------------------------------------------------------
+
+register_loading_overlay_hider("collab-loading-state", "collab-loading-overlay")
 
 # ---------------------------------------------------------------------------
 # Clientside callback — cy.resize() + cy.fit() after initial data load

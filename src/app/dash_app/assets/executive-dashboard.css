@@ -35,6 +35,9 @@
     --color-warning-dark: #ffc107;
     --color-success-dark: #28a745;
 
+    /* Overlay */
+    --color-overlay-bg: rgba(255, 255, 255, 0.85);
+
     /* Colors - Extended */
     --color-text-dark: #212529;
     --color-text-muted: #6c757d;
@@ -147,6 +150,7 @@
     --color-graph-canvas: #222b35;
     --color-details-icon: #8ea0b3;
     --color-validation-code-background: rgba(255, 255, 255, 0.08);
+    --color-overlay-bg: rgba(31, 38, 47, 0.92);
 
     --color-graph-node-default: #7f8fa3;
     --color-graph-node-default-border: #96a4b6;
