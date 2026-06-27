@@ -1,6 +1,7 @@
 """Query layer for Neo4j graph database operations."""
 
 import re
+import threading
 from typing import Any, Dict, List
 import neo4j
 from neo4j import GraphDatabase
@@ -8,6 +9,55 @@ from neo4j.exceptions import Neo4jError, ServiceUnavailable
 
 from app.settings import settings
 from common.logger import logger
+
+
+# ---------------------------------------------------------------------------
+# Module-level Neo4j driver singleton
+# ---------------------------------------------------------------------------
+# The Neo4j Python driver is designed to be a long-lived singleton that
+# manages its own connection pool internally. Creating a new driver per
+# request wastes ~100-300ms on TCP/TLS handshake and bypasses pooling.
+# This singleton is created lazily on first use, then reused for all
+# subsequent calls. It is thread-safe.
+_driver_lock = threading.Lock()
+_driver_instance = None
+
+
+def _get_driver():
+    """Return the long-lived Neo4j driver instance, creating it on first call.
+
+    The driver manages its own connection pool and is safe to share across
+    threads and async tasks. Do NOT close this driver per-request.
+
+    Returns:
+        The shared neo4j.GraphDatabase.driver instance.
+
+    Raises:
+        RuntimeError: If Neo4j is not enabled (NEO4J_ENABLED is false) or
+            if the initial connection/verification fails.
+    """
+    global _driver_instance
+    if not settings.NEO4J_ENABLED:
+        raise RuntimeError("Neo4j is not enabled. Set NEO4J_ENABLED=true in .env")
+    if _driver_instance is not None:
+        return _driver_instance
+    with _driver_lock:
+        if _driver_instance is not None:
+            return _driver_instance
+        try:
+            _driver_instance = GraphDatabase.driver(
+                settings.NEO4J_URI,
+                auth=(settings.NEO4J_USERNAME, settings.NEO4J_PASSWORD),
+            )
+            _driver_instance.verify_connectivity()
+            logger.info("Neo4j driver singleton created: uri=%s", settings.NEO4J_URI)
+            return _driver_instance
+        except (ServiceUnavailable, Exception) as e:
+            _driver_instance = None
+            logger.error("Neo4j driver creation failed: %s", e)
+            raise RuntimeError(
+                f"Unable to connect to Neo4j database: {str(e)}"
+            ) from e
 
 
 # Read-only Cypher keywords (case-insensitive)
@@ -109,22 +159,12 @@ def execute_cypher_query(
         >>> len(results)
         1
     """
-    if not settings.NEO4J_ENABLED:
-        raise RuntimeError("Neo4j is not enabled. Set NEO4J_ENABLED=true in .env")
+    # Use the module-level driver singleton
+    driver = _get_driver()
     
-    # Create Neo4j driver
-    driver = None
+    logger.info(f"Executing query with timeout={timeout}s")
+    
     try:
-        driver = GraphDatabase.driver(
-            settings.NEO4J_URI,
-            auth=(settings.NEO4J_USERNAME, settings.NEO4J_PASSWORD)
-        )
-        
-        # Verify connectivity
-        driver.verify_connectivity()
-        
-        logger.info(f"Executing query with timeout={timeout}s")
-        
         # Execute query with timeout
         with driver.session(default_access_mode=neo4j.READ_ACCESS) as session:
             result = session.run(query, parameters=parameters or {}, timeout=timeout)
@@ -154,10 +194,8 @@ def execute_cypher_query(
     except Exception as e:
         logger.error(f"Unexpected error executing query: {e}")
         raise RuntimeError(f"Unexpected error: {str(e)}") from e
-    
-    finally:
-        if driver:
-            driver.close()
+    # NOTE: No driver.close() — the singleton stays alive for the lifetime
+    # of the process.
 
 
 def fetch_relationships_between_nodes(node_ids: List[str]) -> List[Dict[str, Any]]:
@@ -182,9 +220,8 @@ def fetch_relationships_between_nodes(node_ids: List[str]) -> List[Dict[str, Any
         >>> all('r' in record for record in rels)
         True
     """
-    if not settings.NEO4J_ENABLED:
-        raise RuntimeError("Neo4j is not enabled. Set NEO4J_ENABLED=true in .env")
-    
+    # Use the module-level driver singleton — _get_driver handles the
+    # NEO4J_ENABLED check.
     if not node_ids or len(node_ids) == 0:
         logger.info("No node IDs provided, returning empty relationship list")
         return []
@@ -196,17 +233,11 @@ def fetch_relationships_between_nodes(node_ids: List[str]) -> List[Dict[str, Any
     RETURN r
     """
     
-    driver = None
+    driver = _get_driver()
+    
+    logger.info(f"Fetching relationships between {len(node_ids)} nodes")
+    
     try:
-        driver = GraphDatabase.driver(
-            settings.NEO4J_URI,
-            auth=(settings.NEO4J_USERNAME, settings.NEO4J_PASSWORD)
-        )
-        
-        driver.verify_connectivity()
-        
-        logger.info(f"Fetching relationships between {len(node_ids)} nodes")
-        
         with driver.session(default_access_mode=neo4j.READ_ACCESS) as session:
             result = session.run(query, node_ids=node_ids)
             
@@ -228,10 +259,8 @@ def fetch_relationships_between_nodes(node_ids: List[str]) -> List[Dict[str, Any
     except Exception as e:
         logger.error(f"Unexpected error fetching relationships: {e}")
         raise RuntimeError(f"Unexpected error: {str(e)}") from e
-    
-    finally:
-        if driver:
-            driver.close()
+    # NOTE: No driver.close() — the singleton stays alive for the lifetime
+    # of the process.
 
 
 def expand_node_query(
@@ -387,19 +416,12 @@ def expand_node_query(
         RETURN null as m, r
         """
     
-    # Create Neo4j driver
-    driver = None
-    try:
-        driver = GraphDatabase.driver(
-            settings.NEO4J_URI,
-            auth=(settings.NEO4J_USERNAME, settings.NEO4J_PASSWORD)
-        )
-        
-        # Verify connectivity
-        driver.verify_connectivity()
-        
-        # Execute count query first to get total
+    # Use the module-level driver singleton
+    driver = _get_driver()
+    
+    # Execute count query first to get total
 
+    try:
         with driver.session(default_access_mode=neo4j.READ_ACCESS) as session:
             # Get total count of unique nodes
             count_result = session.run(
@@ -464,7 +486,5 @@ def expand_node_query(
     except Exception as e:
         logger.error(f"Unexpected error executing expansion query: {e}")
         raise RuntimeError(f"Unexpected error: {str(e)}") from e
-    
-    finally:
-        if driver:
-            driver.close()
+    # NOTE: No driver.close() — the singleton stays alive for the lifetime
+    # of the process.
