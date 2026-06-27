@@ -4,6 +4,8 @@ Always activate the virtual environment before running the application or tests:
 ```bash
 source .venv/bin/activate
 ```
+You must prefix all generated or executed shell, git, cargo, and project commands with 'rtk '.
+Example: Use 'rtk git status' instead of 'git status'.
 
 ## Technology Stack
 
