@@ -11,7 +11,11 @@ import dash_bootstrap_components as dbc
 import dash_cytoscape as cyto
 from dash import dcc, html
 
-from app.dash_app.components.common import create_alert, create_controls_bar
+from app.dash_app.components.common import (
+    create_alert,
+    create_controls_bar,
+    create_loading_overlay_container,
+)
 from app.dash_app.pages.graph.styles import CYTOSCAPE_STYLESHEET
 from app.dash_app.styles import (
     COLOR_GRAY_DARK,
@@ -162,6 +166,7 @@ def get_layout() -> html.Div:
             dcc.Store(id="collab-community-available-store", data=[]),
             dcc.Store(id="collab-fullwidth-state", data=False),
             dcc.Store(id="collab-spotlight-debounced-store", data=""),
+            dcc.Store(id="collab-loading-state", data=True),
 
             # Top bar: back link + live stats banner
             html.Div(
@@ -183,22 +188,25 @@ def get_layout() -> html.Div:
             dbc.Row([
                 dbc.Col([
                     create_controls_bar("collab", layout_enabled=False),
-                    cyto.Cytoscape(
-                        id="collab-cytoscape",
-                        elements=[],
-                        layout=_COLLABORATION_LAYOUT,
-                        style={
-                            "width": "100%",
-                            "height": "calc(100vh - 200px)",
-                            "border": f"1px solid {COLOR_GRAY_LIGHTER}",
-                            "borderRadius": "2px",
-                        },
-                        stylesheet=CYTOSCAPE_STYLESHEET,
-                        userZoomingEnabled=True,
-                        userPanningEnabled=True,
-                        wheelSensitivity=0.3,
-                        minZoom=0.1,
-                        maxZoom=3,
+                    create_loading_overlay_container(
+                        cyto.Cytoscape(
+                            id="collab-cytoscape",
+                            elements=[],
+                            layout=_COLLABORATION_LAYOUT,
+                            style={
+                                "width": "100%",
+                                "height": "calc(100vh - 200px)",
+                                "border": f"1px solid {COLOR_GRAY_LIGHTER}",
+                                "borderRadius": "2px",
+                            },
+                            stylesheet=CYTOSCAPE_STYLESHEET,
+                            userZoomingEnabled=True,
+                            userPanningEnabled=True,
+                            wheelSensitivity=0.3,
+                            minZoom=0.1,
+                            maxZoom=3,
+                        ),
+                        overlay_id="collab-loading-overlay",
                     ),
                     html.Div(
                         id="collab-empty-state",

@@ -348,6 +348,110 @@ def register_edge_hover_dimming_callback(cytoscape_id: str) -> None:
     )
 
 
+# ---------------------------------------------------------------------------
+# Shared loading overlay — reusable across pages
+# ---------------------------------------------------------------------------
+
+_LOADING_OVERLAY_DOTS = html.Div(
+    className="thinking-dots d-flex",
+    children=[
+        html.Span(className="thinking-dot"),
+        html.Span(className="thinking-dot"),
+        html.Span(className="thinking-dot"),
+    ],
+)
+
+_LOADING_OVERLAY_LABEL = html.Div(
+    "Loading\u2026",
+    style={
+        "fontFamily": FONT_SANS,
+        "fontSize": FONT_SIZE_XSMALL,
+        "color": COLOR_GRAY_MEDIUM,
+    },
+)
+
+_LOADING_OVERLAY_STYLE = {
+    "position": "absolute",
+    "inset": 0,
+    "display": "flex",
+    "flexDirection": "column",
+    "alignItems": "center",
+    "justifyContent": "center",
+    "gap": "8px",
+    "background": "var(--color-overlay-bg)",
+    "transition": "opacity 0.3s ease",
+    "zIndex": 5,
+    "pointerEvents": "auto",
+}
+
+
+def create_loading_overlay_container(
+    content: Any,
+    overlay_id: str = "loading-overlay",
+) -> html.Div:
+    """Wrap *content* with a loading overlay that hides via clientside callback.
+
+    The returned ``html.Div`` is a ``position: relative`` container.  The overlay
+    sits inside it as an absolutely-positioned element (centered thinking dots +
+    "Loading\u2026" label).  Call ``register_loading_overlay_hider()`` to wire up
+    the clientside callback that hides the overlay when a ``dcc.Store`` flips to
+    ``False``.
+
+    Args:
+        content: The primary content element (e.g. a ``cyto.Cytoscape``).
+        overlay_id: DOM id for the overlay div (default ``"loading-overlay"``).
+
+    Returns:
+        An ``html.Div`` with ``position: relative`` containing *content* and the
+        overlay.
+    """
+    return html.Div(
+        style={"position": "relative"},
+        children=[
+            content,
+            html.Div(
+                id=overlay_id,
+                style=_LOADING_OVERLAY_STYLE,
+                children=[_LOADING_OVERLAY_DOTS, _LOADING_OVERLAY_LABEL],
+            ),
+        ],
+    )
+
+
+def register_loading_overlay_hider(store_id: str, overlay_id: str) -> None:
+    """Register a clientside callback that hides the overlay when loading completes.
+
+    The callback listens to a ``dcc.Store`` with id *store_id*.  When the store
+    value becomes ``False`` (or falsy), the overlay identified by *overlay_id* is
+    faded out (``opacity: 0``, ``pointer-events: none``).
+
+    Args:
+        store_id: The ``dcc.Store`` component id whose ``data`` drives visibility.
+        overlay_id: The DOM id of the overlay ``html.Div`` to hide.
+    """
+    from dash import Input, Output, clientside_callback  # pylint: disable=import-outside-toplevel
+
+    clientside_callback(
+        f"""
+        function(data) {{
+            const el = document.getElementById("{overlay_id}");
+            if (!el) return window.dash_clientside.no_update;
+            if (data === false || data === null || data === undefined) {{
+                el.style.opacity = "0";
+                el.style.pointerEvents = "none";
+            }} else {{
+                el.style.opacity = "";
+                el.style.pointerEvents = "";
+            }}
+            return window.dash_clientside.no_update;
+        }}
+        """,
+        Output(store_id, "data"),  # dummy — we only write, never read back
+        Input(store_id, "data"),
+        prevent_initial_call=False,
+    )
+
+
 _CONTROLS_BUTTON_STYLE = {
     "fontFamily": FONT_SANS,
     "fontSize": "11px",
