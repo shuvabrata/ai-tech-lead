@@ -637,6 +637,11 @@ def _panel_resolve_endpoint(edge_data: dict, endpoint: str) -> str:
     return "N/A"
 
 
+# Known date-only keys whose values have no time component (e.g. "2025-06-30").
+# These are rendered as formatted dates rather than relative durations.
+_DATE_ONLY_KEYS = {"start_date", "created_at", "updated_at"}
+
+
 def _panel_properties_table(items: list) -> html.Table:
     """Render (key, value) pairs as an Executive Dashboard tabular layout."""
     rows = []
@@ -645,13 +650,37 @@ def _panel_properties_table(items: list) -> html.Table:
         is_url = key == "url" or str_value.startswith(("http://", "https://"))
         is_mono = key in ("id",) or (len(str_value) > 16 and " " not in str_value)
         formatted_date = None
-        if isinstance(str_value, str) and ("T" in str_value or "Z" in str_value) and len(str_value) >= 19:
+
+        # Hybrid heuristic:
+        # - Known date-only keys (len 10, e.g. "2025-06-30") get parsed directly.
+        # - Other strings that look like ISO 8601 ("T" or "Z", >=19 chars) get the
+        #   existing fast-path check.  Everything else skips the try/except overhead.
+        is_date_like = False
+        if isinstance(str_value, str):
+            if key in _DATE_ONLY_KEYS and len(str_value) == 10:
+                is_date_like = True
+            elif ("T" in str_value or "Z" in str_value) and len(str_value) >= 19:
+                is_date_like = True
+
+        if is_date_like:
             try:
                 dt = datetime.fromisoformat(str_value.replace("Z", "+00:00"))
                 local_dt = to_app_timezone(dt)
-                actual_time = local_dt.strftime(settings.UI_DATETIME_FORMAT)
-                duration_str = humanize_duration(local_dt)
-                formatted_date = html.Span(duration_str, title=actual_time, style=DETAILS_TABLE_VALUE_STYLE)
+
+                if key in _DATE_ONLY_KEYS:
+                    # Date-only: show formatted date (no relative duration)
+                    formatted_date = html.Span(
+                        local_dt.strftime("%b %d, %Y"),
+                        title=local_dt.strftime(settings.UI_DATETIME_FORMAT),
+                        style=DETAILS_TABLE_VALUE_STYLE,
+                    )
+                else:
+                    # Full datetime: show relative duration with tooltip
+                    actual_time = local_dt.strftime(settings.UI_DATETIME_FORMAT)
+                    duration_str = humanize_duration(local_dt)
+                    formatted_date = html.Span(
+                        duration_str, title=actual_time, style=DETAILS_TABLE_VALUE_STYLE
+                    )
             except Exception:
                 pass
 
