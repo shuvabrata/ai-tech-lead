@@ -203,7 +203,7 @@ def get_layout() -> html.Div:
                             userZoomingEnabled=True,
                             userPanningEnabled=True,
                             wheelSensitivity=0.3,
-                            minZoom=0.1,
+                            minZoom=0.05,
                             maxZoom=3,
                         ),
                         overlay_id="collab-loading-overlay",

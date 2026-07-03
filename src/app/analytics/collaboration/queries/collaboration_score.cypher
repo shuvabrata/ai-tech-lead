@@ -1,4 +1,17 @@
 CALL () {
+  // ---------------------------------------------------------------------------
+  // Score dampening strategy
+  // ---------------------------------------------------------------------------
+  // Shared-artifact layers (files, docs, PRs, sprints, epics) apply
+  //   log(toFloat(count) + 1) * weight
+  // to prevent admin/super-users who touch thousands of shared artifacts from
+  // generating runaway edge weights that collapse the Louvain community structure.
+  //
+  // Direct intentional-action layers (reporter-assignee, PR reviews, explicit
+  // review requests) intentionally use raw count * weight — these reflect explicit
+  // person-to-person collaboration and are naturally volume-bounded.
+  // ---------------------------------------------------------------------------
+
   // 1. Find Reporter-Assignee loops on Jira Issues (Weight: 2)
   MATCH (reporter:Person)-[:REPORTED_BY]-(work:Issue)-[:ASSIGNED_TO]-(assignee:Person)
   WHERE $include_reporter_assignee
@@ -8,6 +21,7 @@ CALL () {
     CASE WHEN elementId(reporter) < elementId(assignee) THEN reporter ELSE assignee END AS p1,
     CASE WHEN elementId(reporter) < elementId(assignee) THEN assignee ELSE reporter END AS p2,
     work
+  // No log dampening: direct person-to-person intentional action; count is naturally bounded.
   RETURN p1, p2, count(work) * $weight_reporter_assignee AS sub_score
   
   UNION ALL
@@ -21,6 +35,7 @@ CALL () {
     CASE WHEN elementId(reviewer) < elementId(author) THEN reviewer ELSE author END AS p1,
     CASE WHEN elementId(reviewer) < elementId(author) THEN author ELSE reviewer END AS p2,
     pr
+  // No log dampening: direct person-to-person intentional action; count is naturally bounded.
   RETURN p1, p2, count(pr) * $weight_pr_reviews AS sub_score
 
   UNION ALL
@@ -34,7 +49,7 @@ CALL () {
     AND NOT any(suffix IN $excluded_file_suffixes WHERE f.name ENDS WITH suffix)
   WITH CASE WHEN elementId(dev1) < elementId(dev2) THEN dev1 ELSE dev2 END AS p1,
        CASE WHEN elementId(dev1) < elementId(dev2) THEN dev2 ELSE dev1 END AS p2, f
-  RETURN p1, p2, count(DISTINCT f) * $weight_shared_file_commits AS sub_score
+  RETURN p1, p2, log(toFloat(count(DISTINCT f)) + 1) * $weight_shared_file_commits AS sub_score
 
   UNION ALL
 
@@ -46,7 +61,7 @@ CALL () {
     AND i1.created_at >= datetime() - duration({days: $lookback_days})
     AND i2.created_at >= datetime() - duration({days: $lookback_days})
   WITH dev1 AS p1, dev2 AS p2, s
-  RETURN p1, p2, count(DISTINCT s) * $weight_sprint_coworkers AS sub_score
+  RETURN p1, p2, log(toFloat(count(DISTINCT s)) + 1) * $weight_sprint_coworkers AS sub_score
 
   UNION ALL
 
@@ -58,6 +73,7 @@ CALL () {
     AND pr.created_at >= datetime() - duration({days: $lookback_days})
   WITH CASE WHEN elementId(reviewer) < elementId(author) THEN reviewer ELSE author END AS p1,
        CASE WHEN elementId(reviewer) < elementId(author) THEN author ELSE reviewer END AS p2, pr
+  // No log dampening: direct person-to-person intentional action; count is naturally bounded.
   RETURN p1, p2, count(pr) * $weight_explicit_review_requests AS sub_score
 
   UNION ALL
@@ -70,7 +86,7 @@ CALL () {
     AND i1.created_at >= datetime() - duration({days: $lookback_days})
     AND i2.created_at >= datetime() - duration({days: $lookback_days})
   WITH dev1 AS p1, dev2 AS p2, e
-  RETURN p1, p2, count(DISTINCT e) * $weight_epic_overlap AS sub_score
+  RETURN p1, p2, log(toFloat(count(DISTINCT e)) + 1) * $weight_epic_overlap AS sub_score
 
   UNION ALL
 
@@ -81,7 +97,7 @@ CALL () {
     AND (doc:Page OR doc:Blogpost)
     AND elementId(p1) < elementId(p2)
     AND doc.last_updated_at >= datetime() - duration({days: $lookback_days})
-  RETURN p1, p2, count(DISTINCT doc) * $weight_confluence_co_authorship AS sub_score
+  RETURN p1, p2, log(toFloat(count(DISTINCT doc)) + 1) * $weight_confluence_co_authorship AS sub_score
 
   UNION ALL
 
@@ -96,7 +112,7 @@ CALL () {
     CASE WHEN elementId(commenter) < elementId(author) THEN commenter ELSE author END AS p1,
     CASE WHEN elementId(commenter) < elementId(author) THEN author ELSE commenter END AS p2,
     doc
-  RETURN p1, p2, count(DISTINCT doc) * $weight_confluence_comment_engagement AS sub_score
+  RETURN p1, p2, log(toFloat(count(DISTINCT doc)) + 1) * $weight_confluence_comment_engagement AS sub_score
 
   UNION ALL
 
@@ -107,7 +123,7 @@ CALL () {
     AND (doc:Page OR doc:Blogpost)
     AND elementId(p1) < elementId(p2)
     AND doc.last_updated_at >= datetime() - duration({days: $lookback_days})
-  RETURN p1, p2, count(DISTINCT doc) * $weight_confluence_co_commenters AS sub_score
+  RETURN p1, p2, log(toFloat(count(DISTINCT doc)) + 1) * $weight_confluence_co_commenters AS sub_score
 
   UNION ALL
 
@@ -122,7 +138,7 @@ CALL () {
     CASE WHEN elementId(author) < elementId(mentioned) THEN author ELSE mentioned END AS p1,
     CASE WHEN elementId(author) < elementId(mentioned) THEN mentioned ELSE author END AS p2,
     doc
-  RETURN p1, p2, count(DISTINCT doc) * $weight_confluence_mentions AS sub_score
+  RETURN p1, p2, log(toFloat(count(DISTINCT doc)) + 1) * $weight_confluence_mentions AS sub_score
 
   UNION ALL
 
@@ -136,7 +152,7 @@ CALL () {
     CASE WHEN elementId(commenter) < elementId(author) THEN commenter ELSE author END AS p1,
     CASE WHEN elementId(commenter) < elementId(author) THEN author ELSE commenter END AS p2,
     pr
-  RETURN p1, p2, count(DISTINCT pr) * $weight_github_pr_comment_engagement AS sub_score
+  RETURN p1, p2, log(toFloat(count(DISTINCT pr)) + 1) * $weight_github_pr_comment_engagement AS sub_score
 
   UNION ALL
 
@@ -146,7 +162,7 @@ CALL () {
   WHERE $include_github_pr_co_commenters
     AND elementId(p1) < elementId(p2)
     AND pr.created_at >= datetime() - duration({days: $lookback_days})
-  RETURN p1, p2, count(DISTINCT pr) * $weight_github_pr_co_commenters AS sub_score
+  RETURN p1, p2, log(toFloat(count(DISTINCT pr)) + 1) * $weight_github_pr_co_commenters AS sub_score
 }
 // Sum the scores from all independent systems
 WITH p1, p2, sum(sub_score) AS total_collaboration_score
