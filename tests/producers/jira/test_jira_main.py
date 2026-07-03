@@ -3,13 +3,7 @@ from unittest.mock import patch, Mock
 import os
 import requests
 
-# Add the 'app' directory to the Python path to import modules
-import sys
-from pathlib import Path
-project_root = Path(__file__).resolve().parent.parent.parent.parent
-sys.path.insert(0, str(project_root / 'app'))
-
-from connectors.producers.jira_producer import load_config_from_server
+from connectors.producers.jira.main import load_config_from_server
 
 # --- Tests for load_config_from_server ---
 

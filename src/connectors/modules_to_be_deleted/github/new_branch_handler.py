@@ -1,6 +1,6 @@
 from connectors.neo4j_db.models import Branch, Relationship, merge_branch, merge_relationship
 from common.logger import logger
-from connectors.producers.map_github import map_branch
+from connectors.producers.github.map_github import map_branch
 from typing import Any, Optional
 from neo4j import Session
 

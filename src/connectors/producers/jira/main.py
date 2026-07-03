@@ -12,7 +12,7 @@ Sync cursor key: ``source="jira"``, ``resource_id=<jira_base_url>``.
 
 Run via::
 
-    PYTHONPATH=/app python connectors/producers/jira_producer.py
+    PYTHONPATH=/app python connectors/producers/jira/main.py
 
 Or in Docker::
 
@@ -46,14 +46,14 @@ from connectors.producers.jira.jira_config import (
     load_config_from_file,
     load_config_from_server,
 )
-from connectors.producers.fetch_jira import (
+from connectors.producers.jira.fetch_jira import (
     fetch_epics,
     fetch_initiatives,
     fetch_issues,
     fetch_projects,
     fetch_sprints_by_ids,
 )
-from connectors.producers.map_jira import (
+from connectors.producers.jira.map_jira import (
     extract_sprint_ids_from_issues,
     map_epic,
     map_initiative,

@@ -1,4 +1,4 @@
-"""Unit tests for jira_producer.py (Phase 4).
+"""Unit tests for connectors.producers.jira.main (Phase 4).
 
 Tests cover:
 - Signal builder functions for each entity type.
@@ -16,7 +16,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from connectors.producers.jira_producer import (
+from connectors.producers.jira.main import (
     _SOURCE,
     _TEXT_MAX,
     _event_time_from,
@@ -477,11 +477,11 @@ class TestPublishSignals:
         jira = MagicMock()
 
         with (
-            patch("connectors.producers.jira_producer.fetch_projects", return_value=[self._raw_project()]),
-            patch("connectors.producers.jira_producer.fetch_initiatives", return_value=[self._raw_initiative()]),
-            patch("connectors.producers.jira_producer.fetch_epics", return_value=[self._raw_epic()]),
-            patch("connectors.producers.jira_producer.fetch_issues", return_value=[self._raw_issue()]),
-            patch("connectors.producers.jira_producer.fetch_sprints_by_ids", return_value=[self._raw_sprint()]),
+            patch("connectors.producers.jira.main.fetch_projects", return_value=[self._raw_project()]),
+            patch("connectors.producers.jira.main.fetch_initiatives", return_value=[self._raw_initiative()]),
+            patch("connectors.producers.jira.main.fetch_epics", return_value=[self._raw_epic()]),
+            patch("connectors.producers.jira.main.fetch_issues", return_value=[self._raw_issue()]),
+            patch("connectors.producers.jira.main.fetch_sprints_by_ids", return_value=[self._raw_sprint()]),
         ):
             published = await publish_signals(publisher, jira, _BASE_URL, 90, 100)
 
@@ -502,11 +502,11 @@ class TestPublishSignals:
         two_issues = [self._raw_issue(), {**self._raw_issue(), "id": "50002", "key": "PROJ-11"}]
 
         with (
-            patch("connectors.producers.jira_producer.fetch_projects", return_value=[]),
-            patch("connectors.producers.jira_producer.fetch_initiatives", return_value=[]),
-            patch("connectors.producers.jira_producer.fetch_epics", return_value=[]),
-            patch("connectors.producers.jira_producer.fetch_issues", return_value=two_issues),
-            patch("connectors.producers.jira_producer.fetch_sprints_by_ids", return_value=[]),
+            patch("connectors.producers.jira.main.fetch_projects", return_value=[]),
+            patch("connectors.producers.jira.main.fetch_initiatives", return_value=[]),
+            patch("connectors.producers.jira.main.fetch_epics", return_value=[]),
+            patch("connectors.producers.jira.main.fetch_issues", return_value=two_issues),
+            patch("connectors.producers.jira.main.fetch_sprints_by_ids", return_value=[]),
         ):
             published = await publish_signals(publisher, jira, _BASE_URL, 90, 100)
 
@@ -684,11 +684,11 @@ class TestBuildIssueSignalPhaseD:
         jira = MagicMock()
 
         with (
-            patch("connectors.producers.jira_producer.fetch_projects", return_value=[]),
-            patch("connectors.producers.jira_producer.fetch_initiatives", return_value=[]),
-            patch("connectors.producers.jira_producer.fetch_epics", return_value=[]),
-            patch("connectors.producers.jira_producer.fetch_issues", return_value=[]),
-            patch("connectors.producers.jira_producer.fetch_sprints_by_ids", return_value=[]),
+            patch("connectors.producers.jira.main.fetch_projects", return_value=[]),
+            patch("connectors.producers.jira.main.fetch_initiatives", return_value=[]),
+            patch("connectors.producers.jira.main.fetch_epics", return_value=[]),
+            patch("connectors.producers.jira.main.fetch_issues", return_value=[]),
+            patch("connectors.producers.jira.main.fetch_sprints_by_ids", return_value=[]),
         ):
             published = await publish_signals(publisher, jira, _BASE_URL, 90, 100)
 

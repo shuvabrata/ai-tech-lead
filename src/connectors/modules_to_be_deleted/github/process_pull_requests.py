@@ -5,7 +5,7 @@ from common.logger import logger
 from connectors.modules.github.get_fully_synced_pr_numbers import get_fully_synced_pr_numbers
 from connectors.modules.github.new_pull_request_handler import new_pull_request_handler
 from connectors.modules.github.repo_last_synced_at import get__last_synced_at
-from connectors.producers.fetch_github import (
+from connectors.producers.github.fetch_github import (
     fetch_pull_requests_direct,
     fetch_pull_requests_search,
     resolve_prs_since_date,

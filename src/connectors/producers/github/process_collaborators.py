@@ -9,8 +9,8 @@ from common.activity_signal.models import (
     RelationshipTarget,
 )
 from common.logger import logger
-from connectors.producers.fetch_github import fetch_repo_collaborators
-from connectors.producers.map_github import fetch_github_user
+from connectors.producers.github.fetch_github import fetch_repo_collaborators
+from connectors.producers.github.map_github import fetch_github_user
 
 _SOURCE = "github"
 

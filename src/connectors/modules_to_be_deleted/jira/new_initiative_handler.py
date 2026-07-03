@@ -5,7 +5,7 @@ from connectors.neo4j_db.models import Initiative, Relationship, merge_initiativ
 from connectors.modules.jira.new_jira_user_handler import new_jira_user_handler
 from connectors.commons.person_cache import PersonCache
 from common.logger import logger
-from connectors.producers.map_jira import map_initiative
+from connectors.producers.jira.map_jira import map_initiative
 
 def new_initiative_handler(
     session: Any,

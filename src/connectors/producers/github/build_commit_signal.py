@@ -14,7 +14,7 @@ from common.activity_signal.models import (
 )
 from common.activity_signal.wba_node_id import wba_format
 
-from connectors.producers.map_github import (
+from connectors.producers.github.map_github import (
     extract_issue_keys,
     extract_issue_keys_from_branch,
 )

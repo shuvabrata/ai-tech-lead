@@ -10,11 +10,11 @@ from common.logger import logger
 
 from common.messaging.rabbitmq import RabbitMQPublisher
 
-from connectors.producers.fetch_github import fetch_repo_topics
+from connectors.producers.github.fetch_github import fetch_repo_topics
 from connectors.producers.github.build_repository_signal import build_repository_signal
 from connectors.producers.github.process_collaborators import process_collaborators
 from connectors.producers.github.process_teams import process_teams
-from connectors.producers.map_github import map_repo
+from connectors.producers.github.map_github import map_repo
 from connectors.producers.github.process_prs import process_prs
 from connectors.producers.github.process_commits import process_commits
 from connectors.producers.github.pub_callback import make_pub_callback

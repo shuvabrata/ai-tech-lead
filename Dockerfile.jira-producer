@@ -25,4 +25,4 @@ RUN useradd -m -u 1000 -s /bin/bash appuser && \
 USER appuser
 
 # Run the producer (one-shot: exits after all accounts are processed)
-CMD ["python", "connectors/producers/jira_producer.py"]
+CMD ["python", "connectors/producers/jira/main.py"]

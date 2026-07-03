@@ -6,8 +6,8 @@ from connectors.modules.github.new_file_handler import new_file_handler
 from connectors.commons.person_cache import PersonCache
 from common.activity_signal.wba_node_id import wba_format
 from common.logger import logger
-from connectors.producers.fetch_github import fetch_commit_files
-from connectors.producers.map_github import (
+from connectors.producers.github.fetch_github import fetch_commit_files
+from connectors.producers.github.map_github import (
     map_commit,
     map_commit_author,
     map_commit_files,

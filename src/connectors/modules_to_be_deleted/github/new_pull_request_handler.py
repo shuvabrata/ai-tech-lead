@@ -5,12 +5,12 @@ from connectors.neo4j_db.models import PullRequest, Branch, Relationship, merge_
 from connectors.commons.person_cache import PersonCache
 from common.activity_signal.wba_node_id import wba_format
 from common.logger import logger
-from connectors.producers.fetch_github import (
+from connectors.producers.github.fetch_github import (
     fetch_external_branch_details,
     fetch_pr_reviews,
     fetch_pr_commits,
 )
-from connectors.producers.map_github import (
+from connectors.producers.github.map_github import (
     map_external_branch,
     map_pr_user,
     map_pull_request,
