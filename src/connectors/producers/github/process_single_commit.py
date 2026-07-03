@@ -6,7 +6,7 @@ from typing import Any, Awaitable, Callable, Dict, Optional
 from common.logger import logger
 
 from common.activity_signal.models import ActivitySignal
-from connectors.producers.map_github import fetch_github_user, map_commit, map_commit_files
+from connectors.producers.github.map_github import fetch_github_user, map_commit, map_commit_files
 from connectors.producers.github.build_commit_signal import build_commit_signal
 from connectors.producers.github.build_file_signal import build_file_signal
 from connectors.producers.github.build_person_signal import build_person_signal

@@ -1,4 +1,4 @@
-"""Unit tests for connectors.producers.map_jira (Phase 3).
+"""Unit tests for connectors.producers.jira.map_jira (Phase 3).
 
 All tests are pure: no network I/O, no database, no mocking required beyond
 plain dicts.  Environment variables that control custom field IDs are patched
@@ -7,7 +7,7 @@ per-test where needed.
 
 import os
 import pytest
-from connectors.producers.map_jira import (
+from connectors.producers.jira.map_jira import (
     extract_sprint_ids_from_issues,
     map_epic,
     map_initiative,

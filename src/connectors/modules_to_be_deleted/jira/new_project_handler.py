@@ -4,8 +4,8 @@ from connectors.commons.person_cache import PersonCache
 from common.logger import logger
 
 from connectors.neo4j_db.models import Project, Relationship, merge_project
-from connectors.modules.jira.new_jira_user_handler import new_jira_user_handler
-from connectors.producers.map_jira import map_project
+from connectors.modules_to_be_deleted.jira.new_jira_user_handler import new_jira_user_handler
+from connectors.producers.jira.map_jira import map_project
 
 
 def new_project_handler(

@@ -7,7 +7,7 @@ from typing import Any, Awaitable, Callable, Dict, Optional, Set
 from common.activity_signal.models import ActivitySignal
 from common.logger import logger
 
-from connectors.producers.fetch_github import fetch_pull_requests_direct, resolve_prs_since_date
+from connectors.producers.github.fetch_github import fetch_pull_requests_direct, resolve_prs_since_date
 from connectors.producers.github.process_single_pr import process_single_pr
 
 

@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional, Awaitable, Callable
 from datetime import datetime, timezone
 
 
-from connectors.producers.fetch_github import (
+from connectors.producers.github.fetch_github import (
     fetch_pr_commits,
     fetch_pr_reviews,
     fetch_pr_issue_comments,
@@ -16,7 +16,7 @@ from connectors.producers.fetch_github import (
 from connectors.producers.github.build_commit_signal import build_commit_signal
 from connectors.producers.github.build_person_signal import build_person_signal
 from connectors.producers.github.build_pull_request_signal import build_pull_request_signal
-from connectors.producers.map_github import (
+from connectors.producers.github.map_github import (
     fetch_github_user,
     map_commit,
     map_pr_reviews,

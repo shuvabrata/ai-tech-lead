@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from connectors.commons.person_cache import PersonCache
 from common.activity_signal.wba_node_id import wba_format
 from common.logger import logger
-from connectors.producers.map_jira import map_jira_user
+from connectors.producers.jira.map_jira import map_jira_user
 
 def new_jira_user_handler(
     session: Any,

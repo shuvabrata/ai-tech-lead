@@ -1,7 +1,7 @@
 from common.logger import logger
 from connectors.modules.github.new_branch_handler import new_branch_handler
 from connectors.modules.github.get_existing_branch_metadata import get_existing_branch_metadata
-from connectors.producers.fetch_github import fetch_branches
+from connectors.producers.github.fetch_github import fetch_branches
 
 
 from typing import Any, Optional

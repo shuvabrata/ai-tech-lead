@@ -6,7 +6,7 @@ from connectors.modules.jira.new_jira_user_handler import new_jira_user_handler
 from connectors.modules.jira.team_stub_handler import get_or_create_team_stub
 from connectors.commons.person_cache import PersonCache
 from common.logger import logger
-from connectors.producers.map_jira import map_issue
+from connectors.producers.jira.map_jira import map_issue
 
 
 

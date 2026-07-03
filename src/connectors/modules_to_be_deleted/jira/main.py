@@ -3,7 +3,7 @@
 .. deprecated::
     This module is the **legacy** direct-to-Neo4j Jira ingestion entrypoint.
     It will be removed once the event-driven pipeline
-    (``connectors/producers/jira_producer.py`` → RabbitMQ →
+    (``connectors/producers/jira/main.py`` → RabbitMQ →
     ``connectors/consumers/``) is proven stable in production.
 
     Do **not** add new features here.  All new work should target the
@@ -33,14 +33,14 @@ from connectors.modules.jira.jira_config import (
     load_config_from_file,
     load_config_from_server,
 )
-from connectors.producers.fetch_jira import (
+from connectors.producers.jira.fetch_jira import (
     fetch_projects,
     fetch_initiatives,
     fetch_epics,
     fetch_sprints_by_ids,
     fetch_issues,
 )
-from connectors.producers.map_jira import extract_sprint_ids_from_issues
+from connectors.producers.jira.map_jira import extract_sprint_ids_from_issues
 
 
 
@@ -64,13 +64,13 @@ def main() -> int:
     import warnings
     warnings.warn(
         "connectors.modules.jira.main is deprecated and will be removed. "
-        "Use connectors.producers.jira_producer (event-driven pipeline) instead.",
+        "Use connectors.producers.jira/main.py (event-driven pipeline) instead.",
         DeprecationWarning,
         stacklevel=1,
     )
     logger.warning(
         "[DEPRECATED] connectors/modules/jira/main.py is the legacy direct-to-Neo4j "
-        "entrypoint. Migrate to connectors/producers/jira_producer.py."
+        "entrypoint. Migrate to connectors/producers/jira/main.py."
     )
     try:
         logger.info("=" * 80)
