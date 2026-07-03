@@ -84,6 +84,7 @@ def build_graph(records: List[Dict[str, Any]]) -> nx.Graph:
         p1_id = record["person1_wba_id"]
         p2_id = record["person2_wba_id"]
         score = record["total_collaboration_score"]
+        print(f"Adding edge  weight={score:>10.2f}  {p1_id:<65} <->  {p2_id}")
 
         if p1_id not in g:
             p1_attrs = dict(record.get("person1_props") or {})
