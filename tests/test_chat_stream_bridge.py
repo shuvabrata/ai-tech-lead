@@ -161,12 +161,11 @@ def test_stream_bridge_js_contains_run_stream_function():
     assert "runStream" in content
 
 
-def test_stream_bridge_js_formats_time_using_configured_timezone():
-    """stream-bridge.js should format timestamps with Intl.DateTimeFormat and a timeZone option."""
+def test_stream_bridge_js_formats_time_using_iso_format():
+    """stream-bridge.js should emit raw ISO timestamps for the Python backend to humanize."""
     with open(_STREAM_BRIDGE, encoding="utf-8") as fh:
         content = fh.read()
-    assert "Intl.DateTimeFormat" in content
-    assert "timeZone" in content
+    assert "toISOString" in content
 
 
 def test_stream_bridge_js_handles_stream_endpoint():

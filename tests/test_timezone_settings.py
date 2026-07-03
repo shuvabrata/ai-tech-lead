@@ -84,7 +84,9 @@ def test_render_items_list_formats_connector_timestamp_in_app_timezone(monkeypat
 
     header_text = rendered[0].children[0].children
 
-    assert header_text == "Repository: last configured at May 03, 2026 05:30 AM"
+    assert isinstance(header_text, list)
+    assert header_text[0] == "Repository: last configured at "
+    assert header_text[1].title == "May 03, 2026 05:30 AM"
 
 
 def test_queue_message_uses_app_timezone_for_ui_timestamps(monkeypatch):
@@ -98,5 +100,5 @@ def test_queue_message_uses_app_timezone_for_ui_timestamps(monkeypatch):
     )
 
     assert pending["client_id"]
-    assert session_data["messages"][0]["timestamp"] == "05:30 AM"
-    assert session_data["messages"][1]["timestamp"] == "05:30 AM"
+    assert session_data["messages"][0]["timestamp"] == "2026-05-03T05:30:00+00:00"
+    assert session_data["messages"][1]["timestamp"] == "2026-05-03T05:30:00+00:00"

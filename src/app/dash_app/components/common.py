@@ -15,8 +15,11 @@ Usage:
 
 from typing import Any
 
+from datetime import datetime
 from dash import html, dcc
 import dash_bootstrap_components as dbc
+from app.common.timezone import humanize_duration, to_app_timezone
+from app.settings import settings
 
 from app.dash_app.styles import (
     # Style patterns
@@ -634,6 +637,11 @@ def _panel_resolve_endpoint(edge_data: dict, endpoint: str) -> str:
     return "N/A"
 
 
+# Keys that may hold date or datetime values (e.g. "2025-06-30" or
+# "2025-06-30T14:30:00Z").  These get parsed regardless of format.
+_DATE_TIME_KEYS = {"start_date", "created_at", "updated_at", "due_date"}
+
+
 def _panel_properties_table(items: list) -> html.Table:
     """Render (key, value) pairs as an Executive Dashboard tabular layout."""
     rows = []
@@ -641,7 +649,45 @@ def _panel_properties_table(items: list) -> html.Table:
         str_value = str(value)
         is_url = key == "url" or str_value.startswith(("http://", "https://"))
         is_mono = key in ("id",) or (len(str_value) > 16 and " " not in str_value)
-        if is_url:
+        formatted_date = None
+
+        # Hybrid heuristic:
+        # - Known date/time keys (e.g. start_date, created_at) are always
+        #   candidates regardless of format.
+        # - Other strings that look like ISO 8601 ("T" or "Z", >=19 chars) get
+        #   the existing fast-path check.  Everything else skips try/except.
+        is_date_like = False
+        if isinstance(str_value, str):
+            if key in _DATE_TIME_KEYS:
+                is_date_like = True
+            elif ("T" in str_value or "Z" in str_value) and len(str_value) >= 19:
+                is_date_like = True
+
+        if is_date_like:
+            try:
+                dt = datetime.fromisoformat(str_value.replace("Z", "+00:00"))
+                local_dt = to_app_timezone(dt)
+                actual_time = local_dt.strftime(settings.UI_DATETIME_FORMAT)
+                duration_str = humanize_duration(local_dt)
+                formatted_date = html.Span(
+                    duration_str, title=actual_time, style=DETAILS_TABLE_VALUE_STYLE
+                )
+            except Exception:
+                pass
+
+        if formatted_date:
+            value_cell = html.Span(
+                [
+                    formatted_date,
+                    dcc.Clipboard(
+                        content=str_value,
+                        className="details-prop-icon details-prop-icon--copy",
+                        title="Copy",
+                    ),
+                ],
+                className="details-prop-value-wrap",
+            )
+        elif is_url:
             value_cell = html.Span(
                 [
                     html.A(

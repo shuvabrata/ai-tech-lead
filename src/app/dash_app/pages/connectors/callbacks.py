@@ -11,7 +11,7 @@ import requests
 import dash_bootstrap_components as dbc
 from dash import ALL, MATCH, Input, Output, State, callback, callback_context, html, no_update
 
-from app.common.timezone import to_app_timezone
+from app.common.timezone import humanize_duration, to_app_timezone
 from app.settings import settings
 from app.api.connectors.v1.registry import CONNECTOR_REGISTRY
 from app.dash_app.components.common import create_alert
@@ -471,8 +471,10 @@ def render_items_list(store: Dict[str, Any] | None):
                 # Convert to the configured app timezone and format
                 local_dt = to_app_timezone(dt)
                 fmt = getattr(settings, "UI_DATETIME_FORMAT", "%b %d, %Y %I:%M %p")
-                display_time = local_dt.strftime(fmt)
-                header_text = f"{label}: last configured at {display_time}"
+                actual_time = local_dt.strftime(fmt)
+                duration_str = humanize_duration(local_dt)
+                display_time_component = html.Span(duration_str, title=actual_time)
+                header_text = [f"{label}: last configured at ", display_time_component]
             except (ValueError, TypeError, AttributeError):
                 # Fallback to basic string parsing if datetime parsing fails
                 if isinstance(updated_at, str) and "T" in updated_at:

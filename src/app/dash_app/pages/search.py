@@ -18,7 +18,7 @@ from dash.exceptions import PreventUpdate
 from urllib.parse import parse_qs, unquote
 import dash_bootstrap_components as dbc
 
-from app.common.timezone import to_app_timezone
+from app.common.timezone import humanize_duration, to_app_timezone
 from app.dash_app.components.common import create_alert
 from app.dash_app.styles import (
     COLOR_BORDER,
@@ -160,14 +160,16 @@ def _badge_color(entity_type: str) -> str:
 # Result card helpers
 # ---------------------------------------------------------------------------
 
-def _format_event_time(event_time_str: str | None) -> str:
-    """Format an ISO 8601 event_time string using app timezone and UI_DATETIME_FORMAT."""
+def _format_event_time(event_time_str: str | None) -> html.Span | str:
+    """Format an ISO 8601 event_time string using app timezone and humanized duration."""
     if not event_time_str:
         return ""
     try:
         dt = datetime.fromisoformat(event_time_str.replace("Z", "+00:00"))
-        dt = to_app_timezone(dt)
-        return dt.strftime(settings.UI_DATETIME_FORMAT)
+        local_dt = to_app_timezone(dt)
+        actual_time = local_dt.strftime(settings.UI_DATETIME_FORMAT)
+        duration_str = humanize_duration(local_dt)
+        return html.Span(duration_str, title=actual_time)
     except Exception as exc:
         logger.warning("Failed to parse event time '%s': %s", event_time_str, exc)
         return event_time_str
@@ -200,11 +202,25 @@ def _build_attributes_table(attributes: dict) -> html.Table:
         is_mono = key in ("id", "wba_id") or (
             len(str_value) > 16 and " " not in str_value
         )
-        value_cell = (
-            html.Code(str_value, style=DETAILS_TABLE_VALUE_MONO_STYLE)
-            if is_mono
-            else html.Span(str_value, style=DETAILS_TABLE_VALUE_STYLE)
-        )
+        
+        formatted_date = None
+        if isinstance(str_value, str) and ("T" in str_value or "Z" in str_value) and len(str_value) >= 19:
+            try:
+                dt = datetime.fromisoformat(str_value.replace("Z", "+00:00"))
+                local_dt = to_app_timezone(dt)
+                actual_time = local_dt.strftime(settings.UI_DATETIME_FORMAT)
+                duration_str = humanize_duration(local_dt)
+                formatted_date = html.Span(duration_str, title=actual_time, style=DETAILS_TABLE_VALUE_STYLE)
+            except Exception:
+                pass
+                
+        if formatted_date:
+            value_cell = formatted_date
+        elif is_mono:
+            value_cell = html.Code(str_value, style=DETAILS_TABLE_VALUE_MONO_STYLE)
+        else:
+            value_cell = html.Span(str_value, style=DETAILS_TABLE_VALUE_STYLE)
+            
         rows.append(
             html.Tr([
                 html.Td(key, style=DETAILS_TABLE_KEY_STYLE),
