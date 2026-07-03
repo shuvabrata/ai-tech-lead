@@ -635,6 +635,7 @@ def sync_catalog_parameter_values(
     Input("url", "search"),
     State("selected-catalog-query-store", "data"),
     State("query-catalog-store", "data"),
+    State("catalog-query-view-toggle", "value"),
     prevent_initial_call=True,
 )
 def load_catalog_query_into_console(
@@ -643,6 +644,7 @@ def load_catalog_query_into_console(
     search: str | None,
     selected_query: dict | None,
     catalog_queries: list[dict] | None,
+    catalog_view: str | None,
 ):
     """Populate the query console with the selected catalog query text."""
     try:
@@ -654,7 +656,7 @@ def load_catalog_query_into_console(
     if not query:
         return no_update, no_update
 
-    selected_view = determine_catalog_view(query, None, None)
+    selected_view = determine_catalog_view(query, None, catalog_view)
     if not selected_view:
         return no_update, no_update
 
