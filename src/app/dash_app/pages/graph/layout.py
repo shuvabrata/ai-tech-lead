@@ -65,7 +65,7 @@ def create_graph_container():
                 userZoomingEnabled=True,
                 userPanningEnabled=True,
                 wheelSensitivity=0.3,
-                minZoom=0.1,
+                minZoom=0.05,
                 maxZoom=3
             )
         ]
