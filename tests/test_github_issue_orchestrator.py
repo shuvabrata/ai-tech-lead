@@ -152,16 +152,15 @@ async def test_process_issues_uses_search_api_when_github_obj_provided():
 
 @pytest.mark.unit
 @pytest.mark.asyncio
-async def test_process_issues_falls_back_to_direct_when_search_empty():
-    """When the Search API returns no issues, the direct fetch fallback is used."""
-    direct_issue = _make_issue(number=7)
+async def test_process_issues_skips_direct_when_search_returns_empty():
+    """When the Search API returns no issues (success), the direct fallback is skipped."""
     with ExitStack() as stack:
         stack.enter_context(
             patch(f"{_MODULE}.resolve_issues_since_date", return_value=datetime(2026, 1, 1, tzinfo=timezone.utc))
         )
         _enter_patches(stack, _common_patches(issues=[], comments=[]))
         direct_mock = stack.enter_context(
-            patch(f"{_MODULE}.fetch_issues_direct", return_value=[direct_issue])
+            patch(f"{_MODULE}.fetch_issues_direct", return_value=[])
         )
         pub = AsyncMock()
         await process_issues(
@@ -175,7 +174,7 @@ async def test_process_issues_falls_back_to_direct_when_search_empty():
             pub_callback=pub,
             github_obj=MagicMock(),
         )
-        direct_mock.assert_called_once()
+        direct_mock.assert_not_called()
 
 
 @pytest.mark.unit
