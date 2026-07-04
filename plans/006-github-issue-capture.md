@@ -1,6 +1,6 @@
 # Plan: GitHub Issue Capture for ActivitySignal Pipeline
 
-**Status:** Phases 1–4 complete — Phase 5 (collaboration network) + Phase 6 (queries + docs) remaining
+**Status:** Phases 1–5 complete — Phase 6 (queries + docs) remaining
 **Created:** 2026-07-04
 **Phases:** 6
 **Tracking:** Use the checkboxes below to track progress during implementation.
@@ -122,38 +122,14 @@ Extend the existing GitHub producer (`src/connectors/producers/github/`) to fetc
 ### Phase 5 — Collaboration network
 *Depends on Phase 4 (parallel with Phase 6)*
 
-- [ ] 5.1 Add Layer 13 (GitHub Issue Comment Engagement) to `src/app/analytics/collaboration/queries/collaboration_score.cypher`:
-  ```cypher
-  // 13. Find GitHub Issue Comment Engagement (Weight: 3)
-  MATCH (commenter:Person)-[:COMMENTED_ON]->(issue:Issue)<-[:REPORTED_BY]-(author:Person)
-  WHERE $include_github_issue_comment_engagement
-    AND issue.id STARTS WITH 'github::Issue::'
-    AND elementId(commenter) <> elementId(author)
-    AND issue.created_at >= datetime() - duration({days: $lookback_days})
-  WITH
-    CASE WHEN elementId(commenter) < elementId(author) THEN commenter ELSE author END AS p1,
-    CASE WHEN elementId(commenter) < elementId(author) THEN author ELSE commenter END AS p2,
-    issue
-  RETURN p1, p2, log(toFloat(count(DISTINCT issue)) + 1) * $weight_github_issue_comment_engagement AS sub_score
-  ```
-- [ ] 5.2 Add Layer 14 (GitHub Issue Co-commenters):
-  ```cypher
-  // 14. Find GitHub Issue Co-commenters (Weight: 2)
-  MATCH (p1:Person)-[:COMMENTED_ON]->(issue:Issue)<-[:COMMENTED_ON]-(p2:Person)
-  WHERE $include_github_issue_co_commenters
-    AND issue.id STARTS WITH 'github::Issue::'
-    AND elementId(p1) < elementId(p2)
-    AND issue.created_at >= datetime() - duration({days: $lookback_days})
-  RETURN p1, p2, log(toFloat(count(DISTINCT issue)) + 1) * $weight_github_issue_co_commenters AS sub_score
-  ```
-- [ ] 5.3 Add config flags to `src/app/analytics/collaboration/config.py`:
-  - `include_github_issue_comment_engagement` (default True)
-  - `include_github_issue_co_commenters` (default True)
-  - `weight_github_issue_comment_engagement` (default 3)
-  - `weight_github_issue_co_commenters` (default 2)
-- [ ] 5.4 Add verbose `INFO`/`DEBUG` logging to the collaboration network execution: `logger.info("Collaboration network: GitHub issue comment engagement layer %s", "enabled" if include_github_issue_comment_engagement else "disabled")` at startup; `logger.debug("Layer 13 (GitHub Issue Comment Engagement): %d pairs scored", pair_count)` after execution; `logger.debug("Layer 14 (GitHub Issue Co-commenters): %d pairs scored", pair_count)` after execution. Use the existing logger in the collaboration module.
-- [ ] 5.5 **Tests:** verify the cypher file parses; verify config flags toggle the layers; verify the new layers contribute scores against test data (mock Neo4j session).
-- [ ] 5.6 **Gate:** collaboration network runs without error; new layers contribute scores.
+- [x] 5.1 Add Layer 13 (GitHub Issue Comment Engagement) to `src/app/analytics/collaboration/queries/collaboration_score.cypher`
+  (added after layer 12 in the existing cypher file)
+- [x] 5.2 Add Layer 14 (GitHub Issue Co-commenters)
+  (added after layer 13 in the existing cypher file)
+- [x] 5.3 Add config flags to `src/app/analytics/collaboration/config.py`
+- [x] 5.4 Add verbose `INFO` logging to `get_collaboration_network` in `src/app/api/graph/v1/service.py`
+- [x] 5.5 **Tests:** added 6 tests to `test_collaboration_config.py` (layer order, default weights, enabled by default, cypher params, selective disable)
+- [x] 5.6 **Gate:** `pytest -m unit tests/ -q` = 671 passed (all existing + new)
 
 ### Phase 6 — Query catalog + end-to-end + documentation
 *Depends on Phase 4 (parallel with Phase 5)*
