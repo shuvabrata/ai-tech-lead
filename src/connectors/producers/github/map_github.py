@@ -19,6 +19,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from common.logger import logger
+
 
 # ---------------------------------------------------------------------------
 # Repository
@@ -431,3 +433,221 @@ def extract_issue_keys_from_branch(
             pass  # invalid user-supplied regex; skip silently
 
     return list(set(all_matches))
+
+
+# ---------------------------------------------------------------------------
+# Issue mapping (GitHub Issues)
+# ---------------------------------------------------------------------------
+
+
+def map_issue(issue: Any, repo_full_name: str) -> Dict[str, Any]:
+    """Extract and normalise GitHub issue attributes.
+
+    Args:
+        issue: PyGithub Issue object.
+        repo_full_name: Repository full name (e.g. ``"owner/repo"``) — used to
+            construct the canonical ``key`` and ``id``.
+
+    Returns:
+        Dict with keys: ``key``, ``summary``, ``priority``, ``status``,
+        ``type``, ``created_at``, ``updated_at``, ``assignee``, ``reporter``,
+        ``labels``, ``url``.
+    """
+    number = getattr(issue, "number", 0)
+    key = f"{repo_full_name}#{number}"
+
+    # Assignee — primary (first) assignee login, or None
+    assignee_login: Optional[str] = None
+    assignee = getattr(issue, "assignee", None)
+    if assignee:
+        assignee_login = getattr(assignee, "login", None)
+
+    # Reporter — issue author
+    reporter_login: Optional[str] = None
+    user = getattr(issue, "user", None)
+    if user:
+        reporter_login = getattr(user, "login", None)
+
+    # Labels — list of label names
+    labels: List[str] = []
+    raw_labels = getattr(issue, "labels", None) or []
+    for label in raw_labels:
+        label_name = getattr(label, "name", None)
+        if label_name:
+            labels.append(label_name)
+
+    # Timestamps — ISO format strings
+    created_at = issue.created_at.isoformat() if getattr(issue, "created_at", None) else ""
+    updated_at = issue.updated_at.isoformat() if getattr(issue, "updated_at", None) else None
+
+    # State — "open" or "closed"
+    state = getattr(issue, "state", "open")
+
+    # URL
+    url = getattr(issue, "html_url", None)
+
+    logger.debug(
+        "Mapped issue '%s': state=%s, assignee=%s, reporter=%s, labels=%d, comments=%d",
+        key,
+        state,
+        assignee_login,
+        reporter_login,
+        len(labels),
+        getattr(issue, "comments", 0),
+    )
+
+    return {
+        "key": key,
+        "number": number,
+        "summary": getattr(issue, "title", "") or "",
+        "priority": "None",
+        "status": state,
+        "type": "Issue",
+        "created_at": created_at,
+        "updated_at": updated_at,
+        "assignee": assignee_login,
+        "reporter": reporter_login,
+        "labels": labels,
+        "url": url,
+        "repo_full_name": repo_full_name,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Code-block stripping (shared by mention and reference extraction)
+# ---------------------------------------------------------------------------
+
+
+def _strip_code_blocks(text: str) -> str:
+    """Remove fenced code blocks and inline code from *text*.
+
+    Strips:
+    - Fenced code blocks (```` ```...``` ````) — including language hints.
+    - Inline code spans (`` `code` ``).
+
+    This prevents false-positive @mentions and issue references inside code.
+
+    Args:
+        text: Raw text (issue body or comment body).
+
+    Returns:
+        Text with code blocks removed.
+    """
+    if not text:
+        return ""
+
+    original_len = len(text)
+
+    # Remove fenced code blocks (```...```) — multiline, non-greedy
+    result = re.sub(r"```[\s\S]*?```", "", text)
+
+    # Remove inline code spans (`...`) — single-line, non-greedy
+    result = re.sub(r"`[^`]*`", "", result)
+
+    stripped_len = len(result)
+    blocks_removed = original_len - stripped_len
+    if blocks_removed > 0:
+        logger.debug(
+            "Stripped code blocks: %d chars removed (original=%d, result=%d)",
+            blocks_removed,
+            original_len,
+            stripped_len,
+        )
+
+    return result
+
+
+# ---------------------------------------------------------------------------
+# @mention extraction
+# ---------------------------------------------------------------------------
+
+# GitHub username pattern: alphanumeric and hyphens, 1-39 chars, no leading/trailing hyphen
+_MENTION_PATTERN = re.compile(
+    r"(?<![\w/])@([A-Za-z0-9](?:[A-Za-z0-9-]{0,38}[A-Za-z0-9])?)"
+)
+
+
+def extract_mentions(text: str) -> List[str]:
+    """Extract unique ``@login`` mentions from *text*.
+
+    Strips fenced code blocks and inline code before parsing to avoid
+    false positives inside code snippets.
+
+    Args:
+        text: Raw text (issue body or comment body).
+
+    Returns:
+        Deduplicated list of GitHub login strings (without the ``@`` prefix).
+    """
+    if not text:
+        return []
+
+    cleaned = _strip_code_blocks(text)
+    mentions = list(set(_MENTION_PATTERN.findall(cleaned)))
+
+    logger.debug("Extracted %d mentions from text (len=%d)", len(mentions), len(text))
+    if mentions:
+        logger.debug("Mentions found: %s", mentions)
+
+    return mentions
+
+
+# ---------------------------------------------------------------------------
+# GitHub issue reference extraction
+# ---------------------------------------------------------------------------
+
+# Cross-repo issue reference: org/repo#123
+# Group 1 = org, Group 2 = repo, Group 3 = number
+_CROSS_REPO_ISSUE_PATTERN = re.compile(
+    r"(?<![\w/])([A-Za-z0-9](?:[A-Za-z0-9-]{0,38}[A-Za-z0-9])?)/([A-Za-z0-9_.-]+)#(\d+)"
+)
+
+# Same-repo issue reference: #123
+_SAME_REPO_ISSUE_PATTERN = re.compile(r"(?<![\w/])#(\d+)")
+
+
+def extract_github_issue_refs(text: str, repo_full_name: str) -> List[str]:
+    """Extract unique GitHub issue references from *text*.
+
+    Parses two reference formats:
+    1. **Cross-repo:** ``org/repo#123`` → resolved to ``org/repo#123``.
+    2. **Same-repo:** ``#123`` → resolved to ``<repo_full_name>#123``.
+
+    Strips fenced code blocks and inline code before parsing to avoid
+    false positives inside code snippets.
+
+    Args:
+        text: Raw text (issue body or comment body).
+        repo_full_name: Repository full name (e.g. ``"owner/repo"``) — used to
+            resolve same-repo references (``#123`` → ``owner/repo#123``).
+
+    Returns:
+        Deduplicated list of GitHub issue reference strings in the format
+        ``<repo_full_name>#<number>``.
+    """
+    if not text:
+        return []
+
+    cleaned = _strip_code_blocks(text)
+    refs: set[str] = set()
+
+    # Cross-repo references: org/repo#123
+    for match in _CROSS_REPO_ISSUE_PATTERN.finditer(cleaned):
+        repo_part = f"{match.group(1)}/{match.group(2)}"
+        number = match.group(3)
+        refs.add(f"{repo_part}#{number}")
+
+    # Same-repo references: #123 → resolve to <repo_full_name>#123
+    # Only match #NNN that are NOT already part of a cross-repo ref.
+    # We do this by removing cross-repo matches from the text first.
+    text_without_cross_refs = _CROSS_REPO_ISSUE_PATTERN.sub("", cleaned)
+    for match in _SAME_REPO_ISSUE_PATTERN.finditer(text_without_cross_refs):
+        number = match.group(1)
+        refs.add(f"{repo_full_name}#{number}")
+
+    result = list(refs)
+    logger.debug("Extracted %d GitHub issue refs from text (len=%d)", len(result), len(text))
+    if result:
+        logger.debug("GitHub issue refs found: %s", result)
+
+    return result
