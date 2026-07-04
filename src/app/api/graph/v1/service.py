@@ -360,6 +360,17 @@ def get_collaboration_network(
     """
     config = config or CollaborationNetworkConfig()
 
+    # Log GitHub issue layer enablement status
+    params = config.to_cypher_parameters()
+    logger.info(
+        "Collaboration network: GitHub issue comment engagement layer %s",
+        "enabled" if params.get("include_github_issue_comment_engagement") else "disabled",
+    )
+    logger.info(
+        "Collaboration network: GitHub issue co-commenters layer %s",
+        "enabled" if params.get("include_github_issue_co_commenters") else "disabled",
+    )
+
     # Load the Cypher query from the analytics module
     query_path = (
         FilePath(__file__).resolve().parent.parent.parent.parent

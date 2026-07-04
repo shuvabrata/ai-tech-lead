@@ -163,6 +163,30 @@ CALL () {
     AND elementId(p1) < elementId(p2)
     AND pr.created_at >= datetime() - duration({days: $lookback_days})
   RETURN p1, p2, log(toFloat(count(DISTINCT pr)) + 1) * $weight_github_pr_co_commenters AS sub_score
+
+  UNION ALL
+
+  // 13. Find GitHub Issue Comment Engagement (Weight: 3)
+  MATCH (commenter:Person)-[:COMMENTED_ON]->(issue:Issue)<-[:REPORTED_BY]-(author:Person)
+  WHERE $include_github_issue_comment_engagement
+    AND issue.id STARTS WITH 'github::Issue::'
+    AND elementId(commenter) <> elementId(author)
+    AND issue.created_at >= datetime() - duration({days: $lookback_days})
+  WITH
+    CASE WHEN elementId(commenter) < elementId(author) THEN commenter ELSE author END AS p1,
+    CASE WHEN elementId(commenter) < elementId(author) THEN author ELSE commenter END AS p2,
+    issue
+  RETURN p1, p2, log(toFloat(count(DISTINCT issue)) + 1) * $weight_github_issue_comment_engagement AS sub_score
+
+  UNION ALL
+
+  // 14. Find GitHub Issue Co-commenters (Weight: 2)
+  MATCH (p1:Person)-[:COMMENTED_ON]->(issue:Issue)<-[:COMMENTED_ON]-(p2:Person)
+  WHERE $include_github_issue_co_commenters
+    AND issue.id STARTS WITH 'github::Issue::'
+    AND elementId(p1) < elementId(p2)
+    AND issue.created_at >= datetime() - duration({days: $lookback_days})
+  RETURN p1, p2, log(toFloat(count(DISTINCT issue)) + 1) * $weight_github_issue_co_commenters AS sub_score
 }
 // Sum the scores from all independent systems
 WITH p1, p2, sum(sub_score) AS total_collaboration_score
