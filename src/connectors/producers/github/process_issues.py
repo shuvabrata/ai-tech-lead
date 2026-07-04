@@ -64,6 +64,7 @@ async def process_issues(
 
     # Fetch issues — prefer Search API (incremental), fall back to direct
     issues_raw: List[Any] = []
+    search_errored = False
     if github_obj:
         try:
             issues_raw = await asyncio.to_thread(
@@ -71,9 +72,9 @@ async def process_issues(
             )
         except Exception as exc:
             logger.warning("Search API failed for '%s', falling back to direct: %s", full_name, exc)
-            issues_raw = []
+            search_errored = True
 
-    if not issues_raw:
+    if not issues_raw and (github_obj is None or search_errored):
         logger.info("Using direct issues fetch for '%s' (fallback or first sync)", full_name)
         try:
             issues_raw = list(await asyncio.to_thread(fetch_issues_direct, repo))

@@ -99,7 +99,7 @@ async def main_async() -> None:
 
                     published: Dict[str, int] = {}
                     with LogContext(request_id=repo.full_name):
-                        await process_repo_signals(publisher, repo, owner, last_synced_at, published)
+                        await process_repo_signals(publisher, repo, owner, last_synced_at, published, github_obj=g)
 
                     now = datetime.now(timezone.utc)
                     await set_sync_cursor(_SOURCE, full_name, now)

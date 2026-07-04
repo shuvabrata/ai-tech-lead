@@ -86,6 +86,7 @@ async def process_repo_signals(
     repo_owner: str,
     last_synced_at: Optional[datetime],
     published: Dict[str, int],
+    github_obj: Optional[Any] = None,
 ) -> None:
     """Fetch all entities for *repo* and publish ActivitySignal events."""
     full_name = repo.full_name
@@ -148,5 +149,6 @@ async def process_repo_signals(
         published=published,
         seen_persons=published_persons,
         pub_callback=_pub,
+        github_obj=github_obj,
     )
     logger.info("Issues processing complete for '%s'", full_name)
