@@ -363,6 +363,7 @@ class Issue:
     status: str
     story_points: int
     created_at: str   # ISO format datetime string
+    source: str = 'jira'  # Source system: 'jira' or 'github'
     updated_at: Optional[str] = None  # ISO format datetime string
     url: Optional[str] = None
     # ISO format datetime string - tracks last successful sync
@@ -1307,8 +1308,8 @@ def merge_issue(session: Session, issue: Issue, relationships: Optional[List[Rel
         set_clauses.append("i.status = $status")
     if _has_value(props, 'story_points'):
         set_clauses.append("i.story_points = $story_points")
-    # Mark as enriched by Jira (overwrites 'github_reference' if it was a stub)
-    set_clauses.append("i.source = 'jira'")
+    # Set source from the signal (overwrites stub placeholder sources)
+    set_clauses.append("i.source = $source")
 
     # Only set created_at/updated_at if it's not empty
     if _has_value(props, 'created_at'):
@@ -1337,8 +1338,15 @@ def merge_issue(session: Session, issue: Issue, relationships: Optional[List[Rel
     session.run(query, **props)
 
     # Create relationships if provided
+    # Use snapshot interaction pattern for COMMENTED_ON/REACTED_TO (mirrors merge_pull_request)
     if relationships:
-        for rel in relationships:
+        interaction_rels = [r for r in relationships if r.type in (
+            "COMMENTED_ON", "REACTED_TO")]
+        other_rels = [r for r in relationships if r.type not in (
+            "COMMENTED_ON", "REACTED_TO")]
+        replace_snapshot_interaction_relationships(
+            session, issue.id, "Issue", interaction_rels)
+        for rel in other_rels:
             merge_relationship(session, rel)
 
 
