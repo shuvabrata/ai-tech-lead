@@ -17,6 +17,7 @@ from connectors.producers.github.process_teams import process_teams
 from connectors.producers.github.map_github import map_repo
 from connectors.producers.github.process_prs import process_prs
 from connectors.producers.github.process_commits import process_commits
+from connectors.producers.github.process_issues import process_issues
 from connectors.producers.github.pub_callback import make_pub_callback
 from connectors.producers.github.build_person_signal import build_person_signal
 from connectors.producers.github.build_team_signal import build_team_signal
@@ -85,6 +86,7 @@ async def process_repo_signals(
     repo_owner: str,
     last_synced_at: Optional[datetime],
     published: Dict[str, int],
+    github_obj: Optional[Any] = None,
 ) -> None:
     """Fetch all entities for *repo* and publish ActivitySignal events."""
     full_name = repo.full_name
@@ -135,3 +137,18 @@ async def process_repo_signals(
         published_persons=published_persons,
         pub_callback=_pub,
     )
+
+    # Issues
+    logger.info("Processing issues for '%s'...", full_name)
+    await process_issues(
+        repo=repo,
+        repo_data=repo_data,
+        repo_owner=repo_owner,
+        full_name=full_name,
+        last_synced_at=last_synced_at,
+        published=published,
+        seen_persons=published_persons,
+        pub_callback=_pub,
+        github_obj=github_obj,
+    )
+    logger.info("Issues processing complete for '%s'", full_name)

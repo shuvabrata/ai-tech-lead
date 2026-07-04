@@ -46,6 +46,7 @@ MANAGED_INDEXES: list[tuple[str, str]] = [
     ("github", "Repository"),
     ("github", "Commit"),
     ("github", "PullRequest"),
+    ("github", "Issue"),
     ("github", "Person"),
     ("github", "Team"),
     ("github", "File"),

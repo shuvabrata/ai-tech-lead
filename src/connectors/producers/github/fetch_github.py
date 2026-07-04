@@ -209,6 +209,104 @@ def fetch_pr_commits(pr: Any) -> List[Any]:
     return retry_with_backoff(lambda: list(pr.get_commits()))
 
 
+# ---------------------------------------------------------------------------
+# Issue fetchers
+# ---------------------------------------------------------------------------
+
+
+def fetch_issues(
+    github_obj: Any,
+    repo_full_name: str,
+    since_date: datetime,
+) -> List[Any]:
+    """Fetch issues via the GitHub Search API and filter out pull requests.
+
+    Uses the Search API which supports the ``updated:>=`` filter for incremental
+    syncs.  Subject to a separate rate limit (30 requests/min for authenticated
+    users).
+
+    Args:
+        github_obj: Authenticated PyGithub ``Github`` client instance.
+        repo_full_name: Repository full name (e.g. ``"owner/repo"``).
+        since_date: Lower bound for ``updated_at`` filtering.
+
+    Returns:
+        List of PyGithub Issue objects (PRs excluded).
+    """
+    query = (
+        f"repo:{repo_full_name} is:issue"
+        f" updated:>={since_date.date()}"
+    )
+
+    logger.info("Fetching issues for '%s' since %s ...", repo_full_name, since_date.date())
+
+    def _search() -> List[Any]:
+        try:
+            return list(github_obj.search_issues(query=query, sort="updated", order="desc"))
+        except GithubException as exc:
+            logger.warning("    GitHub Search API error: %s", exc)
+            return []
+
+    raw_issues = retry_with_backoff(_search)
+
+    filtered: List[Any] = []
+    for index, issue in enumerate(raw_issues, start=1):
+        is_pr = bool(getattr(issue, "pull_request", None))
+        logger.debug(
+            "Issue #%d: pull_request=%s, state=%s",
+            getattr(issue, "number", "?"),
+            is_pr,
+            getattr(issue, "state", "?"),
+        )
+        if not is_pr:
+            filtered.append(issue)
+
+    logger.info("Found %d total issues (filtered %d PRs) for '%s'", len(filtered), len(raw_issues) - len(filtered), repo_full_name)
+    return filtered
+
+
+def fetch_issues_direct(repo_obj: Any) -> Iterable[Any]:
+    """Fetch all issues directly from the repository endpoint.
+
+    Fallback for first sync or when the Search API fails.  The ``get_issues``
+    method does NOT support an ``updated_at`` filter, so this returns all issues
+    sorted by ``updated`` descending — the caller is responsible for filtering
+    by date if needed.
+
+    Args:
+        repo_obj: PyGithub Repository object.
+
+    Returns:
+        Iterable of PyGithub Issue objects (PRs excluded).
+    """
+    full_name = getattr(repo_obj, "full_name", "?")
+    logger.info("Fetching issues directly for '%s' (fallback)...", full_name)
+
+    raw = retry_with_backoff(
+        lambda: repo_obj.get_issues(state="all", sort="updated", direction="desc")
+    )
+
+    filtered = [issue for issue in raw if not getattr(issue, "pull_request", None)]
+    logger.info("Found %d issues (direct) for '%s'", len(filtered), full_name)
+    return filtered
+
+
+def fetch_issue_comments(issue: Any) -> List[Any]:
+    """Fetch all comments on a specific issue.
+
+    Args:
+        issue: PyGithub Issue object.
+
+    Returns:
+        List of PyGithub IssueComment objects.
+    """
+    issue_number = getattr(issue, "number", "?")
+    logger.debug("Fetching comments for issue #%s ...", issue_number)
+    comments = retry_with_backoff(lambda: list(issue.get_comments()))
+    logger.debug("Fetched %d comments for issue #%s", len(comments), issue_number)
+    return comments
+
+
 def fetch_repo_teams(repo: Any) -> List[Any]:
     """Fetch all teams with access to *repo*.
 
@@ -285,3 +383,24 @@ def resolve_prs_since_date(last_synced_at: Optional[datetime]) -> datetime:
         return last_synced_at if last_synced_at.tzinfo else last_synced_at.replace(tzinfo=timezone.utc)
     pr_days_limit = int(os.getenv("PULL_REQUEST_DAYS_LIMIT", "60"))
     return datetime.now(timezone.utc) - timedelta(days=pr_days_limit)
+
+
+def resolve_issues_since_date(last_synced_at: Optional[datetime]) -> datetime:
+    """Return the *since* date to use when fetching issues.
+
+    Args:
+        last_synced_at: Last successful sync timestamp, or ``None`` for first run.
+
+    Returns:
+        ``last_synced_at`` (UTC-aware) for incremental syncs; a rolling window
+        based on the ``ISSUE_DAYS_LIMIT`` env var (default 60 days) for
+        first-time syncs.
+    """
+    if last_synced_at:
+        resolved = last_synced_at if last_synced_at.tzinfo else last_synced_at.replace(tzinfo=timezone.utc)
+        logger.info("Issues incremental sync: using cursor %s", resolved.isoformat())
+        return resolved
+    issue_days_limit = int(os.getenv("ISSUE_DAYS_LIMIT", "60"))
+    resolved = datetime.now(timezone.utc) - timedelta(days=issue_days_limit)
+    logger.info("Issues first sync: using %d-day lookback window (since %s)", issue_days_limit, resolved.date())
+    return resolved

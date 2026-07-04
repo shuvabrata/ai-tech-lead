@@ -655,6 +655,8 @@ def _handle_sprint(session: Session, signal: ActivitySignal) -> None:
 
 
 def _handle_issue(session: Session, signal: ActivitySignal) -> None:
+    logger.debug("Handling Issue signal: id=%s, source=%s, entity_type=%s",
+                 wba_node_id(signal), signal.source, signal.entity_type)
     attrs = signal.attributes.model_dump()
     issue = Issue(
         id=wba_node_id(signal),
@@ -664,6 +666,7 @@ def _handle_issue(session: Session, signal: ActivitySignal) -> None:
         priority=attrs.get("priority", ""),
         status=attrs.get("status", ""),
         story_points=attrs.get("story_points", 0),
+        source=signal.source,
         created_at=attrs.get("created_at", ""),
         updated_at=attrs.get("updated_at"),
         url=attrs.get("url"),
