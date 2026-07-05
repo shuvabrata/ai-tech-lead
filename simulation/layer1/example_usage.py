@@ -146,7 +146,8 @@ def example_3_add_relationship_later():
                 id="identity_github_alice",
                 provider="GitHub",
                 username="alicej",
-                email="alice.johnson@company.com"
+                email="alice.johnson@company.com",
+                url="",
             )
             
             # Create the MAPS_TO relationship to link identity to person

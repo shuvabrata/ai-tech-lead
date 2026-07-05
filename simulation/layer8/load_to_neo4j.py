@@ -57,7 +57,8 @@ def load_pull_requests_to_neo4j():
                     head_branch_name=pr_data['head_branch_name'],
                     base_branch_name=pr_data['base_branch_name'],
                     labels=pr_data['labels'],
-                    mergeable_state=pr_data['mergeable_state']
+                    mergeable_state=pr_data['mergeable_state'],
+                    url=pr_data.get('url', ''),
                 )
                 
                 # Merge pull request (without relationships for now)

@@ -36,12 +36,7 @@ def neo4j_to_cytoscape(graph_response):
     # Transform nodes
     for node in graph_response.get("nodes", []):
         node_label = node.get("labels", ["Node"])[0] if node.get("labels") else "Node"
-        display_name = (
-            node.get("properties", {}).get("name") or 
-            node.get("properties", {}).get("title") or 
-            node.get("properties", {}).get("key") or 
-            node_label
-        )
+        display_name = node.get("properties", {}).get("_display_name", "")
         compact_label = _compact_node_label(display_name)
 
         # Neo4j element id is used as Cytoscape node id so edges (which reference element_id) connect correctly.
@@ -55,6 +50,7 @@ def neo4j_to_cytoscape(graph_response):
             'wba_id': wba_id,  # Canonical WBA node identifier for display and spotlight matching
             'label': display_name,
             'displayLabel': compact_label,
+            'onHoverName': node.get("properties", {}).get("_on_hover_name", display_name),
             'nodeType': node_label,
             'elementType': 'node'
         }

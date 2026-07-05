@@ -8,6 +8,8 @@ from dataclasses import dataclass, asdict, field
 from typing import Optional, List, Dict, Any
 from neo4j import Session
 
+from connectors.neo4j_db.node_base import GraphNode
+
 
 def _has_value(props: Dict[str, Any], key: str) -> bool:
     """Return True when a property exists and is meaningfully populated."""
@@ -28,7 +30,7 @@ def _has_value(props: Dict[str, Any], key: str) -> bool:
 # ============================================================================
 
 @dataclass
-class Person:
+class Person(GraphNode):
     """Person node in the organizational graph."""
 
     id: str
@@ -42,7 +44,9 @@ class Person:
     url: Optional[str] = None
 
     def to_neo4j_properties(self) -> Dict[str, Any]:
-        return asdict(self)
+        props = asdict(self)
+        self._inject_computed_properties(props)
+        return props
 
     def print_cli(self) -> None:
         """Print the Person object in an easy-to-read CLI format."""
@@ -62,7 +66,7 @@ class Person:
 
 
 @dataclass
-class Team:
+class Team(GraphNode):
     """Team node in the organizational graph."""
 
     id: str
@@ -73,7 +77,9 @@ class Team:
     url: Optional[str] = None
 
     def to_neo4j_properties(self) -> Dict[str, Any]:
-        return asdict(self)
+        props = asdict(self)
+        self._inject_computed_properties(props)
+        return props
 
     def print_cli(self) -> None:
         """Print the Team object in an easy-to-read CLI format."""
@@ -89,7 +95,7 @@ class Team:
 
 
 @dataclass
-class IdentityMapping:
+class IdentityMapping(GraphNode):
     """Identity mapping node linking external provider identities to Person.
 
     This represents an external identity (GitHub, Jira, etc.) that maps to a Person.
@@ -123,9 +129,16 @@ class IdentityMapping:
     username: str
     email: Optional[str] = None
     last_updated_at: Optional[str] = None
+    url: str = ""
+
+    def display_name(self) -> str:
+        """Use username as the display name for identity mappings."""
+        return self.username or self.id
 
     def to_neo4j_properties(self) -> Dict[str, Any]:
-        return asdict(self)
+        props = asdict(self)
+        self._inject_computed_properties(props)
+        return props
 
     def print_cli(self) -> None:
         """Print the IdentityMapping object in an easy-to-read CLI format."""
@@ -144,7 +157,7 @@ class IdentityMapping:
 # ============================================================================
 
 @dataclass
-class Project:
+class Project(GraphNode):
     """Project node representing a Jira project."""
 
     id: str
@@ -157,7 +170,9 @@ class Project:
     def to_neo4j_properties(self) -> Dict[str, Any]:
         props = asdict(self)
         # Remove None values for cleaner storage
-        return {k: v for k, v in props.items() if v is not None}
+        props = {k: v for k, v in props.items() if v is not None}
+        self._inject_computed_properties(props)
+        return props
 
     def print_cli(self) -> None:
         """Print the Project object in an easy-to-read CLI format."""
@@ -174,7 +189,7 @@ class Project:
 
 
 @dataclass
-class JiraIssueBase:
+class JiraIssueBase(GraphNode):
     """Base dataclass for all Jira issue types (Initiative, Epic, Story, Bug,
     etc).
 
@@ -204,7 +219,9 @@ class JiraIssueBase:
         """Convert to Neo4j properties."""
         props = asdict(self)
         # Remove None values and empty lists for cleaner storage
-        return {k: v for k, v in props.items() if v is not None and v != []}
+        props = {k: v for k, v in props.items() if v is not None and v != []}
+        self._inject_computed_properties(props)
+        return props
 
     def print_cli(self) -> None:
         """Print the Jira issue in an easy-to-read CLI format."""
@@ -265,7 +282,7 @@ class Initiative(JiraIssueBase):
 
 
 @dataclass
-class Epic:
+class Epic(GraphNode):
     """Epic node representing a Jira Epic.
 
     Note: The 'assignee_id', 'team_id', and 'initiative_id' fields are NOT part of this dataclass.
@@ -306,7 +323,9 @@ class Epic:
 
     def to_neo4j_properties(self) -> Dict[str, Any]:
         """Convert to Neo4j properties."""
-        return asdict(self)
+        props = asdict(self)
+        self._inject_computed_properties(props)
+        return props
 
     def print_cli(self) -> None:
         """Print the Epic object in an easy-to-read CLI format."""
@@ -326,7 +345,7 @@ class Epic:
 
 
 @dataclass
-class Issue:
+class Issue(GraphNode):
     """Issue node representing a Jira work item (Story, Bug, or Task).
 
     Note: The 'epic_id', 'assignee_id', 'reporter_id', and 'related_story_id' fields
@@ -371,7 +390,9 @@ class Issue:
 
     def to_neo4j_properties(self) -> Dict[str, Any]:
         """Convert to Neo4j properties."""
-        return asdict(self)
+        props = asdict(self)
+        self._inject_computed_properties(props)
+        return props
 
     def print_cli(self) -> None:
         """Print the Issue object in an easy-to-read CLI format."""
@@ -390,7 +411,7 @@ class Issue:
 
 
 @dataclass
-class Sprint:
+class Sprint(GraphNode):
     """Sprint node representing a time-boxed iteration.
 
     Example:
@@ -413,7 +434,9 @@ class Sprint:
 
     def to_neo4j_properties(self) -> Dict[str, Any]:
         """Convert to Neo4j properties."""
-        return asdict(self)
+        props = asdict(self)
+        self._inject_computed_properties(props)
+        return props
 
     def print_cli(self) -> None:
         """Print the Sprint object in an easy-to-read CLI format."""
@@ -432,7 +455,7 @@ class Sprint:
 
 
 @dataclass
-class Repository:
+class Repository(GraphNode):
     """Repository node representing a Git repository.
 
     Note: Relationships (COLLABORATOR from Team/Person) are handled separately
@@ -472,7 +495,9 @@ class Repository:
 
     def to_neo4j_properties(self) -> Dict[str, Any]:
         """Convert to Neo4j properties."""
-        return asdict(self)
+        props = asdict(self)
+        self._inject_computed_properties(props)
+        return props
 
     def print_cli(self) -> None:
         """Print the Repository object in an easy-to-read CLI format."""
@@ -490,7 +515,7 @@ class Repository:
 
 
 @dataclass
-class Commit:
+class Commit(GraphNode):
     """Commit node representing a Git commit.
 
     Example:
@@ -539,9 +564,15 @@ class Commit:
     files_changed: int
     url: Optional[str] = None  # GitHub URL to view commit in browser
 
+    def _calc_last_updated_at(self) -> Optional[str]:
+        """Commits are immutable — use created_at as the last meaningful update."""
+        return self.created_at
+
     def to_neo4j_properties(self) -> Dict[str, Any]:
         """Convert to Neo4j properties."""
-        return asdict(self)
+        props = asdict(self)
+        self._inject_computed_properties(props)
+        return props
 
     def print_cli(self) -> None:
         """Print the Commit object in an easy-to-read CLI format."""
@@ -560,7 +591,7 @@ class Commit:
 
 
 @dataclass
-class File:
+class File(GraphNode):
     """File node representing a file in a repository.
 
     ``id`` holds the WBA canonical key: ``github::File::{repo_name}::{path}``.
@@ -591,9 +622,15 @@ class File:
     last_updated_at: Optional[str] = None
     url: Optional[str] = None
 
+    def display_name(self) -> str:
+        """Use path as the display name for files."""
+        return self.path
+
     def to_neo4j_properties(self) -> Dict[str, Any]:
         """Convert to Neo4j properties, excluding None values."""
-        return {k: v for k, v in asdict(self).items() if v is not None}
+        props = {k: v for k, v in asdict(self).items() if v is not None}
+        self._inject_computed_properties(props)
+        return props
 
     def print_cli(self) -> None:
         """Print the File object in an easy-to-read CLI format."""
@@ -611,7 +648,7 @@ class File:
 
 
 @dataclass
-class PullRequest:
+class PullRequest(GraphNode):
     """PullRequest node representing a GitHub/GitLab pull/merge request.
 
     Example:
@@ -675,9 +712,15 @@ class PullRequest:
     mergeable_state: str
     url: Optional[str] = None  # GitHub URL to view PR in browser
 
+    def on_hover_name(self) -> str:
+        """Rich tooltip: PR number + title."""
+        return f"PR #{self.number}: {self.title}"
+
     def to_neo4j_properties(self) -> Dict[str, Any]:
         """Convert to Neo4j properties."""
-        return asdict(self)
+        props = asdict(self)
+        self._inject_computed_properties(props)
+        return props
 
     def print_cli(self) -> None:
         """Print the PullRequest object in an easy-to-read CLI format."""
@@ -706,7 +749,7 @@ class PullRequest:
 # ============================================================================
 
 @dataclass
-class Space:
+class Space(GraphNode):
     """Space node representing a Confluence Space."""
 
     id: str
@@ -718,7 +761,9 @@ class Space:
 
     def to_neo4j_properties(self) -> Dict[str, Any]:
         """Convert to Neo4j properties."""
-        return {k: v for k, v in asdict(self).items() if v is not None}
+        props = {k: v for k, v in asdict(self).items() if v is not None}
+        self._inject_computed_properties(props)
+        return props
 
     def print_cli(self) -> None:
         """Print the Space object in an easy-to-read CLI format."""
@@ -731,7 +776,7 @@ class Space:
         print(f"  URL:         {self.url}")
         print(f"{'='*60}\n")
 @dataclass
-class Page:
+class Page(GraphNode):
     """Page node representing a Confluence Page."""
 
     id: str
@@ -745,7 +790,9 @@ class Page:
 
     def to_neo4j_properties(self) -> Dict[str, Any]:
         """Convert to Neo4j properties."""
-        return {k: v for k, v in asdict(self).items() if v is not None}
+        props = {k: v for k, v in asdict(self).items() if v is not None}
+        self._inject_computed_properties(props)
+        return props
 
     def print_cli(self) -> None:
         """Print the Page object in an easy-to-read CLI format."""
@@ -759,7 +806,7 @@ class Page:
         print(f"  Status:          {self.status}")
         print(f"{'='*60}\n")
 @dataclass
-class Blogpost:
+class Blogpost(GraphNode):
     """Blogpost node representing a Confluence Blogpost."""
 
     id: str
@@ -773,7 +820,9 @@ class Blogpost:
 
     def to_neo4j_properties(self) -> Dict[str, Any]:
         """Convert to Neo4j properties."""
-        return {k: v for k, v in asdict(self).items() if v is not None}
+        props = {k: v for k, v in asdict(self).items() if v is not None}
+        self._inject_computed_properties(props)
+        return props
 
     def print_cli(self) -> None:
         """Print the Blogpost object in an easy-to-read CLI format."""
@@ -949,14 +998,38 @@ def create_constraints(session: Session, layers: Optional[List[int]] = None) -> 
         ]
     }
 
+    # Indexes for computed display/time properties (all node labels).
+    # These are Priority 3 (date/time) and Priority 1 (lookup) per INDEX_STRATEGY.md.
+    _display_indexes = [
+        f"CREATE INDEX IF NOT EXISTS FOR (n:{label}) ON (n._display_name)"
+        for label in ("Person", "Team", "IdentityMapping", "Project", "Initiative",
+                       "Epic", "Issue", "Sprint", "Repository", "Commit", "File",
+                       "PullRequest", "Space", "Page", "Blogpost")
+    ]
+    _time_indexes = [
+        f"CREATE INDEX IF NOT EXISTS FOR (n:{label}) ON (n._last_seen_at)"
+        for label in ("Person", "Team", "IdentityMapping", "Project", "Initiative",
+                       "Epic", "Issue", "Sprint", "Repository", "Commit", "File",
+                       "PullRequest", "Space", "Page", "Blogpost")
+    ] + [
+        f"CREATE INDEX IF NOT EXISTS FOR (n:{label}) ON (n._last_updated_at)"
+        for label in ("Person", "Team", "IdentityMapping", "Project", "Initiative",
+                       "Epic", "Issue", "Sprint", "Repository", "Commit", "File",
+                       "PullRequest", "Space", "Page", "Blogpost")
+    ]
+
     # Determine which constraints to create
     constraints: List[str] = []
     if layers is None:
         for layer_constraints in all_constraints.values():
             constraints.extend(layer_constraints)
+        constraints.extend(_display_indexes)
+        constraints.extend(_time_indexes)
     else:
         for layer in layers:
             constraints.extend(all_constraints.get(layer, []))
+            constraints.extend(_display_indexes)
+            constraints.extend(_time_indexes)
 
     for constraint in constraints:
         session.run(constraint)
@@ -999,6 +1072,16 @@ def merge_person(session: Session, person: Person, relationships: Optional[List[
         set_clauses.append("p.hire_date = date($hire_date)")
     if _has_value(props, 'url'):
         set_clauses.append("p.url = $url")
+
+    # Computed display/time properties
+    if _has_value(props, '_display_name'):
+        set_clauses.append("p._display_name = $_display_name")
+    if _has_value(props, '_on_hover_name'):
+        set_clauses.append("p._on_hover_name = $_on_hover_name")
+    if _has_value(props, '_last_seen_at'):
+        set_clauses.append("p._last_seen_at = datetime($_last_seen_at)")
+    if _has_value(props, '_last_updated_at'):
+        set_clauses.append("p._last_updated_at = datetime($_last_updated_at)")
 
     if set_clauses:
         query = f"""
@@ -1049,6 +1132,16 @@ def merge_team(session: Session, team: Team, relationships: Optional[List[Relati
     if _has_value(props, 'url'):
         set_clauses.append("t.url = $url")
 
+    # Computed display/time properties
+    if _has_value(props, '_display_name'):
+        set_clauses.append("t._display_name = $_display_name")
+    if _has_value(props, '_on_hover_name'):
+        set_clauses.append("t._on_hover_name = $_on_hover_name")
+    if _has_value(props, '_last_seen_at'):
+        set_clauses.append("t._last_seen_at = datetime($_last_seen_at)")
+    if _has_value(props, '_last_updated_at'):
+        set_clauses.append("t._last_updated_at = datetime($_last_updated_at)")
+
     # MERGE the Team node
     if set_clauses:
         query = f"""
@@ -1092,6 +1185,16 @@ def merge_identity_mapping(session: Session, identity: IdentityMapping, relation
     # Only set last_updated_at if provided
     if _has_value(props, 'last_updated_at'):
         set_clauses.append("i.last_updated_at = datetime($last_updated_at)")
+
+    # Computed display/time properties
+    if _has_value(props, '_display_name'):
+        set_clauses.append("i._display_name = $_display_name")
+    if _has_value(props, '_on_hover_name'):
+        set_clauses.append("i._on_hover_name = $_on_hover_name")
+    if _has_value(props, '_last_seen_at'):
+        set_clauses.append("i._last_seen_at = datetime($_last_seen_at)")
+    if _has_value(props, '_last_updated_at'):
+        set_clauses.append("i._last_updated_at = datetime($_last_updated_at)")
 
     # MERGE the IdentityMapping node
     if set_clauses:
@@ -1140,6 +1243,16 @@ def merge_project(session: Session, project: Project, relationships: Optional[Li
         set_clauses.append("p.project_type = $project_type")
     if _has_value(props, 'url'):
         set_clauses.append("p.url = $url")
+
+    # Computed display/time properties
+    if _has_value(props, '_display_name'):
+        set_clauses.append("p._display_name = $_display_name")
+    if _has_value(props, '_on_hover_name'):
+        set_clauses.append("p._on_hover_name = $_on_hover_name")
+    if _has_value(props, '_last_seen_at'):
+        set_clauses.append("p._last_seen_at = datetime($_last_seen_at)")
+    if _has_value(props, '_last_updated_at'):
+        set_clauses.append("p._last_updated_at = datetime($_last_updated_at)")
 
     # MERGE the Project node
     if set_clauses:
@@ -1202,6 +1315,16 @@ def merge_initiative(session: Session, initiative: Initiative, relationships: Op
     if _has_value(props, '_last_synced_at'):
         set_clauses.append("i._last_synced_at = datetime($_last_synced_at)")
 
+    # Computed display/time properties
+    if _has_value(props, '_display_name'):
+        set_clauses.append("i._display_name = $_display_name")
+    if _has_value(props, '_on_hover_name'):
+        set_clauses.append("i._on_hover_name = $_on_hover_name")
+    if _has_value(props, '_last_seen_at'):
+        set_clauses.append("i._last_seen_at = datetime($_last_seen_at)")
+    if _has_value(props, '_last_updated_at'):
+        set_clauses.append("i._last_updated_at = datetime($_last_updated_at)")
+
     # MERGE the Initiative node
     if set_clauses:
         query = f"""
@@ -1258,6 +1381,16 @@ def merge_epic(session: Session, epic: Epic, relationships: Optional[List[Relati
     # Only set _last_synced_at if provided (for incremental sync tracking)
     if _has_value(props, '_last_synced_at'):
         set_clauses.append("e._last_synced_at = datetime($_last_synced_at)")
+
+    # Computed display/time properties
+    if _has_value(props, '_display_name'):
+        set_clauses.append("e._display_name = $_display_name")
+    if _has_value(props, '_on_hover_name'):
+        set_clauses.append("e._on_hover_name = $_on_hover_name")
+    if _has_value(props, '_last_seen_at'):
+        set_clauses.append("e._last_seen_at = datetime($_last_seen_at)")
+    if _has_value(props, '_last_updated_at'):
+        set_clauses.append("e._last_updated_at = datetime($_last_updated_at)")
 
     # MERGE the Epic node
     if set_clauses:
@@ -1322,6 +1455,16 @@ def merge_issue(session: Session, issue: Issue, relationships: Optional[List[Rel
     if _has_value(props, '_last_synced_at'):
         set_clauses.append("i._last_synced_at = datetime($_last_synced_at)")
 
+    # Computed display/time properties
+    if _has_value(props, '_display_name'):
+        set_clauses.append("i._display_name = $_display_name")
+    if _has_value(props, '_on_hover_name'):
+        set_clauses.append("i._on_hover_name = $_on_hover_name")
+    if _has_value(props, '_last_seen_at'):
+        set_clauses.append("i._last_seen_at = datetime($_last_seen_at)")
+    if _has_value(props, '_last_updated_at'):
+        set_clauses.append("i._last_updated_at = datetime($_last_updated_at)")
+
     # MERGE the Issue node
     if set_clauses:
         query = f"""
@@ -1377,6 +1520,16 @@ def merge_sprint(session: Session, sprint: Sprint, relationships: Optional[List[
     if _has_value(props, 'url'):
         set_clauses.append("s.url = $url")
 
+    # Computed display/time properties
+    if _has_value(props, '_display_name'):
+        set_clauses.append("s._display_name = $_display_name")
+    if _has_value(props, '_on_hover_name'):
+        set_clauses.append("s._on_hover_name = $_on_hover_name")
+    if _has_value(props, '_last_seen_at'):
+        set_clauses.append("s._last_seen_at = datetime($_last_seen_at)")
+    if _has_value(props, '_last_updated_at'):
+        set_clauses.append("s._last_updated_at = datetime($_last_updated_at)")
+
     # MERGE the Sprint node
     if set_clauses:
         query = f"""
@@ -1431,6 +1584,16 @@ def merge_repository(session: Session, repository: Repository, relationships: Op
     if _has_value(props, '_last_synced_at'):
         set_clauses.append("r._last_synced_at = datetime($_last_synced_at)")
 
+    # Computed display/time properties
+    if _has_value(props, '_display_name'):
+        set_clauses.append("r._display_name = $_display_name")
+    if _has_value(props, '_on_hover_name'):
+        set_clauses.append("r._on_hover_name = $_on_hover_name")
+    if _has_value(props, '_last_seen_at'):
+        set_clauses.append("r._last_seen_at = datetime($_last_seen_at)")
+    if _has_value(props, '_last_updated_at'):
+        set_clauses.append("r._last_updated_at = datetime($_last_updated_at)")
+
     # MERGE the Repository node
     if set_clauses:
         query = f"""
@@ -1483,6 +1646,16 @@ def merge_commit(session: Session, commit: Commit, relationships: Optional[List[
 
     if _has_value(props, 'url'):
         set_clauses.append("c.url = $url")
+
+    # Computed display/time properties
+    if _has_value(props, '_display_name'):
+        set_clauses.append("c._display_name = $_display_name")
+    if _has_value(props, '_on_hover_name'):
+        set_clauses.append("c._on_hover_name = $_on_hover_name")
+    if _has_value(props, '_last_seen_at'):
+        set_clauses.append("c._last_seen_at = datetime($_last_seen_at)")
+    if _has_value(props, '_last_updated_at'):
+        set_clauses.append("c._last_updated_at = datetime($_last_updated_at)")
 
     # MERGE the Commit node
     if set_clauses:
@@ -1580,6 +1753,16 @@ def merge_pull_request(session: Session, pull_request: PullRequest, relationship
         set_clauses.append("pr.mergeable_state = $mergeable_state")
     if _has_value(props, 'url'):
         set_clauses.append("pr.url = $url")
+
+    # Computed display/time properties
+    if _has_value(props, '_display_name'):
+        set_clauses.append("pr._display_name = $_display_name")
+    if _has_value(props, '_on_hover_name'):
+        set_clauses.append("pr._on_hover_name = $_on_hover_name")
+    if _has_value(props, '_last_seen_at'):
+        set_clauses.append("pr._last_seen_at = datetime($_last_seen_at)")
+    if _has_value(props, '_last_updated_at'):
+        set_clauses.append("pr._last_updated_at = datetime($_last_updated_at)")
 
     # MERGE the PullRequest node
     if set_clauses:
@@ -1779,6 +1962,16 @@ def merge_space(session: Session, space: Space, relationships: Optional[List[Rel
     if _has_value(props, '_last_synced_at'):
         set_clauses.append("s._last_synced_at = datetime($_last_synced_at)")
 
+    # Computed display/time properties
+    if _has_value(props, '_display_name'):
+        set_clauses.append("s._display_name = $_display_name")
+    if _has_value(props, '_on_hover_name'):
+        set_clauses.append("s._on_hover_name = $_on_hover_name")
+    if _has_value(props, '_last_seen_at'):
+        set_clauses.append("s._last_seen_at = datetime($_last_seen_at)")
+    if _has_value(props, '_last_updated_at'):
+        set_clauses.append("s._last_updated_at = datetime($_last_updated_at)")
+
     if set_clauses:
         query = f"MERGE (s:Space {{id: $id}}) SET {', '.join(set_clauses)} RETURN s"
     else:
@@ -1809,6 +2002,16 @@ def merge_page(session: Session, page: Page, relationships: Optional[List[Relati
         set_clauses.append("p.status = $status")
     if _has_value(props, '_last_synced_at'):
         set_clauses.append("p._last_synced_at = datetime($_last_synced_at)")
+
+    # Computed display/time properties
+    if _has_value(props, '_display_name'):
+        set_clauses.append("p._display_name = $_display_name")
+    if _has_value(props, '_on_hover_name'):
+        set_clauses.append("p._on_hover_name = $_on_hover_name")
+    if _has_value(props, '_last_seen_at'):
+        set_clauses.append("p._last_seen_at = datetime($_last_seen_at)")
+    if _has_value(props, '_last_updated_at'):
+        set_clauses.append("p._last_updated_at = datetime($_last_updated_at)")
 
     if set_clauses:
         query = f"MERGE (p:Page {{id: $id}}) SET {', '.join(set_clauses)} RETURN p"
@@ -1846,6 +2049,16 @@ def merge_blogpost(session: Session, blogpost: Blogpost, relationships: Optional
         set_clauses.append("b.status = $status")
     if _has_value(props, '_last_synced_at'):
         set_clauses.append("b._last_synced_at = datetime($_last_synced_at)")
+
+    # Computed display/time properties
+    if _has_value(props, '_display_name'):
+        set_clauses.append("b._display_name = $_display_name")
+    if _has_value(props, '_on_hover_name'):
+        set_clauses.append("b._on_hover_name = $_on_hover_name")
+    if _has_value(props, '_last_seen_at'):
+        set_clauses.append("b._last_seen_at = datetime($_last_seen_at)")
+    if _has_value(props, '_last_updated_at'):
+        set_clauses.append("b._last_updated_at = datetime($_last_updated_at)")
 
     if set_clauses:
         query = f"MERGE (b:Blogpost {{id: $id}}) SET {', '.join(set_clauses)} RETURN b"

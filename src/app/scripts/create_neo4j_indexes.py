@@ -110,11 +110,32 @@ def create_indexes():
         "CREATE INDEX FOR ()-[c:COLLABORATOR]-() ON (c.permission)",
         "CREATE INDEX FOR ()-[r:REVIEWED_BY]-() ON (r.state)",
     ]
+
+    # Computed display/time property indexes (Plan 006)
+    # These are Priority 1 (lookup) and Priority 3 (date/time) per INDEX_STRATEGY.md.
+    _computed_labels = [
+        "Person", "Team", "IdentityMapping", "Project", "Initiative",
+        "Epic", "Issue", "Sprint", "Repository", "Commit", "File",
+        "PullRequest", "Space", "Page", "Blogpost",
+    ]
+    computed_display = [
+        f"CREATE INDEX {label.lower()}_display_name IF NOT EXISTS FOR (n:{label}) ON (n._display_name)"
+        for label in _computed_labels
+    ]
+    computed_last_seen = [
+        f"CREATE INDEX {label.lower()}_last_seen_at IF NOT EXISTS FOR (n:{label}) ON (n._last_seen_at)"
+        for label in _computed_labels
+    ]
+    computed_last_updated = [
+        f"CREATE INDEX {label.lower()}_last_updated_at IF NOT EXISTS FOR (n:{label}) ON (n._last_updated_at)"
+        for label in _computed_labels
+    ]
     
     all_indexes = {
         "Priority 1: High-Impact Lookups (Critical)": priority1,
         "Priority 2: Status and State (High)": priority2,
         "Priority 3: Date/Time (Medium-High)": priority3,
+        "Computed: Display/Time Properties (Plan 006)": computed_display + computed_last_seen + computed_last_updated,
         # "Priority 4: Composite Indexes (Medium)": priority4,
         # "Priority 5: Full-Text Search (Medium)": priority5,
         # "Priority 6: Analytics (Low-Medium)": priority6,

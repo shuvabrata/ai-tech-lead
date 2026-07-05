@@ -46,7 +46,8 @@ def load_commits_to_neo4j():
                     created_at=commit_data['created_at'],
                     additions=commit_data['additions'],
                     deletions=commit_data['deletions'],
-                    files_changed=commit_data['files_changed']
+                    files_changed=commit_data['files_changed'],
+                    url=commit_data.get('url', ''),
                 )
                 
                 # Merge commit (without relationships for now)
@@ -81,12 +82,12 @@ def load_files_to_neo4j():
                 file = File(
                     id=file_data['id'],
                     path=file_data['path'],
-                    name=file_data['name'],
-                    extension=file_data['extension'],
-                    language=file_data['language'],
-                    is_test=file_data['is_test'],
-                    size=file_data['size'],
-                    created_at=file_data['created_at']
+                    name=file_data.get('name'),
+                    extension=file_data.get('extension'),
+                    language=file_data.get('language'),
+                    is_test=file_data.get('is_test'),
+                    repo_name=file_data.get('repo_name', ''),
+                    url=file_data.get('url', ''),
                 )
                 
                 # Merge file (without relationships for now)

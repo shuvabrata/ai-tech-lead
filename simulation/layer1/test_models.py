@@ -55,7 +55,8 @@ def test_identity_creation():
         id="identity_test",
         provider="GitHub",
         username="testuser",
-        email="test@example.com"
+        email="test@example.com",
+        url="",
     )
     
     props = identity.to_neo4j_properties()
