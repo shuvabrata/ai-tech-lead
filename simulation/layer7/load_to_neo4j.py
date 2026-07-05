@@ -75,6 +75,13 @@ def load_files_to_neo4j():
             # Load files one at a time
             files = data['nodes']['files']
             for file_data in files:
+                # Derive repo_name from file ID pattern: file_<repo_id>_<index>
+                file_id_parts = file_data['id'].split('_')
+                if len(file_id_parts) >= 3 and file_id_parts[0] == 'file' and file_id_parts[1].startswith('repo'):
+                    repo_name = '_'.join(file_id_parts[1:-1])  # e.g. "repo_k8s_infrastructure"
+                else:
+                    repo_name = ''
+
                 # Create File object (no relationships embedded)
                 file = File(
                     id=file_data['id'],
