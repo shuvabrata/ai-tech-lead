@@ -40,8 +40,7 @@ def load_repositories_to_neo4j():
                 # Create Repository object (no relationships embedded)
                 repository = Repository(
                     id=repo_data['id'],
-                    name=repo_data['name'],
-                    full_name=repo_data['full_name'],
+                    name=repo_data['full_name'] if repo_data.get('full_name') else repo_data['name'],
                     url=repo_data['url'],
                     language=repo_data['language'],
                     is_private=repo_data['is_private'],
