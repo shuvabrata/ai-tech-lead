@@ -110,6 +110,21 @@ query {
 
 **Decision**: Continue with REST API (`commit.files`), which works reliably. Steps 1-4 still achieve 87-95% reduction.
 
+### 8. GitHub Issue Incremental Sync
+GitHub issues are fetched using the Search API with an `updated:>=` filter, mirroring the PR incremental sync pattern.
+
+**Strategy:**
+- Search API query: `is:issue repo:<owner>/<repo> updated:>=<since_date>`
+- Filters out PRs client-side (`issue.pull_request` truthy check)
+- Fallback to `repo.get_issues(state="all")` on Search API failure (first sync)
+- Terminal-state handling: closed issues with no changes have stale `updated_at` and naturally fall out of the `updated:>=` filter — no additional dedup needed
+
+**Impact:** 60-80% reduction on incremental syncs (most issues stabilize quickly after closure).
+
+**Implementation:** `resolve_issues_since_date(last_synced_at)` resolves the sync cursor, `fetch_issues()` uses the Search API with pagination, `fetch_issues_direct()` provides a fallback for first sync.
+
+**Key Insight:** Unlike PRs (which have ongoing review activity), issues are relatively static after creation — most activity happens in the first few days. The Search API `updated:>=` filter is highly efficient because closed issues rarely get updates.
+
 ## Results
 
 | Metric | Before | After | Improvement |

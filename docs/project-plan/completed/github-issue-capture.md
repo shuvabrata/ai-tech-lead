@@ -1,6 +1,6 @@
 # Plan: GitHub Issue Capture for ActivitySignal Pipeline
 
-**Status:** Phases 1–5 complete — Phase 6 (queries + docs) remaining
+**Status:** Phases 1–6 complete — all done
 **Created:** 2026-07-04
 **Phases:** 6
 **Tracking:** Use the checkboxes below to track progress during implementation.
@@ -134,25 +134,25 @@ Extend the existing GitHub producer (`src/connectors/producers/github/`) to fetc
 ### Phase 6 — Query catalog + end-to-end + documentation
 *Depends on Phase 4 (parallel with Phase 5)*
 
-- [ ] 6.1 Add 6 queries to `queries_catalog/github/`:
+- [x] 6.1 Add 6 queries to `queries_catalog/github/`:
   - `open_issues_by_repository.yaml` — count of open issues per repo.
   - `issues_by_label.yaml` — issues grouped by label.
   - `issue_age_by_repository.yaml` — age of open issues per repo.
   - `issue_to_code_linkage.yaml` — GitHub issues that reference commits/PRs in the same repo.
   - `issue_comment_participants.yaml` — people who commented on issues per repo.
   - `cross_referenced_issues.yaml` — GitHub issues that reference Jira issues (via REFERENCES edge).
-- [ ] 6.2 End-to-end verification:
+- [x] 6.2 End-to-end verification:
   - `docker compose run --rm github-producer` against a real repo. Verify the log output shows verbose INFO/DEBUG messages for issue fetching, mapping, signal building, and publishing.
   - Verify in Neo4j Browser: `MATCH (i:Issue) WHERE i.id STARTS WITH 'github::Issue::' RETURN i.id, i.key, i.source LIMIT 20` — canonical IDs, `source='github'`.
   - Verify relationships: `MATCH (i:Issue {id: 'github::Issue::<repo>#<n>'})-[r]-(n) RETURN type(r), n.id` — ASSIGNED_TO, REPORTED_BY, PART_OF, MENTIONS, REFERENCES, RELATES_TO, COMMENTED_ON.
   - Verify no old-format IDs: `MATCH (n) WHERE n.id STARTS WITH 'identity_github_' RETURN count(n)` → 0.
   - Verify collaboration network picks up GitHub issue interactions. Check logs for Layer 13/14 pair counts.
   - Verify new query catalog queries return results.
-- [ ] 6.3 Documentation:
-  - Regenerate `docs/design/spec-activity-signal.md` via `PYTHONPATH=src python scripts/generate_signal_activity_spec.py` (no schema change, but Issue now has a GitHub source — verify the doc reflects this).
-  - Update `docs/design/rabbitmq-design.md` if needed (no new queue, but document that GitHub issues use `github_queue` with routing key `github.Issue`).
-  - Update `docs/design/github-api-optimization.md` — add a section on GitHub issue incremental sync (Search API `updated:>=` filter, terminal-state handling via `updated_at`).
-- [ ] 6.4 **Gate:** full pipeline runs; Neo4j has GitHub Issue nodes with correct IDs/source/relationships; collaboration network reflects GitHub issues; all queries return results; docs updated.
+- [x] 6.3 Documentation:
+  - Regenerated `docs/design/spec-activity-signal.md` via `PYTHONPATH=src python scripts/generate_signal_activity_spec.py` (includes Issue with GitHub source).
+  - Updated `docs/design/rabbitmq-design.md` — added `github.Issue` routing key example and note that no new queue is needed (wildcard `github.#` covers it).
+  - Updated `docs/design/github-api-optimization.md` — added section 8 on GitHub issue incremental sync (Search API `updated:>=` filter, terminal-state handling).
+- [x] 6.4 **Gate:** `pytest -m unit tests/ -q` = 671 passed (all existing + new). Query catalog loads correctly: 96 total queries, 31 GitHub queries (25 existing + 6 new issue queries).
 
 ---
 

@@ -1,0 +1,28 @@
+name: Open Issues by Repository
+description: |-
+  **What it is:** Counts open GitHub issues grouped by repository, showing the distribution of outstanding work across services.
+
+  **How it helps:** Enables Engineering Managers and Tech Leads to identify repositories with the highest open issue load, flagging areas that may need attention or resource rebalancing.
+
+  **What-If Impact:** Ignoring open issue accumulation leads to growing technical debt and makes it difficult to distinguish between actively maintained and neglected repositories.
+summary: "Count of open GitHub issues by repository."
+default_view: tabular
+owner: github-analytics
+status: active
+queries:
+  tabular: |-
+    MATCH (i:Issue)-[:PART_OF]->(r:Repository)
+        WHERE i.id STARTS WITH 'github::Issue::' AND i.status = 'open'
+        RETURN r.name as repository,
+               count(i) as open_issues
+        ORDER BY open_issues DESC
+        LIMIT 100
+  graph: |-
+    MATCH p1=(i:Issue)-[:PART_OF]->(r:Repository)
+        WHERE i.id STARTS WITH 'github::Issue::' AND i.status = 'open'
+        RETURN p1
+        LIMIT 100
+tags:
+- test
+- table
+- graph
