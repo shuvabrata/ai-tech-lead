@@ -13,14 +13,65 @@ NEO4J_USER = os.getenv('NEO4J_USERNAME', 'neo4j')
 NEO4J_PASSWORD = os.getenv('NEO4J_PASSWORD', 'password123')
 
 
+def _extract_name(ddl: str) -> str:
+    """Extract the object name from a CREATE CONSTRAINT or CREATE INDEX DDL."""
+    # Handle both "CREATE CONSTRAINT name ..." and "CREATE INDEX name ..."
+    # and "CREATE FULLTEXT INDEX name ..."
+    parts = ddl.split()
+    # The pattern is: CREATE [FULLTEXT] CONSTRAINT|INDEX <name> ...
+    idx = 2 if parts[1].upper() == "FULLTEXT" else 1
+    return parts[idx + 1]  # name is right after CONSTRAINT/INDEX
+
+
 def create_indexes():
-    """Create all recommended indexes."""
+    """Create all recommended indexes and uniqueness constraints."""
     driver = GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD))
-    
-    # Priority 1: High-Impact Lookup Indexes
+
+    # ========================================================================
+    # UNIQUENESS CONSTRAINTS (required for MERGE correctness)
+    # These are NOT created by regular CREATE INDEX — they enforce uniqueness.
+    # ========================================================================
+    uniqueness_constraints = [
+        # Layer 1
+        "CREATE CONSTRAINT person_id IF NOT EXISTS FOR (p:Person) REQUIRE p.id IS UNIQUE",
+        "CREATE CONSTRAINT person_email IF NOT EXISTS FOR (p:Person) REQUIRE p.email IS UNIQUE",
+        "CREATE CONSTRAINT team_id IF NOT EXISTS FOR (t:Team) REQUIRE t.id IS UNIQUE",
+        "CREATE CONSTRAINT identity_id IF NOT EXISTS FOR (i:IdentityMapping) REQUIRE i.id IS UNIQUE",
+
+        # Layer 2
+        "CREATE CONSTRAINT project_id IF NOT EXISTS FOR (p:Project) REQUIRE p.id IS UNIQUE",
+        "CREATE CONSTRAINT initiative_id IF NOT EXISTS FOR (i:Initiative) REQUIRE i.id IS UNIQUE",
+
+        # Layer 3
+        "CREATE CONSTRAINT epic_id IF NOT EXISTS FOR (e:Epic) REQUIRE e.id IS UNIQUE",
+
+        # Layer 4
+        "CREATE CONSTRAINT issue_id IF NOT EXISTS FOR (i:Issue) REQUIRE i.id IS UNIQUE",
+        "CREATE CONSTRAINT sprint_id IF NOT EXISTS FOR (s:Sprint) REQUIRE s.id IS UNIQUE",
+
+        # Layer 5
+        "CREATE CONSTRAINT repository_id IF NOT EXISTS FOR (r:Repository) REQUIRE r.id IS UNIQUE",
+
+        # Layer 7
+        "CREATE CONSTRAINT commit_id IF NOT EXISTS FOR (c:Commit) REQUIRE c.id IS UNIQUE",
+        "CREATE CONSTRAINT commit_sha IF NOT EXISTS FOR (c:Commit) REQUIRE c.sha IS UNIQUE",
+        "CREATE CONSTRAINT file_id IF NOT EXISTS FOR (f:File) REQUIRE f.id IS UNIQUE",
+
+        # Layer 8
+        "CREATE CONSTRAINT pull_request_id IF NOT EXISTS FOR (pr:PullRequest) REQUIRE pr.id IS UNIQUE",
+
+        # Layer 9
+        "CREATE CONSTRAINT space_id IF NOT EXISTS FOR (s:Space) REQUIRE s.id IS UNIQUE",
+        "CREATE CONSTRAINT page_id IF NOT EXISTS FOR (p:Page) REQUIRE p.id IS UNIQUE",
+        "CREATE CONSTRAINT blogpost_id IF NOT EXISTS FOR (b:Blogpost) REQUIRE b.id IS UNIQUE",
+    ]
+
+    # ========================================================================
+    # PERFORMANCE INDEXES (already existed)
+    # ========================================================================
     priority1 = [
         "CREATE INDEX person_name IF NOT EXISTS FOR (p:Person) ON (p.name)",
-        # person_email index removed - covered by UNIQUE constraint in create_constraints()
+        # person_email index removed - covered by UNIQUE constraint created above
         "CREATE INDEX person_role IF NOT EXISTS FOR (p:Person) ON (p.role)",
         "CREATE INDEX person_title IF NOT EXISTS FOR (p:Person) ON (p.title)",
         "CREATE INDEX person_seniority IF NOT EXISTS FOR (p:Person) ON (p.seniority)",
@@ -132,6 +183,7 @@ def create_indexes():
     ]
     
     all_indexes = {
+        "Uniqueness Constraints": uniqueness_constraints,
         "Priority 1: High-Impact Lookups (Critical)": priority1,
         "Priority 2: Status and State (High)": priority2,
         "Priority 3: Date/Time (Medium-High)": priority3,
@@ -167,18 +219,18 @@ def create_indexes():
                 for idx_query in indexes:
                     try:
                         session.run(idx_query)
-                        index_name = idx_query.split("INDEX")[1].split("IF NOT EXISTS")[0].strip()
-                        print(f"✓ Created: {index_name}")
+                        obj_name = _extract_name(idx_query)
+                        print(f"✓ Created: {obj_name}")
                         total_created += 1
                     except Exception as e:
                         error_msg = str(e).lower()
                         if "already exists" in error_msg or "equivalent" in error_msg:
-                            index_name = idx_query.split("INDEX")[1].split("IF NOT EXISTS")[0].strip()
-                            print(f"- Exists: {index_name}")
+                            obj_name = _extract_name(idx_query)
+                            print(f"- Exists: {obj_name}")
                             total_existing += 1
                         else:
-                            index_name = idx_query.split("INDEX")[1].split("IF NOT EXISTS")[0].strip() if "INDEX" in idx_query else "Unknown"
-                            print(f"✗ Failed: {index_name}")
+                            obj_name = _extract_name(idx_query)
+                            print(f"✗ Failed: {obj_name}")
                             print(f"  Error: {str(e)}")
                             total_failed += 1
             

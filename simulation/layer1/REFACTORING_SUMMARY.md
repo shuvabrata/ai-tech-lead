@@ -16,7 +16,7 @@ Refactored the Layer 1 data loading code to support single-node operations, maki
   - `Relationship`: Represents connections between nodes
 
 - **Utility Functions**:
-  - `create_constraints(session)`: Creates uniqueness constraints
+  - ~~`create_constraints(session)`~~ — now handled by app entrypoint via `create_neo4j_indexes.py`
   - `merge_person(session, person, relationships)`: Merges a single Person
   - `merge_team(session, team, relationships)`: Merges a single Team
   - `merge_identity_mapping(session, identity, relationships)`: Merges a single IdentityMapping

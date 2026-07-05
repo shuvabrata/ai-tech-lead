@@ -18,7 +18,7 @@ This guide shows how to use the refactored models for real-world data integratio
 ```python
 import requests
 from neo4j import GraphDatabase
-from models import Person, Relationship, merge_person, merge_relationship, create_constraints
+from models import Person, Relationship, merge_person, merge_relationship
 
 # Configuration
 NEO4J_URI = "bolt://localhost:7687"
@@ -31,8 +31,7 @@ driver = GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD))
 def sync_employees():
     """Fetch employees from HR API and sync to Neo4j."""
     with driver.session() as session:
-        # Ensure constraints exist
-        create_constraints(session)
+        # Note: Uniqueness constraints are created by the app entrypoint
         
         # Fetch paginated employee data
         page = 1
@@ -103,7 +102,7 @@ if __name__ == "__main__":
 from kafka import KafkaConsumer
 import json
 from neo4j import GraphDatabase
-from models import Person, Relationship, merge_person, merge_relationship, create_constraints
+from models import Person, Relationship, merge_person, merge_relationship
 
 # Configuration
 NEO4J_URI = "bolt://localhost:7687"
@@ -165,7 +164,7 @@ def consume_events():
     )
     
     with driver.session() as session:
-        create_constraints(session)
+        # Constraints are managed by the app entrypoint
         
         print(f"Listening for events on {KAFKA_TOPIC}...")
         for message in consumer:
@@ -192,7 +191,7 @@ if __name__ == "__main__":
 from fastapi import FastAPI, BackgroundTasks
 from pydantic import BaseModel
 from neo4j import GraphDatabase
-from models import Person, Team, Relationship, merge_person, merge_team, merge_relationship, create_constraints
+from models import Person, Team, Relationship, merge_person, merge_team, merge_relationship
 
 app = FastAPI()
 
@@ -217,9 +216,8 @@ class EmployeeWebhook(BaseModel):
 
 @app.on_event("startup")
 async def startup():
-    """Initialize Neo4j constraints."""
-    with driver.session() as session:
-        create_constraints(session)
+    """Neo4j constraints are created by the app entrypoint."""
+    pass
 
 @app.post("/webhooks/employee")
 async def handle_employee_webhook(webhook: EmployeeWebhook, background_tasks: BackgroundTasks):
@@ -279,7 +277,7 @@ async def shutdown():
 ```python
 import csv
 from neo4j import GraphDatabase
-from models import Person, merge_person, create_constraints
+from models import Person, merge_person
 
 NEO4J_URI = "bolt://localhost:7687"
 NEO4J_USER = "neo4j"
@@ -291,7 +289,7 @@ def import_csv(csv_path: str):
     
     try:
         with driver.session() as session:
-            create_constraints(session)
+            # Constraints are created by the app entrypoint
             
             with open(csv_path, 'r', encoding='utf-8') as f:
                 reader = csv.DictReader(f)
@@ -334,7 +332,7 @@ employee_id,first_name,last_name,email,title,role,seniority,hire_date,is_manager
 ```python
 from ldap3 import Server, Connection, ALL
 from neo4j import GraphDatabase
-from models import Person, Team, Relationship, merge_person, merge_team, merge_relationship, create_constraints
+from models import Person, Team, Relationship, merge_person, merge_team, merge_relationship
 
 # Configuration
 LDAP_SERVER = "ldap://ldap.company.com"
@@ -357,7 +355,7 @@ def sync_from_ldap():
     
     try:
         with driver.session() as session:
-            create_constraints(session)
+            # Constraints are managed by the app entrypoint
             
             # Search for all users
             ldap_conn.search(
@@ -437,8 +435,6 @@ def safe_merge_person(session, person_data):
 ```python
 # Reuse session for better performance
 with driver.session() as session:
-    create_constraints(session)
-    
     for person_data in large_dataset:
         person = Person(**person_data)
         merge_person(session, person)

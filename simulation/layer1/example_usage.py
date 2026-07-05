@@ -8,8 +8,7 @@ import os
 from neo4j import GraphDatabase
 from connectors.neo4j_db.models import (
     Person, Team, IdentityMapping, Relationship,
-    merge_person, merge_team, merge_identity_mapping, merge_relationship,
-    create_constraints
+    merge_person, merge_team, merge_identity_mapping, merge_relationship
 )
 
 
@@ -23,8 +22,6 @@ def example_1_merge_person_only():
     
     try:
         with driver.session() as session:
-            # Create constraints first
-            create_constraints(session)
             
             # Create a person
             person = Person(
@@ -56,7 +53,6 @@ def example_2_merge_person_with_team():
     
     try:
         with driver.session() as session:
-            create_constraints(session)
             
             # First, ensure the team exists
             team = Team(
@@ -106,7 +102,6 @@ def example_3_add_relationship_later():
     
     try:
         with driver.session() as session:
-            create_constraints(session)
             
             # Step 1: Merge person without any relationships
             person = Person(
@@ -177,7 +172,6 @@ def example_4_relationship_creates_missing_nodes():
     
     try:
         with driver.session() as session:
-            create_constraints(session)
             
             # Create a REPORTS_TO relationship
             # The merge_relationship function will create placeholder nodes if they don't exist
@@ -224,7 +218,6 @@ def example_5_streaming_data():
     
     try:
         with driver.session() as session:
-            create_constraints(session)
             
             # Simulate receiving data one at a time from an API or stream
             incoming_people = [
