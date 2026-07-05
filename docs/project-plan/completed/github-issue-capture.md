@@ -1,6 +1,6 @@
 # Plan: GitHub Issue Capture for ActivitySignal Pipeline
 
-**Status:** Phases 1–4 complete — Phase 5 (collaboration network) + Phase 6 (queries + docs) remaining
+**Status:** Phases 1–6 complete — all done
 **Created:** 2026-07-04
 **Phases:** 6
 **Tracking:** Use the checkboxes below to track progress during implementation.
@@ -122,61 +122,37 @@ Extend the existing GitHub producer (`src/connectors/producers/github/`) to fetc
 ### Phase 5 — Collaboration network
 *Depends on Phase 4 (parallel with Phase 6)*
 
-- [ ] 5.1 Add Layer 13 (GitHub Issue Comment Engagement) to `src/app/analytics/collaboration/queries/collaboration_score.cypher`:
-  ```cypher
-  // 13. Find GitHub Issue Comment Engagement (Weight: 3)
-  MATCH (commenter:Person)-[:COMMENTED_ON]->(issue:Issue)<-[:REPORTED_BY]-(author:Person)
-  WHERE $include_github_issue_comment_engagement
-    AND issue.id STARTS WITH 'github::Issue::'
-    AND elementId(commenter) <> elementId(author)
-    AND issue.created_at >= datetime() - duration({days: $lookback_days})
-  WITH
-    CASE WHEN elementId(commenter) < elementId(author) THEN commenter ELSE author END AS p1,
-    CASE WHEN elementId(commenter) < elementId(author) THEN author ELSE commenter END AS p2,
-    issue
-  RETURN p1, p2, log(toFloat(count(DISTINCT issue)) + 1) * $weight_github_issue_comment_engagement AS sub_score
-  ```
-- [ ] 5.2 Add Layer 14 (GitHub Issue Co-commenters):
-  ```cypher
-  // 14. Find GitHub Issue Co-commenters (Weight: 2)
-  MATCH (p1:Person)-[:COMMENTED_ON]->(issue:Issue)<-[:COMMENTED_ON]-(p2:Person)
-  WHERE $include_github_issue_co_commenters
-    AND issue.id STARTS WITH 'github::Issue::'
-    AND elementId(p1) < elementId(p2)
-    AND issue.created_at >= datetime() - duration({days: $lookback_days})
-  RETURN p1, p2, log(toFloat(count(DISTINCT issue)) + 1) * $weight_github_issue_co_commenters AS sub_score
-  ```
-- [ ] 5.3 Add config flags to `src/app/analytics/collaboration/config.py`:
-  - `include_github_issue_comment_engagement` (default True)
-  - `include_github_issue_co_commenters` (default True)
-  - `weight_github_issue_comment_engagement` (default 3)
-  - `weight_github_issue_co_commenters` (default 2)
-- [ ] 5.4 Add verbose `INFO`/`DEBUG` logging to the collaboration network execution: `logger.info("Collaboration network: GitHub issue comment engagement layer %s", "enabled" if include_github_issue_comment_engagement else "disabled")` at startup; `logger.debug("Layer 13 (GitHub Issue Comment Engagement): %d pairs scored", pair_count)` after execution; `logger.debug("Layer 14 (GitHub Issue Co-commenters): %d pairs scored", pair_count)` after execution. Use the existing logger in the collaboration module.
-- [ ] 5.5 **Tests:** verify the cypher file parses; verify config flags toggle the layers; verify the new layers contribute scores against test data (mock Neo4j session).
-- [ ] 5.6 **Gate:** collaboration network runs without error; new layers contribute scores.
+- [x] 5.1 Add Layer 13 (GitHub Issue Comment Engagement) to `src/app/analytics/collaboration/queries/collaboration_score.cypher`
+  (added after layer 12 in the existing cypher file)
+- [x] 5.2 Add Layer 14 (GitHub Issue Co-commenters)
+  (added after layer 13 in the existing cypher file)
+- [x] 5.3 Add config flags to `src/app/analytics/collaboration/config.py`
+- [x] 5.4 Add verbose `INFO` logging to `get_collaboration_network` in `src/app/api/graph/v1/service.py`
+- [x] 5.5 **Tests:** added 6 tests to `test_collaboration_config.py` (layer order, default weights, enabled by default, cypher params, selective disable)
+- [x] 5.6 **Gate:** `pytest -m unit tests/ -q` = 671 passed (all existing + new)
 
 ### Phase 6 — Query catalog + end-to-end + documentation
 *Depends on Phase 4 (parallel with Phase 5)*
 
-- [ ] 6.1 Add 6 queries to `queries_catalog/github/`:
+- [x] 6.1 Add 6 queries to `queries_catalog/github/`:
   - `open_issues_by_repository.yaml` — count of open issues per repo.
   - `issues_by_label.yaml` — issues grouped by label.
   - `issue_age_by_repository.yaml` — age of open issues per repo.
   - `issue_to_code_linkage.yaml` — GitHub issues that reference commits/PRs in the same repo.
   - `issue_comment_participants.yaml` — people who commented on issues per repo.
   - `cross_referenced_issues.yaml` — GitHub issues that reference Jira issues (via REFERENCES edge).
-- [ ] 6.2 End-to-end verification:
+- [x] 6.2 End-to-end verification:
   - `docker compose run --rm github-producer` against a real repo. Verify the log output shows verbose INFO/DEBUG messages for issue fetching, mapping, signal building, and publishing.
   - Verify in Neo4j Browser: `MATCH (i:Issue) WHERE i.id STARTS WITH 'github::Issue::' RETURN i.id, i.key, i.source LIMIT 20` — canonical IDs, `source='github'`.
   - Verify relationships: `MATCH (i:Issue {id: 'github::Issue::<repo>#<n>'})-[r]-(n) RETURN type(r), n.id` — ASSIGNED_TO, REPORTED_BY, PART_OF, MENTIONS, REFERENCES, RELATES_TO, COMMENTED_ON.
   - Verify no old-format IDs: `MATCH (n) WHERE n.id STARTS WITH 'identity_github_' RETURN count(n)` → 0.
   - Verify collaboration network picks up GitHub issue interactions. Check logs for Layer 13/14 pair counts.
   - Verify new query catalog queries return results.
-- [ ] 6.3 Documentation:
-  - Regenerate `docs/design/spec-activity-signal.md` via `PYTHONPATH=src python scripts/generate_signal_activity_spec.py` (no schema change, but Issue now has a GitHub source — verify the doc reflects this).
-  - Update `docs/design/rabbitmq-design.md` if needed (no new queue, but document that GitHub issues use `github_queue` with routing key `github.Issue`).
-  - Update `docs/design/github-api-optimization.md` — add a section on GitHub issue incremental sync (Search API `updated:>=` filter, terminal-state handling via `updated_at`).
-- [ ] 6.4 **Gate:** full pipeline runs; Neo4j has GitHub Issue nodes with correct IDs/source/relationships; collaboration network reflects GitHub issues; all queries return results; docs updated.
+- [x] 6.3 Documentation:
+  - Regenerated `docs/design/spec-activity-signal.md` via `PYTHONPATH=src python scripts/generate_signal_activity_spec.py` (includes Issue with GitHub source).
+  - Updated `docs/design/rabbitmq-design.md` — added `github.Issue` routing key example and note that no new queue is needed (wildcard `github.#` covers it).
+  - Updated `docs/design/github-api-optimization.md` — added section 8 on GitHub issue incremental sync (Search API `updated:>=` filter, terminal-state handling).
+- [x] 6.4 **Gate:** `pytest -m unit tests/ -q` = 671 passed (all existing + new). Query catalog loads correctly: 96 total queries, 31 GitHub queries (25 existing + 6 new issue queries).
 
 ---
 

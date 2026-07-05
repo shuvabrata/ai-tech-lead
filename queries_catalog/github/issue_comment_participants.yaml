@@ -1,0 +1,33 @@
+name: Issue Comment Participants
+description: |-
+  **What it is:** Lists people who have commented on GitHub issues, grouped by repository, along with their comment counts.
+
+  **How it helps:** Identifies the most engaged community members and internal contributors per repository, highlighting who is actively participating in issue discussions and triage.
+
+  **What-If Impact:** Without visibility into comment participation, teams may miss recognizing key contributors or fail to notice when subject matter experts are overloaded with issue discussions.
+summary: "People who commented on GitHub issues per repository."
+default_view: tabular
+owner: github-analytics
+status: active
+queries:
+  tabular: |-
+    MATCH (p:Person)-[c:COMMENTED_ON]->(i:Issue)-[:PART_OF]->(r:Repository)
+        WHERE i.id STARTS WITH 'github::Issue::'
+        WITH r, p, count(c) as comments, min(c.timestamp) as first_comment, max(c.timestamp) as last_comment
+        RETURN r.name as repository,
+               p.login as person,
+               p.name as display_name,
+               comments as comment_count,
+               first_comment,
+               last_comment
+        ORDER BY r.name, comments DESC
+        LIMIT 100
+  graph: |-
+    MATCH p1=(p:Person)-[c:COMMENTED_ON]->(i:Issue)-[:PART_OF]->(r:Repository)
+        WHERE i.id STARTS WITH 'github::Issue::'
+        RETURN p1
+        LIMIT 100
+tags:
+- test
+- table
+- graph

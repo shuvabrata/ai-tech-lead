@@ -1,0 +1,31 @@
+name: Issue-to-Code Linkage
+description: |-
+  **What it is:** Surfaces commits that reference GitHub issues (via issue keys in commit messages), showing traceability from code changes back to issue reports.
+
+  **How it helps:** Enables Engineering Managers to verify that code changes are properly linked to issues, ensuring end-to-end delivery traceability and audit compliance.
+
+  **What-If Impact:** Weak issue-to-code linkage breaks the ability to audit why code was introduced, making root-cause analysis and release note generation significantly harder.
+summary: "Commits referencing GitHub issues."
+default_view: tabular
+owner: github-analytics
+status: active
+queries:
+  tabular: |-
+    MATCH (c:Commit)-[:REFERENCES]->(i:Issue)
+        WHERE i.id STARTS WITH 'github::Issue::'
+        RETURN i.key as issue_key,
+               i.summary as issue_summary,
+               i.status as issue_status,
+               count(c) as referencing_commits,
+               collect(DISTINCT c.sha)[0..10] as commit_shas
+        ORDER BY referencing_commits DESC
+        LIMIT 100
+  graph: |-
+    MATCH p1=(c:Commit)-[:REFERENCES]->(i:Issue)
+        WHERE i.id STARTS WITH 'github::Issue::'
+        RETURN p1
+        LIMIT 100
+tags:
+- test
+- table
+- graph

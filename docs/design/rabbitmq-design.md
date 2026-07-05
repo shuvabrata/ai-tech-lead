@@ -147,6 +147,7 @@ flowchart LR
 |---|---|---|
 | GitHub | Repository | `github.Repository` |
 | GitHub | PullRequest | `github.PullRequest` |
+| GitHub | Issue | `github.Issue` |
 | Jira | Issue | `jira.Issue` |
 | Jira | Sprint | `jira.Sprint` |
 

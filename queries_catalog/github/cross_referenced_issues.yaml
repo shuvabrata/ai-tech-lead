@@ -1,0 +1,31 @@
+name: Cross-Referenced Issues
+description: |-
+  **What it is:** Identifies GitHub issues that reference Jira issues via the REFERENCES edge, showing cross-system traceability between bug reports and tracked work items.
+
+  **How it helps:** Enables Program Managers to trace how GitHub issue discussions link to formal Jira work items, providing a holistic view of cross-system issue resolution.
+
+  **What-If Impact:** Without cross-reference visibility, teams working across GitHub and Jira risk duplicating effort and losing context when issues span both systems.
+summary: "GitHub issues that reference Jira issues."
+default_view: tabular
+owner: github-analytics
+status: active
+queries:
+  tabular: |-
+    MATCH (i:Issue)-[r:REFERENCES]->(jira_issue:Issue)
+        WHERE i.id STARTS WITH 'github::Issue::' AND jira_issue.id STARTS WITH 'jira::Issue::'
+        RETURN i.key as github_issue_key,
+               i.summary as github_summary,
+               jira_issue.key as jira_issue_key,
+               jira_issue.summary as jira_summary,
+               jira_issue.status as jira_status
+        ORDER BY i.key
+        LIMIT 100
+  graph: |-
+    MATCH p1=(i:Issue)-[r:REFERENCES]->(jira_issue:Issue)
+        WHERE i.id STARTS WITH 'github::Issue::' AND jira_issue.id STARTS WITH 'jira::Issue::'
+        RETURN p1
+        LIMIT 100
+tags:
+- test
+- table
+- graph

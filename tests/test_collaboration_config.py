@@ -110,3 +110,56 @@ def test_confluence_layers_can_be_selectively_disabled():
     assert params["include_confluence_comment_engagement"] is False
     assert params["include_confluence_co_commenters"] is False
     assert params["include_confluence_mentions"] is False
+
+
+# ---------------------------------------------------------------------------
+# GitHub Issue Layer Tests (Phase 5)
+# ---------------------------------------------------------------------------
+
+
+def test_github_issue_layers_present_in_layer_order():
+    """GitHub issue layers are registered in LAYER_ORDER."""
+    assert "github_issue_comment_engagement" in LAYER_ORDER
+    assert "github_issue_co_commenters" in LAYER_ORDER
+
+
+def test_github_issue_layers_have_correct_default_weights():
+    """GitHub issue layers have the expected default weights."""
+    assert DEFAULT_LAYER_WEIGHTS["github_issue_comment_engagement"] == 3.0
+    assert DEFAULT_LAYER_WEIGHTS["github_issue_co_commenters"] == 2.0
+
+
+def test_github_issue_layers_enabled_by_default():
+    """GitHub issue layers are enabled by default."""
+    config = CollaborationNetworkConfig()
+    assert "github_issue_comment_engagement" in config.enabled_layers
+    assert "github_issue_co_commenters" in config.enabled_layers
+
+
+def test_to_cypher_parameters_includes_github_issue_keys():
+    """to_cypher_parameters() includes include_/weight_ keys for GitHub issue layers."""
+    config = CollaborationNetworkConfig()
+    params = config.to_cypher_parameters()
+
+    assert params["include_github_issue_comment_engagement"] is True
+    assert params["weight_github_issue_comment_engagement"] == 3.0
+    assert params["include_github_issue_co_commenters"] is True
+    assert params["weight_github_issue_co_commenters"] == 2.0
+
+
+def test_github_issue_layers_can_be_selectively_disabled():
+    """GitHub issue layers are disabled when not in the selected layers list."""
+    config = CollaborationNetworkConfig.from_query_values(
+        {"layers": "reporter_assignee,pr_reviews"}
+    )
+    params = config.to_cypher_parameters()
+
+    assert params["include_github_issue_comment_engagement"] is False
+    assert params["include_github_issue_co_commenters"] is False
+
+
+def test_github_issue_layer_weights_have_correct_values():
+    """Verify GitHub issue weights are set to the correct independent values."""
+    config = CollaborationNetworkConfig()
+    assert config.weights["github_issue_comment_engagement"] == 3.0
+    assert config.weights["github_issue_co_commenters"] == 2.0
