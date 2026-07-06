@@ -12,12 +12,15 @@ status: active
 queries:
   tabular: |-
     MATCH (p:Page)
-    OPTIONAL MATCH path = shortestPath((p)-[:PARENT_OF*0..10]->(root:Page))
-    RETURN p.title as page_title,
-           CASE WHEN path IS NULL THEN 0 ELSE length(path) END as lineage_depth,
-           root.title as root_title,
-           p.status as status,
-           p.last_updated_at as last_updated_at
+    OPTIONAL MATCH (p)-[:PARENT_OF*1..10]->(ancestor:Page)
+    WITH p,
+         count(DISTINCT ancestor) AS lineage_depth,
+         collect(DISTINCT ancestor) AS ancestors
+    RETURN p.title AS page_title,
+           lineage_depth,
+           [a IN ancestors WHERE NOT (a)-[:PARENT_OF]->(:Page)][0].title AS root_title,
+           p.status AS status,
+           p.last_updated_at AS last_updated_at
     ORDER BY lineage_depth DESC, page_title
     LIMIT 100
   graph: |-

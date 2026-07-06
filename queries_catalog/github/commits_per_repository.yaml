@@ -12,15 +12,13 @@ status: active
 queries:
   tabular: |-
     MATCH (c:Commit)-[:PART_OF]->(b:Branch)-[:BRANCH_OF]-(r:Repository)
-        WHERE b.is_default = true
-        RETURN r.name as repo, count(c) as commits
-        ORDER BY commits DESC
-        LIMIT 100
+    RETURN r.name AS repo, count(DISTINCT c) AS commits
+    ORDER BY commits DESC
+    LIMIT 100
   graph: |-
     MATCH p1=(c:Commit)-[:PART_OF]->(b:Branch)-[:BRANCH_OF]-(r:Repository)
-        WHERE b.is_default = true
-        RETURN p1
-        LIMIT 100
+    RETURN p1
+    LIMIT 100
 tags:
 - test
 - table
