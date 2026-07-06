@@ -212,8 +212,6 @@ class JiraIssueBase(GraphNode):
     labels: Optional[List[str]] = field(default_factory=list)
     components: Optional[List[str]] = field(default_factory=list)
     url: Optional[str] = None  # URL to view the issue in Jira
-    # ISO format datetime string - tracks last successful sync
-    _last_seen_at: Optional[str] = None
 
     def to_neo4j_properties(self) -> Dict[str, Any]:
         """Convert to Neo4j properties."""
@@ -318,8 +316,6 @@ class Epic(GraphNode):
     created_at: str   # ISO format string (YYYY-MM-DD)
     updated_at: Optional[str] = None  # ISO format string (YYYY-MM-DD)
     url: Optional[str] = None
-    # ISO format datetime string - tracks last successful sync
-    _last_seen_at: Optional[str] = None
 
     def to_neo4j_properties(self) -> Dict[str, Any]:
         """Convert to Neo4j properties."""
@@ -385,8 +381,6 @@ class Issue(GraphNode):
     source: str = 'jira'  # Source system: 'jira' or 'github'
     updated_at: Optional[str] = None  # ISO format datetime string
     url: Optional[str] = None
-    # ISO format datetime string - tracks last successful sync
-    _last_seen_at: Optional[str] = None
 
     def to_neo4j_properties(self) -> Dict[str, Any]:
         """Convert to Neo4j properties."""
@@ -470,7 +464,6 @@ class Repository(GraphNode):
             is_private=True,
             topics=["api", "gateway", "python"],
             created_at="2023-11-10",
-            _last_seen_at="2026-02-04T10:30:00Z"
         )
 
         # COLLABORATOR relationships with properties
@@ -490,8 +483,6 @@ class Repository(GraphNode):
     is_private: bool
     topics: List[str]      # List of topic strings
     created_at: str  # ISO format string (YYYY-MM-DD)
-    # ISO format datetime string - tracks last successful sync
-    _last_seen_at: Optional[str] = None
 
     def to_neo4j_properties(self) -> Dict[str, Any]:
         """Convert to Neo4j properties."""
@@ -786,7 +777,6 @@ class Page(GraphNode):
     url: Optional[str] = None
     version: Optional[int] = None
     status: Optional[str] = None
-    _last_seen_at: Optional[str] = None
 
     def to_neo4j_properties(self) -> Dict[str, Any]:
         """Convert to Neo4j properties."""
@@ -816,7 +806,6 @@ class Blogpost(GraphNode):
     url: Optional[str] = None
     version: Optional[int] = None
     status: Optional[str] = None
-    _last_seen_at: Optional[str] = None
 
     def to_neo4j_properties(self) -> Dict[str, Any]:
         """Convert to Neo4j properties."""
@@ -1075,6 +1064,9 @@ def merge_person(session: Session, person: Person, relationships: Optional[List[
         set_clauses.append("p._on_hover_name = $_on_hover_name")
     if _has_value(props, '_last_updated_at'):
         set_clauses.append("p._last_updated_at = datetime($_last_updated_at)")
+    # Operational property: when the pipeline last touched this node
+    if _has_value(props, '_last_seen_at'):
+        set_clauses.append("p._last_seen_at = datetime($_last_seen_at)")
 
     if set_clauses:
         query = f"""
@@ -1132,6 +1124,9 @@ def merge_team(session: Session, team: Team, relationships: Optional[List[Relati
         set_clauses.append("t._on_hover_name = $_on_hover_name")
     if _has_value(props, '_last_updated_at'):
         set_clauses.append("t._last_updated_at = datetime($_last_updated_at)")
+    # Operational property: when the pipeline last touched this node
+    if _has_value(props, '_last_seen_at'):
+        set_clauses.append("t._last_seen_at = datetime($_last_seen_at)")
 
     # MERGE the Team node
     if set_clauses:
@@ -1184,6 +1179,9 @@ def merge_identity_mapping(session: Session, identity: IdentityMapping, relation
         set_clauses.append("i._on_hover_name = $_on_hover_name")
     if _has_value(props, '_last_updated_at'):
         set_clauses.append("i._last_updated_at = datetime($_last_updated_at)")
+    # Operational property: when the pipeline last touched this node
+    if _has_value(props, '_last_seen_at'):
+        set_clauses.append("i._last_seen_at = datetime($_last_seen_at)")
 
     # MERGE the IdentityMapping node
     if set_clauses:
@@ -1240,6 +1238,9 @@ def merge_project(session: Session, project: Project, relationships: Optional[Li
         set_clauses.append("p._on_hover_name = $_on_hover_name")
     if _has_value(props, '_last_updated_at'):
         set_clauses.append("p._last_updated_at = datetime($_last_updated_at)")
+    # Operational property: when the pipeline last touched this node
+    if _has_value(props, '_last_seen_at'):
+        set_clauses.append("p._last_seen_at = datetime($_last_seen_at)")
 
     # MERGE the Project node
     if set_clauses:
@@ -1508,6 +1509,9 @@ def merge_sprint(session: Session, sprint: Sprint, relationships: Optional[List[
         set_clauses.append("s._on_hover_name = $_on_hover_name")
     if _has_value(props, '_last_updated_at'):
         set_clauses.append("s._last_updated_at = datetime($_last_updated_at)")
+    # Operational property: when the pipeline last touched this node
+    if _has_value(props, '_last_seen_at'):
+        set_clauses.append("s._last_seen_at = datetime($_last_seen_at)")
 
     # MERGE the Sprint node
     if set_clauses:
@@ -1631,6 +1635,9 @@ def merge_commit(session: Session, commit: Commit, relationships: Optional[List[
         set_clauses.append("c._on_hover_name = $_on_hover_name")
     if _has_value(props, '_last_updated_at'):
         set_clauses.append("c._last_updated_at = datetime($_last_updated_at)")
+    # Operational property: when the pipeline last touched this node
+    if _has_value(props, '_last_seen_at'):
+        set_clauses.append("c._last_seen_at = datetime($_last_seen_at)")
 
     # MERGE the Commit node
     if set_clauses:
@@ -1736,6 +1743,9 @@ def merge_pull_request(session: Session, pull_request: PullRequest, relationship
         set_clauses.append("pr._on_hover_name = $_on_hover_name")
     if _has_value(props, '_last_updated_at'):
         set_clauses.append("pr._last_updated_at = datetime($_last_updated_at)")
+    # Operational property: when the pipeline last touched this node
+    if _has_value(props, '_last_seen_at'):
+        set_clauses.append("pr._last_seen_at = datetime($_last_seen_at)")
 
     # MERGE the PullRequest node
     if set_clauses:

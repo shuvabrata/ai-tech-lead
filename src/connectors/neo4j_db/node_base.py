@@ -30,10 +30,31 @@ def _get_field(obj: object, name: str) -> Optional[str]:
 
 
 class GraphNode(ABC):
-    """Mixin enforcing common identity/display/time metadata on node dataclasses."""
+    """Mixin enforcing common identity/display/time metadata on node dataclasses.
+
+    The base class manages three categories of properties:
+
+    1. **Derived domain properties** — ``_display_name``, ``_on_hover_name``,
+       ``_last_updated_at`` — computed from the subclass's own fields via
+       ``_inject_computed_properties()``.
+
+    2. **Operational sync property** — ``_last_seen_at`` — injected only when
+       ``set_last_observed_at()`` was called before ``to_neo4j_properties()``.
+       This is pipeline metadata (when the pipeline last wrote this node), not
+       domain data.
+
+    3. **Domain fields** — declared as dataclass fields on each subclass.
+    """
 
     id: str
     url: str
+
+    # Operational: caller-supplied timestamp; injected into props only when set.
+    _last_observed_at_value: Optional[str] = None
+
+    def set_last_observed_at(self, ts: str) -> None:
+        """Record the pipeline observation timestamp to persist as _last_seen_at."""
+        self._last_observed_at_value = ts
 
     def display_name(self) -> str:
         """Default: first non-empty of name/title/summary/key, else id.
@@ -53,9 +74,10 @@ class GraphNode(ABC):
     def last_seen_at(self) -> Optional[str]:
         """The timestamp of when this node was last synced.
 
-        Returns _last_seen_at if the subclass defines it, else None.
+        Returns the caller-supplied observation timestamp if
+        ``set_last_observed_at()`` was called, otherwise ``None``.
         """
-        return _get_field(self, "_last_seen_at")
+        return self._last_observed_at_value
 
     def _calc_last_updated_at(self) -> Optional[str]:
         """Default: first non-empty of updated_at/last_updated_at, else None.
@@ -84,7 +106,7 @@ class GraphNode(ABC):
         return props
 
     def _inject_computed_properties(self, props: Dict[str, Any]) -> None:
-        """Inject _display_name, _on_hover_name, _last_updated_at in-place.
+        """Inject _display_name, _on_hover_name, _last_updated_at, _last_seen_at in-place.
 
         Uses type(self) to resolve methods at class-level, avoiding name collision
         between dataclass fields and methods that share the same name (e.g. a
@@ -96,6 +118,9 @@ class GraphNode(ABC):
         last_updated = cls._calc_last_updated_at(self)  # pylint: disable=protected-access
         if last_updated is not None:
             props["_last_updated_at"] = last_updated
+        # _last_seen_at is caller-supplied operational metadata, not derived
+        if self._last_observed_at_value is not None:
+            props["_last_seen_at"] = self._last_observed_at_value
 
     @abstractmethod
     def print_cli(self) -> None:

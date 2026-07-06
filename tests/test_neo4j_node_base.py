@@ -196,9 +196,9 @@ def test_pull_request_on_hover_override():
 
 @pytest.mark.unit
 def test_space_last_seen_at():
-    """Space has _last_seen_at → last_seen_at() returns it (but not stored as separate prop)."""
-    s = Space(id="s1", key="DEV", name="Development",
-              _last_seen_at="2026-06-01T00:00:00Z")
+    """Space _last_seen_at is injected via set_last_observed_at()."""
+    s = Space(id="s1", key="DEV", name="Development")
+    s.set_last_observed_at("2026-06-01T00:00:00Z")
     assert s.last_seen_at() == "2026-06-01T00:00:00Z"
     props = s.to_neo4j_properties()
     assert props["_last_seen_at"] == "2026-06-01T00:00:00Z"
@@ -226,15 +226,13 @@ def test_blogpost_display_name():
 
 @pytest.mark.unit
 def test_last_seen_at_from_last_synced_at():
-    """Classes with _last_seen_at field return it from last_seen_at() (Python method still works)."""
+    """Classes with _last_seen_at return it from last_seen_at() (Python method, not dataclass field)."""
     for label, obj in [
-        ("Space", Space(id="s1", key="DEV", name="Dev",
-                        _last_seen_at="2026-01-01T00:00:00Z")),
-        ("Page", Page(id="pg1", title="P", created_at="2026-01-01",
-                      _last_seen_at="2026-01-01T00:00:00Z")),
-        ("Blogpost", Blogpost(id="bp1", title="B", created_at="2026-01-01",
-                              _last_seen_at="2026-01-01T00:00:00Z")),
+        ("Space", Space(id="s1", key="DEV", name="Dev")),
+        ("Page", Page(id="pg1", title="P", created_at="2026-01-01")),
+        ("Blogpost", Blogpost(id="bp1", title="B", created_at="2026-01-01")),
     ]:
+        obj.set_last_observed_at("2026-01-01T00:00:00Z")
         assert obj.last_seen_at() == "2026-01-01T00:00:00Z", f"{label} failed"
 
 

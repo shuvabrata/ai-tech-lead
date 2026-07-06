@@ -60,7 +60,7 @@ def test_upsert_space_signal_calls_merge_space() -> None:
     assert space.id == "confluence::Space::ENG"
     assert space.key == "ENG"
     assert space.name == "Engineering"
-    assert space._last_seen_at == _INGESTION_TIME.isoformat()
+    assert space.last_seen_at() == _INGESTION_TIME.isoformat()
 
 
 def test_upsert_page_signal_converts_relationships() -> None:
@@ -121,7 +121,7 @@ def test_upsert_page_signal_converts_relationships() -> None:
 
     assert page.id == "confluence::Page::2001"
     assert page.title == "Design Notes"
-    assert page._last_seen_at == _INGESTION_TIME.isoformat()
+    assert page.last_seen_at() == _INGESTION_TIME.isoformat()
     assert len(rels) == 2
     assert {rel.type for rel in rels} == {"CREATED", "IN_SPACE"}
 
@@ -161,7 +161,7 @@ def test_upsert_blogpost_signal_calls_merge_blogpost() -> None:
     blogpost = mock_merge.call_args.args[1]
     assert blogpost.id == "confluence::Blogpost::3001"
     assert blogpost.title == "Weekly Update"
-    assert blogpost._last_seen_at == _INGESTION_TIME.isoformat()
+    assert blogpost.last_seen_at() == _INGESTION_TIME.isoformat()
 
 
 def test_upsert_person_signal_uses_merge_person() -> None:
