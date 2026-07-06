@@ -7,7 +7,7 @@ _last_updated_at on nodes that predate Plan 006 (GraphNode ABC).
 Now updated (after Pass 1 + Pass 2 of the _last_seen_at rename):
 - Backfills _display_name and _on_hover_name (if still missing)
 - Copies _last_synced_at → _last_seen_at (migrates old property to new name)
-- Backfills _last_updated_at via coalesce
+- Backfills _last_updated_at via coalesce, and _created_at via a guarded SET
 - REMOVEs the old _last_synced_at property from all nodes
 - REMOVEs any stale _last_seen_at left over from Plan 006's original writes
 
@@ -58,15 +58,17 @@ def _env(name: str, default: str = "") -> str:
 def backfill_node(session, label: str) -> int:
     """Backfill computed display/time properties and migrate _last_synced_at → _last_seen_at.
 
-    Performs three operations per label:
+    Performs four operations per label:
     1. Backfills _display_name and _on_hover_name (coalesce fallback chain)
     2. Backfills _last_updated_at via coalesce
-    3. Migrates _last_synced_at → _last_seen_at, then removes _last_synced_at
+    3. Backfills _created_at (only on nodes that have a created_at property)
+    4. Migrates _last_synced_at → _last_seen_at, then removes _last_synced_at
 
     Returns the number of nodes updated.
     """
     display_expr = DISPLAY_NAME_RULES[label]
 
+    # Query 1: backfill standard properties on all nodes
     query = f"""
     MATCH (n:{label})
     SET
@@ -79,7 +81,18 @@ def backfill_node(session, label: str) -> int:
     """
     result = session.run(query)
     record = result.single()
-    return record["count"] if record else 0
+    total_count = record["count"] if record else 0
+
+    # Query 2: backfill _created_at only on nodes that have a created_at property
+    created_query = f"""
+    MATCH (n:{label})
+    WHERE n.created_at IS NOT NULL
+    SET n._created_at = n.created_at
+    RETURN count(n) AS count
+    """
+    session.run(created_query)
+
+    return total_count
 
 
 def main():

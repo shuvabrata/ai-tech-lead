@@ -1,7 +1,7 @@
 """Common base for all Neo4j node dataclasses in models.py.
 
-Provides the three always-present, computed display/time properties:
-_display_name, _on_hover_name, _last_updated_at. These are
+Provides the four always-present, computed display/time properties:
+_display_name, _on_hover_name, _last_updated_at, _created_at. These are
 never stored as redundant dataclass fields — they are derived from each
 subclass's own existing fields and materialize only as dict keys inside
 to_neo4j_properties(), where they become real, queryable Neo4j properties.
@@ -94,19 +94,30 @@ class GraphNode(ABC):
                 return str(value)
         return None
 
+    def _calc_created_at(self) -> Optional[str]:
+        """Default: value of created_at field, else None.
+
+        Override for entities where the creation timestamp lives under a
+        different field name.
+        """
+        value = _get_field(self, "created_at")
+        if value:
+            return str(value)
+        return None
+
     def to_neo4j_properties(self) -> Dict[str, Any]:
-        """Default to_neo4j_properties(): asdict() + the 3 computed keys.
+        """Default to_neo4j_properties(): asdict() + the 4 computed keys.
 
         Subclasses with custom filtering (e.g. dropping empty lists) should
         call this via super() and layer their own filtering on top, or
-        replicate the same 4-key injection if they can't call super() cleanly.
+        replicate the same 5-key injection if they can't call super() cleanly.
         """
         props = {k: v for k, v in asdict(self).items() if v is not None}
         self._inject_computed_properties(props)
         return props
 
     def _inject_computed_properties(self, props: Dict[str, Any]) -> None:
-        """Inject _display_name, _on_hover_name, _last_updated_at, _last_seen_at in-place.
+        """Inject _display_name, _on_hover_name, _last_updated_at, _created_at, _last_seen_at in-place.
 
         Uses type(self) to resolve methods at class-level, avoiding name collision
         between dataclass fields and methods that share the same name (e.g. a
@@ -118,6 +129,9 @@ class GraphNode(ABC):
         last_updated = cls._calc_last_updated_at(self)  # pylint: disable=protected-access
         if last_updated is not None:
             props["_last_updated_at"] = last_updated
+        created = cls._calc_created_at(self)  # pylint: disable=protected-access
+        if created is not None:
+            props["_created_at"] = created
         # _last_seen_at is caller-supplied operational metadata, not derived
         if self._last_observed_at_value is not None:
             props["_last_seen_at"] = self._last_observed_at_value
