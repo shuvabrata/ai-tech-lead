@@ -16,6 +16,7 @@ fully before starting, honor its STOP conditions, and update your row when done.
 | 003  | [Neo4j driver singleton](003-neo4j-driver-singleton.md) | P1 | S | 002 | DONE ✓ |
 | 004  | [Async graph route handlers](004-async-graph-route-handlers.md) | P2 | S | 003 | DONE ✓ |
 | 005  | [MCP thread join timeout](005-mcp-thread-join-timeout.md) | P2 | S | — | TODO |
+| 006  | [Graph time-based RangeSlider filters](006-graph-time-based-filter-slider.md) | P2 | M | — | TODO |
 
 ## Reconciliation notes (2026-06-27)
 
