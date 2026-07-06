@@ -43,7 +43,7 @@ def load_repositories_to_neo4j():
                     is_private=repo_data['is_private'],
                     topics=repo_data['topics'],
                     created_at=repo_data['created_at'],
-                    _last_synced_at=repo_data.get('_last_synced_at')
+                    _last_seen_at=repo_data.get('_last_seen_at')
                 )
                 
                 # Merge repository (without relationships for now)

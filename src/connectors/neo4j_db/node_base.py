@@ -53,12 +53,9 @@ class GraphNode(ABC):
     def last_seen_at(self) -> Optional[str]:
         """The timestamp of when this node was last synced.
 
-        Returns _last_synced_at if the subclass defines it, else None.
-        This value is NOT stored as a separate Neo4j property — it is
-        written directly as _last_synced_at (which will be renamed to
-        _last_seen_at in a future pass).
+        Returns _last_seen_at if the subclass defines it, else None.
         """
-        return _get_field(self, "_last_synced_at")
+        return _get_field(self, "_last_seen_at")
 
     def _calc_last_updated_at(self) -> Optional[str]:
         """Default: first non-empty of updated_at/last_updated_at, else None.

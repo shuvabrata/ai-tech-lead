@@ -324,7 +324,7 @@ def _handle_space(session: Session, signal: ActivitySignal) -> None:
         name=attrs.get("name", ""),
         type=attrs.get("type"),
         url=attrs.get("url"),
-        _last_synced_at=_sync_timestamp(signal),
+        _last_seen_at=_sync_timestamp(signal),
     )
     db_rels = _to_db_relationships(session, signal.relationships, node_id, "Space")
     merge_space(session, space, relationships=db_rels)
@@ -341,7 +341,7 @@ def _handle_page(session: Session, signal: ActivitySignal) -> None:
         url=attrs.get("url"),
         version=attrs.get("version"),
         status=attrs.get("status"),
-        _last_synced_at=_sync_timestamp(signal),
+        _last_seen_at=_sync_timestamp(signal),
     )
     db_rels = _to_db_relationships(session, signal.relationships, node_id, "Page")
     merge_page(session, page, relationships=db_rels)
@@ -358,7 +358,7 @@ def _handle_blogpost(session: Session, signal: ActivitySignal) -> None:
         url=attrs.get("url"),
         version=attrs.get("version"),
         status=attrs.get("status"),
-        _last_synced_at=_sync_timestamp(signal),
+        _last_seen_at=_sync_timestamp(signal),
     )
     db_rels = _to_db_relationships(session, signal.relationships, node_id, "Blogpost")
     merge_blogpost(session, blogpost, relationships=db_rels)
@@ -614,7 +614,7 @@ def _handle_initiative(session: Session, signal: ActivitySignal) -> None:
         labels=attrs.get("labels") or [],
         components=attrs.get("components") or [],
         url=attrs.get("url"),
-        _last_synced_at=datetime.now(timezone.utc).isoformat(),
+        _last_seen_at=datetime.now(timezone.utc).isoformat(),
     )
     db_rels = _to_db_relationships(session, signal.relationships, wba_node_id(signal), "Initiative")
     merge_initiative(session, initiative, relationships=db_rels)
@@ -633,7 +633,7 @@ def _handle_epic(session: Session, signal: ActivitySignal) -> None:
         created_at=attrs.get("created_at", ""),
         updated_at=attrs.get("updated_at"),
         url=attrs.get("url"),
-        _last_synced_at=datetime.now(timezone.utc).isoformat(),
+        _last_seen_at=datetime.now(timezone.utc).isoformat(),
     )
     db_rels = _to_db_relationships(session, signal.relationships, wba_node_id(signal), "Epic")
     merge_epic(session, epic, relationships=db_rels)
@@ -670,7 +670,7 @@ def _handle_issue(session: Session, signal: ActivitySignal) -> None:
         created_at=attrs.get("created_at", ""),
         updated_at=attrs.get("updated_at"),
         url=attrs.get("url"),
-        _last_synced_at=datetime.now(timezone.utc).isoformat(),
+        _last_seen_at=datetime.now(timezone.utc).isoformat(),
     )
     db_rels = _to_db_relationships(session, signal.relationships, wba_node_id(signal), "Issue")
     merge_issue(session, issue, relationships=db_rels)

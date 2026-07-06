@@ -134,7 +134,7 @@ def generate_initiatives(assignees: List[Dict[str, Any]],
             "duedate": quarter_to_date(2026, init_def['end_quarter'], False),
             "assignee_id": assignee['id'],
             "reporter_id": reporter['id'],
-            "_last_synced_at": SIMULATION_SYNCED_AT
+            "_last_seen_at": SIMULATION_SYNCED_AT
         }
         initiatives.append(initiative)
     

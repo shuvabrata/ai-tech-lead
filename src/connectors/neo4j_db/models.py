@@ -213,7 +213,7 @@ class JiraIssueBase(GraphNode):
     components: Optional[List[str]] = field(default_factory=list)
     url: Optional[str] = None  # URL to view the issue in Jira
     # ISO format datetime string - tracks last successful sync
-    _last_synced_at: Optional[str] = None
+    _last_seen_at: Optional[str] = None
 
     def to_neo4j_properties(self) -> Dict[str, Any]:
         """Convert to Neo4j properties."""
@@ -319,7 +319,7 @@ class Epic(GraphNode):
     updated_at: Optional[str] = None  # ISO format string (YYYY-MM-DD)
     url: Optional[str] = None
     # ISO format datetime string - tracks last successful sync
-    _last_synced_at: Optional[str] = None
+    _last_seen_at: Optional[str] = None
 
     def to_neo4j_properties(self) -> Dict[str, Any]:
         """Convert to Neo4j properties."""
@@ -386,7 +386,7 @@ class Issue(GraphNode):
     updated_at: Optional[str] = None  # ISO format datetime string
     url: Optional[str] = None
     # ISO format datetime string - tracks last successful sync
-    _last_synced_at: Optional[str] = None
+    _last_seen_at: Optional[str] = None
 
     def to_neo4j_properties(self) -> Dict[str, Any]:
         """Convert to Neo4j properties."""
@@ -470,7 +470,7 @@ class Repository(GraphNode):
             is_private=True,
             topics=["api", "gateway", "python"],
             created_at="2023-11-10",
-            _last_synced_at="2026-02-04T10:30:00Z"
+            _last_seen_at="2026-02-04T10:30:00Z"
         )
 
         # COLLABORATOR relationships with properties
@@ -491,7 +491,7 @@ class Repository(GraphNode):
     topics: List[str]      # List of topic strings
     created_at: str  # ISO format string (YYYY-MM-DD)
     # ISO format datetime string - tracks last successful sync
-    _last_synced_at: Optional[str] = None
+    _last_seen_at: Optional[str] = None
 
     def to_neo4j_properties(self) -> Dict[str, Any]:
         """Convert to Neo4j properties."""
@@ -757,7 +757,7 @@ class Space(GraphNode):
     name: str
     type: Optional[str] = None
     url: Optional[str] = None
-    _last_synced_at: Optional[str] = None
+    _last_seen_at: Optional[str] = None
 
     def to_neo4j_properties(self) -> Dict[str, Any]:
         """Convert to Neo4j properties."""
@@ -786,7 +786,7 @@ class Page(GraphNode):
     url: Optional[str] = None
     version: Optional[int] = None
     status: Optional[str] = None
-    _last_synced_at: Optional[str] = None
+    _last_seen_at: Optional[str] = None
 
     def to_neo4j_properties(self) -> Dict[str, Any]:
         """Convert to Neo4j properties."""
@@ -816,7 +816,7 @@ class Blogpost(GraphNode):
     url: Optional[str] = None
     version: Optional[int] = None
     status: Optional[str] = None
-    _last_synced_at: Optional[str] = None
+    _last_seen_at: Optional[str] = None
 
     def to_neo4j_properties(self) -> Dict[str, Any]:
         """Convert to Neo4j properties."""
@@ -1298,9 +1298,9 @@ def merge_initiative(session: Session, initiative: Initiative, relationships: Op
         set_clauses.append("i.project_id = $project_id")
     if _has_value(props, 'url'):
         set_clauses.append("i.url = $url")
-    # Only set _last_synced_at if provided (for incremental sync tracking)
-    if _has_value(props, '_last_synced_at'):
-        set_clauses.append("i._last_synced_at = datetime($_last_synced_at)")
+    # Only set _last_seen_at if provided (for incremental sync tracking)
+    if _has_value(props, '_last_seen_at'):
+        set_clauses.append("i._last_seen_at = datetime($_last_seen_at)")
 
     # Computed display/time properties
     if _has_value(props, '_display_name'):
@@ -1363,9 +1363,9 @@ def merge_epic(session: Session, epic: Epic, relationships: Optional[List[Relati
         set_clauses.append("e.updated_at = date($updated_at)")
     if _has_value(props, 'url'):
         set_clauses.append("e.url = $url")
-    # Only set _last_synced_at if provided (for incremental sync tracking)
-    if _has_value(props, '_last_synced_at'):
-        set_clauses.append("e._last_synced_at = datetime($_last_synced_at)")
+    # Only set _last_seen_at if provided (for incremental sync tracking)
+    if _has_value(props, '_last_seen_at'):
+        set_clauses.append("e._last_seen_at = datetime($_last_seen_at)")
 
     # Computed display/time properties
     if _has_value(props, '_display_name'):
@@ -1434,9 +1434,9 @@ def merge_issue(session: Session, issue: Issue, relationships: Optional[List[Rel
         set_clauses.append("i.updated_at = datetime($updated_at)")
     if _has_value(props, 'url'):
         set_clauses.append("i.url = $url")
-    # Only set _last_synced_at if provided (for incremental sync tracking)
-    if _has_value(props, '_last_synced_at'):
-        set_clauses.append("i._last_synced_at = datetime($_last_synced_at)")
+    # Only set _last_seen_at if provided (for incremental sync tracking)
+    if _has_value(props, '_last_seen_at'):
+        set_clauses.append("i._last_seen_at = datetime($_last_seen_at)")
 
     # Computed display/time properties
     if _has_value(props, '_display_name'):
@@ -1559,9 +1559,9 @@ def merge_repository(session: Session, repository: Repository, relationships: Op
     if _has_value(props, 'topics'):
         set_clauses.append("r.topics = $topics")
 
-    # Only set _last_synced_at if provided (for incremental sync tracking)
-    if _has_value(props, '_last_synced_at'):
-        set_clauses.append("r._last_synced_at = datetime($_last_synced_at)")
+    # Only set _last_seen_at if provided (for incremental sync tracking)
+    if _has_value(props, '_last_seen_at'):
+        set_clauses.append("r._last_seen_at = datetime($_last_seen_at)")
 
     # Computed display/time properties
     if _has_value(props, '_display_name'):
@@ -1932,8 +1932,8 @@ def merge_space(session: Session, space: Space, relationships: Optional[List[Rel
         set_clauses.append("s.type = $type")
     if _has_value(props, 'url'):
         set_clauses.append("s.url = $url")
-    if _has_value(props, '_last_synced_at'):
-        set_clauses.append("s._last_synced_at = datetime($_last_synced_at)")
+    if _has_value(props, '_last_seen_at'):
+        set_clauses.append("s._last_seen_at = datetime($_last_seen_at)")
 
     # Computed display/time properties
     if _has_value(props, '_display_name'):
@@ -1971,8 +1971,8 @@ def merge_page(session: Session, page: Page, relationships: Optional[List[Relati
         set_clauses.append("p.version = $version")
     if _has_value(props, 'status'):
         set_clauses.append("p.status = $status")
-    if _has_value(props, '_last_synced_at'):
-        set_clauses.append("p._last_synced_at = datetime($_last_synced_at)")
+    if _has_value(props, '_last_seen_at'):
+        set_clauses.append("p._last_seen_at = datetime($_last_seen_at)")
 
     # Computed display/time properties
     if _has_value(props, '_display_name'):
@@ -2016,8 +2016,8 @@ def merge_blogpost(session: Session, blogpost: Blogpost, relationships: Optional
         set_clauses.append("b.version = $version")
     if _has_value(props, 'status'):
         set_clauses.append("b.status = $status")
-    if _has_value(props, '_last_synced_at'):
-        set_clauses.append("b._last_synced_at = datetime($_last_synced_at)")
+    if _has_value(props, '_last_seen_at'):
+        set_clauses.append("b._last_seen_at = datetime($_last_seen_at)")
 
     # Computed display/time properties
     if _has_value(props, '_display_name'):

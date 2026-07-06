@@ -4,11 +4,12 @@
 Originally created to backfill _display_name, _on_hover_name, _last_seen_at,
 _last_updated_at on nodes that predate Plan 006 (GraphNode ABC).
 
-Now updated (Pass 1 of the _last_seen_at cleanup):
+Now updated (after Pass 1 + Pass 2 of the _last_seen_at rename):
 - Backfills _display_name and _on_hover_name (if still missing)
+- Copies _last_synced_at → _last_seen_at (migrates old property to new name)
 - Backfills _last_updated_at via coalesce
-- REMOVEs the now-redundant _last_seen_at property from all nodes
-  (it was always identical to _last_synced_at)
+- REMOVEs the old _last_synced_at property from all nodes
+- REMOVEs any stale _last_seen_at left over from Plan 006's original writes
 
 Uses direct Cypher (not Python dataclass reconstruction) since historical
 nodes may be missing fields that are now mandatory in the dataclass (e.g.
@@ -55,7 +56,12 @@ def _env(name: str, default: str = "") -> str:
 
 
 def backfill_node(session, label: str) -> int:
-    """Backfill the 4 computed properties on all nodes of a given label.
+    """Backfill computed display/time properties and migrate _last_synced_at → _last_seen_at.
+
+    Performs three operations per label:
+    1. Backfills _display_name and _on_hover_name (coalesce fallback chain)
+    2. Backfills _last_updated_at via coalesce
+    3. Migrates _last_synced_at → _last_seen_at, then removes _last_synced_at
 
     Returns the number of nodes updated.
     """
@@ -66,8 +72,9 @@ def backfill_node(session, label: str) -> int:
     SET
         n._display_name = {display_expr},
         n._on_hover_name = {display_expr},
-        n._last_updated_at = coalesce(n.updated_at, n.last_updated_at)
-    REMOVE n._last_seen_at
+        n._last_updated_at = coalesce(n.updated_at, n.last_updated_at),
+        n._last_seen_at = coalesce(n._last_seen_at, n._last_synced_at)
+    REMOVE n._last_synced_at
     RETURN count(n) AS count
     """
     result = session.run(query)

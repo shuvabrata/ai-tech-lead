@@ -196,13 +196,12 @@ def test_pull_request_on_hover_override():
 
 @pytest.mark.unit
 def test_space_last_seen_at():
-    """Space has _last_synced_at → last_seen_at() returns it (but not stored as separate prop)."""
+    """Space has _last_seen_at → last_seen_at() returns it (but not stored as separate prop)."""
     s = Space(id="s1", key="DEV", name="Development",
-              _last_synced_at="2026-06-01T00:00:00Z")
+              _last_seen_at="2026-06-01T00:00:00Z")
     assert s.last_seen_at() == "2026-06-01T00:00:00Z"
     props = s.to_neo4j_properties()
-    assert "_last_seen_at" not in props  # removed in favor of _last_synced_at
-    assert props["_last_synced_at"] == "2026-06-01T00:00:00Z"
+    assert props["_last_seen_at"] == "2026-06-01T00:00:00Z"
 
 
 @pytest.mark.unit
@@ -227,21 +226,21 @@ def test_blogpost_display_name():
 
 @pytest.mark.unit
 def test_last_seen_at_from_last_synced_at():
-    """Classes with _last_synced_at field return it from last_seen_at() (Python method still works)."""
+    """Classes with _last_seen_at field return it from last_seen_at() (Python method still works)."""
     for label, obj in [
         ("Space", Space(id="s1", key="DEV", name="Dev",
-                        _last_synced_at="2026-01-01T00:00:00Z")),
+                        _last_seen_at="2026-01-01T00:00:00Z")),
         ("Page", Page(id="pg1", title="P", created_at="2026-01-01",
-                      _last_synced_at="2026-01-01T00:00:00Z")),
+                      _last_seen_at="2026-01-01T00:00:00Z")),
         ("Blogpost", Blogpost(id="bp1", title="B", created_at="2026-01-01",
-                              _last_synced_at="2026-01-01T00:00:00Z")),
+                              _last_seen_at="2026-01-01T00:00:00Z")),
     ]:
         assert obj.last_seen_at() == "2026-01-01T00:00:00Z", f"{label} failed"
 
 
 @pytest.mark.unit
 def test_commit_no_last_seen():
-    """Commit has no _last_synced_at → last_seen_at returns None."""
+    """Commit has no _last_seen_at → last_seen_at returns None."""
     c = Commit(id="c1", sha="abc", message="m", created_at="2026-01-01T00:00:00",
                additions=1, deletions=0, files_changed=1, url="")
     assert c.last_seen_at() is None
