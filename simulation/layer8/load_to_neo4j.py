@@ -13,7 +13,7 @@ import json
 import os
 
 from neo4j import GraphDatabase
-from connectors.neo4j_db.models import PullRequest, Relationship, merge_pull_request, merge_relationship, create_constraints
+from connectors.neo4j_db.models import PullRequest, Relationship, merge_pull_request, merge_relationship
 
 
 def load_pull_requests_to_neo4j():
@@ -32,9 +32,6 @@ def load_pull_requests_to_neo4j():
     
     try:
         with driver.session() as session:
-            # Create constraints for Layer 8
-            create_constraints(session, layers=[8])
-            
             # Load pull requests one at a time
             pull_requests = data['nodes']['pull_requests']
             for pr_data in pull_requests:
@@ -57,7 +54,8 @@ def load_pull_requests_to_neo4j():
                     head_branch_name=pr_data['head_branch_name'],
                     base_branch_name=pr_data['base_branch_name'],
                     labels=pr_data['labels'],
-                    mergeable_state=pr_data['mergeable_state']
+                    mergeable_state=pr_data['mergeable_state'],
+                    url=pr_data.get('url', ''),
                 )
                 
                 # Merge pull request (without relationships for now)

@@ -8,7 +8,7 @@ This layer provides the foundational data model for people, teams, and identity 
   - `Person`, `Team`, `IdentityMapping` dataclasses
   - `merge_person()`, `merge_team()`, `merge_identity_mapping()` - merge individual nodes
   - `merge_relationship()` - merge relationships with auto-creation of missing nodes
-  - `create_constraints()` - create uniqueness constraints
+  - ~~`create_constraints()`~~ — now handled by app entrypoint via `create_neo4j_indexes.py`
   
 - **`generate_data.py`**: Simulation data generator (creates JSON file)
 - **`load_to_neo4j.py`**: Batch loader that reads JSON and loads into Neo4j

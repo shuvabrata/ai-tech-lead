@@ -12,7 +12,7 @@ from neo4j import GraphDatabase
 from connectors.neo4j_db.models import (
     Epic, Relationship,
     merge_epic, merge_relationship,
-    create_constraints, DIRECTIONAL_RELATIONSHIPS
+    DIRECTIONAL_RELATIONSHIPS
 )
 
 class Layer3Loader:
@@ -23,13 +23,6 @@ class Layer3Loader:
     def close(self):
         """Close the driver connection."""
         self.driver.close()
-    
-    def create_constraints(self):
-        """Create uniqueness constraints for node IDs."""
-        with self.driver.session() as session:
-            print("\nCreating constraints...")
-            create_constraints(session, layers=[3])
-            print("   ✓ Constraints created/verified")
     
     def verify_layer1_data(self):
         """Verify that Layer 1 data exists in the database."""
@@ -246,9 +239,6 @@ def main():
         # Verify Layer 1 and Layer 2 data exists
         loader.verify_layer1_data()
         loader.verify_layer2_data()
-        
-        # Create constraints
-        loader.create_constraints()
         
         # Load nodes
         loader.load_epics(data['nodes']['epics'])

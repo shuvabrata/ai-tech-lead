@@ -12,7 +12,7 @@ from neo4j import GraphDatabase
 from connectors.neo4j_db.models import (
     Project, Initiative, Relationship,
     merge_project, merge_initiative, merge_relationship,
-    create_constraints, DIRECTIONAL_RELATIONSHIPS
+    DIRECTIONAL_RELATIONSHIPS
 )
 
 class Layer2Loader:
@@ -23,13 +23,6 @@ class Layer2Loader:
     def close(self):
         """Close the driver connection."""
         self.driver.close()
-    
-    def create_constraints(self):
-        """Create uniqueness constraints for node IDs."""
-        with self.driver.session() as session:
-            print("\nCreating constraints...")
-            create_constraints(session, layers=[2])
-            print("   ✓ Constraints created/verified")
     
     def verify_layer1_data(self):
         """Verify that Layer 1 data exists in the database."""
@@ -216,9 +209,6 @@ def main():
     try:
         # Verify Layer 1 data exists
         loader.verify_layer1_data()
-        
-        # Create constraints
-        loader.create_constraints()
         
         # Load nodes
         loader.load_project(data['nodes']['project'])

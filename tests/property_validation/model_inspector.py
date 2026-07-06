@@ -95,11 +95,12 @@ def discover_entity_types() -> Dict[str, EntityMetadata]:
         if name == 'Relationship':
             continue
         
-        # Skip base classes that are not actual entities
-        if name.startswith('_'):
+        # Skip abstract base classes (GraphNode, JiraIssueBase, etc.)
+        if inspect.isabstract(obj):
             continue
-        
-        # Skip JiraIssueBase as it's a base class, not a concrete entity
+        # JiraIssueBase is a concrete dataclass with print_cli but is still a
+        # shared base (not a standalone entity).  GraphNode is handled by the
+        # is_dataclass check above.
         if name == 'JiraIssueBase':
             continue
         

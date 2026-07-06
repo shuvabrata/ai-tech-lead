@@ -12,7 +12,7 @@ import json
 import os
 
 from neo4j import GraphDatabase
-from connectors.neo4j_db.models import Repository, Relationship, merge_repository, merge_relationship, create_constraints
+from connectors.neo4j_db.models import Repository, Relationship, merge_repository, merge_relationship
 
 
 def load_repositories_to_neo4j():
@@ -31,9 +31,6 @@ def load_repositories_to_neo4j():
     
     try:
         with driver.session() as session:
-            # Create constraints for Layer 5
-            create_constraints(session, layers=[5])
-            
             # Load repositories one at a time
             repositories = data['nodes']['repositories']
             for repo_data in repositories:

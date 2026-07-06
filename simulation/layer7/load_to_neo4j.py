@@ -13,7 +13,7 @@ import json
 import os
 
 from neo4j import GraphDatabase
-from connectors.neo4j_db.models import Commit, File, Relationship, merge_commit, merge_file, merge_relationship, create_constraints
+from connectors.neo4j_db.models import Commit, File, Relationship, merge_commit, merge_file, merge_relationship
 
 
 def load_commits_to_neo4j():
@@ -32,9 +32,6 @@ def load_commits_to_neo4j():
     
     try:
         with driver.session() as session:
-            # Create constraints for Layer 7
-            create_constraints(session, layers=[7])
-            
             # Load commits one at a time
             commits = data['nodes']['commits']
             for commit_data in commits:
@@ -46,7 +43,8 @@ def load_commits_to_neo4j():
                     created_at=commit_data['created_at'],
                     additions=commit_data['additions'],
                     deletions=commit_data['deletions'],
-                    files_changed=commit_data['files_changed']
+                    files_changed=commit_data['files_changed'],
+                    url=commit_data.get('url', ''),
                 )
                 
                 # Merge commit (without relationships for now)
@@ -88,12 +86,12 @@ def load_files_to_neo4j():
                 file = File(
                     id=file_data['id'],
                     path=file_data['path'],
-                    repo_name=repo_name,
-                    name=file_data['name'],
-                    extension=file_data['extension'],
-                    language=file_data['language'],
-                    is_test=file_data['is_test'],
-                    last_updated_at=file_data.get('created_at'),
+                    name=file_data.get('name'),
+                    extension=file_data.get('extension'),
+                    language=file_data.get('language'),
+                    is_test=file_data.get('is_test'),
+                    repo_name=file_data.get('repo_name', ''),
+                    url=file_data.get('url', ''),
                 )
                 
                 # Merge file (without relationships for now)

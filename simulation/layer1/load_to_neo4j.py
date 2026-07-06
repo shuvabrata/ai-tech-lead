@@ -13,7 +13,7 @@ from neo4j import GraphDatabase
 from connectors.neo4j_db.models import (
     Person, Team, IdentityMapping, Relationship,
     merge_person, merge_team, merge_identity_mapping, merge_relationship,
-    create_constraints, DIRECTIONAL_RELATIONSHIPS
+    DIRECTIONAL_RELATIONSHIPS
 )
 
 class Layer1Loader:
@@ -24,13 +24,6 @@ class Layer1Loader:
     def close(self):
         """Close the driver connection."""
         self.driver.close()
-    
-    def create_constraints(self):
-        """Create uniqueness constraints for node IDs."""
-        with self.driver.session() as session:
-            print("\nCreating constraints...")
-            create_constraints(session, layers=[1])
-            print("   ✓ Constraints created/verified")
     
     def load_people(self, people: list):
         """Load Person nodes into Neo4j one at a time."""
@@ -206,9 +199,6 @@ def main():
     loader = Layer1Loader(neo4j_uri, neo4j_user, neo4j_password)
     
     try:
-        # Create constraints
-        loader.create_constraints()
-        
         # Load nodes
         loader.load_people(data['nodes']['people'])
         loader.load_teams(data['nodes']['teams'])

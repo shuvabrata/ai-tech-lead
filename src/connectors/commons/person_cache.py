@@ -253,7 +253,8 @@ class PersonCache:
             provider=provider,
             username=username,
             email=email if email else "",
-            last_updated_at=last_updated_at
+            last_updated_at=last_updated_at,
+            url="",
         )
         
         maps_to_rel = Relationship(
