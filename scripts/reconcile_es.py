@@ -16,15 +16,26 @@ Algorithm
 2. After upserting, query ES for all ``_id`` values in the index and
    delete any that are not present in Neo4j (stale documents).
 
+Targeted mode (``TARGETED_ONLY=true``)
+---------------------------------------
+When ``TARGETED_ONLY=true`` is set, the script skips nodes that already
+exist in ES and only upserts the *missing* ones (Neo4j nodes whose ID is
+absent from ES).  Stale ES document deletion still runs in both modes.
+Use targeted mode for routine drift correction — it is significantly faster
+than a full rebuild for large indexes.
+
 Usage
 -----
 Activate the virtual environment, then: if running on the host machine:
 
-    ELASTICSEARCH_URL=http://localhost:9200 \
-    NEO4J_URI=bolt://localhost:7687 \
+    ELASTICSEARCH_URL=http://localhost:9200 \\
+    NEO4J_URI=bolt://localhost:7687 \\
     PYTHONPATH=src python scripts/reconcile_es.py
 
-    Optionally: DRY_RUN=true 
+    Optionally: DRY_RUN=true
+    Optionally: TARGETED_ONLY=true   # only index missing nodes (faster)
+    Optionally: SOURCE=github        # limit to a single source
+    Optionally: ENTITY_TYPE=Commit   # limit to a single entity type (requires SOURCE)
 
 All required connection strings are read from environment variables.
 
@@ -36,6 +47,10 @@ NEO4J_URI               Bolt URI.     Default: ``bolt://localhost:7687``.
 NEO4J_USERNAME          Neo4j user.   Default: ``neo4j``.
 NEO4J_PASSWORD          Neo4j password.
 DRY_RUN                 Set to ``true`` to log deletes without executing them.
+TARGETED_ONLY           Set to ``true`` to only upsert nodes missing from ES.
+SOURCE                  Limit reconciliation to a single source (e.g. ``github``).
+ENTITY_TYPE             Limit to a single entity type (e.g. ``Commit``).
+                        Only used when SOURCE is also set.
 """
 
 from __future__ import annotations
@@ -195,17 +210,37 @@ def _scroll_es_ids(client: Elasticsearch, index: str) -> set[str]:
 # Main reconciliation logic
 # ---------------------------------------------------------------------------
 
-def reconcile(dry_run: bool = False) -> None:
-    """Run the full reconciliation."""
+def reconcile(dry_run: bool = False, targeted_only: bool = False,
+              filter_source: str | None = None, filter_entity_type: str | None = None) -> None:
+    """Run the full reconciliation.
+
+    Args:
+        dry_run: Log intended writes/deletes without executing them.
+        targeted_only: When True, only upsert nodes that are absent from ES
+            rather than re-indexing every Neo4j node.  Stale ES document
+            deletion runs regardless.
+        filter_source: If set, only process pairs whose source matches.
+        filter_entity_type: If set (and filter_source is set), only process
+            the specific (filter_source, filter_entity_type) pair.
+    """
     es = _build_es_client()
     driver = _build_neo4j_driver()
+
+    pairs = [
+        (src, et) for src, et in MANAGED_INDEXES
+        if (filter_source is None or src == filter_source)
+        and (filter_entity_type is None or et == filter_entity_type)
+    ]
+    if not pairs:
+        print("No matching (source, entity_type) pairs found — check SOURCE/ENTITY_TYPE env vars.")
+        return
 
     total_upserted = 0
     total_deleted = 0
 
     try:
         with driver.session() as session:
-            for source, entity_type in MANAGED_INDEXES:
+            for source, entity_type in pairs:
                 index = _index_name(source, entity_type)
                 print(f"\nReconciling {index} ...")
 
@@ -213,9 +248,23 @@ def reconcile(dry_run: bool = False) -> None:
                 neo4j_nodes = _fetch_neo4j_nodes(session, source, entity_type)
                 print(f"  Neo4j nodes found: {len(neo4j_nodes)}")
 
-                # Step 2: upsert each Neo4j node into ES.
+                # Step 2: determine which nodes to upsert.
+                if targeted_only:
+                    # Fetch current ES IDs and skip nodes already indexed.
+                    es_ids = _scroll_es_ids(es, index)
+                    nodes_to_upsert = {
+                        wba_id: props
+                        for wba_id, props in neo4j_nodes.items()
+                        if wba_id not in es_ids
+                    }
+                    print(f"  Targeted mode: {len(nodes_to_upsert)} nodes missing from ES")
+                else:
+                    es_ids = None  # will be fetched below for stale-doc detection
+                    nodes_to_upsert = neo4j_nodes
+
+                # Step 3: upsert selected nodes into ES.
                 upserted = 0
-                for wba_id, props in neo4j_nodes.items():
+                for wba_id, props in nodes_to_upsert.items():
                     doc = _build_es_doc_from_neo4j(wba_id, props)
                     if not dry_run:
                         try:
@@ -228,8 +277,10 @@ def reconcile(dry_run: bool = False) -> None:
                 print(f"  {'[DRY-RUN] Would upsert' if dry_run else 'Upserted'}: {upserted}")
                 total_upserted += upserted
 
-                # Step 3: find and delete stale ES documents.
-                es_ids = _scroll_es_ids(es, index)
+                # Step 4: find and delete stale ES documents.
+                # Re-use es_ids fetched in targeted mode; fetch now in full mode.
+                if es_ids is None:
+                    es_ids = _scroll_es_ids(es, index)
                 neo4j_ids = set(neo4j_nodes.keys())
                 stale_ids = es_ids - neo4j_ids
                 print(f"  Stale ES documents to delete: {len(stale_ids)}")
@@ -256,6 +307,16 @@ def reconcile(dry_run: bool = False) -> None:
 
 if __name__ == "__main__":
     dry = os.environ.get("DRY_RUN", "").strip().lower() in ("1", "true", "yes")
+    targeted = os.environ.get("TARGETED_ONLY", "").strip().lower() in ("1", "true", "yes")
+    src_filter = os.environ.get("SOURCE", "").strip() or None
+    et_filter = os.environ.get("ENTITY_TYPE", "").strip() or None
+
     if dry:
         print("DRY-RUN mode enabled — no writes will occur.")
-    reconcile(dry_run=dry)
+    if targeted:
+        print("TARGETED_ONLY mode enabled — only missing nodes will be upserted.")
+    if src_filter:
+        print(f"Filtering to source: {src_filter}" + (f", entity type: {et_filter}" if et_filter else ""))
+
+    reconcile(dry_run=dry, targeted_only=targeted,
+              filter_source=src_filter, filter_entity_type=et_filter)

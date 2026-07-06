@@ -50,6 +50,9 @@ def neo4j_driver():
 # Helpers
 # ---------------------------------------------------------------------------
 
+_MAX_SAMPLE = 30  # max IDs to show in failure messages
+
+
 def _neo4j_count(driver, source: str, entity_type: str) -> int:
     """Return the number of *full* Neo4j nodes for a given source + entity_type.
 
@@ -99,6 +102,54 @@ def _es_count(client: Elasticsearch, index: str) -> int:
         return 0
 
 
+def _fetch_neo4j_ids(driver, source: str, entity_type: str) -> set[str]:
+    """Return the set of wba_id values for all full (non-stub) Neo4j nodes."""
+    prefix = f"{source}::{entity_type}::"
+    with driver.session() as session:
+        result = session.run(
+            f"MATCH (n:{entity_type}) "
+            "WHERE n.id STARTS WITH $prefix "
+            "AND size(keys(n)) > 1 "
+            "RETURN n.id AS wba_id",
+            prefix=prefix,
+        )
+        return {record["wba_id"] for record in result}
+
+
+def _fetch_es_ids(client: Elasticsearch, index: str) -> set[str]:
+    """Return the set of all document ``_id`` values in *index* via the scroll API."""
+    ids: set[str] = set()
+    try:
+        page = client.search(
+            index=index,
+            body={"query": {"match_all": {}}, "_source": False, "size": 1000},
+            scroll="2m",
+        )
+    except Exception:  # pylint: disable=broad-except
+        return ids
+
+    scroll_id = page.get("_scroll_id")
+    hits = page.get("hits", {}).get("hits", [])
+    while hits:
+        for hit in hits:
+            ids.add(hit["_id"])
+        if not scroll_id:
+            break
+        try:
+            page = client.scroll(scroll_id=scroll_id, scroll="2m")
+            scroll_id = page.get("_scroll_id")
+            hits = page.get("hits", {}).get("hits", [])
+        except Exception:  # pylint: disable=broad-except
+            break
+
+    if scroll_id:
+        try:
+            client.clear_scroll(scroll_id=scroll_id)
+        except Exception:  # pylint: disable=broad-except
+            pass
+    return ids
+
+
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
@@ -113,10 +164,43 @@ def test_es_neo4j_count_parity(source, entity_type, es_client, neo4j_driver):
     neo4j_cnt = _neo4j_count(neo4j_driver, source, entity_type)
     es_cnt = _es_count(es_client, index)
 
-    assert es_cnt == neo4j_cnt, (
+    if es_cnt == neo4j_cnt:
+        return
+
+    # Counts differ — fetch full ID sets to report exactly what is missing.
+    neo4j_ids = _fetch_neo4j_ids(neo4j_driver, source, entity_type)
+    es_ids = _fetch_es_ids(es_client, index)
+
+    missing_from_es = sorted(neo4j_ids - es_ids)
+    stale_in_es = sorted(es_ids - neo4j_ids)
+
+    lines = [
         f"Count mismatch for {index}: "
-        f"Neo4j has {neo4j_cnt} full nodes but ES has {es_cnt} documents. "
-        f"Note: stub nodes (relationship-target placeholders with only an 'id' "
-        f"property) are excluded from the Neo4j count — see _neo4j_count(). "
-        f"Run scripts/reconcile_es.py to sync genuine drift."
+        f"Neo4j has {neo4j_cnt} full nodes but ES has {es_cnt} documents.",
+    ]
+
+    if missing_from_es:
+        sample = missing_from_es[:_MAX_SAMPLE]
+        lines.append(
+            f"Missing from ES ({len(missing_from_es)} total"
+            + (f", showing first {_MAX_SAMPLE}" if len(missing_from_es) > _MAX_SAMPLE else "")
+            + "):"
+        )
+        lines.extend(f"  {n}" for n in sample)
+
+    if stale_in_es:
+        sample = stale_in_es[:_MAX_SAMPLE]
+        lines.append(
+            f"Stale in ES ({len(stale_in_es)} total"
+            + (f", showing first {_MAX_SAMPLE}" if len(stale_in_es) > _MAX_SAMPLE else "")
+            + "):"
+        )
+        lines.extend(f"  {n}" for n in sample)
+
+    lines.append(
+        "Note: stub nodes (relationship-target placeholders with only an 'id' property) "
+        "are excluded from the Neo4j count — see _neo4j_count()."
     )
+    lines.append("Run scripts/reconcile_es.py to sync genuine drift.")
+
+    pytest.fail("\n".join(lines))
