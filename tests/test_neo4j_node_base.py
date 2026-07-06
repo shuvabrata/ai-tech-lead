@@ -1,9 +1,9 @@
 """Tests for GraphNode ABC and computed display/time properties.
 
 Verifies that all 15 concrete node dataclasses:
-- compute _display_name / _on_hover_name / _last_seen_at / _last_updated_at
+- compute _display_name / _on_hover_name / _last_updated_at
   correctly from their fields
-- include those 4 keys in to_neo4j_properties() output
+- include those 3 keys in to_neo4j_properties() output (when applicable)
 - enforce mandatory ``url`` at construction
 - support per-type overrides (Commit, PullRequest, File, IdentityMapping)
 """
@@ -53,7 +53,6 @@ def test_person_display_name():
     props = p.to_neo4j_properties()
     assert props["_display_name"] == "Alice"
     assert props["_on_hover_name"] == "Alice"
-    assert "_last_seen_at" not in props
     assert "_last_updated_at" not in props
     # id and url from the ABC should be included in the asdict output
     assert props["id"] == "p1"
@@ -82,7 +81,6 @@ def test_identity_mapping_display_name():
     assert im.display_name() == "alice"
     props = im.to_neo4j_properties()
     assert props["_display_name"] == "alice"
-    assert "_last_seen_at" not in props
     assert "_last_updated_at" not in props  # field is None
 
 
@@ -198,12 +196,13 @@ def test_pull_request_on_hover_override():
 
 @pytest.mark.unit
 def test_space_last_seen_at():
-    """Space has _last_synced_at → last_seen_at returns it."""
+    """Space has _last_synced_at → last_seen_at() returns it (but not stored as separate prop)."""
     s = Space(id="s1", key="DEV", name="Development",
               _last_synced_at="2026-06-01T00:00:00Z")
     assert s.last_seen_at() == "2026-06-01T00:00:00Z"
     props = s.to_neo4j_properties()
-    assert props["_last_seen_at"] == "2026-06-01T00:00:00Z"
+    assert "_last_seen_at" not in props  # removed in favor of _last_synced_at
+    assert props["_last_synced_at"] == "2026-06-01T00:00:00Z"
 
 
 @pytest.mark.unit
@@ -228,7 +227,7 @@ def test_blogpost_display_name():
 
 @pytest.mark.unit
 def test_last_seen_at_from_last_synced_at():
-    """Classes with _last_synced_at field return it from last_seen_at()."""
+    """Classes with _last_synced_at field return it from last_seen_at() (Python method still works)."""
     for label, obj in [
         ("Space", Space(id="s1", key="DEV", name="Dev",
                         _last_synced_at="2026-01-01T00:00:00Z")),
@@ -250,7 +249,7 @@ def test_commit_no_last_seen():
 
 @pytest.mark.unit
 def test_to_neo4j_properties_includes_all_computed_keys():
-    """Sanity check that all 4 computed keys are in to_neo4j_properties()."""
+    """Sanity check that _display_name and _on_hover_name appear in to_neo4j_properties()."""
     p1 = Person(id="p1", name="A", url="")
     p2 = Person(id="p2", name="B", url="")
     for p in [p1, p2]:

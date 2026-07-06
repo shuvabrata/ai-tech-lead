@@ -1,13 +1,22 @@
 #!/usr/bin/env python3
-"""One-time backfill of _display_name, _on_hover_name, _last_seen_at,
-_last_updated_at on existing Neo4j nodes that predate Plan 006.
+"""One-time cleanup backfill for computed display/time properties on Neo4j nodes.
+
+Originally created to backfill _display_name, _on_hover_name, _last_seen_at,
+_last_updated_at on nodes that predate Plan 006 (GraphNode ABC).
+
+Now updated (Pass 1 of the _last_seen_at cleanup):
+- Backfills _display_name and _on_hover_name (if still missing)
+- Backfills _last_updated_at via coalesce
+- REMOVEs the now-redundant _last_seen_at property from all nodes
+  (it was always identical to _last_synced_at)
 
 Uses direct Cypher (not Python dataclass reconstruction) since historical
 nodes may be missing fields that are now mandatory in the dataclass (e.g.
 ``url``).  Each ``SET`` uses ``coalesce()`` to mirror the Python fallback
 chains defined in ``GraphNode``.
 
-Safe to re-run — ``SET`` is idempotent on existing values.
+Safe to re-run — ``SET`` is idempotent on existing values, ``REMOVE`` ignores
+non-existent properties.
 """
 
 import os
@@ -57,8 +66,8 @@ def backfill_node(session, label: str) -> int:
     SET
         n._display_name = {display_expr},
         n._on_hover_name = {display_expr},
-        n._last_seen_at = n._last_synced_at,
         n._last_updated_at = coalesce(n.updated_at, n.last_updated_at)
+    REMOVE n._last_seen_at
     RETURN count(n) AS count
     """
     result = session.run(query)

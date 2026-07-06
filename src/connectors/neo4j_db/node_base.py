@@ -1,7 +1,7 @@
 """Common base for all Neo4j node dataclasses in models.py.
 
-Provides the four always-present, computed display/time properties:
-_display_name, _on_hover_name, _last_seen_at, _last_updated_at. These are
+Provides the three always-present, computed display/time properties:
+_display_name, _on_hover_name, _last_updated_at. These are
 never stored as redundant dataclass fields — they are derived from each
 subclass's own existing fields and materialize only as dict keys inside
 to_neo4j_properties(), where they become real, queryable Neo4j properties.
@@ -51,7 +51,13 @@ class GraphNode(ABC):
         return self.display_name()
 
     def last_seen_at(self) -> Optional[str]:
-        """Default: the _last_synced_at field, if the subclass has one."""
+        """The timestamp of when this node was last synced.
+
+        Returns _last_synced_at if the subclass defines it, else None.
+        This value is NOT stored as a separate Neo4j property — it is
+        written directly as _last_synced_at (which will be renamed to
+        _last_seen_at in a future pass).
+        """
         return _get_field(self, "_last_synced_at")
 
     def _calc_last_updated_at(self) -> Optional[str]:
@@ -70,7 +76,7 @@ class GraphNode(ABC):
         return None
 
     def to_neo4j_properties(self) -> Dict[str, Any]:
-        """Default to_neo4j_properties(): asdict() + the 4 computed keys.
+        """Default to_neo4j_properties(): asdict() + the 3 computed keys.
 
         Subclasses with custom filtering (e.g. dropping empty lists) should
         call this via super() and layer their own filtering on top, or
@@ -81,7 +87,7 @@ class GraphNode(ABC):
         return props
 
     def _inject_computed_properties(self, props: Dict[str, Any]) -> None:
-        """Inject _display_name, _on_hover_name, _last_seen_at, _last_updated_at in-place.
+        """Inject _display_name, _on_hover_name, _last_updated_at in-place.
 
         Uses type(self) to resolve methods at class-level, avoiding name collision
         between dataclass fields and methods that share the same name (e.g. a
@@ -90,9 +96,6 @@ class GraphNode(ABC):
         cls = type(self)
         props["_display_name"] = cls.display_name(self)
         props["_on_hover_name"] = cls.on_hover_name(self)
-        last_seen = cls.last_seen_at(self)
-        if last_seen is not None:
-            props["_last_seen_at"] = last_seen
         last_updated = cls._calc_last_updated_at(self)  # pylint: disable=protected-access
         if last_updated is not None:
             props["_last_updated_at"] = last_updated

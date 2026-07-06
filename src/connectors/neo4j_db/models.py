@@ -1007,11 +1007,6 @@ def create_constraints(session: Session, layers: Optional[List[int]] = None) -> 
                        "PullRequest", "Space", "Page", "Blogpost")
     ]
     _time_indexes = [
-        f"CREATE INDEX IF NOT EXISTS FOR (n:{label}) ON (n._last_seen_at)"
-        for label in ("Person", "Team", "IdentityMapping", "Project", "Initiative",
-                       "Epic", "Issue", "Sprint", "Repository", "Commit", "File",
-                       "PullRequest", "Space", "Page", "Blogpost")
-    ] + [
         f"CREATE INDEX IF NOT EXISTS FOR (n:{label}) ON (n._last_updated_at)"
         for label in ("Person", "Team", "IdentityMapping", "Project", "Initiative",
                        "Epic", "Issue", "Sprint", "Repository", "Commit", "File",
@@ -1078,8 +1073,6 @@ def merge_person(session: Session, person: Person, relationships: Optional[List[
         set_clauses.append("p._display_name = $_display_name")
     if _has_value(props, '_on_hover_name'):
         set_clauses.append("p._on_hover_name = $_on_hover_name")
-    if _has_value(props, '_last_seen_at'):
-        set_clauses.append("p._last_seen_at = datetime($_last_seen_at)")
     if _has_value(props, '_last_updated_at'):
         set_clauses.append("p._last_updated_at = datetime($_last_updated_at)")
 
@@ -1137,8 +1130,6 @@ def merge_team(session: Session, team: Team, relationships: Optional[List[Relati
         set_clauses.append("t._display_name = $_display_name")
     if _has_value(props, '_on_hover_name'):
         set_clauses.append("t._on_hover_name = $_on_hover_name")
-    if _has_value(props, '_last_seen_at'):
-        set_clauses.append("t._last_seen_at = datetime($_last_seen_at)")
     if _has_value(props, '_last_updated_at'):
         set_clauses.append("t._last_updated_at = datetime($_last_updated_at)")
 
@@ -1191,8 +1182,6 @@ def merge_identity_mapping(session: Session, identity: IdentityMapping, relation
         set_clauses.append("i._display_name = $_display_name")
     if _has_value(props, '_on_hover_name'):
         set_clauses.append("i._on_hover_name = $_on_hover_name")
-    if _has_value(props, '_last_seen_at'):
-        set_clauses.append("i._last_seen_at = datetime($_last_seen_at)")
     if _has_value(props, '_last_updated_at'):
         set_clauses.append("i._last_updated_at = datetime($_last_updated_at)")
 
@@ -1249,8 +1238,6 @@ def merge_project(session: Session, project: Project, relationships: Optional[Li
         set_clauses.append("p._display_name = $_display_name")
     if _has_value(props, '_on_hover_name'):
         set_clauses.append("p._on_hover_name = $_on_hover_name")
-    if _has_value(props, '_last_seen_at'):
-        set_clauses.append("p._last_seen_at = datetime($_last_seen_at)")
     if _has_value(props, '_last_updated_at'):
         set_clauses.append("p._last_updated_at = datetime($_last_updated_at)")
 
@@ -1320,8 +1307,6 @@ def merge_initiative(session: Session, initiative: Initiative, relationships: Op
         set_clauses.append("i._display_name = $_display_name")
     if _has_value(props, '_on_hover_name'):
         set_clauses.append("i._on_hover_name = $_on_hover_name")
-    if _has_value(props, '_last_seen_at'):
-        set_clauses.append("i._last_seen_at = datetime($_last_seen_at)")
     if _has_value(props, '_last_updated_at'):
         set_clauses.append("i._last_updated_at = datetime($_last_updated_at)")
 
@@ -1387,8 +1372,6 @@ def merge_epic(session: Session, epic: Epic, relationships: Optional[List[Relati
         set_clauses.append("e._display_name = $_display_name")
     if _has_value(props, '_on_hover_name'):
         set_clauses.append("e._on_hover_name = $_on_hover_name")
-    if _has_value(props, '_last_seen_at'):
-        set_clauses.append("e._last_seen_at = datetime($_last_seen_at)")
     if _has_value(props, '_last_updated_at'):
         set_clauses.append("e._last_updated_at = datetime($_last_updated_at)")
 
@@ -1460,8 +1443,6 @@ def merge_issue(session: Session, issue: Issue, relationships: Optional[List[Rel
         set_clauses.append("i._display_name = $_display_name")
     if _has_value(props, '_on_hover_name'):
         set_clauses.append("i._on_hover_name = $_on_hover_name")
-    if _has_value(props, '_last_seen_at'):
-        set_clauses.append("i._last_seen_at = datetime($_last_seen_at)")
     if _has_value(props, '_last_updated_at'):
         set_clauses.append("i._last_updated_at = datetime($_last_updated_at)")
 
@@ -1525,8 +1506,6 @@ def merge_sprint(session: Session, sprint: Sprint, relationships: Optional[List[
         set_clauses.append("s._display_name = $_display_name")
     if _has_value(props, '_on_hover_name'):
         set_clauses.append("s._on_hover_name = $_on_hover_name")
-    if _has_value(props, '_last_seen_at'):
-        set_clauses.append("s._last_seen_at = datetime($_last_seen_at)")
     if _has_value(props, '_last_updated_at'):
         set_clauses.append("s._last_updated_at = datetime($_last_updated_at)")
 
@@ -1589,8 +1568,6 @@ def merge_repository(session: Session, repository: Repository, relationships: Op
         set_clauses.append("r._display_name = $_display_name")
     if _has_value(props, '_on_hover_name'):
         set_clauses.append("r._on_hover_name = $_on_hover_name")
-    if _has_value(props, '_last_seen_at'):
-        set_clauses.append("r._last_seen_at = datetime($_last_seen_at)")
     if _has_value(props, '_last_updated_at'):
         set_clauses.append("r._last_updated_at = datetime($_last_updated_at)")
 
@@ -1652,8 +1629,6 @@ def merge_commit(session: Session, commit: Commit, relationships: Optional[List[
         set_clauses.append("c._display_name = $_display_name")
     if _has_value(props, '_on_hover_name'):
         set_clauses.append("c._on_hover_name = $_on_hover_name")
-    if _has_value(props, '_last_seen_at'):
-        set_clauses.append("c._last_seen_at = datetime($_last_seen_at)")
     if _has_value(props, '_last_updated_at'):
         set_clauses.append("c._last_updated_at = datetime($_last_updated_at)")
 
@@ -1759,8 +1734,6 @@ def merge_pull_request(session: Session, pull_request: PullRequest, relationship
         set_clauses.append("pr._display_name = $_display_name")
     if _has_value(props, '_on_hover_name'):
         set_clauses.append("pr._on_hover_name = $_on_hover_name")
-    if _has_value(props, '_last_seen_at'):
-        set_clauses.append("pr._last_seen_at = datetime($_last_seen_at)")
     if _has_value(props, '_last_updated_at'):
         set_clauses.append("pr._last_updated_at = datetime($_last_updated_at)")
 
@@ -1967,8 +1940,6 @@ def merge_space(session: Session, space: Space, relationships: Optional[List[Rel
         set_clauses.append("s._display_name = $_display_name")
     if _has_value(props, '_on_hover_name'):
         set_clauses.append("s._on_hover_name = $_on_hover_name")
-    if _has_value(props, '_last_seen_at'):
-        set_clauses.append("s._last_seen_at = datetime($_last_seen_at)")
     if _has_value(props, '_last_updated_at'):
         set_clauses.append("s._last_updated_at = datetime($_last_updated_at)")
 
@@ -2008,8 +1979,6 @@ def merge_page(session: Session, page: Page, relationships: Optional[List[Relati
         set_clauses.append("p._display_name = $_display_name")
     if _has_value(props, '_on_hover_name'):
         set_clauses.append("p._on_hover_name = $_on_hover_name")
-    if _has_value(props, '_last_seen_at'):
-        set_clauses.append("p._last_seen_at = datetime($_last_seen_at)")
     if _has_value(props, '_last_updated_at'):
         set_clauses.append("p._last_updated_at = datetime($_last_updated_at)")
 
@@ -2055,8 +2024,6 @@ def merge_blogpost(session: Session, blogpost: Blogpost, relationships: Optional
         set_clauses.append("b._display_name = $_display_name")
     if _has_value(props, '_on_hover_name'):
         set_clauses.append("b._on_hover_name = $_on_hover_name")
-    if _has_value(props, '_last_seen_at'):
-        set_clauses.append("b._last_seen_at = datetime($_last_seen_at)")
     if _has_value(props, '_last_updated_at'):
         set_clauses.append("b._last_updated_at = datetime($_last_updated_at)")
 
