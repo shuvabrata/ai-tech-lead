@@ -20,6 +20,37 @@ from app.common.node_size import apply_node_size
 
 
 # ---------------------------------------------------------------------------
+# JSON sanitizer for Neo4j temporal types
+# ---------------------------------------------------------------------------
+
+# Neo4j temporal classes vary between driver versions (neo4j.time.* vs.
+# a specific subclass).  We use duck-typing: any value whose class name
+# starts with "DateTime", "Date", "Time", or "Duration" under the neo4j
+# package is converted to its ISO string representation.
+_NEO4J_TEMPORAL_PREFIXES = ("DateTime", "Date", "Time", "Duration")
+
+
+def _is_neo4j_temporal(value: object) -> bool:
+    """Return True if *value* is a Neo4j temporal type that is not JSON-serializable."""
+    cls = type(value)
+    # Duck-type: check the fully-qualified class name rather than importing
+    # neo4j.time (which may not be available in all environments).
+    module = getattr(cls, "__module__", "") or ""
+    if "neo4j" not in module:
+        return False
+    name = cls.__name__
+    return any(name.startswith(p) for p in _NEO4J_TEMPORAL_PREFIXES)
+
+
+def _sanitize_props(props: Dict[str, Any]) -> Dict[str, Any]:
+    """Return a shallow copy of *props* with Neo4j temporal values converted to ISO strings."""
+    return {
+        k: str(v) if _is_neo4j_temporal(v) else v
+        for k, v in props.items()
+    }
+
+
+# ---------------------------------------------------------------------------
 # Edge colour palette
 # ---------------------------------------------------------------------------
 
@@ -255,7 +286,7 @@ def to_cytoscape_elements(
         extra_props = {k: v for k, v in node_attrs.items() if k != "display_name"}
         element = {
             "data": {
-                **extra_props,
+                **_sanitize_props(extra_props),
                 "id": node,           # wba_id (Cytoscape element id)
                 "wba_id": node,       # explicit for spotlight compatibility
                 "label": display_name,
