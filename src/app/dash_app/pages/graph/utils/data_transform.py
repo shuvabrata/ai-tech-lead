@@ -50,7 +50,7 @@ def neo4j_to_cytoscape(graph_response):
             'wba_id': wba_id,  # Canonical WBA node identifier for display and spotlight matching
             'label': display_name,
             'displayLabel': compact_label,
-            'onHoverName': node.get("properties", {}).get("_on_hover_name", display_name),
+            '_onHoverName': node.get("properties", {}).get("_on_hover_name", display_name),
             'nodeType': node_label,
             'elementType': 'node'
         }
