@@ -43,8 +43,11 @@ def load_repositories_to_neo4j():
                     is_private=repo_data['is_private'],
                     topics=repo_data['topics'],
                     created_at=repo_data['created_at'],
-                    _last_seen_at=repo_data.get('_last_seen_at')
                 )
+                # Propagate pipeline observation timestamp for _last_seen_at
+                last_seen = repo_data.get('_last_seen_at')
+                if last_seen:
+                    repository.set_last_observed_at(last_seen)
                 
                 # Merge repository (without relationships for now)
                 merge_repository(session, repository)
