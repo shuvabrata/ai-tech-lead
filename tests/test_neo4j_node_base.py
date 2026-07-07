@@ -256,6 +256,44 @@ def test_to_neo4j_properties_includes_all_computed_keys():
 
 
 @pytest.mark.unit
+def test_person_created_at():
+    """Person has no created_at field → _created_at should not appear."""
+    p = Person(id="p1", name="Alice", url="")
+    assert p._calc_created_at() is None
+    props = p.to_neo4j_properties()
+    assert "_created_at" not in props
+
+
+@pytest.mark.unit
+def test_team_created_at():
+    """Team with created_at field produces _created_at in properties."""
+    t = Team(id="t1", name="Platform", created_at="2026-01-01", url="")
+    assert t._calc_created_at() == "2026-01-01"
+    props = t.to_neo4j_properties()
+    assert props["_created_at"] == "2026-01-01"
+
+
+@pytest.mark.unit
+def test_commit_created_at():
+    """Commit has created_at field; _created_at should be present."""
+    c = Commit(id="c1", sha="abc", message="m", created_at="2026-01-15T14:30:00",
+               additions=10, deletions=2, files_changed=1, url="")
+    assert c._calc_created_at() == "2026-01-15T14:30:00"
+    props = c.to_neo4j_properties()
+    assert props["_created_at"] == "2026-01-15T14:30:00"
+
+
+@pytest.mark.unit
+def test_sprint_created_at_absent():
+    """Sprint has no created_at field → _created_at should not appear."""
+    s = Sprint(id="s1", name="Sprint 1", goal="Goal", start_date="2026-01-01",
+               end_date="2026-02-01", status="Active")
+    assert s._calc_created_at() is None
+    props = s.to_neo4j_properties()
+    assert "_created_at" not in props
+
+
+@pytest.mark.unit
 def test_identity_mapping_mandatory_url():
     """IdentityMapping has url: str = \"\" — omitting url is allowed (gets default)."""
     im = IdentityMapping(id="im1", provider="GitHub", username="alice")

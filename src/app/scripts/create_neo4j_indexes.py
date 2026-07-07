@@ -177,13 +177,17 @@ def create_indexes():
         f"CREATE INDEX {label.lower()}_last_updated_at IF NOT EXISTS FOR (n:{label}) ON (n._last_updated_at)"
         for label in _computed_labels
     ]
+    computed_created_at = [
+        f"CREATE INDEX {label.lower()}_created_at IF NOT EXISTS FOR (n:{label}) ON (n._created_at)"
+        for label in _computed_labels
+    ]
     
     all_indexes = {
         "Uniqueness Constraints": uniqueness_constraints,
         "Priority 1: High-Impact Lookups (Critical)": priority1,
         "Priority 2: Status and State (High)": priority2,
         "Priority 3: Date/Time (Medium-High)": priority3,
-        "Computed: Display/Time Properties (Plan 006)": computed_display + computed_last_updated,
+        "Computed: Display/Time Properties": computed_display + computed_last_updated + computed_created_at,
         # "Priority 4: Composite Indexes (Medium)": priority4,
         # "Priority 5: Full-Text Search (Medium)": priority5,
         # "Priority 6: Analytics (Low-Medium)": priority6,
