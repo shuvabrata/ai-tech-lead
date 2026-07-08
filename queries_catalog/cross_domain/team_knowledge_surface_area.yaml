@@ -12,17 +12,33 @@ status: active
 queries:
   tabular: |-
     MATCH (t:Team)-[:MEMBER_OF]-(p:Person)
-    OPTIONAL MATCH (p)-[:CREATED|MODIFIED|COMMENTED_ON|REACTED_TO]->(doc)
-    WHERE doc:Page OR doc:Blogpost
-    OPTIONAL MATCH (p)-[:ASSIGNED_TO]-(i:Issue)
-    OPTIONAL MATCH (p)-[:AUTHORED_BY]-(c:Commit)
-    OPTIONAL MATCH (p)<-[:CREATED_BY]-(pr:PullRequest)
-    RETURN t.name as team,
-           count(DISTINCT p) as members,
-           count(DISTINCT doc) as docs_touched,
-           count(DISTINCT i) as issues_touched,
-           count(DISTINCT c) as commits,
-           count(DISTINCT pr) as prs
+    CALL {
+      WITH p
+      OPTIONAL MATCH (p)-[:CREATED|MODIFIED|COMMENTED_ON|REACTED_TO]->(doc)
+      WHERE doc:Page OR doc:Blogpost
+      RETURN count(DISTINCT doc) AS doc_count
+    }
+    CALL {
+      WITH p
+      OPTIONAL MATCH (p)-[:ASSIGNED_TO]-(i:Issue)
+      RETURN count(DISTINCT i) AS issue_count
+    }
+    CALL {
+      WITH p
+      OPTIONAL MATCH (p)-[:AUTHORED_BY]-(c:Commit)
+      RETURN count(DISTINCT c) AS commit_count
+    }
+    CALL {
+      WITH p
+      OPTIONAL MATCH (p)<-[:CREATED_BY]-(pr:PullRequest)
+      RETURN count(DISTINCT pr) AS pr_count
+    }
+    RETURN t.name AS team,
+           count(DISTINCT p) AS members,
+           sum(doc_count) AS docs_touched,
+           sum(issue_count) AS issues_touched,
+           sum(commit_count) AS commits,
+           sum(pr_count) AS prs
     ORDER BY docs_touched DESC, issues_touched DESC, team
     LIMIT 100
   graph: |-

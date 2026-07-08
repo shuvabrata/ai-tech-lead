@@ -186,7 +186,7 @@ def generate_story_for_epic(epic: Dict, epic_index: int, story_num: int,
         "assignee_id": assignee['id'],
         "reporter_id": reporter['id'],
         "url": f"https://yoursite.atlassian.net/browse/{story_key}",
-        "_last_synced_at": SIMULATION_SYNCED_AT
+        "_last_seen_at": SIMULATION_SYNCED_AT
     }
     
     return story
@@ -250,7 +250,7 @@ def generate_bugs(stories: List[Dict], people: List[Dict]) -> List[Dict[str, Any
             "reporter_id": story['reporter_id'],
             "related_story_id": story['id'],  # Link to story
             "url": f"https://yoursite.atlassian.net/browse/{bug_key}",
-            "_last_synced_at": SIMULATION_SYNCED_AT
+            "_last_seen_at": SIMULATION_SYNCED_AT
         }
         bugs.append(bug)
     
@@ -285,7 +285,7 @@ def generate_bugs(stories: List[Dict], people: List[Dict]) -> List[Dict[str, Any
             "assignee_id": assignee['id'],
             "reporter_id": reporter['id'],
             "url": f"https://yoursite.atlassian.net/browse/{bug_key}",
-            "_last_synced_at": SIMULATION_SYNCED_AT
+            "_last_seen_at": SIMULATION_SYNCED_AT
         }
         bugs.append(bug)
     
@@ -334,7 +334,7 @@ def generate_tasks(epics: List[Dict], people: List[Dict]) -> List[Dict[str, Any]
             "assignee_id": assignee['id'],
             "reporter_id": reporter['id'],
             "url": f"https://yoursite.atlassian.net/browse/{task_key}",
-            "_last_synced_at": SIMULATION_SYNCED_AT
+            "_last_seen_at": SIMULATION_SYNCED_AT
         }
         tasks.append(task)
     

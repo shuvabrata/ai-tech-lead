@@ -212,8 +212,6 @@ class JiraIssueBase(GraphNode):
     labels: Optional[List[str]] = field(default_factory=list)
     components: Optional[List[str]] = field(default_factory=list)
     url: Optional[str] = None  # URL to view the issue in Jira
-    # ISO format datetime string - tracks last successful sync
-    _last_synced_at: Optional[str] = None
 
     def to_neo4j_properties(self) -> Dict[str, Any]:
         """Convert to Neo4j properties."""
@@ -318,8 +316,6 @@ class Epic(GraphNode):
     created_at: str   # ISO format string (YYYY-MM-DD)
     updated_at: Optional[str] = None  # ISO format string (YYYY-MM-DD)
     url: Optional[str] = None
-    # ISO format datetime string - tracks last successful sync
-    _last_synced_at: Optional[str] = None
 
     def to_neo4j_properties(self) -> Dict[str, Any]:
         """Convert to Neo4j properties."""
@@ -385,8 +381,6 @@ class Issue(GraphNode):
     source: str = 'jira'  # Source system: 'jira' or 'github'
     updated_at: Optional[str] = None  # ISO format datetime string
     url: Optional[str] = None
-    # ISO format datetime string - tracks last successful sync
-    _last_synced_at: Optional[str] = None
 
     def to_neo4j_properties(self) -> Dict[str, Any]:
         """Convert to Neo4j properties."""
@@ -470,7 +464,6 @@ class Repository(GraphNode):
             is_private=True,
             topics=["api", "gateway", "python"],
             created_at="2023-11-10",
-            _last_synced_at="2026-02-04T10:30:00Z"
         )
 
         # COLLABORATOR relationships with properties
@@ -490,8 +483,6 @@ class Repository(GraphNode):
     is_private: bool
     topics: List[str]      # List of topic strings
     created_at: str  # ISO format string (YYYY-MM-DD)
-    # ISO format datetime string - tracks last successful sync
-    _last_synced_at: Optional[str] = None
 
     def to_neo4j_properties(self) -> Dict[str, Any]:
         """Convert to Neo4j properties."""
@@ -757,8 +748,6 @@ class Space(GraphNode):
     name: str
     type: Optional[str] = None
     url: Optional[str] = None
-    _last_synced_at: Optional[str] = None
-
     def to_neo4j_properties(self) -> Dict[str, Any]:
         """Convert to Neo4j properties."""
         props = {k: v for k, v in asdict(self).items() if v is not None}
@@ -786,7 +775,6 @@ class Page(GraphNode):
     url: Optional[str] = None
     version: Optional[int] = None
     status: Optional[str] = None
-    _last_synced_at: Optional[str] = None
 
     def to_neo4j_properties(self) -> Dict[str, Any]:
         """Convert to Neo4j properties."""
@@ -816,7 +804,6 @@ class Blogpost(GraphNode):
     url: Optional[str] = None
     version: Optional[int] = None
     status: Optional[str] = None
-    _last_synced_at: Optional[str] = None
 
     def to_neo4j_properties(self) -> Dict[str, Any]:
         """Convert to Neo4j properties."""
@@ -1007,12 +994,13 @@ def create_constraints(session: Session, layers: Optional[List[int]] = None) -> 
                        "PullRequest", "Space", "Page", "Blogpost")
     ]
     _time_indexes = [
-        f"CREATE INDEX IF NOT EXISTS FOR (n:{label}) ON (n._last_seen_at)"
+        f"CREATE INDEX IF NOT EXISTS FOR (n:{label}) ON (n._last_updated_at)"
         for label in ("Person", "Team", "IdentityMapping", "Project", "Initiative",
                        "Epic", "Issue", "Sprint", "Repository", "Commit", "File",
                        "PullRequest", "Space", "Page", "Blogpost")
-    ] + [
-        f"CREATE INDEX IF NOT EXISTS FOR (n:{label}) ON (n._last_updated_at)"
+    ]
+    _created_at_indexes = [
+        f"CREATE INDEX IF NOT EXISTS FOR (n:{label}) ON (n._created_at)"
         for label in ("Person", "Team", "IdentityMapping", "Project", "Initiative",
                        "Epic", "Issue", "Sprint", "Repository", "Commit", "File",
                        "PullRequest", "Space", "Page", "Blogpost")
@@ -1025,11 +1013,13 @@ def create_constraints(session: Session, layers: Optional[List[int]] = None) -> 
             constraints.extend(layer_constraints)
         constraints.extend(_display_indexes)
         constraints.extend(_time_indexes)
+        constraints.extend(_created_at_indexes)
     else:
         for layer in layers:
             constraints.extend(all_constraints.get(layer, []))
             constraints.extend(_display_indexes)
             constraints.extend(_time_indexes)
+            constraints.extend(_created_at_indexes)
 
     for constraint in constraints:
         session.run(constraint)
@@ -1078,10 +1068,14 @@ def merge_person(session: Session, person: Person, relationships: Optional[List[
         set_clauses.append("p._display_name = $_display_name")
     if _has_value(props, '_on_hover_name'):
         set_clauses.append("p._on_hover_name = $_on_hover_name")
-    if _has_value(props, '_last_seen_at'):
-        set_clauses.append("p._last_seen_at = datetime($_last_seen_at)")
     if _has_value(props, '_last_updated_at'):
         set_clauses.append("p._last_updated_at = datetime($_last_updated_at)")
+    # Creation timestamp: when the underlying entity was created
+    if _has_value(props, '_created_at'):
+        set_clauses.append("p._created_at = datetime($_created_at)")
+    # Operational property: when the pipeline last touched this node
+    if _has_value(props, '_last_seen_at'):
+        set_clauses.append("p._last_seen_at = datetime($_last_seen_at)")
 
     if set_clauses:
         query = f"""
@@ -1137,10 +1131,14 @@ def merge_team(session: Session, team: Team, relationships: Optional[List[Relati
         set_clauses.append("t._display_name = $_display_name")
     if _has_value(props, '_on_hover_name'):
         set_clauses.append("t._on_hover_name = $_on_hover_name")
-    if _has_value(props, '_last_seen_at'):
-        set_clauses.append("t._last_seen_at = datetime($_last_seen_at)")
     if _has_value(props, '_last_updated_at'):
         set_clauses.append("t._last_updated_at = datetime($_last_updated_at)")
+    # Creation timestamp: when the underlying entity was created
+    if _has_value(props, '_created_at'):
+        set_clauses.append("t._created_at = datetime($_created_at)")
+    # Operational property: when the pipeline last touched this node
+    if _has_value(props, '_last_seen_at'):
+        set_clauses.append("t._last_seen_at = datetime($_last_seen_at)")
 
     # MERGE the Team node
     if set_clauses:
@@ -1191,10 +1189,14 @@ def merge_identity_mapping(session: Session, identity: IdentityMapping, relation
         set_clauses.append("i._display_name = $_display_name")
     if _has_value(props, '_on_hover_name'):
         set_clauses.append("i._on_hover_name = $_on_hover_name")
-    if _has_value(props, '_last_seen_at'):
-        set_clauses.append("i._last_seen_at = datetime($_last_seen_at)")
     if _has_value(props, '_last_updated_at'):
         set_clauses.append("i._last_updated_at = datetime($_last_updated_at)")
+    # Creation timestamp: when the underlying entity was created
+    if _has_value(props, '_created_at'):
+        set_clauses.append("i._created_at = datetime($_created_at)")
+    # Operational property: when the pipeline last touched this node
+    if _has_value(props, '_last_seen_at'):
+        set_clauses.append("i._last_seen_at = datetime($_last_seen_at)")
 
     # MERGE the IdentityMapping node
     if set_clauses:
@@ -1249,10 +1251,14 @@ def merge_project(session: Session, project: Project, relationships: Optional[Li
         set_clauses.append("p._display_name = $_display_name")
     if _has_value(props, '_on_hover_name'):
         set_clauses.append("p._on_hover_name = $_on_hover_name")
-    if _has_value(props, '_last_seen_at'):
-        set_clauses.append("p._last_seen_at = datetime($_last_seen_at)")
     if _has_value(props, '_last_updated_at'):
         set_clauses.append("p._last_updated_at = datetime($_last_updated_at)")
+    # Creation timestamp: when the underlying entity was created
+    if _has_value(props, '_created_at'):
+        set_clauses.append("p._created_at = datetime($_created_at)")
+    # Operational property: when the pipeline last touched this node
+    if _has_value(props, '_last_seen_at'):
+        set_clauses.append("p._last_seen_at = datetime($_last_seen_at)")
 
     # MERGE the Project node
     if set_clauses:
@@ -1311,19 +1317,20 @@ def merge_initiative(session: Session, initiative: Initiative, relationships: Op
         set_clauses.append("i.project_id = $project_id")
     if _has_value(props, 'url'):
         set_clauses.append("i.url = $url")
-    # Only set _last_synced_at if provided (for incremental sync tracking)
-    if _has_value(props, '_last_synced_at'):
-        set_clauses.append("i._last_synced_at = datetime($_last_synced_at)")
 
     # Computed display/time properties
     if _has_value(props, '_display_name'):
         set_clauses.append("i._display_name = $_display_name")
     if _has_value(props, '_on_hover_name'):
         set_clauses.append("i._on_hover_name = $_on_hover_name")
-    if _has_value(props, '_last_seen_at'):
-        set_clauses.append("i._last_seen_at = datetime($_last_seen_at)")
     if _has_value(props, '_last_updated_at'):
         set_clauses.append("i._last_updated_at = datetime($_last_updated_at)")
+    # Creation timestamp: when the underlying entity was created
+    if _has_value(props, '_created_at'):
+        set_clauses.append("i._created_at = datetime($_created_at)")
+    # Only set _last_seen_at if provided (for incremental sync tracking)
+    if _has_value(props, '_last_seen_at'):
+        set_clauses.append("i._last_seen_at = datetime($_last_seen_at)")
 
     # MERGE the Initiative node
     if set_clauses:
@@ -1378,19 +1385,20 @@ def merge_epic(session: Session, epic: Epic, relationships: Optional[List[Relati
         set_clauses.append("e.updated_at = date($updated_at)")
     if _has_value(props, 'url'):
         set_clauses.append("e.url = $url")
-    # Only set _last_synced_at if provided (for incremental sync tracking)
-    if _has_value(props, '_last_synced_at'):
-        set_clauses.append("e._last_synced_at = datetime($_last_synced_at)")
 
     # Computed display/time properties
     if _has_value(props, '_display_name'):
         set_clauses.append("e._display_name = $_display_name")
     if _has_value(props, '_on_hover_name'):
         set_clauses.append("e._on_hover_name = $_on_hover_name")
-    if _has_value(props, '_last_seen_at'):
-        set_clauses.append("e._last_seen_at = datetime($_last_seen_at)")
     if _has_value(props, '_last_updated_at'):
         set_clauses.append("e._last_updated_at = datetime($_last_updated_at)")
+    # Creation timestamp: when the underlying entity was created
+    if _has_value(props, '_created_at'):
+        set_clauses.append("e._created_at = datetime($_created_at)")
+    # Only set _last_seen_at if provided (for incremental sync tracking)
+    if _has_value(props, '_last_seen_at'):
+        set_clauses.append("e._last_seen_at = datetime($_last_seen_at)")
 
     # MERGE the Epic node
     if set_clauses:
@@ -1451,19 +1459,20 @@ def merge_issue(session: Session, issue: Issue, relationships: Optional[List[Rel
         set_clauses.append("i.updated_at = datetime($updated_at)")
     if _has_value(props, 'url'):
         set_clauses.append("i.url = $url")
-    # Only set _last_synced_at if provided (for incremental sync tracking)
-    if _has_value(props, '_last_synced_at'):
-        set_clauses.append("i._last_synced_at = datetime($_last_synced_at)")
 
     # Computed display/time properties
     if _has_value(props, '_display_name'):
         set_clauses.append("i._display_name = $_display_name")
     if _has_value(props, '_on_hover_name'):
         set_clauses.append("i._on_hover_name = $_on_hover_name")
-    if _has_value(props, '_last_seen_at'):
-        set_clauses.append("i._last_seen_at = datetime($_last_seen_at)")
     if _has_value(props, '_last_updated_at'):
         set_clauses.append("i._last_updated_at = datetime($_last_updated_at)")
+    # Creation timestamp: when the underlying entity was created
+    if _has_value(props, '_created_at'):
+        set_clauses.append("i._created_at = datetime($_created_at)")
+    # Only set _last_seen_at if provided (for incremental sync tracking)
+    if _has_value(props, '_last_seen_at'):
+        set_clauses.append("i._last_seen_at = datetime($_last_seen_at)")
 
     # MERGE the Issue node
     if set_clauses:
@@ -1525,10 +1534,14 @@ def merge_sprint(session: Session, sprint: Sprint, relationships: Optional[List[
         set_clauses.append("s._display_name = $_display_name")
     if _has_value(props, '_on_hover_name'):
         set_clauses.append("s._on_hover_name = $_on_hover_name")
-    if _has_value(props, '_last_seen_at'):
-        set_clauses.append("s._last_seen_at = datetime($_last_seen_at)")
     if _has_value(props, '_last_updated_at'):
         set_clauses.append("s._last_updated_at = datetime($_last_updated_at)")
+    # Creation timestamp: when the underlying entity was created
+    if _has_value(props, '_created_at'):
+        set_clauses.append("s._created_at = datetime($_created_at)")
+    # Operational property: when the pipeline last touched this node
+    if _has_value(props, '_last_seen_at'):
+        set_clauses.append("s._last_seen_at = datetime($_last_seen_at)")
 
     # MERGE the Sprint node
     if set_clauses:
@@ -1580,19 +1593,19 @@ def merge_repository(session: Session, repository: Repository, relationships: Op
     if _has_value(props, 'topics'):
         set_clauses.append("r.topics = $topics")
 
-    # Only set _last_synced_at if provided (for incremental sync tracking)
-    if _has_value(props, '_last_synced_at'):
-        set_clauses.append("r._last_synced_at = datetime($_last_synced_at)")
-
     # Computed display/time properties
     if _has_value(props, '_display_name'):
         set_clauses.append("r._display_name = $_display_name")
     if _has_value(props, '_on_hover_name'):
         set_clauses.append("r._on_hover_name = $_on_hover_name")
-    if _has_value(props, '_last_seen_at'):
-        set_clauses.append("r._last_seen_at = datetime($_last_seen_at)")
     if _has_value(props, '_last_updated_at'):
         set_clauses.append("r._last_updated_at = datetime($_last_updated_at)")
+    # Creation timestamp: when the underlying entity was created
+    if _has_value(props, '_created_at'):
+        set_clauses.append("r._created_at = datetime($_created_at)")
+    # Only set _last_seen_at if provided (for incremental sync tracking)
+    if _has_value(props, '_last_seen_at'):
+        set_clauses.append("r._last_seen_at = datetime($_last_seen_at)")
 
     # MERGE the Repository node
     if set_clauses:
@@ -1652,10 +1665,14 @@ def merge_commit(session: Session, commit: Commit, relationships: Optional[List[
         set_clauses.append("c._display_name = $_display_name")
     if _has_value(props, '_on_hover_name'):
         set_clauses.append("c._on_hover_name = $_on_hover_name")
-    if _has_value(props, '_last_seen_at'):
-        set_clauses.append("c._last_seen_at = datetime($_last_seen_at)")
     if _has_value(props, '_last_updated_at'):
         set_clauses.append("c._last_updated_at = datetime($_last_updated_at)")
+    # Creation timestamp: when the underlying entity was created
+    if _has_value(props, '_created_at'):
+        set_clauses.append("c._created_at = datetime($_created_at)")
+    # Operational property: when the pipeline last touched this node
+    if _has_value(props, '_last_seen_at'):
+        set_clauses.append("c._last_seen_at = datetime($_last_seen_at)")
 
     # MERGE the Commit node
     if set_clauses:
@@ -1759,10 +1776,14 @@ def merge_pull_request(session: Session, pull_request: PullRequest, relationship
         set_clauses.append("pr._display_name = $_display_name")
     if _has_value(props, '_on_hover_name'):
         set_clauses.append("pr._on_hover_name = $_on_hover_name")
-    if _has_value(props, '_last_seen_at'):
-        set_clauses.append("pr._last_seen_at = datetime($_last_seen_at)")
     if _has_value(props, '_last_updated_at'):
         set_clauses.append("pr._last_updated_at = datetime($_last_updated_at)")
+    # Creation timestamp: when the underlying entity was created
+    if _has_value(props, '_created_at'):
+        set_clauses.append("pr._created_at = datetime($_created_at)")
+    # Operational property: when the pipeline last touched this node
+    if _has_value(props, '_last_seen_at'):
+        set_clauses.append("pr._last_seen_at = datetime($_last_seen_at)")
 
     # MERGE the PullRequest node
     if set_clauses:
@@ -1959,18 +1980,20 @@ def merge_space(session: Session, space: Space, relationships: Optional[List[Rel
         set_clauses.append("s.type = $type")
     if _has_value(props, 'url'):
         set_clauses.append("s.url = $url")
-    if _has_value(props, '_last_synced_at'):
-        set_clauses.append("s._last_synced_at = datetime($_last_synced_at)")
 
     # Computed display/time properties
     if _has_value(props, '_display_name'):
         set_clauses.append("s._display_name = $_display_name")
     if _has_value(props, '_on_hover_name'):
         set_clauses.append("s._on_hover_name = $_on_hover_name")
-    if _has_value(props, '_last_seen_at'):
-        set_clauses.append("s._last_seen_at = datetime($_last_seen_at)")
     if _has_value(props, '_last_updated_at'):
         set_clauses.append("s._last_updated_at = datetime($_last_updated_at)")
+    # Creation timestamp: when the underlying entity was created
+    if _has_value(props, '_created_at'):
+        set_clauses.append("s._created_at = datetime($_created_at)")
+    # Only set _last_seen_at if provided (for incremental sync tracking)
+    if _has_value(props, '_last_seen_at'):
+        set_clauses.append("s._last_seen_at = datetime($_last_seen_at)")
 
     if set_clauses:
         query = f"MERGE (s:Space {{id: $id}}) SET {', '.join(set_clauses)} RETURN s"
@@ -2000,18 +2023,20 @@ def merge_page(session: Session, page: Page, relationships: Optional[List[Relati
         set_clauses.append("p.version = $version")
     if _has_value(props, 'status'):
         set_clauses.append("p.status = $status")
-    if _has_value(props, '_last_synced_at'):
-        set_clauses.append("p._last_synced_at = datetime($_last_synced_at)")
 
     # Computed display/time properties
     if _has_value(props, '_display_name'):
         set_clauses.append("p._display_name = $_display_name")
     if _has_value(props, '_on_hover_name'):
         set_clauses.append("p._on_hover_name = $_on_hover_name")
-    if _has_value(props, '_last_seen_at'):
-        set_clauses.append("p._last_seen_at = datetime($_last_seen_at)")
     if _has_value(props, '_last_updated_at'):
         set_clauses.append("p._last_updated_at = datetime($_last_updated_at)")
+    # Creation timestamp: when the underlying entity was created
+    if _has_value(props, '_created_at'):
+        set_clauses.append("p._created_at = datetime($_created_at)")
+    # Only set _last_seen_at if provided (for incremental sync tracking)
+    if _has_value(props, '_last_seen_at'):
+        set_clauses.append("p._last_seen_at = datetime($_last_seen_at)")
 
     if set_clauses:
         query = f"MERGE (p:Page {{id: $id}}) SET {', '.join(set_clauses)} RETURN p"
@@ -2047,18 +2072,20 @@ def merge_blogpost(session: Session, blogpost: Blogpost, relationships: Optional
         set_clauses.append("b.version = $version")
     if _has_value(props, 'status'):
         set_clauses.append("b.status = $status")
-    if _has_value(props, '_last_synced_at'):
-        set_clauses.append("b._last_synced_at = datetime($_last_synced_at)")
 
     # Computed display/time properties
     if _has_value(props, '_display_name'):
         set_clauses.append("b._display_name = $_display_name")
     if _has_value(props, '_on_hover_name'):
         set_clauses.append("b._on_hover_name = $_on_hover_name")
-    if _has_value(props, '_last_seen_at'):
-        set_clauses.append("b._last_seen_at = datetime($_last_seen_at)")
     if _has_value(props, '_last_updated_at'):
         set_clauses.append("b._last_updated_at = datetime($_last_updated_at)")
+    # Creation timestamp: when the underlying entity was created
+    if _has_value(props, '_created_at'):
+        set_clauses.append("b._created_at = datetime($_created_at)")
+    # Only set _last_seen_at if provided (for incremental sync tracking)
+    if _has_value(props, '_last_seen_at'):
+        set_clauses.append("b._last_seen_at = datetime($_last_seen_at)")
 
     if set_clauses:
         query = f"MERGE (b:Blogpost {{id: $id}}) SET {', '.join(set_clauses)} RETURN b"

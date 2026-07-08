@@ -1,9 +1,9 @@
 """Tests for GraphNode ABC and computed display/time properties.
 
 Verifies that all 15 concrete node dataclasses:
-- compute _display_name / _on_hover_name / _last_seen_at / _last_updated_at
+- compute _display_name / _on_hover_name / _last_updated_at
   correctly from their fields
-- include those 4 keys in to_neo4j_properties() output
+- include those 3 keys in to_neo4j_properties() output (when applicable)
 - enforce mandatory ``url`` at construction
 - support per-type overrides (Commit, PullRequest, File, IdentityMapping)
 """
@@ -53,7 +53,6 @@ def test_person_display_name():
     props = p.to_neo4j_properties()
     assert props["_display_name"] == "Alice"
     assert props["_on_hover_name"] == "Alice"
-    assert "_last_seen_at" not in props
     assert "_last_updated_at" not in props
     # id and url from the ABC should be included in the asdict output
     assert props["id"] == "p1"
@@ -82,7 +81,6 @@ def test_identity_mapping_display_name():
     assert im.display_name() == "alice"
     props = im.to_neo4j_properties()
     assert props["_display_name"] == "alice"
-    assert "_last_seen_at" not in props
     assert "_last_updated_at" not in props  # field is None
 
 
@@ -198,9 +196,9 @@ def test_pull_request_on_hover_override():
 
 @pytest.mark.unit
 def test_space_last_seen_at():
-    """Space has _last_synced_at → last_seen_at returns it."""
-    s = Space(id="s1", key="DEV", name="Development",
-              _last_synced_at="2026-06-01T00:00:00Z")
+    """Space _last_seen_at is injected via set_last_observed_at()."""
+    s = Space(id="s1", key="DEV", name="Development")
+    s.set_last_observed_at("2026-06-01T00:00:00Z")
     assert s.last_seen_at() == "2026-06-01T00:00:00Z"
     props = s.to_neo4j_properties()
     assert props["_last_seen_at"] == "2026-06-01T00:00:00Z"
@@ -228,21 +226,19 @@ def test_blogpost_display_name():
 
 @pytest.mark.unit
 def test_last_seen_at_from_last_synced_at():
-    """Classes with _last_synced_at field return it from last_seen_at()."""
+    """Classes with _last_seen_at return it from last_seen_at() (Python method, not dataclass field)."""
     for label, obj in [
-        ("Space", Space(id="s1", key="DEV", name="Dev",
-                        _last_synced_at="2026-01-01T00:00:00Z")),
-        ("Page", Page(id="pg1", title="P", created_at="2026-01-01",
-                      _last_synced_at="2026-01-01T00:00:00Z")),
-        ("Blogpost", Blogpost(id="bp1", title="B", created_at="2026-01-01",
-                              _last_synced_at="2026-01-01T00:00:00Z")),
+        ("Space", Space(id="s1", key="DEV", name="Dev")),
+        ("Page", Page(id="pg1", title="P", created_at="2026-01-01")),
+        ("Blogpost", Blogpost(id="bp1", title="B", created_at="2026-01-01")),
     ]:
+        obj.set_last_observed_at("2026-01-01T00:00:00Z")
         assert obj.last_seen_at() == "2026-01-01T00:00:00Z", f"{label} failed"
 
 
 @pytest.mark.unit
 def test_commit_no_last_seen():
-    """Commit has no _last_synced_at → last_seen_at returns None."""
+    """Commit has no _last_seen_at → last_seen_at returns None."""
     c = Commit(id="c1", sha="abc", message="m", created_at="2026-01-01T00:00:00",
                additions=1, deletions=0, files_changed=1, url="")
     assert c.last_seen_at() is None
@@ -250,13 +246,51 @@ def test_commit_no_last_seen():
 
 @pytest.mark.unit
 def test_to_neo4j_properties_includes_all_computed_keys():
-    """Sanity check that all 4 computed keys are in to_neo4j_properties()."""
+    """Sanity check that _display_name and _on_hover_name appear in to_neo4j_properties()."""
     p1 = Person(id="p1", name="A", url="")
     p2 = Person(id="p2", name="B", url="")
     for p in [p1, p2]:
         props = p.to_neo4j_properties()
         assert "_display_name" in props
         assert "_on_hover_name" in props
+
+
+@pytest.mark.unit
+def test_person_created_at():
+    """Person has no created_at field → _created_at should not appear."""
+    p = Person(id="p1", name="Alice", url="")
+    assert p._calc_created_at() is None
+    props = p.to_neo4j_properties()
+    assert "_created_at" not in props
+
+
+@pytest.mark.unit
+def test_team_created_at():
+    """Team with created_at field produces _created_at in properties."""
+    t = Team(id="t1", name="Platform", created_at="2026-01-01", url="")
+    assert t._calc_created_at() == "2026-01-01"
+    props = t.to_neo4j_properties()
+    assert props["_created_at"] == "2026-01-01"
+
+
+@pytest.mark.unit
+def test_commit_created_at():
+    """Commit has created_at field; _created_at should be present."""
+    c = Commit(id="c1", sha="abc", message="m", created_at="2026-01-15T14:30:00",
+               additions=10, deletions=2, files_changed=1, url="")
+    assert c._calc_created_at() == "2026-01-15T14:30:00"
+    props = c.to_neo4j_properties()
+    assert props["_created_at"] == "2026-01-15T14:30:00"
+
+
+@pytest.mark.unit
+def test_sprint_created_at_absent():
+    """Sprint has no created_at field → _created_at should not appear."""
+    s = Sprint(id="s1", name="Sprint 1", goal="Goal", start_date="2026-01-01",
+               end_date="2026-02-01", status="Active")
+    assert s._calc_created_at() is None
+    props = s.to_neo4j_properties()
+    assert "_created_at" not in props
 
 
 @pytest.mark.unit

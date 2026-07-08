@@ -12,16 +12,19 @@ status: active
 queries:
   tabular: |-
     MATCH (p:Person)-[c:COMMENTED_ON]->(i:Issue)-[:PART_OF]->(r:Repository)
-        WHERE i.id STARTS WITH 'github::Issue::'
-        WITH r, p, count(c) as comments, min(c.timestamp) as first_comment, max(c.timestamp) as last_comment
-        RETURN r.name as repository,
-               p.login as person,
-               p.name as display_name,
-               comments as comment_count,
-               first_comment,
-               last_comment
-        ORDER BY r.name, comments DESC
-        LIMIT 100
+    WHERE i.id STARTS WITH 'github::Issue::'
+    WITH r, p, count(c) AS comments,
+         min(c.first_interaction_at) AS first_comment,
+         max(c.first_interaction_at) AS last_comment
+    RETURN r.name AS repository,
+           p.name AS name,
+           p.id AS id,
+           p.email AS email,
+           comments AS comment_count,
+           first_comment,
+           last_comment
+    ORDER BY r.name, comments DESC
+    LIMIT 100
   graph: |-
     MATCH p1=(p:Person)-[c:COMMENTED_ON]->(i:Issue)-[:PART_OF]->(r:Repository)
         WHERE i.id STARTS WITH 'github::Issue::'

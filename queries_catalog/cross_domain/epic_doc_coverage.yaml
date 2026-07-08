@@ -12,14 +12,14 @@ status: active
 queries:
   tabular: |-
     MATCH (e:Epic)<-[:PART_OF]-(i:Issue)
-    OPTIONAL MATCH (doc)
-    WHERE (doc:Page OR doc:Blogpost) AND (doc)-[:REFERENCES]->(i)
+    OPTIONAL MATCH (doc)-[:REFERENCES]->(i)
+    WHERE doc:Page OR doc:Blogpost
     WITH e,
-         count(DISTINCT i) as issue_count,
-         count(DISTINCT doc) as doc_count,
-         collect(DISTINCT doc.title)[0..10] as sample_docs
-    RETURN e.key as epic_key,
-           e.summary as epic_summary,
+         count(DISTINCT i) AS issue_count,
+         count(DISTINCT doc) AS doc_count,
+         collect(DISTINCT doc.title)[0..10] AS sample_docs
+    RETURN e.key AS epic_key,
+           e.summary AS epic_summary,
            issue_count,
            doc_count,
            sample_docs

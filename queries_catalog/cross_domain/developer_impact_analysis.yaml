@@ -12,16 +12,28 @@ status: active
 queries:
   tabular: |-
     MATCH (p:Person)
-        OPTIONAL MATCH (p)<-[:CREATED_BY]-(pr:PullRequest)
-        OPTIONAL MATCH (p)-[:AUTHORED_BY]-(c:Commit)
-        OPTIONAL MATCH (p)-[:ASSIGNED_TO]-(i:Issue)
-        RETURN p.name as developer,
-               p.title,
-               count(DISTINCT pr) as prs,
-               count(DISTINCT c) as commits,
-               count(DISTINCT i) as issues
-        ORDER BY commits DESC
-        LIMIT 100
+    CALL {
+      WITH p
+      OPTIONAL MATCH (p)<-[:CREATED_BY]-(pr:PullRequest)
+      RETURN count(DISTINCT pr) AS pr_count
+    }
+    CALL {
+      WITH p
+      OPTIONAL MATCH (p)-[:AUTHORED_BY]-(c:Commit)
+      RETURN count(DISTINCT c) AS commit_count
+    }
+    CALL {
+      WITH p
+      OPTIONAL MATCH (p)-[:ASSIGNED_TO]-(i:Issue)
+      RETURN count(DISTINCT i) AS issue_count
+    }
+    RETURN p.name AS developer,
+           p.title,
+           pr_count AS prs,
+           commit_count AS commits,
+           issue_count AS issues
+    ORDER BY commits DESC
+    LIMIT 100
   graph: |-
     MATCH p1=(p:Person)
         OPTIONAL MATCH p2=(p)<-[:CREATED_BY]-(pr:PullRequest)

@@ -1,7 +1,7 @@
 """Common base for all Neo4j node dataclasses in models.py.
 
 Provides the four always-present, computed display/time properties:
-_display_name, _on_hover_name, _last_seen_at, _last_updated_at. These are
+_display_name, _on_hover_name, _last_updated_at, _created_at. These are
 never stored as redundant dataclass fields — they are derived from each
 subclass's own existing fields and materialize only as dict keys inside
 to_neo4j_properties(), where they become real, queryable Neo4j properties.
@@ -30,10 +30,31 @@ def _get_field(obj: object, name: str) -> Optional[str]:
 
 
 class GraphNode(ABC):
-    """Mixin enforcing common identity/display/time metadata on node dataclasses."""
+    """Mixin enforcing common identity/display/time metadata on node dataclasses.
+
+    The base class manages three categories of properties:
+
+    1. **Derived domain properties** — ``_display_name``, ``_on_hover_name``,
+       ``_last_updated_at`` — computed from the subclass's own fields via
+       ``_inject_computed_properties()``.
+
+    2. **Operational sync property** — ``_last_seen_at`` — injected only when
+       ``set_last_observed_at()`` was called before ``to_neo4j_properties()``.
+       This is pipeline metadata (when the pipeline last wrote this node), not
+       domain data.
+
+    3. **Domain fields** — declared as dataclass fields on each subclass.
+    """
 
     id: str
     url: str
+
+    # Operational: caller-supplied timestamp; injected into props only when set.
+    _last_observed_at_value: Optional[str] = None
+
+    def set_last_observed_at(self, ts: str) -> None:
+        """Record the pipeline observation timestamp to persist as _last_seen_at."""
+        self._last_observed_at_value = ts
 
     def display_name(self) -> str:
         """Default: first non-empty of name/title/summary/key, else id.
@@ -51,8 +72,12 @@ class GraphNode(ABC):
         return self.display_name()
 
     def last_seen_at(self) -> Optional[str]:
-        """Default: the _last_synced_at field, if the subclass has one."""
-        return _get_field(self, "_last_synced_at")
+        """The timestamp of when this node was last synced.
+
+        Returns the caller-supplied observation timestamp if
+        ``set_last_observed_at()`` was called, otherwise ``None``.
+        """
+        return self._last_observed_at_value
 
     def _calc_last_updated_at(self) -> Optional[str]:
         """Default: first non-empty of updated_at/last_updated_at, else None.
@@ -69,19 +94,30 @@ class GraphNode(ABC):
                 return str(value)
         return None
 
+    def _calc_created_at(self) -> Optional[str]:
+        """Default: value of created_at field, else None.
+
+        Override for entities where the creation timestamp lives under a
+        different field name.
+        """
+        value = _get_field(self, "created_at")
+        if value:
+            return str(value)
+        return None
+
     def to_neo4j_properties(self) -> Dict[str, Any]:
         """Default to_neo4j_properties(): asdict() + the 4 computed keys.
 
         Subclasses with custom filtering (e.g. dropping empty lists) should
         call this via super() and layer their own filtering on top, or
-        replicate the same 4-key injection if they can't call super() cleanly.
+        replicate the same 5-key injection if they can't call super() cleanly.
         """
         props = {k: v for k, v in asdict(self).items() if v is not None}
         self._inject_computed_properties(props)
         return props
 
     def _inject_computed_properties(self, props: Dict[str, Any]) -> None:
-        """Inject _display_name, _on_hover_name, _last_seen_at, _last_updated_at in-place.
+        """Inject _display_name, _on_hover_name, _last_updated_at, _created_at, _last_seen_at in-place.
 
         Uses type(self) to resolve methods at class-level, avoiding name collision
         between dataclass fields and methods that share the same name (e.g. a
@@ -90,12 +126,15 @@ class GraphNode(ABC):
         cls = type(self)
         props["_display_name"] = cls.display_name(self)
         props["_on_hover_name"] = cls.on_hover_name(self)
-        last_seen = cls.last_seen_at(self)
-        if last_seen is not None:
-            props["_last_seen_at"] = last_seen
         last_updated = cls._calc_last_updated_at(self)  # pylint: disable=protected-access
         if last_updated is not None:
             props["_last_updated_at"] = last_updated
+        created = cls._calc_created_at(self)  # pylint: disable=protected-access
+        if created is not None:
+            props["_created_at"] = created
+        # _last_seen_at is caller-supplied operational metadata, not derived
+        if self._last_observed_at_value is not None:
+            props["_last_seen_at"] = self._last_observed_at_value
 
     @abstractmethod
     def print_cli(self) -> None:

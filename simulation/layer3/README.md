@@ -114,7 +114,7 @@ ORDER BY e.start_date, e.key
   "due_date": "2026-04-30",
   "created_at": "2025-11-15",
   "updated_at": "2025-11-15",
-  "_last_synced_at": "2026-01-15T12:00:00+00:00"
+  "_last_seen_at": "2026-01-15T12:00:00+00:00"
 }
 ```
 
