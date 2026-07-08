@@ -103,7 +103,7 @@ clientside_callback(
             cy.on('mouseover', 'node', function(evt) {
                 const node = evt.target;
                 const nativeEvent = evt.originalEvent || {};
-                const fullLabel = node.data('_onHoverName') || node.data('label') || node.data('displayLabel') || node.id();
+                const fullLabel = node.data('_onHoverName') || node.id();
 
                 if (window.dash_clientside && window.dash_clientside.set_props) {
                     window.dash_clientside.set_props('node-hover-store', {
@@ -119,7 +119,7 @@ clientside_callback(
             cy.on('mousemove', 'node', function(evt) {
                 const node = evt.target;
                 const nativeEvent = evt.originalEvent || {};
-                const fullLabel = node.data('_onHoverName') || node.data('label') || node.data('displayLabel') || node.id();
+                const fullLabel = node.data('_onHoverName') || node.id();
 
                 if (window.dash_clientside && window.dash_clientside.set_props) {
                     window.dash_clientside.set_props('node-hover-store', {
