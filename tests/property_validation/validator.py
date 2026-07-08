@@ -12,7 +12,9 @@ from tests.property_validation.models import (
     PopulationCategory,
     EntityMetadata,
     RelationshipExistenceResult,
-    RelationshipCoverageResult
+    RelationshipCoverageResult,
+    StubNodeResult,
+    StubNodeBreakdown
 )
 from tests.property_validation.model_inspector import discover_entity_types
 from tests.property_validation.relationship_inspector import discover_all_relationships
@@ -245,6 +247,71 @@ class PropertyValidator:
             count_discrepancy=count_discrepancy
         )
     
+    def validate_stub_nodes(self) -> Dict[str, StubNodeResult]:
+        """
+        Detect stub nodes for every Neo4j label.
+
+        A stub node is one whose only populated property is ``id``.
+        For each stub, the ``id`` value (format
+        ``<connector>::<entity_type>::<unique_id>``) is parsed so
+        results can be grouped by connector and entity type.
+
+        Returns:
+            Dict mapping Neo4j label to StubNodeResult.
+        """
+        labels_query = "CALL db.labels() YIELD label RETURN label ORDER BY label"
+        result = self.session.run(labels_query)
+        labels = [record["label"] for record in result]
+
+        stub_results: Dict[str, StubNodeResult] = {}
+        for label in labels:
+            count_query = f"""
+            MATCH (n:`{label}`)
+            RETURN
+                count(n) AS total_count,
+                sum(CASE WHEN size(keys(n)) = 1 AND n.id IS NOT NULL THEN 1 ELSE 0 END) AS stub_count
+            """
+            try:
+                result = self.session.run(count_query)
+                record = result.single()
+                if not record:
+                    continue
+
+                total = record["total_count"]
+                stubs = record["stub_count"]
+
+                breakdown: List[StubNodeBreakdown] = []
+                if stubs > 0:
+                    breakdown_query = f"""
+                    MATCH (n:`{label}`)
+                    WHERE size(keys(n)) = 1 AND n.id IS NOT NULL
+                    WITH split(n.id, '::') AS parts
+                    RETURN
+                        CASE WHEN size(parts) >= 1 THEN parts[0] ELSE 'unknown' END AS connector,
+                        CASE WHEN size(parts) >= 2 THEN parts[1] ELSE 'unknown' END AS entity_type,
+                        count(*) AS count
+                    ORDER BY connector, entity_type
+                    """
+                    breakdown_result = self.session.run(breakdown_query)
+                    for row in breakdown_result:
+                        breakdown.append(StubNodeBreakdown(
+                            connector=row["connector"],
+                            entity_type=row["entity_type"],
+                            count=row["count"]
+                        ))
+
+                stub_results[label] = StubNodeResult(
+                    label=label,
+                    total_count=total,
+                    stub_count=stubs,
+                    stub_percentage=(stubs / total * 100) if total > 0 else 0.0,
+                    breakdown=breakdown
+                )
+            except Exception as e:
+                print(f"  Warning: Could not check stubs for {label}: {e}")
+
+        return stub_results
+
     def validate_relationship_coverage(self, discovered_rels: List[str]) -> RelationshipCoverageResult:
         """
         Validate relationship coverage against expected definitions.
@@ -331,14 +398,22 @@ class PropertyValidator:
             for result in results:
                 if result.is_required and result.category == PopulationCategory.EMPTY:
                     failure_count += 1
-        
+
+        # Detect stub nodes
+        print("\nDetecting stub nodes...")
+        stub_node_results = self.validate_stub_nodes()
+        total_stubs = sum(r.stub_count for r in stub_node_results.values())
+        labels_with_stubs = sum(1 for r in stub_node_results.values() if r.stub_count > 0)
+        print(f"Found {total_stubs} stub nodes across {labels_with_stubs} label(s)")
+
         return ValidationReport(
             timestamp=datetime.now(),
             entity_results=entity_results,
             relationship_results=relationship_results,
             relationship_existence=relationship_existence,
             relationship_coverage=coverage,
-            failure_count=failure_count
+            failure_count=failure_count,
+            stub_node_results=stub_node_results
         )
 
 

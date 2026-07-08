@@ -106,6 +106,48 @@ class RelationshipCoverageResult:
 
 
 @dataclass
+class StubNodeBreakdown:
+    """Count of stub nodes for a specific connector + entity_type pair."""
+    connector: str
+    entity_type: str
+    count: int
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for JSON serialization."""
+        return {
+            'connector': self.connector,
+            'entity_type': self.entity_type,
+            'count': self.count
+        }
+
+
+@dataclass
+class StubNodeResult:
+    """Stub node detection result for a single Neo4j label.
+
+    A stub node is one whose only populated property is ``id``.
+    The id is expected to follow the format
+    ``<connector>::<entity_type>::<unique_id>`` so the breakdown
+    field groups counts by (connector, entity_type).
+    """
+    label: str
+    total_count: int
+    stub_count: int
+    stub_percentage: float
+    breakdown: List[StubNodeBreakdown] = field(default_factory=list)
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for JSON serialization."""
+        return {
+            'label': self.label,
+            'total_count': self.total_count,
+            'stub_count': self.stub_count,
+            'stub_percentage': self.stub_percentage,
+            'breakdown': [b.to_dict() for b in self.breakdown]
+        }
+
+
+@dataclass
 class ValidationReport:
     """Complete validation report for all entities and relationships."""
     timestamp: datetime
@@ -114,6 +156,7 @@ class ValidationReport:
     relationship_existence: Dict[str, RelationshipExistenceResult] = field(default_factory=dict)
     relationship_coverage: Optional[RelationshipCoverageResult] = None
     failure_count: int = 0
+    stub_node_results: Dict[str, 'StubNodeResult'] = field(default_factory=dict)
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
@@ -133,6 +176,10 @@ class ValidationReport:
             },
             'relationship_coverage': self.relationship_coverage.to_dict() if self.relationship_coverage else None,
             'failure_count': self.failure_count,
+            'stub_node_results': {
+                label: result.to_dict()
+                for label, result in self.stub_node_results.items()
+            },
             'summary': self._generate_summary()
         }
     
@@ -183,5 +230,15 @@ class ValidationReport:
                 'unexpected': len(self.relationship_coverage.unexpected_relationships),
                 'coverage_percentage': (self.relationship_coverage.discovered_count / self.relationship_coverage.expected_count * 100) if self.relationship_coverage.expected_count > 0 else 0.0
             }
-        
+
+        # Add stub node summary if available
+        if self.stub_node_results:
+            total_stubs = sum(r.stub_count for r in self.stub_node_results.values())
+            labels_with_stubs = sum(1 for r in self.stub_node_results.values() if r.stub_count > 0)
+            summary['stub_nodes'] = {
+                'total_stub_count': total_stubs,
+                'labels_with_stubs': labels_with_stubs,
+                'total_labels_checked': len(self.stub_node_results)
+            }
+
         return summary
