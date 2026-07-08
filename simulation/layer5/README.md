@@ -152,7 +152,7 @@ For READ access (occasional contributors):
   "description": "Kubernetes infrastructure and deployment configurations",
   "topics": ["kubernetes", "infrastructure", "devops", "k8s"],
   "created_at": "2024-01-15",
-  "_last_synced_at": "2026-01-15T12:00:00+00:00"
+  "_last_seen_at": "2026-01-15T12:00:00+00:00"
 }
 ```
 

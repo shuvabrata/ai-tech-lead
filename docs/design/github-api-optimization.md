@@ -9,7 +9,7 @@ Initial sync made ~700-800 API calls per repository, repeatedly fetching immutab
 ## Implemented Optimizations
 
 ### 1. Incremental Sync (Last-Sync Tracking)
-Store `_last_synced_at` timestamp on Repository nodes. Use `since` parameter to fetch only new commits/PRs.
+Store `_last_seen_at` timestamp on Repository nodes. Use `since` parameter to fetch only new commits/PRs.
 
 **Impact**: 70-90% API call reduction
 
@@ -83,7 +83,7 @@ RETURN collect(pr.number) as processed_pr_numbers
 **Rationale**: Pull requests have two terminal states (merged/closed) that are immutable. Once a PR is merged or closed, it won't change anymore. However, open PRs are mutable and must always be re-processed to capture updates.
 
 **Implementation**: 
-- Fetch PRs updated since `_last_synced_at`
+- Fetch PRs updated since `_last_seen_at`
 - Query Neo4j for existing closed/merged PR numbers
 - Skip closed/merged PRs already in database
 - Always process open PRs (can be updated with new commits, reviews, labels, status changes)

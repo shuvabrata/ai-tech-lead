@@ -13,6 +13,12 @@ def _compact_node_label(label_value):
 
     Keeps labels short enough to stay visually contained in node shapes.
     """
+
+    # if label_value is for the format <connector>::<entity_type>::<entity_id>,
+    # the use only entity_id for the label, as it is the most relevant part for users.
+    if isinstance(label_value, str) and "::" in label_value:
+        label_value = label_value.split("::")[-1]
+        
     max_chars = max(4, int(settings.GRAPH_UI_MAX_NODE_LABEL_CHARS))
     text = str(label_value) if label_value is not None else ""
     if len(text) <= max_chars:
@@ -36,7 +42,7 @@ def neo4j_to_cytoscape(graph_response):
     # Transform nodes
     for node in graph_response.get("nodes", []):
         node_label = node.get("labels", ["Node"])[0] if node.get("labels") else "Node"
-        display_name = node.get("properties", {}).get("_display_name", "")
+        display_name = node.get("properties", {}).get("_display_name") or node.get("properties", {}).get("id", "")
         compact_label = _compact_node_label(display_name)
 
         # Neo4j element id is used as Cytoscape node id so edges (which reference element_id) connect correctly.
@@ -50,7 +56,7 @@ def neo4j_to_cytoscape(graph_response):
             'wba_id': wba_id,  # Canonical WBA node identifier for display and spotlight matching
             'label': display_name,
             'displayLabel': compact_label,
-            'onHoverName': node.get("properties", {}).get("_on_hover_name", display_name),
+            '_onHoverName': node.get("properties", {}).get("_on_hover_name", display_name),
             'nodeType': node_label,
             'elementType': 'node'
         }

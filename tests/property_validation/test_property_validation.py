@@ -256,6 +256,41 @@ def test_relationship_coverage_summary(validation_report):
     print(f"{'='*80}")
 
 
+def test_stub_nodes_report(validation_report):
+    """
+    Report stub nodes — nodes whose only populated property is ``id``.
+
+    Stubs are grouped by the connector and entity type extracted from the id
+    (format ``<connector>::<entity_type>::<unique_id>``).
+    The test never fails; it is a diagnostic / reporting test only.
+    """
+    stub_results = validation_report.stub_node_results
+
+    if not stub_results:
+        pytest.skip("Stub node results not available")
+
+    labels_with_stubs = {label: r for label, r in stub_results.items() if r.stub_count > 0}
+    total_stubs = sum(r.stub_count for r in stub_results.values())
+
+    print(f"\n{'='*80}")
+    print(f"STUB NODE REPORT")
+    print(f"{'='*80}")
+    print(f"Labels checked : {len(stub_results)}")
+    print(f"Labels with stubs: {len(labels_with_stubs)}")
+    print(f"Total stub nodes : {total_stubs}")
+    print(f"{'='*80}")
+
+    if total_stubs == 0:
+        print("\n✓ No stub nodes found")
+        return
+
+    for label, result in sorted(labels_with_stubs.items()):
+        print(f"\n  {label}: {result.stub_count}/{result.total_count} stubs "
+              f"({result.stub_percentage:.1f}%)")
+        for b in result.breakdown:
+            print(f"    {b.connector:<25} {b.entity_type:<30} {b.count}")
+
+
 if __name__ == "__main__":
     # Allow running directly for quick testing
     pytest.main([__file__, "-v", "-s"])

@@ -311,6 +311,7 @@ def _handle_repository(session: Session, signal: ActivitySignal) -> None:
         topics=attrs.get("topics") or [],
         created_at=attrs.get("created_at", ""),
     )
+    repo.set_last_observed_at(_sync_timestamp(signal))
     db_rels = _to_db_relationships(session, signal.relationships, node_id, "Repository")
     merge_repository(session, repo, relationships=db_rels)
 
@@ -324,8 +325,8 @@ def _handle_space(session: Session, signal: ActivitySignal) -> None:
         name=attrs.get("name", ""),
         type=attrs.get("type"),
         url=attrs.get("url"),
-        _last_synced_at=_sync_timestamp(signal),
     )
+    space.set_last_observed_at(_sync_timestamp(signal))
     db_rels = _to_db_relationships(session, signal.relationships, node_id, "Space")
     merge_space(session, space, relationships=db_rels)
 
@@ -341,8 +342,8 @@ def _handle_page(session: Session, signal: ActivitySignal) -> None:
         url=attrs.get("url"),
         version=attrs.get("version"),
         status=attrs.get("status"),
-        _last_synced_at=_sync_timestamp(signal),
     )
+    page.set_last_observed_at(_sync_timestamp(signal))
     db_rels = _to_db_relationships(session, signal.relationships, node_id, "Page")
     merge_page(session, page, relationships=db_rels)
 
@@ -358,8 +359,8 @@ def _handle_blogpost(session: Session, signal: ActivitySignal) -> None:
         url=attrs.get("url"),
         version=attrs.get("version"),
         status=attrs.get("status"),
-        _last_synced_at=_sync_timestamp(signal),
     )
+    blogpost.set_last_observed_at(_sync_timestamp(signal))
     db_rels = _to_db_relationships(session, signal.relationships, node_id, "Blogpost")
     merge_blogpost(session, blogpost, relationships=db_rels)
 
@@ -377,6 +378,7 @@ def _handle_commit(session: Session, signal: ActivitySignal) -> None:
         files_changed=attrs.get("files_changed", 0),
         url=attrs.get("url"),
     )
+    commit.set_last_observed_at(_sync_timestamp(signal))
     db_rels = _to_db_relationships(session, signal.relationships, node_id, "Commit")
     merge_commit(session, commit, relationships=db_rels)
 
@@ -405,6 +407,7 @@ def _handle_pull_request(session: Session, signal: ActivitySignal) -> None:
         mergeable_state=attrs.get("mergeable_state", ""),
         url=attrs.get("url"),
     )
+    pr.set_last_observed_at(_sync_timestamp(signal))
     db_rels = _to_db_relationships(session, signal.relationships, node_id, "PullRequest")
     merge_pull_request(session, pr, relationships=db_rels)
 
@@ -449,6 +452,7 @@ def _handle_person(
                 provider="github",
                 external_id=login,
                 url=url,
+                observed_at=_sync_timestamp(signal),
             )
             if person_id:
                 signal_node_id = wba_node_id(signal)
@@ -489,6 +493,7 @@ def _handle_person(
                 provider="jira",
                 external_id=account_id,
                 account_id=account_id,
+                observed_at=_sync_timestamp(signal),
             )
             if person_id:
                 signal_node_id = wba_node_id(signal)
@@ -531,6 +536,7 @@ def _handle_person(
                 external_id=account_id,
                 url=url,
                 account_id=account_id,
+                observed_at=_sync_timestamp(signal),
             )
             if person_id:
                 signal_node_id = wba_node_id(signal)
@@ -567,6 +573,7 @@ def _handle_person(
         email=raw_email.lower() if raw_email else None,
         url=attrs.get("url"),
     )
+    person.set_last_observed_at(_sync_timestamp(signal))
     db_rels = _to_db_relationships(session, signal.relationships, node_id, "Person")
     merge_person(session, person, relationships=db_rels)
     return node_id
@@ -582,6 +589,7 @@ def _handle_team(session: Session, signal: ActivitySignal) -> None:
         created_at=attrs.get("created_at"),
         url=attrs.get("url"),
     )
+    team.set_last_observed_at(_sync_timestamp(signal))
     db_rels = _to_db_relationships(session, signal.relationships, node_id, "Team")
     merge_team(session, team, relationships=db_rels)
 
@@ -596,6 +604,7 @@ def _handle_project(session: Session, signal: ActivitySignal) -> None:
         project_type=attrs.get("project_type"),
         url=attrs.get("url"),
     )
+    project.set_last_observed_at(_sync_timestamp(signal))
     db_rels = _to_db_relationships(session, signal.relationships, wba_node_id(signal), "Project")
     merge_project(session, project, relationships=db_rels)
 
@@ -614,8 +623,8 @@ def _handle_initiative(session: Session, signal: ActivitySignal) -> None:
         labels=attrs.get("labels") or [],
         components=attrs.get("components") or [],
         url=attrs.get("url"),
-        _last_synced_at=datetime.now(timezone.utc).isoformat(),
     )
+    initiative.set_last_observed_at(_sync_timestamp(signal))
     db_rels = _to_db_relationships(session, signal.relationships, wba_node_id(signal), "Initiative")
     merge_initiative(session, initiative, relationships=db_rels)
 
@@ -633,8 +642,8 @@ def _handle_epic(session: Session, signal: ActivitySignal) -> None:
         created_at=attrs.get("created_at", ""),
         updated_at=attrs.get("updated_at"),
         url=attrs.get("url"),
-        _last_synced_at=datetime.now(timezone.utc).isoformat(),
     )
+    epic.set_last_observed_at(_sync_timestamp(signal))
     db_rels = _to_db_relationships(session, signal.relationships, wba_node_id(signal), "Epic")
     merge_epic(session, epic, relationships=db_rels)
 
@@ -650,6 +659,7 @@ def _handle_sprint(session: Session, signal: ActivitySignal) -> None:
         status=attrs.get("status", ""),
         url=attrs.get("url"),
     )
+    sprint.set_last_observed_at(_sync_timestamp(signal))
     db_rels = _to_db_relationships(session, signal.relationships, wba_node_id(signal), "Sprint")
     merge_sprint(session, sprint, relationships=db_rels)
 
@@ -670,8 +680,8 @@ def _handle_issue(session: Session, signal: ActivitySignal) -> None:
         created_at=attrs.get("created_at", ""),
         updated_at=attrs.get("updated_at"),
         url=attrs.get("url"),
-        _last_synced_at=datetime.now(timezone.utc).isoformat(),
     )
+    issue.set_last_observed_at(_sync_timestamp(signal))
     db_rels = _to_db_relationships(session, signal.relationships, wba_node_id(signal), "Issue")
     merge_issue(session, issue, relationships=db_rels)
 
@@ -690,6 +700,7 @@ def _handle_file(session: Session, signal: ActivitySignal) -> None:
         last_updated_at=attrs.get("last_updated_at"),
         url=attrs.get("url"),
     )
+    file_node.set_last_observed_at(_sync_timestamp(signal))
     db_rels = _to_db_relationships(session, signal.relationships, node_id, "File")
     merge_file(session, file_node, relationships=db_rels)
 

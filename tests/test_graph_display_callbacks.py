@@ -12,7 +12,7 @@ def test_build_visible_properties_hides_internal_neo4j_and_underscore_fields():
         "ID": 99,
         "elementID": "4:abc",
         "elementId": "4:def",
-        "_last_synced_at": "2026-05-16T00:00:00Z",
+        "_last_seen_at": "2026-05-16T00:00:00Z",
         "name": "Ada",
         "email": None,
     }
