@@ -55,6 +55,7 @@ class PersonCache:
         external_id: str = None,
         url: Optional[str] = None,
         account_id: Optional[str] = None,
+        observed_at: Optional[str] = None,
     ) -> Tuple[str, bool]:
         """
         Get or create a Person node with cross-provider email deduplication.
@@ -75,6 +76,10 @@ class PersonCache:
             provider: System name ('github', 'jira', etc.)
             external_id: External system ID
             url: URL to user profile
+            account_id: Atlassian account ID (jira/confluence)
+            observed_at: Pipeline observation timestamp to persist as
+                ``_last_seen_at`` on the Person node.  When ``None`` the
+                property is not written.
 
         Returns:
             tuple: (person_id, is_new)
@@ -126,6 +131,8 @@ class PersonCache:
                 person = Person(
                     id=person_id, name=name, email=email, url=url,
                 )
+                if observed_at is not None:
+                    person.set_last_observed_at(observed_at)
                 merge_person(session, person)
                 self._email_cache[email] = person_id
                 self._provider_cache[(provider, external_id)] = person_id
@@ -157,6 +164,8 @@ class PersonCache:
                 person = Person(
                     id=person_id, name=name, email=email, url=url,
                 )
+                if observed_at is not None:
+                    person.set_last_observed_at(observed_at)
                 merge_person(session, person)
                 self._atlassian_account_cache[account_id] = person_id
                 self._provider_cache[(provider, external_id)] = person_id
@@ -177,6 +186,8 @@ class PersonCache:
         person = Person(
             id=person_id, name=name, email=email, url=url,
         )
+        if observed_at is not None:
+            person.set_last_observed_at(observed_at)
         merge_person(session, person)
         logger.debug(f"    {'✓ Created' if is_new else '✓ Updated'} Person: {person_id}")
 

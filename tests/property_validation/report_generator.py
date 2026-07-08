@@ -5,7 +5,7 @@ Generate reports for property validation results.
 import json
 from pathlib import Path
 from typing import List
-from tests.property_validation.models import ValidationReport, PropertyValidationResult, PopulationCategory
+from tests.property_validation.models import ValidationReport, PropertyValidationResult, PopulationCategory, StubNodeResult
 
 
 # ANSI color codes for console output
@@ -86,6 +86,38 @@ def generate_console_report(report: ValidationReport) -> None:
         for rel_type in sorted(report.relationship_results.keys()):
             results = report.relationship_results[rel_type]
             _print_relationship_table(rel_type, results)
+
+    # Stub nodes
+    if report.stub_node_results:
+        _print_stub_nodes(report.stub_node_results)
+
+
+def _print_stub_nodes(stub_node_results: dict) -> None:
+    """Print stub node detection results to the console."""
+    labels_with_stubs = {label: r for label, r in stub_node_results.items() if r.stub_count > 0}
+    total_stubs = sum(r.stub_count for r in stub_node_results.values())
+
+    print(f"{Colors.BOLD}{'='*100}")
+    print(f"STUB NODES")
+    print(f"{'='*100}{Colors.RESET}\n")
+    print(f"A stub node has only its 'id' property set — all other properties are absent.")
+    print(f"id format: <connector>::<entity_type>::<unique_id>\n")
+
+    if total_stubs == 0:
+        print(f"{Colors.GREEN}✓ No stub nodes found across {len(stub_node_results)} labels{Colors.RESET}\n")
+        return
+
+    print(f"{Colors.YELLOW}⚠️  {total_stubs} stub nodes found in {len(labels_with_stubs)} label(s){Colors.RESET}\n")
+
+    for label, result in sorted(labels_with_stubs.items()):
+        pct_str = f"{result.stub_percentage:.1f}%"
+        print(f"{Colors.BOLD}{Colors.BLUE}{label}{Colors.RESET}  "
+              f"— stubs: {Colors.YELLOW}{result.stub_count}{Colors.RESET}/{result.total_count} ({pct_str})")
+        print(f"  {'Connector':<25} {'Entity Type':<30} {'Count':<10}")
+        print(f"  {'-'*65}")
+        for b in result.breakdown:
+            print(f"  {b.connector:<25} {b.entity_type:<30} {b.count:<10}")
+        print()
 
 
 def _print_entity_table(entity_type: str, results: List[PropertyValidationResult]) -> None:
@@ -475,6 +507,11 @@ def generate_html_report(report: ValidationReport, output_path: Path) -> None:
     for rel_type in sorted(report.relationship_results.keys()):
         results = report.relationship_results[rel_type]
         html_content += _generate_relationship_table_html(rel_type, results)
+
+    # Add stub nodes section
+    if report.stub_node_results:
+        html_content += "<h2>Stub Nodes</h2>\n"
+        html_content += _generate_stub_nodes_html(report.stub_node_results)
     
     # Add JavaScript for search
     html_content += """
@@ -621,6 +658,93 @@ def _generate_relationship_existence_html(relationship_existence: dict) -> str:
     
     html += '</tbody>\n</table>\n</div>\n'
     return html
+
+
+def _generate_stub_nodes_html(stub_node_results: dict) -> str:
+    """Generate HTML section for stub node detection results."""
+    labels_with_stubs = {label: r for label, r in stub_node_results.items() if r.stub_count > 0}
+    total_stubs = sum(r.stub_count for r in stub_node_results.values())
+
+    html = '<div class="entity-section">\n'
+    html += '<p>A <strong>stub node</strong> has only its <code>id</code> property set — '
+    html += 'all other properties are absent. '
+    html += 'The id format is <code>&lt;connector&gt;::&lt;entity_type&gt;::&lt;unique_id&gt;</code>.</p>\n'
+
+    if total_stubs == 0:
+        html += '<div style="background-color:#e8f5e9;padding:15px;border-radius:5px;margin:10px 0;">'
+        html += f'<p style="color:#2e7d32;margin:0;"><strong>✓ No stub nodes found '
+        html += f'across {len(stub_node_results)} labels</strong></p>'
+        html += '</div>\n'
+        html += '</div>\n'
+        return html
+
+    # Summary banner
+    html += '<div style="background-color:#fff3cd;padding:15px;border-radius:5px;margin:10px 0;">'
+    html += f'<p style="color:#856404;margin:0;"><strong>⚠️ {total_stubs} stub nodes found '
+    html += f'in {len(labels_with_stubs)} label(s)</strong></p>'
+    html += '</div>\n'
+
+    for label, result in sorted(labels_with_stubs.items()):
+        html += f'<div class="entity-name">{label}</div>\n'
+        html += f'<p>{result.stub_count} / {result.total_count} nodes are stubs '
+        html += f'({result.stub_percentage:.1f}%)</p>\n'
+
+        if result.breakdown:
+            html += '<table>\n<thead>\n<tr>\n'
+            html += '<th>Connector</th><th>Entity Type</th><th>Stub Count</th>\n'
+            html += '</tr>\n</thead>\n<tbody>\n'
+            for b in result.breakdown:
+                html += '<tr>\n'
+                html += f'<td><code>{b.connector}</code></td>\n'
+                html += f'<td><code>{b.entity_type}</code></td>\n'
+                html += f'<td>{b.count}</td>\n'
+                html += '</tr>\n'
+            html += '</tbody>\n</table>\n'
+
+        # Per-label Cypher query
+        cypher = "\n".join([
+            f"MATCH (n:{label})",
+            "WHERE size(keys(n)) = 1 AND n.id IS NOT NULL",
+            "RETURN labels(n) AS label, n.id AS id",
+            "ORDER BY id",
+        ])
+        html += _cypher_block_html(f'Cypher — list all stub <strong>{label}</strong> nodes', cypher)
+
+    # General query across all labels
+    general_cypher = "\n".join([
+        "MATCH (n)",
+        "WHERE size(keys(n)) = 1 AND n.id IS NOT NULL",
+        "WITH labels(n) AS label, n.id AS id",
+        "RETURN label, id,",
+        "       split(id, '::')[0] AS connector,",
+        "       split(id, '::')[1] AS entity_type",
+        "ORDER BY label, connector, entity_type, id",
+    ])
+    html += _cypher_block_html('Cypher — list ALL stub nodes (all labels)', general_cypher)
+
+    html += '</div>\n'
+    return html
+
+
+def _cypher_block_html(title: str, query: str) -> str:
+    """Render a labelled, copy-able Cypher code block."""
+    escaped = query.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+    # Escape newlines for the HTML data attribute so the JS copy button gets a clean string
+    data_q = query.replace('&', '&amp;').replace('"', '&quot;').replace('\n', '&#10;')
+    return (
+        '<div style="margin:12px 0;">\n'
+        f'<p style="margin:0 0 4px 0;font-size:0.9em;color:#555;">{title}</p>\n'
+        '<div style="position:relative;">\n'
+        '<pre style="background:#1e1e1e;color:#d4d4d4;padding:14px 16px;border-radius:4px;'
+        'font-size:0.85em;overflow-x:auto;margin:0;">'
+        f'<code>{escaped}</code></pre>\n'
+        '<button onclick="navigator.clipboard.writeText(this.dataset.q)" '
+        'style="position:absolute;top:6px;right:8px;background:#333;color:#ccc;'
+        'border:1px solid #555;border-radius:3px;padding:2px 8px;font-size:0.75em;cursor:pointer;" '
+        f'data-q="{data_q}">Copy</button>\n'
+        '</div>\n'
+        '</div>\n'
+    )
 
 
 def _generate_relationship_coverage_html(coverage: 'RelationshipCoverageResult') -> str:
