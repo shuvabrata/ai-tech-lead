@@ -245,49 +245,50 @@ def _filter_card():
                 )
             ], className="mb-3"),
 
-            # Node Type Checkboxes
-            html.Div([
-                html.Label(
-                    "Node Types:",
-                    style={
-                        "fontSize": "11px",
-                        "fontWeight": FONT_WEIGHT_SEMIBOLD,
-                        "color": COLOR_GRAY_DARK,
-                        "marginBottom": "8px",
-                        "display": "block"
-                    }
-                ),
-                dbc.Checklist(
-                    id="node-type-filter",
-                    options=[],  # Populated dynamically
-                    value=[],    # All selected by default
-                    inline=False,
-                    className="graph-filter-checklist",
-                    style={"fontSize": "12px"}
-                )
-            ], className="mb-3"),
+            # Node Types and Relationship Types side by side
+            dbc.Row([
+                dbc.Col([
+                    html.Label(
+                        "Node Types:",
+                        style={
+                            "fontSize": "11px",
+                            "fontWeight": FONT_WEIGHT_SEMIBOLD,
+                            "color": COLOR_GRAY_DARK,
+                            "marginBottom": "8px",
+                            "display": "block"
+                        }
+                    ),
+                    dbc.Checklist(
+                        id="node-type-filter",
+                        options=[],  # Populated dynamically
+                        value=[],    # All selected by default
+                        inline=False,
+                        className="graph-filter-checklist",
+                        style={"fontSize": "12px"}
+                    )
+                ], width=6, className="mb-3"),
 
-            # Relationship Type Checkboxes
-            html.Div([
-                html.Label(
-                    "Relationship Types:",
-                    style={
-                        "fontSize": "11px",
-                        "fontWeight": FONT_WEIGHT_SEMIBOLD,
-                        "color": COLOR_GRAY_DARK,
-                        "marginBottom": "8px",
-                        "display": "block"
-                    }
-                ),
-                dbc.Checklist(
-                    id="relationship-type-filter",
-                    options=[],  # Populated dynamically
-                    value=[],    # All selected by default
-                    inline=False,
-                    className="graph-filter-checklist",
-                    style={"fontSize": "12px"}
-                )
-            ], className="mb-3"),
+                dbc.Col([
+                    html.Label(
+                        "Relationship Types:",
+                        style={
+                            "fontSize": "11px",
+                            "fontWeight": FONT_WEIGHT_SEMIBOLD,
+                            "color": COLOR_GRAY_DARK,
+                            "marginBottom": "8px",
+                            "display": "block"
+                        }
+                    ),
+                    dbc.Checklist(
+                        id="relationship-type-filter",
+                        options=[],  # Populated dynamically
+                        value=[],    # All selected by default
+                        inline=False,
+                        className="graph-filter-checklist",
+                        style={"fontSize": "12px"}
+                    )
+                ], width=6, className="mb-3"),
+            ], className="g-2"),
 
             html.Div(
                 id="weight-based-filter-group",
