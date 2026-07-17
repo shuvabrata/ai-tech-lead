@@ -153,6 +153,98 @@ def _filter_card():
                 ]
             ),
 
+            # Time Filters (collapsible section) — at the top of all filters
+            html.Div([
+                html.Div(
+                    [html.I(className="fas fa-chevron-right collapse-toggle-chevron me-1"),
+                     "Time Filters"],
+                    id="time-filters-collapse-toggle",
+                    className="collapse-toggle-subtle",
+                    style={
+                        "fontSize": "11px",
+                        "fontWeight": FONT_WEIGHT_SEMIBOLD,
+                        "color": COLOR_GRAY_DARK,
+                        "marginBottom": "8px",
+                        "cursor": "pointer",
+                        "userSelect": "none",
+                    }
+                ),
+                dbc.Collapse(
+                    id="time-filters-collapse",
+                    is_open=False,
+                    children=[
+                        # Created At
+                        html.Div([
+                            html.Label("Created At", style={
+                                "fontSize": "11px",
+                                "fontWeight": FONT_WEIGHT_SEMIBOLD,
+                                "color": COLOR_GRAY_DARK,
+                                "marginBottom": "4px",
+                                "display": "block"
+                            }),
+                            dcc.RangeSlider(
+                                id="time-slider-created",
+                                min=0, max=1, step=1,
+                                value=[0, 1],
+                                marks={},
+                                tooltip={"placement": "bottom", "always_visible": False},
+                            ),
+                            html.Small(
+                                id="time-slider-created-label",
+                                className="d-block mt-1",
+                                style={"fontSize": "10px", "color": "var(--color-text-secondary)"}
+                            ),
+                        ], className="mb-2"),
+
+                        # Last Updated
+                        html.Div([
+                            html.Label("Last Updated", style={
+                                "fontSize": "11px",
+                                "fontWeight": FONT_WEIGHT_SEMIBOLD,
+                                "color": COLOR_GRAY_DARK,
+                                "marginBottom": "4px",
+                                "display": "block"
+                            }),
+                            dcc.RangeSlider(
+                                id="time-slider-updated",
+                                min=0, max=1, step=1,
+                                value=[0, 1],
+                                marks={},
+                                tooltip={"placement": "bottom", "always_visible": False},
+                            ),
+                            html.Small(
+                                id="time-slider-updated-label",
+                                className="d-block mt-1",
+                                style={"fontSize": "10px", "color": "var(--color-text-secondary)"}
+                            ),
+                        ], className="mb-2"),
+
+                        # Last Seen
+                        html.Div([
+                            html.Label("Last Seen", style={
+                                "fontSize": "11px",
+                                "fontWeight": FONT_WEIGHT_SEMIBOLD,
+                                "color": COLOR_GRAY_DARK,
+                                "marginBottom": "4px",
+                                "display": "block"
+                            }),
+                            dcc.RangeSlider(
+                                id="time-slider-seen",
+                                min=0, max=1, step=1,
+                                value=[0, 1],
+                                marks={},
+                                tooltip={"placement": "bottom", "always_visible": False},
+                            ),
+                            html.Small(
+                                id="time-slider-seen-label",
+                                className="d-block mt-1",
+                                style={"fontSize": "10px", "color": "var(--color-text-secondary)"}
+                            ),
+                        ], className="mb-2"),
+                    ]
+                )
+            ], className="mb-3"),
+
             # Node Type Checkboxes
             html.Div([
                 html.Label(
@@ -258,98 +350,6 @@ def _filter_card():
                     ])
                 ]
             ),
-
-            # Time Filters (collapsible section)
-            html.Div([
-                html.Div(
-                    [html.I(className="fas fa-chevron-right collapse-toggle-chevron me-1"),
-                     "Time Filters"],
-                    id="time-filters-collapse-toggle",
-                    className="collapse-toggle-subtle",
-                    style={
-                        "fontSize": "11px",
-                        "fontWeight": FONT_WEIGHT_SEMIBOLD,
-                        "color": COLOR_GRAY_DARK,
-                        "marginBottom": "8px",
-                        "cursor": "pointer",
-                        "userSelect": "none",
-                    }
-                ),
-                dbc.Collapse(
-                    id="time-filters-collapse",
-                    is_open=False,
-                    children=[
-                        # Created At
-                        html.Div([
-                            html.Label("Created At", style={
-                                "fontSize": "11px",
-                                "fontWeight": FONT_WEIGHT_SEMIBOLD,
-                                "color": COLOR_GRAY_DARK,
-                                "marginBottom": "4px",
-                                "display": "block"
-                            }),
-                            dcc.RangeSlider(
-                                id="time-slider-created",
-                                min=0, max=1, step=1,
-                                value=[0, 1],
-                                marks={},
-                                tooltip={"placement": "bottom", "always_visible": False},
-                            ),
-                            html.Small(
-                                id="time-slider-created-label",
-                                className="d-block mt-1",
-                                style={"fontSize": "10px", "color": "var(--color-text-secondary)"}
-                            ),
-                        ], className="mb-2"),
-
-                        # Last Updated
-                        html.Div([
-                            html.Label("Last Updated", style={
-                                "fontSize": "11px",
-                                "fontWeight": FONT_WEIGHT_SEMIBOLD,
-                                "color": COLOR_GRAY_DARK,
-                                "marginBottom": "4px",
-                                "display": "block"
-                            }),
-                            dcc.RangeSlider(
-                                id="time-slider-updated",
-                                min=0, max=1, step=1,
-                                value=[0, 1],
-                                marks={},
-                                tooltip={"placement": "bottom", "always_visible": False},
-                            ),
-                            html.Small(
-                                id="time-slider-updated-label",
-                                className="d-block mt-1",
-                                style={"fontSize": "10px", "color": "var(--color-text-secondary)"}
-                            ),
-                        ], className="mb-2"),
-
-                        # Last Seen
-                        html.Div([
-                            html.Label("Last Seen", style={
-                                "fontSize": "11px",
-                                "fontWeight": FONT_WEIGHT_SEMIBOLD,
-                                "color": COLOR_GRAY_DARK,
-                                "marginBottom": "4px",
-                                "display": "block"
-                            }),
-                            dcc.RangeSlider(
-                                id="time-slider-seen",
-                                min=0, max=1, step=1,
-                                value=[0, 1],
-                                marks={},
-                                tooltip={"placement": "bottom", "always_visible": False},
-                            ),
-                            html.Small(
-                                id="time-slider-seen-label",
-                                className="d-block mt-1",
-                                style={"fontSize": "10px", "color": "var(--color-text-secondary)"}
-                            ),
-                        ], className="mb-2"),
-                    ]
-                )
-            ], className="mb-3"),
 
             html.Div(
                 id="weight-filter-unavailable-note",
