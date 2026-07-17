@@ -12,6 +12,7 @@
 - **Depends on**: none
 - **Category**: feature
 - **Planned at**: 2026-07-06
+- **Completed at**: 2026-07-17
 
 ## Why this matters
 
@@ -105,9 +106,9 @@ Tests:
 
 ### Phase 1 Done Criteria
 
-- [ ] `utils/time_helpers.py` exists with all 3 functions
-- [ ] `_summarize_time_filter` exists in `filtering.py`
-- [ ] All 7 automated tests pass
+- [x] `utils/time_helpers.py` exists with all 3 functions
+- [x] `_summarize_time_filter` exists in `filtering.py`
+- [x] All 7 automated tests pass
 
 ---
 
@@ -260,10 +261,10 @@ def toggle_time_filters_collapse(n_clicks, is_open):
 
 ### Phase 2 Done Criteria
 
-- [ ] `time-filter-full-ranges` Store added to `create_stores()`
-- [ ] Time Filters section added to `_filter_card()` with 3 RangeSliders
-- [ ] Collapse toggle callback registered
-- [ ] Manual verification passes
+- [x] `time-filter-full-ranges` Store added to `create_stores()`
+- [x] Time Filters section added to `_filter_card()` with 3 RangeSliders
+- [x] Collapse toggle callback registered
+- [x] Manual verification passes
 
 ---
 
@@ -386,11 +387,11 @@ def update_time_filter_labels(created_val, updated_val, seen_val, full_ranges):
 
 ### Phase 3 Done Criteria
 
-- [ ] `update_time_filter_ranges` callback registered
-- [ ] `update_time_filter_labels` callback registered
-- [ ] Slider ranges dynamically update on graph load/expansion
-- [ ] Formatted date labels visible
-- [ ] Unit tests pass
+- [x] `update_time_filter_ranges` callback registered
+- [x] `update_time_filter_labels` callback registered
+- [x] Slider ranges dynamically update on graph load/expansion
+- [x] Formatted date labels visible
+- [x] Unit tests pass
 
 ---
 
@@ -551,14 +552,14 @@ pytest tests/ -m "not neo4j and not server" -v --timeout=30
 
 ### Phase 4 Done Criteria
 
-- [ ] `_compute_filtered_graph()` accepts and applies time filters
-- [ ] `apply_relationship_filters()` integrates time slider inputs
-- [ ] `update_filter_panel_feedback()` shows correct counts with time filters active
-- [ ] Filter chips display time filter state when narrowed
-- [ ] "Clear All" resets all 3 time sliders
-- [ ] Nodes missing a property remain visible under time filter
-- [ ] Edge visibility respected after time filtering
-- [ ] Unit tests pass
+- [x] `_compute_filtered_graph()` accepts and applies time filters
+- [x] `apply_relationship_filters()` integrates time slider inputs
+- [x] `update_filter_panel_feedback()` shows correct counts with time filters active
+- [x] Filter chips display time filter state when narrowed
+- [x] "Clear All" resets all 3 time sliders
+- [x] Nodes missing a property remain visible under time filter
+- [x] Edge visibility respected after time filtering
+- [x] Unit tests pass
 
 ---
 
@@ -616,8 +617,8 @@ pytest tests/ -m "not neo4j and not server" -v --timeout=30
 
 ### Phase 5 Done Criteria
 
-- [ ] All manual test cases pass
-- [ ] No console errors
+- [x] All manual test cases pass
+- [x] No console errors
 
 ---
 
@@ -634,9 +635,10 @@ pytest tests/ -m "not neo4j and not server" -v --timeout=30
 
 ## Done criteria (overall)
 
-- [ ] All 4 phases complete with passing tests
-- [ ] Manual verification covers all scenarios
-- [ ] Time filter chips display correctly
-- [ ] "Clear All" button resets time filters
-- [ ] Nodes missing time properties remain visible
-- [ ] Slider ranges refresh on expansion
+- [x] All 4 phases complete with passing tests
+- [x] Manual verification covers all scenarios
+- [x] Time filter chips display correctly
+- [x] "Clear All" button resets time filters
+- [x] Nodes missing time properties remain visible
+- [x] Slider ranges refresh on expansion
+
