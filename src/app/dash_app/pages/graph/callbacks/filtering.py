@@ -8,6 +8,7 @@ from dash import Input, Output, State, callback, html
 from dash.exceptions import PreventUpdate
 from common.logger import logger
 from ..utils import is_edge_data, is_node_data
+from ..utils.time_helpers import _format_day_label, _parse_days_since_epoch, compute_time_range
 
 
 class FilteringDataValidationError(ValueError):
@@ -81,6 +82,32 @@ def _summarize_selection(selected_values, option_values, label):
     return f"{label}: {len(selected)}/{len(available)}"
 
 
+def _summarize_time_filter(range_value, full_range, label_prefix):
+    """Return a chip label string for a time filter, or None if slider is at full range.
+
+    Parameters
+    ----------
+    range_value : list[int, int] | None
+        Current slider value (e.g. ``[150, 200]``).
+    full_range : list[int, int] | None
+        Full available range for this property.
+    label_prefix : str
+        Label prefix (e.g. ``"Created"``, ``"Updated"``, ``"Seen"``).
+
+    Returns
+    -------
+    str | None
+        ``"Created: Jan 15 – Mar 20, 2026"`` when narrowed, ``None`` otherwise.
+    """
+    if not range_value or not full_range:
+        return None
+    if range_value == full_range:
+        return None
+    lo = _format_day_label(range_value[0])
+    hi = _format_day_label(range_value[1])
+    return f"{label_prefix}: {lo} – {hi}"
+
+
 def _build_active_filter_chips(
     selected_node_types,
     selected_rel_types,
@@ -89,6 +116,10 @@ def _build_active_filter_chips(
     node_type_options,
     rel_type_options,
     has_weighted_edges,
+    created_range=None,
+    updated_range=None,
+    seen_range=None,
+    full_ranges=None,
 ):
     """Return badge components for the currently active filters."""
     node_option_values = [opt["value"] for opt in (node_type_options or [])]
@@ -106,6 +137,13 @@ def _build_active_filter_chips(
         labels.append("Top 50 edges")
     elif has_weighted_edges and top_n_mode == "top100":
         labels.append("Top 100 edges")
+
+    # Time filter chips
+    fr = full_ranges or {}
+    chip_created = _summarize_time_filter(created_range, fr.get("_created_at"), "Created")
+    chip_updated = _summarize_time_filter(updated_range, fr.get("_last_updated_at"), "Updated")
+    chip_seen = _summarize_time_filter(seen_range, fr.get("_last_seen_at"), "Seen")
+    labels.extend(c for c in [chip_created, chip_updated, chip_seen] if c)
 
     labels = [label for label in labels if label]
 
@@ -128,8 +166,25 @@ def _compute_filtered_graph(
     weight_threshold,
     top_n_mode,
     unfiltered_elements,
+    created_range=None,
+    updated_range=None,
+    seen_range=None,
+    full_ranges=None,
 ):
-    """Compute the visible graph subset from the loaded baseline."""
+    """Compute the visible graph subset from the loaded baseline.
+
+    Parameters
+    ----------
+    created_range : list[int, int] | None
+        ``[min_days, max_days]`` for ``_created_at``, or None.
+    updated_range : list[int, int] | None
+        ``[min_days, max_days]`` for ``_last_updated_at``, or None.
+    seen_range : list[int, int] | None
+        ``[min_days, max_days]`` for ``_last_seen_at``, or None.
+    full_ranges : dict | None
+        ``{"_created_at": [min, max], ...}`` — used to detect when a slider
+        is at its full range (no active filter).
+    """
     _require_element_ids(unfiltered_elements)
     nodes, edges = _split_elements(unfiltered_elements)
     has_weighted_edges = _has_weighted_edges(unfiltered_elements)
@@ -142,6 +197,34 @@ def _compute_filtered_graph(
         ]
     else:
         visible_nodes = []
+
+    # Apply time-based filters
+    time_configs = [
+        ("_created_at", created_range, full_ranges),
+        ("_last_updated_at", updated_range, full_ranges),
+        ("_last_seen_at", seen_range, full_ranges),
+    ]
+
+    for prop, current_range, ranges in time_configs:
+        if current_range is None or ranges is None:
+            continue
+        full = ranges.get(prop)
+        if full is None or current_range == full:
+            continue  # Slider at full range = no filter active
+
+        filtered = []
+        for node in visible_nodes:
+            raw = node.get("data", {}).get(prop, "")
+            if not raw:
+                filtered.append(node)  # Missing property = include
+                continue
+            days = _parse_days_since_epoch(raw)
+            if days is None:
+                filtered.append(node)  # Unparseable = include
+                continue
+            if current_range[0] <= days <= current_range[1]:
+                filtered.append(node)
+        visible_nodes = filtered
 
     # Create set of visible node IDs for edge filtering
     visible_node_ids = {node.get("data", {}).get("id") for node in visible_nodes}
@@ -361,7 +444,11 @@ def update_weight_threshold_label(threshold):
      Input("weight-threshold-slider", "value"),
      Input("top-n-toggle", "value"),
      Input("node-type-filter", "options"),
-     Input("relationship-type-filter", "options")]
+     Input("relationship-type-filter", "options"),
+     Input("time-slider-created", "value"),
+     Input("time-slider-updated", "value"),
+     Input("time-slider-seen", "value"),
+     Input("time-filter-full-ranges", "data")]
 )
 def update_filter_panel_feedback(
     unfiltered_elements,
@@ -371,6 +458,10 @@ def update_filter_panel_feedback(
     top_n_mode,
     node_type_options,
     rel_type_options,
+    created_range,
+    updated_range,
+    seen_range,
+    full_ranges,
 ):
     """Update local-only filter feedback, chips, and weighted-control visibility."""
     filtered_graph = _compute_filtered_graph(
@@ -379,6 +470,10 @@ def update_filter_panel_feedback(
         weight_threshold,
         top_n_mode,
         unfiltered_elements or [],
+        created_range=created_range,
+        updated_range=updated_range,
+        seen_range=seen_range,
+        full_ranges=full_ranges,
     )
     logical_filtered_elements = filtered_graph["visible_nodes"] + filtered_graph["visible_edges"]
     has_weighted_edges = filtered_graph["has_weighted_edges"]
@@ -391,6 +486,10 @@ def update_filter_panel_feedback(
         node_type_options,
         rel_type_options,
         has_weighted_edges,
+        created_range=created_range,
+        updated_range=updated_range,
+        seen_range=seen_range,
+        full_ranges=full_ranges,
     )
 
     weight_group_style = {} if has_weighted_edges else {"display": "none"}
@@ -408,24 +507,34 @@ def update_filter_panel_feedback(
     [Output("node-type-filter", "value", allow_duplicate=True),
      Output("relationship-type-filter", "value", allow_duplicate=True),
      Output("weight-threshold-slider", "value"),
-     Output("top-n-toggle", "value")],
+     Output("top-n-toggle", "value"),
+     Output("time-slider-created", "value", allow_duplicate=True),
+     Output("time-slider-updated", "value", allow_duplicate=True),
+     Output("time-slider-seen", "value", allow_duplicate=True)],
     Input("clear-filters-btn", "n_clicks"),
     [State("node-type-filter", "options"),
-     State("relationship-type-filter", "options")],
+     State("relationship-type-filter", "options"),
+     State("time-filter-full-ranges", "data")],
     prevent_initial_call=True
 )
-def clear_all_filters(n_clicks, node_type_options, rel_type_options):
+def clear_all_filters(n_clicks, node_type_options, rel_type_options, full_ranges):
     """Reset all filters to default values"""
     if not n_clicks:
         raise PreventUpdate
-    
+
     # Select all node types
     all_node_types = [opt["value"] for opt in node_type_options] if node_type_options else []
-    
+
     # Select all relationship types
     all_rel_types = [opt["value"] for opt in rel_type_options] if rel_type_options else []
-    
-    return all_node_types, all_rel_types, 0, "all"
+
+    # Reset time sliders to full ranges
+    fr = full_ranges or {}
+    created_reset = fr.get("_created_at", [0, 1])
+    updated_reset = fr.get("_last_updated_at", [0, 1])
+    seen_reset = fr.get("_last_seen_at", [0, 1])
+
+    return all_node_types, all_rel_types, 0, "all", created_reset, updated_reset, seen_reset
 
 
 @callback(
@@ -437,7 +546,12 @@ def clear_all_filters(n_clicks, node_type_options, rel_type_options):
      # Promoted from State → Input so that expansion writes to this store
      # automatically re-trigger the filter, keeping the filtered view in sync
      # with the unfiltered baseline after every expansion.
-     Input("unfiltered-elements-store", "data")],
+     Input("unfiltered-elements-store", "data"),
+     # Time filter inputs
+     Input("time-slider-created", "value"),
+     Input("time-slider-updated", "value"),
+     Input("time-slider-seen", "value")],
+    State("time-filter-full-ranges", "data"),
     prevent_initial_call=True
 )
 def apply_relationship_filters(
@@ -446,6 +560,10 @@ def apply_relationship_filters(
     weight_threshold,
     top_n_mode,
     unfiltered_elements,
+    created_range,
+    updated_range,
+    seen_range,
+    full_ranges,
 ):
     """Apply all filters (node types, relationship types, weight, top-N) to graph elements.
 
@@ -468,6 +586,10 @@ def apply_relationship_filters(
         weight_threshold,
         top_n_mode,
         unfiltered_elements,
+        created_range=created_range,
+        updated_range=updated_range,
+        seen_range=seen_range,
+        full_ranges=full_ranges,
     )
     filtered_nodes = filtered_graph["visible_nodes"]
     filtered_edges = filtered_graph["visible_edges"]
@@ -515,3 +637,110 @@ def apply_relationship_filters(
     )
 
     return filtered_nodes + filtered_edges
+
+
+@callback(
+    [Output("time-filters-collapse", "is_open"),
+     Output("time-filters-collapse-toggle", "children")],
+    Input("time-filters-collapse-toggle", "n_clicks"),
+    State("time-filters-collapse", "is_open"),
+    prevent_initial_call=True
+)
+def toggle_time_filters_collapse(n_clicks, is_open):
+    """Toggle the Time Filters collapsible section."""
+    if not n_clicks:
+        raise PreventUpdate
+    new_state = not is_open
+    chevron = "chevron-down" if new_state else "chevron-right"
+    children = [
+        html.I(className=f"fas fa-{chevron} collapse-toggle-chevron me-1"),
+        "Time Filters",
+    ]
+    return new_state, children
+
+
+@callback(
+    [Output("time-filter-full-ranges", "data"),
+     Output("time-slider-created", "min"),
+     Output("time-slider-created", "max"),
+     Output("time-slider-created", "value"),
+     Output("time-slider-created", "marks"),
+     Output("time-slider-updated", "min"),
+     Output("time-slider-updated", "max"),
+     Output("time-slider-updated", "value"),
+     Output("time-slider-updated", "marks"),
+     Output("time-slider-seen", "min"),
+     Output("time-slider-seen", "max"),
+     Output("time-slider-seen", "value"),
+     Output("time-slider-seen", "marks")],
+    Input("unfiltered-elements-store", "data"),
+    State("time-filter-full-ranges", "data"),
+    prevent_initial_call=True,
+)
+def update_time_filter_ranges(unfiltered_elements, previous_ranges):
+    """Compute slider ranges from all unfiltered nodes.
+
+    Called whenever the unfiltered baseline changes (new query or expansion).
+    Uses Interpretation A: range is always the full min/max from
+    unfiltered-elements-store regardless of other active filters.
+
+    When a property is absent from ALL nodes, slider is set to [0, 1]
+    which is effectively inert (no nodes excluded).
+    """
+    if not unfiltered_elements:
+        raise PreventUpdate
+
+    nodes = [e for e in unfiltered_elements if is_node_data(e.get("data", {}))]
+
+    # Compute ranges for each time property
+    ranges = {}
+    for prop in ("_created_at", "_last_updated_at", "_last_seen_at"):
+        min_days, max_days = compute_time_range(nodes, prop)
+        ranges[prop] = [min_days, max_days]
+
+    full_ranges_data = previous_ranges or {}
+
+    def _slider_outputs(prop):
+        r = ranges[prop]
+        lbl_min = _format_day_label(r[0])
+        lbl_max = _format_day_label(r[1])
+        marks = {r[0]: lbl_min, r[1]: lbl_max}
+        # Preserve previous value if available, else full range
+        prev = full_ranges_data.get(prop)
+        value = prev if prev and prev == r else r
+        return r[0], r[1], value, marks
+
+    outputs = []
+    for prop in ("_created_at", "_last_updated_at", "_last_seen_at"):
+        outputs.extend(_slider_outputs(prop))
+
+    return ranges, *outputs
+
+
+@callback(
+    [Output("time-slider-created-label", "children"),
+     Output("time-slider-updated-label", "children"),
+     Output("time-slider-seen-label", "children")],
+    [Input("time-slider-created", "value"),
+     Input("time-slider-updated", "value"),
+     Input("time-slider-seen", "value"),
+     Input("time-filter-full-ranges", "data")],
+)
+def update_time_filter_labels(created_val, updated_val, seen_val, full_ranges):
+    """Format the selected range as human-readable labels below each slider."""
+    if not full_ranges:
+        return "", "", ""
+
+    def _label(prop, val):
+        full = full_ranges.get(prop, [0, 1])
+        lo = _format_day_label(val[0])
+        hi = _format_day_label(val[1])
+        if val == full:
+            return f"All dates ({lo} – {hi})"
+        return f"{lo} – {hi}"
+
+    return (
+        _label("_created_at", created_val),
+        _label("_last_updated_at", updated_val),
+        _label("_last_seen_at", seen_val),
+    )

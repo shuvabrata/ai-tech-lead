@@ -24,6 +24,10 @@ def test_apply_relationship_filters_ignores_weight_controls_for_unweighted_graph
         weight_threshold=75,
         top_n_mode="top50",
         unfiltered_elements=unfiltered_elements,
+        created_range=[0, 1],
+        updated_range=[0, 1],
+        seen_range=[0, 1],
+        full_ranges={},
     )
 
     assert filtered == unfiltered_elements
@@ -44,6 +48,10 @@ def test_apply_relationship_filters_raises_when_edge_id_missing():
             weight_threshold=0,
             top_n_mode="all",
             unfiltered_elements=unfiltered_elements,
+            created_range=[0, 1],
+            updated_range=[0, 1],
+            seen_range=[0, 1],
+            full_ranges={},
         )
 
 
@@ -62,6 +70,10 @@ def test_apply_relationship_filters_raises_when_node_id_missing():
             weight_threshold=0,
             top_n_mode="all",
             unfiltered_elements=unfiltered_elements,
+            created_range=[0, 1],
+            updated_range=[0, 1],
+            seen_range=[0, 1],
+            full_ranges={},
         )
 
 
@@ -81,6 +93,10 @@ def test_update_filter_panel_feedback_hides_weight_controls_for_unweighted_graph
         top_n_mode="all",
         node_type_options=[{"label": "Person (2)", "value": "Person"}],
         rel_type_options=[{"label": "KNOWS (1)", "value": "KNOWS"}],
+        created_range=[0, 1],
+        updated_range=[0, 1],
+        seen_range=[0, 1],
+        full_ranges={},
     )
 
     assert summary == "Showing 2 nodes / 1 edges from 2 nodes / 1 edges"
