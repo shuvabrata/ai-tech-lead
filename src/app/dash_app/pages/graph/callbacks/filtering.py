@@ -702,9 +702,7 @@ def update_time_filter_ranges(unfiltered_elements, previous_ranges):
 
     def _slider_outputs(prop):
         r = ranges[prop]
-        lbl_min = _format_day_label(r[0])
-        lbl_max = _format_day_label(r[1])
-        marks = {r[0]: lbl_min, r[1]: lbl_max}
+        marks = None
         # Preserve previous value if available, else full range
         prev = full_ranges_data.get(prop)
         value = prev if prev and prev == r else r
