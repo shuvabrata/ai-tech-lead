@@ -696,6 +696,11 @@ def update_time_filter_ranges(unfiltered_elements, previous_ranges):
     ranges = {}
     for prop in ("_created_at", "_last_updated_at", "_last_seen_at"):
         min_days, max_days = compute_time_range(nodes, prop)
+        # When min == max, pad by ±1 day so both handles remain visible
+        # (Dash stacks identical-value handles on top of each other)
+        if min_days == max_days:
+            min_days = max(0, min_days - 1)
+            max_days = max_days + 1
         ranges[prop] = [min_days, max_days]
 
     full_ranges_data = previous_ranges or {}
