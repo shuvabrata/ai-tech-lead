@@ -1,13 +1,13 @@
 pytest==9.1.1
 pytest-asyncio==1.4.0
-anyio[trio]==4.14.1
+anyio[trio]==4.14.2
 httpx==0.28.1
 pylint==4.0.6
 pytest-cov==7.1.0
 pytest-html==4.2.0
 pylint-json2html==0.5.0
 pyyaml==6.0.3
-mypy==2.1.0
+mypy==2.2.0
 beautifulsoup4==4.15.0
 lxml==6.1.1
 flake8==7.3.0
