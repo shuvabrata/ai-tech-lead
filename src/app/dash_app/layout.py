@@ -2,10 +2,12 @@ import dash
 import dash_bootstrap_components as dbc
 from dash import dcc, html
 from dash.dependencies import Input, Output, State
+from dash import clientside_callback
 from dash.exceptions import PreventUpdate
 from urllib.parse import quote
 
 from app.dash_app.pages import analytics, chat, collaboration_network, connectors, graph, people, progress, search, settings
+from app.settings import settings as app_settings
 from .styles import (
     SIDEBAR_STYLE,
     NAVBAR_BRAND_STYLE,
@@ -109,6 +111,9 @@ def create_dash_app():
         dcc.Location(id="url", refresh=False),
         dcc.Store(id="sidebar-collapsed", storage_type="local", data=False),
         dcc.Store(id="theme-store", storage_type="local", data="executive-light"),
+        dcc.Store(id="date-format-store", data=app_settings.UI_DATE_FORMAT),
+        dcc.Store(id="datetime-format-store", data=app_settings.UI_DATETIME_FORMAT),
+        html.Div(id="format-init-dummy", style={"display": "none"}),
         top_menu,
         dbc.Row([
             dbc.Col(
@@ -253,6 +258,21 @@ def create_dash_app():
         # Show sun when in dark mode (click → go light)
         icon = "fas fa-sun" if active_theme == "executive-dark" else "fas fa-moon"
         return f"app-shell theme-{active_theme}", icon
+
+    # Clientside callback to expose UI format strings to JavaScript
+    clientside_callback(
+        """
+        function(dateFormat, datetimeFormat) {
+            window.UI_DATE_FORMAT = dateFormat;
+            window.UI_DATETIME_FORMAT = datetimeFormat;
+            return window.dash_clientside.no_update;
+        }
+        """,
+        Output("format-init-dummy", "children"),  # Dummy output
+        Input("date-format-store", "data"),
+        Input("datetime-format-store", "data"),
+        prevent_initial_call=False
+    )
 
     # No custom CSS or sidebar collapse for now; Bootstrap handles layout and theme
 

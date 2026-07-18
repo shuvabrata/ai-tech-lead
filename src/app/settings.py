@@ -55,6 +55,7 @@ class Settings(BaseSettings):
     # UI Configuration
     TIMEZONE: str = Field(default="UTC", validation_alias=AliasChoices("TIMEZONE", "TZ"))
     UI_DATETIME_FORMAT: str = "%b %d, %Y %I:%M %p"
+    UI_DATE_FORMAT: str = "%b %d, %Y"
 
     @field_validator("TIMEZONE")
     @classmethod
