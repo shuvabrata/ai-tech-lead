@@ -40,7 +40,8 @@ from .filtering import (
     update_filter_panel_feedback,
     update_weight_threshold_label,
     clear_all_filters,
-    apply_relationship_filters
+    apply_relationship_filters,
+    toggle_time_filters_collapse,
 )
 from .analytics_mode import toggle_query_panel_for_analytics_mode
 from .spotlight import update_spotlight
@@ -90,6 +91,7 @@ __all__ = [
     'update_weight_threshold_label',
     'clear_all_filters',
     'apply_relationship_filters',
+    'toggle_time_filters_collapse',
     # Analytics mode
     'toggle_query_panel_for_analytics_mode',
     # Right panel workbench tabs

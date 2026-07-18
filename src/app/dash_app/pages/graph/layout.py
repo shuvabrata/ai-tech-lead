@@ -9,7 +9,7 @@ import dash_bootstrap_components as dbc
 import dash_cytoscape as cyto
 
 from .styles import CYTOSCAPE_STYLESHEET
-from .components import create_expansion_modal, create_context_menu
+from .components import create_expansion_modal, create_context_menu, create_time_slider
 from .utils.ui_components import create_performance_metrics
 
 from app.dash_app.components.common import create_controls_bar
@@ -153,49 +153,77 @@ def _filter_card():
                 ]
             ),
 
-            # Node Type Checkboxes
+            # Time Filters (collapsible section) — at the top of all filters
             html.Div([
-                html.Label(
-                    "Node Types:",
+                html.Div(
+                    [html.I(className="fas fa-chevron-right collapse-toggle-chevron me-1"),
+                     "Time Filters"],
+                    id="time-filters-collapse-toggle",
+                    className="collapse-toggle-subtle",
                     style={
                         "fontSize": "11px",
                         "fontWeight": FONT_WEIGHT_SEMIBOLD,
                         "color": COLOR_GRAY_DARK,
                         "marginBottom": "8px",
-                        "display": "block"
+                        "cursor": "pointer",
+                        "userSelect": "none",
                     }
                 ),
-                dbc.Checklist(
-                    id="node-type-filter",
-                    options=[],  # Populated dynamically
-                    value=[],    # All selected by default
-                    inline=False,
-                    className="graph-filter-checklist",
-                    style={"fontSize": "12px"}
+                dbc.Collapse(
+                    id="time-filters-collapse",
+                    is_open=False,
+                    children=[
+                        create_time_slider("created", "Created At"),
+                        create_time_slider("updated", "Last Updated"),
+                        create_time_slider("seen", "Last Seen"),
+                    ]
                 )
             ], className="mb-3"),
 
-            # Relationship Type Checkboxes
-            html.Div([
-                html.Label(
-                    "Relationship Types:",
-                    style={
-                        "fontSize": "11px",
-                        "fontWeight": FONT_WEIGHT_SEMIBOLD,
-                        "color": COLOR_GRAY_DARK,
-                        "marginBottom": "8px",
-                        "display": "block"
-                    }
-                ),
-                dbc.Checklist(
-                    id="relationship-type-filter",
-                    options=[],  # Populated dynamically
-                    value=[],    # All selected by default
-                    inline=False,
-                    className="graph-filter-checklist",
-                    style={"fontSize": "12px"}
-                )
-            ], className="mb-3"),
+            # Node Types and Relationship Types side by side
+            dbc.Row([
+                dbc.Col([
+                    html.Label(
+                        "Node Types:",
+                        style={
+                            "fontSize": "11px",
+                            "fontWeight": FONT_WEIGHT_SEMIBOLD,
+                            "color": COLOR_GRAY_DARK,
+                            "marginBottom": "8px",
+                            "display": "block"
+                        }
+                    ),
+                    dbc.Checklist(
+                        id="node-type-filter",
+                        options=[],  # Populated dynamically
+                        value=[],    # All selected by default
+                        inline=False,
+                        className="graph-filter-checklist",
+                        style={"fontSize": "12px"}
+                    )
+                ], width=6, className="mb-3"),
+
+                dbc.Col([
+                    html.Label(
+                        "Relationship Types:",
+                        style={
+                            "fontSize": "11px",
+                            "fontWeight": FONT_WEIGHT_SEMIBOLD,
+                            "color": COLOR_GRAY_DARK,
+                            "marginBottom": "8px",
+                            "display": "block"
+                        }
+                    ),
+                    dbc.Checklist(
+                        id="relationship-type-filter",
+                        options=[],  # Populated dynamically
+                        value=[],    # All selected by default
+                        inline=False,
+                        className="graph-filter-checklist",
+                        style={"fontSize": "12px"}
+                    )
+                ], width=6, className="mb-3"),
+            ], className="g-2"),
 
             html.Div(
                 id="weight-based-filter-group",
@@ -595,6 +623,12 @@ def create_stores():
 
         # Right panel workbench: tracks which tab is currently open ("filters", "console", "catalog", or None)
         dcc.Store(id="right-panel-active-tab", storage_type="memory", data="catalog"),
+
+        # --- Time-Based Filters ---
+        # Store for full time-range metadata per property: {property_name: [min_days, max_days]}
+        # Used by the range-computation callback to remember the full range for chip
+        # display and by clear-all to reset sliders.
+        dcc.Store(id="time-filter-full-ranges", data={}),
     ]
 
 
