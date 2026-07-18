@@ -185,9 +185,10 @@ def _filter_card():
                             dcc.RangeSlider(
                                 id="time-slider-created",
                                 min=0, max=1, step=1,
-                                value=[0, 1],
+                                value=[0, 1], #The default value=[0, 1] is just a placeholder — it gets replaced as soon as a graph is loaded.
                                 marks={},
                                 tooltip={"placement": "bottom", "always_visible": False},
+                                allow_direct_input=False
                             ),
                             html.Small(
                                 id="time-slider-created-label",
@@ -211,6 +212,7 @@ def _filter_card():
                                 value=[0, 1],
                                 marks={},
                                 tooltip={"placement": "bottom", "always_visible": False},
+                                allow_direct_input=False,
                             ),
                             html.Small(
                                 id="time-slider-updated-label",
@@ -234,6 +236,7 @@ def _filter_card():
                                 value=[0, 1],
                                 marks={},
                                 tooltip={"placement": "bottom", "always_visible": False},
+                                allow_direct_input=False,
                             ),
                             html.Small(
                                 id="time-slider-seen-label",
