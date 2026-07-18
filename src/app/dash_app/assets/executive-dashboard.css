@@ -605,6 +605,16 @@ input::placeholder {
     background-color: var(--color-background-white);
 }
 
+/* Dash slider tooltip — explicit theme styling */
+.dash-slider-tooltip {
+    background-color: #ffffff !important;
+    color: #1a202c !important;
+}
+.theme-executive-dark .dash-slider-tooltip {
+    background-color: var(--color-background-light) !important;
+    color: var(--color-charcoal) !important;
+}
+
 .graph-filter-mode-label {
     color: var(--color-navy);
     font-size: 10px;
