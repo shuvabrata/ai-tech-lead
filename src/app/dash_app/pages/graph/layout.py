@@ -9,7 +9,7 @@ import dash_bootstrap_components as dbc
 import dash_cytoscape as cyto
 
 from .styles import CYTOSCAPE_STYLESHEET
-from .components import create_expansion_modal, create_context_menu
+from .components import create_expansion_modal, create_context_menu, create_time_slider
 from .utils.ui_components import create_performance_metrics
 
 from app.dash_app.components.common import create_controls_bar
@@ -173,77 +173,9 @@ def _filter_card():
                     id="time-filters-collapse",
                     is_open=False,
                     children=[
-                        # Created At
-                        html.Div([
-                            html.Label("Created At", style={
-                                "fontSize": "11px",
-                                "fontWeight": FONT_WEIGHT_SEMIBOLD,
-                                "color": COLOR_GRAY_DARK,
-                                "marginBottom": "4px",
-                                "display": "block"
-                            }),
-                            dcc.RangeSlider(
-                                id="time-slider-created",
-                                min=0, max=1, step=1,
-                                value=[0, 1], #The default value=[0, 1] is just a placeholder — it gets replaced as soon as a graph is loaded.
-                                marks=None,
-                                tooltip={"placement": "bottom", "always_visible": False, "transform": "epochDayToDate"},
-                                allow_direct_input=False
-                            ),
-                            html.Small(
-                                id="time-slider-created-label",
-                                className="d-block mt-1",
-                                style={"fontSize": "10px", "color": "var(--color-text-secondary)"}
-                            ),
-                        ], className="mb-2"),
-
-                        # Last Updated
-                        html.Div([
-                            html.Label("Last Updated", style={
-                                "fontSize": "11px",
-                                "fontWeight": FONT_WEIGHT_SEMIBOLD,
-                                "color": COLOR_GRAY_DARK,
-                                "marginBottom": "4px",
-                                "display": "block"
-                            }),
-                            dcc.RangeSlider(
-                                id="time-slider-updated",
-                                min=0, max=1, step=1,
-                                value=[0, 1],
-                                marks=None,
-                                tooltip={"placement": "bottom", "always_visible": False, "transform": "epochDayToDate"},
-                                allow_direct_input=False,
-                            ),
-                            html.Small(
-                                id="time-slider-updated-label",
-                                className="d-block mt-1",
-                                style={"fontSize": "10px", "color": "var(--color-text-secondary)"}
-                            ),
-                        ], className="mb-2"),
-
-                        # Last Seen
-                        html.Div([
-                            html.Label("Last Seen", style={
-                                "fontSize": "11px",
-                                "fontWeight": FONT_WEIGHT_SEMIBOLD,
-                                "color": COLOR_GRAY_DARK,
-                                "marginBottom": "4px",
-                                "display": "block"
-                            }),
-                            dcc.RangeSlider(
-                                id="time-slider-seen",
-                                min=0, max=1, step=1,
-                                value=[0, 1],
-                                marks=None,
-                                tooltip={"placement": "bottom", "always_visible": False, "transform": "epochDayToDate"},
-                                allow_direct_input=False,
-                            ),
-                            html.Small(
-                                id="time-slider-seen-label",
-                                className="d-block mt-1",
-                                style={"fontSize": "10px", "color": "var(--color-text-secondary)"}
-                            ),
-                        ], className="mb-2"),
+                        create_time_slider("created", "Created At"),
+                        create_time_slider("updated", "Last Updated"),
+                        create_time_slider("seen", "Last Seen"),
                     ]
                 )
             ], className="mb-3"),
