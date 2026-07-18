@@ -276,7 +276,8 @@ One-shot services are run manually: `docker compose run --rm <service>`
 | `CONNECTOR_ENCRYPTION_KEY` | Fernet key for connector secrets | required |
 | `HTTP_REQUEST_TIMEOUT` | Outbound HTTP timeout (seconds) | `60` |
 | `TIMEZONE` | UI timezone (IANA name, e.g. `America/Los_Angeles`) | `UTC` |
-| `UI_DATETIME_FORMAT` | strftime format for UI dates | `%b %d, %Y %I:%M %p` |
+| `UI_DATETIME_FORMAT` | strftime format for UI datetimes | `%b %d, %Y %I:%M %p` |
+| `UI_DATE_FORMAT` | strftime format for UI dates (no time) | `%b %d, %Y` |
 | `GRAPH_UI_MAX_NODES_TO_EXPAND` | Max nodes expandable in graph UI | `20` |
 | `GRAPH_UI_MAX_NODE_LABEL_CHARS` | Max chars for node labels in graph UI | `10` |
 
