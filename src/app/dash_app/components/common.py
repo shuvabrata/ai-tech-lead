@@ -772,17 +772,16 @@ def build_element_properties_content(
         # --- Node ---
         exclude_keys = {"displayLabel", "id", "wba_id", "label", "nodeType", "elementType"}
         
-        # DEBUG: Log incoming data for any selected node to trace WBA_ID display issue
+        # DEBUG: Log incoming data for any selected node
         node_type = data.get("nodeType", data.get("label", "unknown"))
-        logger.debug("[WBA_ID_DEBUG] build_element_properties_content node_type=%s", node_type)
+        print("[WBA_ID_DEBUG build_element_properties_content] node_type:", node_type, flush=True)
         all_keys = sorted(data.keys())
-        logger.debug("[WBA_ID_DEBUG] all data keys: %s", all_keys)
-        logger.debug("[WBA_ID_DEBUG] exclude_keys: %s", sorted(exclude_keys))
+        print("[WBA_ID_DEBUG] all data keys:", all_keys, flush=True)
         for k in all_keys:
             if k not in exclude_keys and data.get(k) is not None:
-                logger.debug("[WBA_ID_DEBUG]   visible key: %r = %r", k, data.get(k))
-        logger.debug("[WBA_ID_DEBUG] wba_id from data: %r", data.get("wba_id"))
-        logger.debug("[WBA_ID_DEBUG] id from data: %r", data.get("id"))
+                print("[WBA_ID_DEBUG]   visible key:", repr(k), "=", repr(data.get(k)), flush=True)
+        print("[WBA_ID_DEBUG] wba_id from data:", repr(data.get("wba_id")), flush=True)
+        print("[WBA_ID_DEBUG] id from data:", repr(data.get("id")), flush=True)
         
         properties = _panel_build_visible_properties(data, exclude_keys)
         wba_id = data.get("wba_id") or data.get("id")
@@ -791,9 +790,9 @@ def build_element_properties_content(
             sorted_items = [("id", wba_id)] + sorted_items
         
         # DEBUG: Log final sorted_items
-        logger.debug("[WBA_ID_DEBUG] sorted_items (keys only): %s", [k for k, v in sorted_items])
+        print("[WBA_ID_DEBUG] sorted_items (keys only):", [k for k, v in sorted_items], flush=True)
         for k, v in sorted_items:
-            logger.debug("[WBA_ID_DEBUG]   row key=%r value=%r", k, v)
+            print("[WBA_ID_DEBUG]   row key:", repr(k), "value:", repr(v), flush=True)
 
         header = html.Div([
             html.Div(data.get("label", "N/A"), style=DETAILS_PANEL_HEADER_STYLE),
