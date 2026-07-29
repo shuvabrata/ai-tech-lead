@@ -6,6 +6,7 @@ keep callback functions focused on UI state updates.
 
 import os
 import math
+import time
 from datetime import datetime
 
 import requests
@@ -45,6 +46,8 @@ def execute_expansion_and_merge(
     - {"ok": True, ...merged state...}
     - {"ok": False, "error_message": str}
     """
+    _start = time.monotonic()
+
     exclude_ids = loaded_node_ids if loaded_node_ids else []
     payload = {
         "node_id": node_id,
@@ -193,6 +196,8 @@ def execute_expansion_and_merge(
         f"unique_positions={len(unique_positions)} has_valid_position_map={has_valid_position_map}"
     )
 
+    elapsed_ms = (time.monotonic() - _start) * 1000
+
     return {
         "ok": True,
         "merged_elements": merged_elements,
@@ -201,4 +206,5 @@ def execute_expansion_and_merge(
         "new_nodes_count": len(new_nodes),
         "new_relationships_count": len(new_relationships),
         "has_more": pagination.get("has_more", False),
+        "elapsed_ms": round(elapsed_ms, 1),
     }

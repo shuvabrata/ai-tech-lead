@@ -13,6 +13,7 @@ from ..utils import (
     create_expansion_success_alert,
     create_no_neighbors_alert,
     create_expansion_error_alert,
+    create_performance_metrics,
     is_edge_element,
 )
 
@@ -25,9 +26,11 @@ TIMEOUT_SECONDS = settings.HTTP_REQUEST_TIMEOUT
      Output("expanded-nodes", "data", allow_duplicate=True),
      Output("loaded-node-ids", "data", allow_duplicate=True),
      Output("expansion-debounce-store", "data", allow_duplicate=True),
-    Output("graph-status-strip", "children", allow_duplicate=True),
-    Output("graph-status-strip", "style", allow_duplicate=True),
-     Output("graph-layout-selector", "value", allow_duplicate=True)],
+     Output("graph-status-strip", "children", allow_duplicate=True),
+     Output("graph-status-strip", "style", allow_duplicate=True),
+     Output("graph-layout-selector", "value", allow_duplicate=True),
+     Output("graph-performance-metrics", "children", allow_duplicate=True),
+     Output("graph-performance-metrics", "style", allow_duplicate=True)],
     Input("doubleclicked-node-store", "data"),
     [State("graph-cytoscape", "elements"),
      State("unfiltered-elements-store", "data"),
@@ -49,14 +52,14 @@ def execute_doubleclick_expansion(dblclick_data, current_elements, current_unfil
     # Extract node_id from the store data
     if not dblclick_data or not isinstance(dblclick_data, dict):
         return (no_update, no_update, expanded_nodes, loaded_node_ids, debounce_store,
-                None, hide_style, current_layout)
+                None, hide_style, current_layout, no_update, no_update)
     
     node_id = dblclick_data.get("node_id")
     timestamp = dblclick_data.get("timestamp", 0)
     
     if not node_id:
         return (no_update, no_update, expanded_nodes, loaded_node_ids, debounce_store,
-                None, hide_style, current_layout)
+                None, hide_style, current_layout, no_update, no_update)
     
     # Debouncing: Check if this node was recently expanded (within 500ms)
     debounce_store = debounce_store or {}
@@ -67,7 +70,7 @@ def execute_doubleclick_expansion(dblclick_data, current_elements, current_unfil
     if time_since_last < DEBOUNCE_MS:
         # Too soon, ignore this double-click
         return (no_update, no_update, expanded_nodes, loaded_node_ids, debounce_store,
-                None, hide_style, current_layout)
+                None, hide_style, current_layout, no_update, no_update)
     
     # Update debounce store
     updated_debounce = debounce_store.copy()
@@ -97,7 +100,7 @@ def execute_doubleclick_expansion(dblclick_data, current_elements, current_unfil
         if not result["ok"]:
             error_alert = create_expansion_error_alert(f"Expansion failed: {result['error_message']}")
             return (no_update, no_update, expanded_nodes, loaded_node_ids, updated_debounce,
-                    error_alert, show_style, current_layout)
+                    error_alert, show_style, current_layout, no_update, no_update)
 
         merged_elements = result["merged_elements"]
         updated_loaded_ids = result["updated_loaded_ids"]
@@ -117,7 +120,7 @@ def execute_doubleclick_expansion(dblclick_data, current_elements, current_unfil
         if result["new_nodes_count"] == 0:
             info_msg = create_no_neighbors_alert()
             return (no_update, no_update, updated_expanded, loaded_node_ids, updated_debounce,
-                    info_msg, show_style, current_layout)
+                    info_msg, show_style, current_layout, no_update, no_update)
 
         success_msg = create_expansion_success_alert(
             result["new_nodes_count"],
@@ -130,8 +133,11 @@ def execute_doubleclick_expansion(dblclick_data, current_elements, current_unfil
         # by the store change (unfiltered-elements-store is now an Input there)
         # and will re-apply the active filters, so cytoscape.elements is left
         # as no_update here — the filter callback drives that update.
+        metrics = create_performance_metrics(
+            len(merged_nodes), len(merged_edges), result["elapsed_ms"], is_graph=True
+        )
         return (no_update, merged_elements, updated_expanded, updated_loaded_ids, updated_debounce,
-            success_msg, show_style, "preset")
+            success_msg, show_style, "preset", metrics, show_style)
             
     except requests.exceptions.Timeout:
         logger.error(
@@ -140,7 +146,7 @@ def execute_doubleclick_expansion(dblclick_data, current_elements, current_unfil
         )
         error_alert = create_expansion_error_alert("Expansion timed out", error_type="timeout")
         return (no_update, no_update, expanded_nodes, loaded_node_ids, updated_debounce,
-               error_alert, show_style, current_layout)
+               error_alert, show_style, current_layout, no_update, no_update)
     
     except requests.exceptions.ConnectionError:
         logger.error(
@@ -152,13 +158,13 @@ def execute_doubleclick_expansion(dblclick_data, current_elements, current_unfil
             error_type="connection"
         )
         return (no_update, no_update, expanded_nodes, loaded_node_ids, updated_debounce,
-               error_alert, show_style, current_layout)
+               error_alert, show_style, current_layout, no_update, no_update)
         
     except Exception as e:
         logger.exception(f"[GRAPH-DEBUG][expand.doubleclick] unexpected_error {e}")
         error_alert = create_expansion_error_alert(f"Expansion error: {str(e)}")
         return (no_update, no_update, expanded_nodes, loaded_node_ids, updated_debounce,
-               error_alert, show_style, current_layout)
+               error_alert, show_style, current_layout, no_update, no_update)
 
 
 @callback(
@@ -198,7 +204,9 @@ def close_expansion_modal(n_clicks):
     Output("graph-status-strip", "children", allow_duplicate=True),
     Output("graph-status-strip", "style", allow_duplicate=True),
      Output("graph-layout-selector", "value", allow_duplicate=True),
-     Output("graph-fit-trigger", "children", allow_duplicate=True)],
+     Output("graph-fit-trigger", "children", allow_duplicate=True),
+     Output("graph-performance-metrics", "children", allow_duplicate=True),
+     Output("graph-performance-metrics", "style", allow_duplicate=True)],
     Input("expansion-modal-expand", "n_clicks"),
     [State("selected-node-for-expansion", "data"),
      State("expansion-direction-selector", "value"),
@@ -223,7 +231,7 @@ def execute_node_expansion(n_clicks, node_id, direction, limit, auto_fit, curren
     fit_count = current_fit_count or 0
     
     if not n_clicks or not node_id:
-        return no_update, no_update, expanded_nodes, loaded_node_ids, True, None, hide_style, current_layout, fit_count
+        return no_update, no_update, expanded_nodes, loaded_node_ids, True, None, hide_style, current_layout, fit_count, no_update, no_update
     
     try:
         logger.info(
@@ -246,7 +254,7 @@ def execute_node_expansion(n_clicks, node_id, direction, limit, auto_fit, curren
 
         if not result["ok"]:
             error_alert = create_expansion_error_alert(f"Expansion failed: {result['error_message']}")
-            return no_update, no_update, expanded_nodes, loaded_node_ids, True, error_alert, show_style, current_layout, fit_count
+            return no_update, no_update, expanded_nodes, loaded_node_ids, True, error_alert, show_style, current_layout, fit_count, no_update, no_update
 
         merged_elements = result["merged_elements"]
         updated_loaded_ids = result["updated_loaded_ids"]
@@ -264,7 +272,7 @@ def execute_node_expansion(n_clicks, node_id, direction, limit, auto_fit, curren
 
         if result["new_nodes_count"] == 0:
             info_msg = create_no_neighbors_alert()
-            return no_update, no_update, updated_expanded, loaded_node_ids, False, info_msg, show_style, current_layout, fit_count
+            return no_update, no_update, updated_expanded, loaded_node_ids, False, info_msg, show_style, current_layout, fit_count, no_update, no_update
 
         success_msg = create_expansion_success_alert(
             result["new_nodes_count"],
@@ -277,7 +285,10 @@ def execute_node_expansion(n_clicks, node_id, direction, limit, auto_fit, curren
 
         # Write merged_elements to the unfiltered store; the filter callback
         # re-applies active filters automatically (see apply_relationship_filters).
-        return no_update, merged_elements, updated_expanded, updated_loaded_ids, False, success_msg, show_style, "preset", fit_count
+        metrics = create_performance_metrics(
+            len(merged_nodes), len(merged_edges), result["elapsed_ms"], is_graph=True
+        )
+        return no_update, merged_elements, updated_expanded, updated_loaded_ids, False, success_msg, show_style, "preset", fit_count, metrics, show_style
             
     except requests.exceptions.Timeout:
         logger.error(
@@ -289,7 +300,7 @@ def execute_node_expansion(n_clicks, node_id, direction, limit, auto_fit, curren
             "Request timed out. The expansion took too long.",
             error_type="timeout"
         )
-        return no_update, no_update, expanded_nodes, loaded_node_ids, True, error_alert, show_style, current_layout, fit_count
+        return no_update, no_update, expanded_nodes, loaded_node_ids, True, error_alert, show_style, current_layout, fit_count, no_update, no_update
     
     except requests.exceptions.ConnectionError:
         logger.error(
@@ -301,9 +312,9 @@ def execute_node_expansion(n_clicks, node_id, direction, limit, auto_fit, curren
             "Could not connect to server. Please check your connection.",
             error_type="connection"
         )
-        return no_update, no_update, expanded_nodes, loaded_node_ids, True, error_alert, show_style, current_layout, fit_count
+        return no_update, no_update, expanded_nodes, loaded_node_ids, True, error_alert, show_style, current_layout, fit_count, no_update, no_update
         
     except Exception as e:
         logger.exception(f"[GRAPH-DEBUG][expand.modal] unexpected_error {e}")
         error_alert = create_expansion_error_alert(f"Error: {str(e)}")
-        return no_update, no_update, expanded_nodes, loaded_node_ids, True, error_alert, show_style, current_layout, fit_count
+        return no_update, no_update, expanded_nodes, loaded_node_ids, True, error_alert, show_style, current_layout, fit_count, no_update, no_update

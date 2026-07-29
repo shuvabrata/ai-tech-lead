@@ -157,37 +157,21 @@ def create_performance_metrics(node_count, rel_count, execution_time_ms, is_grap
     Returns:
         html.Div: Performance metrics component
     """
-    # Determine performance status based on result count and execution time
-    total_elements = node_count + rel_count if is_graph else node_count
-    
-    if is_graph:
-        # For graph queries: warn if >100 nodes or >2 seconds
-        if total_elements > 200 or execution_time_ms > 3000:
-            status_color = COLOR_DESTRUCTIVE
-            status_icon = "fa-exclamation-triangle"
-            status_text = "Slow"
-        elif total_elements > 100 or execution_time_ms > 2000:
-            status_color = COLOR_WARNING_DARK
-            status_icon = "fa-exclamation-circle"
-            status_text = "OK"
-        else:
-            status_color = COLOR_SUCCESS_DARK
-            status_icon = "fa-check-circle"
-            status_text = "Fast"
+    # Determine performance status based on execution time only
+    if execution_time_ms > 2000:
+        status_color = COLOR_DESTRUCTIVE
+        status_icon = "fa-exclamation-triangle"
+        status_text = "Slow"
+    elif execution_time_ms > 1000:
+        status_color = COLOR_WARNING_DARK
+        status_icon = "fa-exclamation-circle"
+        status_text = "OK"
     else:
-        # For tabular queries: warn if >500 rows or >2 seconds
-        if total_elements > 1000 or execution_time_ms > 3000:
-            status_color = COLOR_DESTRUCTIVE
-            status_icon = "fa-exclamation-triangle"
-            status_text = "Slow"
-        elif total_elements > 500 or execution_time_ms > 2000:
-            status_color = COLOR_WARNING_DARK
-            status_icon = "fa-exclamation-circle"
-            status_text = "OK"
-        else:
-            status_color = COLOR_SUCCESS_DARK
-            status_icon = "fa-check-circle"
-            status_text = "Fast"
+        status_color = COLOR_SUCCESS_DARK
+        status_icon = "fa-check-circle"
+        status_text = "Fast"
+
+    total_elements = node_count + rel_count if is_graph else node_count
     
     # Format execution time
     if execution_time_ms < 1000:
@@ -196,6 +180,7 @@ def create_performance_metrics(node_count, rel_count, execution_time_ms, is_grap
         time_display = f"{execution_time_ms/1000:.2f}s"
     
     metrics = [
+        html.Span("Loading stats: ", style={"fontWeight": "600", "fontSize": FONT_SIZE_TINY, "marginRight": "8px", "color": COLOR_TEXT_SECONDARY}),
         html.Div([
             html.I(className="fas fa-clock me-1", style=PERFORMANCE_METRIC_ICON_STYLE),
             html.Span("Time: ", style=PERFORMANCE_METRIC_LABEL_STYLE),
