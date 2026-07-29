@@ -160,6 +160,48 @@ def _build_active_filter_chips(
     ]
 
 
+def _filter_nodes_by_time(nodes, created_range=None, updated_range=None, seen_range=None, full_ranges=None):
+    """Filter a list of nodes by time-based filters.
+
+    Returns the subset of nodes that pass all active time filters.
+    When a slider is at its full range (or ranges are None), no filtering
+    is applied for that property.
+    """
+    if not nodes:
+        return nodes
+
+    visible_nodes = list(nodes)
+
+    time_configs = [
+        ("_created_at", created_range, full_ranges),
+        ("_last_updated_at", updated_range, full_ranges),
+        ("_last_seen_at", seen_range, full_ranges),
+    ]
+
+    for prop, current_range, ranges in time_configs:
+        if current_range is None or ranges is None:
+            continue
+        full = ranges.get(prop)
+        if full is None or current_range == full:
+            continue  # Slider at full range = no filter active
+
+        filtered = []
+        for node in visible_nodes:
+            raw = node.get("data", {}).get(prop, "")
+            if not raw:
+                filtered.append(node)  # Missing property = include
+                continue
+            days = _parse_days_since_epoch(raw)
+            if days is None:
+                filtered.append(node)  # Unparseable = include
+                continue
+            if current_range[0] <= days <= current_range[1]:
+                filtered.append(node)
+        visible_nodes = filtered
+
+    return visible_nodes
+
+
 def _compute_filtered_graph(
     selected_node_types,
     selected_rel_types,
@@ -199,32 +241,13 @@ def _compute_filtered_graph(
         visible_nodes = []
 
     # Apply time-based filters
-    time_configs = [
-        ("_created_at", created_range, full_ranges),
-        ("_last_updated_at", updated_range, full_ranges),
-        ("_last_seen_at", seen_range, full_ranges),
-    ]
-
-    for prop, current_range, ranges in time_configs:
-        if current_range is None or ranges is None:
-            continue
-        full = ranges.get(prop)
-        if full is None or current_range == full:
-            continue  # Slider at full range = no filter active
-
-        filtered = []
-        for node in visible_nodes:
-            raw = node.get("data", {}).get(prop, "")
-            if not raw:
-                filtered.append(node)  # Missing property = include
-                continue
-            days = _parse_days_since_epoch(raw)
-            if days is None:
-                filtered.append(node)  # Unparseable = include
-                continue
-            if current_range[0] <= days <= current_range[1]:
-                filtered.append(node)
-        visible_nodes = filtered
+    visible_nodes = _filter_nodes_by_time(
+        visible_nodes,
+        created_range=created_range,
+        updated_range=updated_range,
+        seen_range=seen_range,
+        full_ranges=full_ranges,
+    )
 
     # Create set of visible node IDs for edge filtering
     visible_node_ids = {node.get("data", {}).get("id") for node in visible_nodes}
@@ -279,15 +302,23 @@ def _compute_filtered_graph(
     [Output("relationship-type-filter", "options"),
      Output("relationship-type-filter", "value"),
      Output("relationship-type-available-store", "data")],
-    Input("unfiltered-elements-store", "data"),
+    [Input("unfiltered-elements-store", "data"),
+     Input("time-slider-created", "value"),
+     Input("time-slider-updated", "value"),
+     Input("time-slider-seen", "value")],
     [State("relationship-type-filter", "value"),
-     State("relationship-type-available-store", "data")],
+     State("relationship-type-available-store", "data"),
+     State("time-filter-full-ranges", "data")],
     prevent_initial_call=True
 )
-def update_relationship_type_filter(unfiltered_elements, current_values, previous_available):
+def update_relationship_type_filter(unfiltered_elements, created_range, updated_range, seen_range,
+                                    current_values, previous_available, full_ranges):
     """Dynamically populate relationship type checkboxes from the unfiltered graph.
 
-    Called whenever the unfiltered baseline changes (new query or expansion).
+    Called whenever the unfiltered baseline changes (new query or expansion)
+    OR when time filter sliders move. Counts reflect only edges whose
+    source/target nodes survive the active time filters.
+
     Uses a three-way intent model to decide which types to select:
 
     1. ``previous_available is None``  → true first load; select all.
@@ -304,17 +335,32 @@ def update_relationship_type_filter(unfiltered_elements, current_values, previou
     """
     if not unfiltered_elements:
         return [], [], []
-    
-    # Extract unique relationship types from edges (using unfiltered data)
+
+    # Determine which nodes survive time filters
+    all_nodes = [e for e in unfiltered_elements if is_node_data(e.get("data", {}))]
+    time_filtered_nodes = _filter_nodes_by_time(
+        all_nodes,
+        created_range=created_range,
+        updated_range=updated_range,
+        seen_range=seen_range,
+        full_ranges=full_ranges,
+    )
+    time_filtered_node_ids = {n.get("data", {}).get("id") for n in time_filtered_nodes}
+
+    # Count relationship types from edges whose endpoints survive time filtering
     rel_types = {}
     for elem in unfiltered_elements:
         data = elem.get("data", {})
         if is_edge_data(data):
-            rel_type = data.get("relType", data.get("label", "Unknown"))
-            if rel_type not in rel_types:
-                rel_types[rel_type] = 0
-            rel_types[rel_type] += 1
-    
+            source = data.get("source")
+            target = data.get("target")
+            # Only count edges where both endpoints are in the time-filtered set
+            if source in time_filtered_node_ids and target in time_filtered_node_ids:
+                rel_type = data.get("relType", data.get("label", "Unknown"))
+                if rel_type not in rel_types:
+                    rel_types[rel_type] = 0
+                rel_types[rel_type] += 1
+
     # Create checkbox options with counts
     options = [
         {"label": f"{rel_type} ({count})", "value": rel_type}
@@ -325,13 +371,13 @@ def update_relationship_type_filter(unfiltered_elements, current_values, previou
     available_set = set(available_values)
     previous_available_set = set(previous_available or [])
     current_set = set(current_values or [])
-    
+
     # Differentiate between first load (None) and user intentionally unchecking all ([])
     if previous_available is None:
         # True first load
         values = available_values
     elif previous_available_set == current_set:
-        # User had EVERYTHING selected previously ("Show All" intent). 
+        # User had EVERYTHING selected previously ("Show All" intent).
         # Keep "Show All" behavior for newly discovered types too.
         values = available_values
     else:
@@ -353,15 +399,23 @@ def update_relationship_type_filter(unfiltered_elements, current_values, previou
     [Output("node-type-filter", "options"),
      Output("node-type-filter", "value"),
      Output("node-type-available-store", "data")],
-    Input("unfiltered-elements-store", "data"),
+    [Input("unfiltered-elements-store", "data"),
+     Input("time-slider-created", "value"),
+     Input("time-slider-updated", "value"),
+     Input("time-slider-seen", "value")],
     [State("node-type-filter", "value"),
-     State("node-type-available-store", "data")],
+     State("node-type-available-store", "data"),
+     State("time-filter-full-ranges", "data")],
     prevent_initial_call=True
 )
-def update_node_type_filter(unfiltered_elements, current_values, previous_available):
+def update_node_type_filter(unfiltered_elements, created_range, updated_range, seen_range,
+                            current_values, previous_available, full_ranges):
     """Dynamically populate node type checkboxes from the unfiltered graph.
 
-    Called whenever the unfiltered baseline changes (new query or expansion).
+    Called whenever the unfiltered baseline changes (new query or expansion)
+    OR when time filter sliders move. Counts reflect only nodes that survive
+    the active time filters.
+
     Uses a three-way intent model to decide which types to select:
 
     1. ``previous_available is None``  → true first load; select all.
@@ -378,17 +432,26 @@ def update_node_type_filter(unfiltered_elements, current_values, previous_availa
     """
     if not unfiltered_elements:
         return [], [], []
-    
-    # Extract unique node types from nodes (using unfiltered data)
+
+    # Determine which nodes survive time filters
+    all_nodes = [e for e in unfiltered_elements if is_node_data(e.get("data", {}))]
+    time_filtered_nodes = _filter_nodes_by_time(
+        all_nodes,
+        created_range=created_range,
+        updated_range=updated_range,
+        seen_range=seen_range,
+        full_ranges=full_ranges,
+    )
+
+    # Count node types from the time-filtered subset
     node_types = {}
-    for elem in unfiltered_elements:
-        data = elem.get("data", {})
-        if is_node_data(data):
-            node_type = data.get("nodeType", "Unknown")
-            if node_type not in node_types:
-                node_types[node_type] = 0
-            node_types[node_type] += 1
-    
+    for node in time_filtered_nodes:
+        data = node.get("data", {})
+        node_type = data.get("nodeType", "Unknown")
+        if node_type not in node_types:
+            node_types[node_type] = 0
+        node_types[node_type] += 1
+
     # Create checkbox options with counts
     options = [
         {"label": f"{node_type} ({count})", "value": node_type}
@@ -399,7 +462,7 @@ def update_node_type_filter(unfiltered_elements, current_values, previous_availa
     available_set = set(available_values)
     previous_available_set = set(previous_available or [])
     current_set = set(current_values or [])
-    
+
     if previous_available is None:
         # True first load
         values = available_values
