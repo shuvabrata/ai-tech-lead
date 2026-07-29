@@ -16,6 +16,7 @@ from ..utils import (
     create_expansion_success_alert,
     create_no_neighbors_alert,
     create_expansion_error_alert,
+    create_performance_metrics,
     is_edge_element,
 )
 
@@ -85,7 +86,9 @@ def context_menu_expand_modal(n_clicks, rightclick_data, menu_style):
      Output("context-menu", "style", allow_duplicate=True),
     Output("graph-status-strip", "children", allow_duplicate=True),
     Output("graph-status-strip", "style", allow_duplicate=True),
-     Output("graph-layout-selector", "value", allow_duplicate=True)],
+     Output("graph-layout-selector", "value", allow_duplicate=True),
+     Output("graph-performance-metrics", "children", allow_duplicate=True),
+     Output("graph-performance-metrics", "style", allow_duplicate=True)],
     [Input("ctx-menu-expand-incoming", "n_clicks"),
      Input("ctx-menu-expand-outgoing", "n_clicks")],
     [State("rightclicked-node-store", "data"),
@@ -112,7 +115,7 @@ def context_menu_quick_expand(_n_clicks_incoming, _n_clicks_outgoing, rightclick
     
     if not rightclick_data:
         return (no_update, no_update, expanded_nodes, loaded_node_ids, updated_menu_style,
-                None, hide_style, current_layout)
+                None, hide_style, current_layout, no_update, no_update)
     
     # Determine which button was clicked
     ctx = callback_context
@@ -132,7 +135,7 @@ def context_menu_quick_expand(_n_clicks_incoming, _n_clicks_outgoing, rightclick
     node_id = rightclick_data.get("node_id")
     if not node_id:
         return (no_update, no_update, expanded_nodes, loaded_node_ids, updated_menu_style,
-                None, hide_style, current_layout)
+                None, hide_style, current_layout, no_update, no_update)
     
     try:
         logger.info(
@@ -155,7 +158,7 @@ def context_menu_quick_expand(_n_clicks_incoming, _n_clicks_outgoing, rightclick
         if not result["ok"]:
             error_alert = create_expansion_error_alert(f"Expansion failed: {result['error_message']}")
             return (no_update, no_update, expanded_nodes, loaded_node_ids, updated_menu_style,
-                    error_alert, show_style, current_layout)
+                    error_alert, show_style, current_layout, no_update, no_update)
 
         merged_elements = result["merged_elements"]
         updated_loaded_ids = result["updated_loaded_ids"]
@@ -164,7 +167,7 @@ def context_menu_quick_expand(_n_clicks_incoming, _n_clicks_outgoing, rightclick
         if result["new_nodes_count"] == 0:
             info_msg = create_no_neighbors_alert()
             return (no_update, no_update, updated_expanded, updated_loaded_ids, updated_menu_style,
-                    info_msg, show_style, current_layout)
+                    info_msg, show_style, current_layout, no_update, no_update)
 
         success_msg = create_expansion_success_alert(
             result["new_nodes_count"],
@@ -179,8 +182,13 @@ def context_menu_quick_expand(_n_clicks_incoming, _n_clicks_outgoing, rightclick
         )
         # Write merged_elements to the unfiltered store; the filter callback
         # re-applies active filters automatically (see apply_relationship_filters).
+        merged_nodes = [e for e in merged_elements if not is_edge_element(e)]
+        merged_edges = [e for e in merged_elements if is_edge_element(e)]
+        metrics = create_performance_metrics(
+            len(merged_nodes), len(merged_edges), result["elapsed_ms"], is_graph=True
+        )
         return (no_update, merged_elements, updated_expanded, updated_loaded_ids, updated_menu_style,
-            success_msg, show_style, "preset")
+            success_msg, show_style, "preset", metrics, show_style)
             
     except requests.exceptions.Timeout:
         logger.error(
@@ -189,7 +197,7 @@ def context_menu_quick_expand(_n_clicks_incoming, _n_clicks_outgoing, rightclick
         )
         error_alert = create_expansion_error_alert("Expansion timed out", error_type="timeout")
         return (no_update, no_update, expanded_nodes, loaded_node_ids, updated_menu_style,
-               error_alert, show_style, current_layout)
+               error_alert, show_style, current_layout, no_update, no_update)
     
     except requests.exceptions.ConnectionError:
         logger.error(
@@ -201,13 +209,13 @@ def context_menu_quick_expand(_n_clicks_incoming, _n_clicks_outgoing, rightclick
             error_type="connection"
         )
         return (no_update, no_update, expanded_nodes, loaded_node_ids, updated_menu_style,
-               error_alert, show_style, current_layout)
+               error_alert, show_style, current_layout, no_update, no_update)
     
     except Exception as e:
         logger.exception(f"[GRAPH-DEBUG][context.expand] unexpected_error {e}")
         error_alert = create_expansion_error_alert(f"Expansion error: {str(e)}")
         return (no_update, no_update, expanded_nodes, loaded_node_ids, updated_menu_style,
-               error_alert, show_style, current_layout)
+               error_alert, show_style, current_layout, no_update, no_update)
 
 
 # Clientside callback to copy node ID to clipboard
