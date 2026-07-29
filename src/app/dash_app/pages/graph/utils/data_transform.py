@@ -4,7 +4,8 @@ Functions for converting between Neo4j format and Cytoscape format,
 and parsing error responses from the backend API.
 """
 
-from app.common.node_size import apply_node_size 
+from common.logger import logger
+from app.common.node_size import apply_node_size
 from app.settings import settings
 
 
@@ -60,6 +61,21 @@ def neo4j_to_cytoscape(graph_response):
             'nodeType': node_label,
             'elementType': 'node'
         }
+
+        # DEBUG: Log raw properties for Team nodes to trace WBA_ID display issue
+        if node_label == "Team":
+            raw_props = node.get('properties', {})
+            logger.debug("[WBA_ID_DEBUG] neo4j_to_cytoscape node_label=%s wba_id=%s elementId=%s",
+                         node_label, wba_id, neo4j_element_id)
+            logger.debug("[WBA_ID_DEBUG] raw Neo4j property keys: %s", sorted(raw_props.keys()))
+            logger.debug("[WBA_ID_DEBUG] raw Neo4j 'id' property value: %r", raw_props.get("id"))
+            # Check if any key matches WBA_ID case-insensitively
+            for k in raw_props:
+                if k.upper() == "ID" and k != "id":
+                    logger.debug("[WBA_ID_DEBUG] Found non-standard 'id' variant: key=%r value=%r", k, raw_props[k])
+            logger.debug("[WBA_ID_DEBUG] final cyto_node_data keys: %s", sorted(cyto_node_data.keys()))
+            logger.debug("[WBA_ID_DEBUG] final cyto_node_data 'wba_id': %r", cyto_node_data.get('wba_id'))
+            logger.debug("[WBA_ID_DEBUG] final cyto_node_data 'id' (Neo4j elementId): %r", cyto_node_data.get('id'))
 
         cyto_node = {
             'group': 'nodes',
