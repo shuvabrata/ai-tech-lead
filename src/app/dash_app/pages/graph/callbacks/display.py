@@ -79,25 +79,29 @@ def update_layout(layout_name, reset_clicks, current_layout):
     # Determine which input triggered the callback
     if not callback_context.triggered:
         return current_layout
-    
+
     trigger_id = callback_context.triggered[0]['prop_id'].split('.')[0]
 
     # Layout selector changed
     if trigger_id == 'graph-layout-selector':
         if layout_name == 'preset':
             return {'name': 'preset', 'fit': False, 'animate': False, 'padding': 30}
+
+        if layout_name == 'cose':
+            return {'name': 'cose', 'animate': True, 'spacingFactor': 1.5}
+
         return {'name': layout_name, 'animate': True}
-    
+
     # Reset button clicked - re-run current layout algorithm to reset node positions
     elif trigger_id == 'graph-reset-btn':
         # Use current layout name, or default to cose
         current_name = current_layout.get('name', 'cose') if current_layout else 'cose'
-        
+
         # Toggle a property to force Cytoscape to re-run layout on each click
         # Use click count to alternate stop value (doesn't affect visual, just forces re-render)
         click_count = reset_clicks or 0
         stop_value = 1000 if click_count % 2 == 0 else 1001
-        
+
         # Return layout with fit=True to ensure graph fits in viewport
         if current_name == 'preset':
             return {
@@ -108,14 +112,17 @@ def update_layout(layout_name, reset_clicks, current_layout):
                 'stop': stop_value
             }
 
-        return {
-            'name': current_name, 
-            'animate': True, 
-            'fit': True, 
+        layout_opts = {
+            'name': current_name,
+            'animate': True,
+            'fit': True,
             'padding': 30,
-            'stop': stop_value  # Alternates each click to force re-render
+            'stop': stop_value,
         }
-    
+        if current_name == 'cose':
+            layout_opts['spacingFactor'] = 1.5
+        return layout_opts
+
     return current_layout
 
 
