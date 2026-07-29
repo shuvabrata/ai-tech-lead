@@ -114,8 +114,12 @@ def test_update_node_type_filter_defaults_to_all_on_fresh_graph_load():
 
     options, values, available = filtering_callbacks.update_node_type_filter(
         unfiltered_elements=unfiltered_elements,
+        created_range=[0, 1],
+        updated_range=[0, 1],
+        seen_range=[0, 1],
         current_values=["Person"],
         previous_available=None,
+        full_ranges={},
     )
 
     assert options == [
@@ -136,8 +140,12 @@ def test_update_relationship_type_filter_defaults_to_all_on_fresh_graph_load():
 
     options, values, available = filtering_callbacks.update_relationship_type_filter(
         unfiltered_elements=unfiltered_elements,
+        created_range=[0, 1],
+        updated_range=[0, 1],
+        seen_range=[0, 1],
         current_values=[],
         previous_available=None,
+        full_ranges={},
     )
 
     assert options == [
