@@ -25,7 +25,7 @@
 | Phase | Title | Effort | Status |
 |-------|-------|--------|--------|
 | 1 | Shared library (`src/common/command_n_control/`) | M | ✅ DONE |
-| 2 | Database model + migration | S | DRAFT |
+| 2 | Database model + migration | S | ✅ DONE |
 | 3 | API endpoints (`/api/v1/commands/`) | M | DRAFT |
 | 4 | Producer daemon conversion | L | DRAFT |
 | 5 | RabbitMQ topology update | XS | DRAFT |
@@ -305,13 +305,15 @@ cd src/app && alembic upgrade head
 
 ### Phase 2 progress
 
-- [ ] `src/app/db/models/command_status.py` created
-- [ ] `src/app/db/models/__init__.py` updated
-- [ ] Alembic migration generated
-- [ ] Migration applied: `alembic upgrade head`
-- [ ] Unit tests written and passing
-- [ ] Manual verification: table exists, constraints work
-- [ ] `pylint src/app/db/models/command_status.py` — no errors
+- [x] `src/app/db/models/command_status.py` created
+- [x] `src/app/db/models/__init__.py` updated
+- [x] Alembic migration generated
+- [x] Migration applied: `alembic upgrade head`
+- [x] Unit tests written and passing — 7/7 passed
+- [x] Manual verification: table exists, constraints work
+- [x] `pylint src/app/db/models/command_status.py` — 10.00/10 (no errors)
+- [x] `mypy src/app/db/models/command_status.py` — no errors found
+- [x] Regression: existing unit tests still pass — 770/770 passed
 
 ---
 
