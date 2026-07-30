@@ -5,6 +5,7 @@ CONNECTOR_REGISTRY = {
         "section": "connections",
         "supports_items": True,
         "setup_type": "db_backed",
+        "producer_container": "github-producer",
     },
     "jira": {
         "display_name": "Jira",
@@ -12,6 +13,7 @@ CONNECTOR_REGISTRY = {
         "section": "connections",
         "supports_items": True,
         "setup_type": "db_backed",
+        "producer_container": "jira-producer",
     },
     "slack": {
         "display_name": "Slack",
@@ -33,6 +35,7 @@ CONNECTOR_REGISTRY = {
         "section": "connections",
         "supports_items": True,
         "setup_type": "db_backed",
+        "producer_container": "confluence-producer",
     },
     "google_docs": {
         "display_name": "Google Docs",

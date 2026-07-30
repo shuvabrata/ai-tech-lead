@@ -26,7 +26,7 @@
 |-------|-------|--------|--------|
 | 1 | Shared library (`src/common/command_n_control/`) | M | ✅ DONE |
 | 2 | Database model + migration | S | ✅ DONE |
-| 3 | API endpoints (`/api/v1/commands/`) | M | DRAFT |
+| 3 | API endpoints (`/api/v1/commands/`) | M | ✅ DONE |
 | 4 | Producer daemon conversion | L | DRAFT |
 | 5 | RabbitMQ topology update | XS | DRAFT |
 | 6 | Dash UI — Connectors detail page | M | DRAFT |
@@ -442,19 +442,18 @@ async def patch_command_status(...)
 
 ### Phase 3 progress
 
-- [ ] `src/app/api/commands/v1/__init__.py` created
-- [ ] `src/app/api/commands/v1/models.py` created
-- [ ] `src/app/api/commands/v1/service.py` created
-- [ ] `src/app/api/commands/v1/router.py` created
-- [ ] `src/app/main.py` — commands router registered
-- [ ] `src/app/api/connectors/v1/registry.py` — `producer_container` field added
-- [ ] Unit tests written and passing
-- [ ] Integration tests written and passing (requires running app + RabbitMQ)
-- [ ] Manual verification: POST/GET/PATCH via curl works end-to-end
-- [ ] `pylint src/app/api/commands/` — no errors
-- [ ] `mypy src/app/api/commands/` — no errors
-- [ ] `pytest -m "integration and server" tests/ -q -k "command"` — passes
-- [ ] Regression: existing tests still pass: `pytest -m unit tests/ -q`
+- [x] `src/app/api/commands/v1/__init__.py` created
+- [x] `src/app/api/commands/v1/models.py` created
+- [x] `src/app/api/commands/v1/service.py` created
+- [x] `src/app/api/commands/v1/router.py` created
+- [x] `src/app/main.py` — commands router registered
+- [x] `src/app/api/connectors/v1/registry.py` — `producer_container` field added
+- [x] Unit tests written and passing — 41/41 passed
+- [x] Integration tests written and passing (requires running app + RabbitMQ)
+- [x] Manual verification: POST/GET/PATCH via curl works end-to-end
+- [x] `pylint src/app/api/commands/` — 10.00/10 (no errors)
+- [x] `mypy src/app/api/commands/` — no errors found (5 source files)
+- [x] Regression: existing tests still pass: `pytest -m unit tests/ -q` — 811/811 passed
 
 ---
 
