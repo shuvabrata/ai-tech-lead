@@ -6,6 +6,18 @@
 > Mark each task `[ ]` → `[x]` as you complete them. Update the status table at the
 > top when wrapping up each phase.
 
+> **Reference documents**: During implementation, always consult the following
+> documents for project conventions, patterns, and design constraints:
+> - [`.github/copilot-instructions.md`](../.github/copilot-instructions.md) —
+>   project-wide rules (imports, code style, testing, architecture patterns)
+> - [`docs/design/`](../docs/design/) — all design documents in this folder,
+>   including the high-level design, design system, frontend design spec,
+>   activity signal spec, producer/consumer development guides, RabbitMQ
+>   topology, graph DB schema, relationship design, index strategy, and
+>   GitHub API optimization notes. Refer to the relevant document(s) for
+>   each phase (e.g. RabbitMQ design for Phases 1/5, producer guide for
+>   Phase 4, graph DB docs for Neo4j-related checks).
+
 ---
 
 ## Status
@@ -31,6 +43,11 @@ table in Postgres (via Alembic) and a `/api/v1/commands/` REST API on the app
 to send commands and query status. The Dash Connectors detail page gets a "Run
 Scan" button and a "Recent Scans" section. Producers update status via HTTP
 callbacks to the app's API.
+
+> **Note — Consumer unaffected**: The existing signal consumer
+> (`src/connectors/consumers/`) listens on the `activity_signals` exchange and is
+> completely unaffected by the new `command_n_control` exchange. No changes are
+> needed in the consumer or Neo4j sync layer.
 
 ---
 
@@ -110,6 +127,12 @@ Message format (CommandEnvelope):
 #### `src/common/command_n_control/publisher.py`
 - Class: `CommandPublisher`
 - Async context manager (`__aenter__` / `__aexit__`) — same pattern as `RabbitMQPublisher`
+- **Relationship to `RabbitMQPublisher`**: This is a separate class (not a subclass or
+  wrapper) because it uses a different exchange (`command_n_control` vs `activity_signals`)
+  and a different routing key convention (`command_n_control.<target>` vs `<source>.<entity_type>`).
+  However, the connection/channel management code is identical — consider extracting
+  a shared base or simply duplicating the pattern (preferred for clarity, given the
+  small amount of code involved).
 - `async publish(command: CommandEnvelope)` — serializes to JSON, publishes to
   `command_n_control` exchange with routing key `command_n_control.<target>`
 - If `target == "*"`, publishes one message per known routing key (list passed
@@ -227,7 +250,7 @@ class CommandStatus(Base):
     status: Mapped[str] = mapped_column(
         String(20), nullable=False, default="pending"
     )
-    accepted_at: Mapped[datetime] = mapped_column(
+    created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False
     )
     started_at: Mapped[Optional[datetime]] = mapped_column(
@@ -258,7 +281,7 @@ cd src/app && alembic upgrade head
 | `test_command_status_model_create` | SQLAlchemy model can be instantiated with required fields |
 | `test_command_status_default_status` | Default status is `"pending"` |
 | `test_command_status_unique_command_id` | Duplicate `command_id` raises integrity error |
-| `test_command_status_timestamps` | `accepted_at` is set, `started_at`/`completed_at` start as `None` |
+| `test_command_status_timestamps` | `created_at` is set, `started_at`/`completed_at` start as `None` |
 | `test_command_status_status_values` | Model allows all valid status strings |
 | `test_command_status_relationship` | Verify no broken relationships or FK constraints |
 
@@ -272,10 +295,10 @@ cd src/app && alembic upgrade head
    ```
 3. Verify the unique constraint on `command_id`:
    ```sql
-   INSERT INTO command_status (command_id, command_type, target, accepted_at, status)
+   INSERT INTO command_status (command_id, command_type, target, created_at, status)
    VALUES ('00000000-0000-0000-0000-000000000001', 'scan', 'test', NOW(), 'pending');
    -- Second insert with same command_id should fail
-   INSERT INTO command_status (command_id, command_type, target, accepted_at, status)
+   INSERT INTO command_status (command_id, command_type, target, created_at, status)
    VALUES ('00000000-0000-0000-0000-000000000001', 'scan', 'test', NOW(), 'pending');
    ```
 
@@ -308,7 +331,7 @@ via PATCH to update status.
 
 #### `src/app/api/commands/v1/models.py`
 - `CreateCommandRequest(command_type: str, target: str, parameters: dict | None = None)`
-- `CommandResponse(command_id: UUID, command_type, target, status, parameters, accepted_at, started_at, completed_at, error_message, result_summary)`
+- `CommandResponse(command_id: UUID, command_type, target, status, parameters, created_at, started_at, completed_at, error_message, result_summary)`
   - Convert from `CommandStatus` ORM model
 - `CommandStatusUpdateRequest(status: str, error_message: str | None = None, started_at: datetime | None = None, completed_at: datetime | None = None, result_summary: dict | None = None)`
 - `CommandListResponse(commands: list[CommandResponse], total: int)`
@@ -317,11 +340,17 @@ via PATCH to update status.
 - `async create_and_publish_command(request, db_session)`:
   1. Validate `target` — if it's not `"*"`, check it matches a known producer container
      from `CONNECTOR_REGISTRY`
-  2. Insert row in `command_status` with status `"pending"` and `accepted_at = now()`
+  2. Insert row in `command_status` with status `"pending"` and `created_at = now()`
   3. Build `CommandEnvelope` with UUID, type, target, parameters, issued_at
   4. Publish to RabbitMQ via `CommandPublisher`
-  5. Update status to `"accepted"` after successful publish
+  5. On success, update status to `"accepted"`; on publish failure, set status to
+     `"failed"` with `error_message="Failed to publish to RabbitMQ"` (this prevents
+     a row stuck forever at `"pending"`)
   6. Return `CommandResponse`
+- **Publisher lifecycle**: Each `create_and_publish_command` call creates a new
+  `CommandPublisher` connection. For a low-frequency command API this is acceptable.
+  If performance becomes a concern, a future optimization could use a long-lived
+  publisher singleton (similar to how the app manages its DB session pool).
 - `async get_command(command_id, db_session)` → `CommandResponse | None`
 - `async list_commands(db_session, status=None, target=None, command_type=None, limit=20, offset=0)` → `(list[CommandResponse], total)`
 - `async update_command_status(command_id, status_update, db_session)`:
@@ -354,10 +383,14 @@ async def patch_command_status(...)
   from app.api.commands.v1.router import router as commands_router
   app.include_router(commands_router, prefix="/api/v1")
   ```
-- `src/app/api/connectors/v1/registry.py` — add `producer_container` field:
+- `src/app/api/connectors/v1/registry.py` — add `producer_container` field to the
+  three producer connectors only (non-producer connectors like `slack`, `teams`,
+  `google_docs`, `sharepoint`, `email`, `atlassian_mcp`, `github_mcp` do NOT get
+  this field — the Dash UI checks for its presence to decide whether to show the
+  "Run Scan" button):
   ```python
-  "github": { ..., "producer_container": "github-producer" },
-  "jira":   { ..., "producer_container": "jira-producer" },
+  "github":     { ..., "producer_container": "github-producer" },
+  "jira":       { ..., "producer_container": "jira-producer" },
   "confluence": { ..., "producer_container": "confluence-producer" },
   ```
 
@@ -434,13 +467,23 @@ This is the largest phase. Each producer follows an identical structural pattern
 
 ### Step-by-step for GitHub producer
 
-#### Step 4a: Rename `main.py` → `scan.py`
+#### Step 4a: Rename `main.py` → `scan.py` + extract `run_scan()`
 - `mv src/connectors/producers/github/main.py src/connectors/producers/github/scan.py`
-- In `scan.py`:
-  - Rename `main_async()` → `async def run_scan(publisher, command_envelope, config)`
-  - Keep `main()` as a one-shot convenience entry point for local debugging
-  - Remove RabbitMQ URL fetch from `run_scan()` — the publisher is passed in
-- Update the module docstring to reflect it's the scan logic, not the entry point
+- **Extract config loading**: In `scan.py`, extract the config-loading logic (reading
+  from `CONFIGURATION_SOURCE` env var, fetching from `API_SERVER` or `FILE`) into a
+  standalone async function: `async def load_config() -> dict`. This function is called
+  once by the daemon's `main_async()` at startup (per design decision #10), not by
+  `run_scan()`.
+- **Create `run_scan()`**: Rename the existing `main_async()` to
+  `async def run_scan(publisher: RabbitMQPublisher, command_envelope: CommandEnvelope, config: dict) -> dict[str, int]`:
+  - `publisher` — pre-created `RabbitMQPublisher` instance (daemon opens one per scan)
+  - `command_envelope` — the command that triggered the scan; `command_envelope.parameters`
+    may contain overrides like `{"force_full": true}` or `{"since": "2026-01-01"}`
+  - `config` — the pre-loaded configuration dict
+  - Returns a result summary dict like `{"signals_published": 42}` for status tracking
+- Keep `main()` as a one-shot convenience entry point for local debugging
+- Remove RabbitMQ URL fetch from `run_scan()` — the publisher is passed in
+- Update the module docstring to reflect it's now the scan logic module, not the entry point
 
 #### Step 4b: Create new `main.py`
 Structure:
@@ -460,6 +503,8 @@ Environment variables:
 import asyncio, os, signal, uuid
 from datetime import datetime, timezone
 
+import httpx
+
 from common.command_n_control.models import CommandEnvelope, CommandStatusUpdate
 from common.command_n_control.listener import CommandListener
 from common.messaging.rabbitmq import RabbitMQPublisher
@@ -469,14 +514,14 @@ from connectors.producers.github.scan import run_scan
 
 
 async def _update_status(command_id: uuid.UUID, update: CommandStatusUpdate) -> None:
-    """POST a status update to the app's API."""
-    import requests
+    """PATCH a status update to the app's API."""
     api_base = os.environ.get("API_SERVER", "http://localhost:8000").rstrip("/")
     url = f"{api_base}/api/v1/commands/{command_id}/status"
     try:
-        resp = requests.patch(url, json=update.model_dump(exclude_none=True), timeout=10)
-        resp.raise_for_status()
-    except requests.RequestException as exc:
+        async with httpx.AsyncClient(timeout=10) as client:
+            resp = await client.patch(url, json=update.model_dump(exclude_none=True))
+            resp.raise_for_status()
+    except httpx.HTTPError as exc:
         logger.warning("Failed to update command status: %s", exc)
 
 
@@ -503,12 +548,14 @@ async def scan_worker(queue: asyncio.Queue, shutdown_event: asyncio.Event):
             async with RabbitMQPublisher(
                 os.environ.get("RABBITMQ_URL", "amqp://guest:guest@localhost:5672/")
             ) as publisher:
-                await run_scan(publisher, envelope, config)  # config loaded once
+                result_summary = await run_scan(
+                    publisher, envelope, config
+                )  # returns dict[str, int] like {"signals_published": 42}
 
             logger.info("Scan completed command_id=%s", command_id)
             await _update_status(command_id, CommandStatusUpdate(
                 status="completed", completed_at=datetime.now(timezone.utc),
-                # TODO: populate result_summary from run_scan return value
+                result_summary=result_summary,
             ))
         except asyncio.CancelledError:
             logger.warning("Scan cancelled command_id=%s — container shutting down", command_id)
@@ -560,15 +607,8 @@ async def listen_and_dispatch(queue: asyncio.Queue, shutdown_event: asyncio.Even
     logger.info("Command listener stopped")
 
 
-def _handle_sigterm(signum, frame):
-    """Signal handler — triggers graceful shutdown."""
-    logger.warning("Received SIGTERM — initiating graceful shutdown")
-    shutdown_event.set()
-
-
 async def main_async():
     """Daemon entry point."""
-    global shutdown_event
     shutdown_event = asyncio.Event()
 
     # Register signal handlers
@@ -684,6 +724,7 @@ Same pattern. `src/connectors/producers/confluence/main.py` → `scan.py`, new `
 - [ ] Manual verification: daemon starts, receives commands, runs scans
 
 **All producers:**
+- [ ] `httpx` added to `requirements.github-producer.txt`, `requirements.jira-producer.txt`, `requirements.confluence-producer.txt`
 - [ ] Integration test: end-to-end scan via API → RabbitMQ → daemon → status update
 - [ ] `pytest -m unit tests/ -q` — all existing tests still pass
 - [ ] `pylint src/connectors/producers/*/main.py src/connectors/producers/*/scan.py` — no errors
@@ -696,6 +737,13 @@ Same pattern. `src/connectors/producers/confluence/main.py` → `scan.py`, new `
 
 Add the `command_n_control` exchange, DLX, DLQ, and per-producer queues to the
 `init_rabbitmq.py` script that runs at app container startup.
+
+> **Topology design note**: Unlike the `activity_signals` exchange (which uses
+> source-level wildcard queues like `github.#`), the `command_n_control` exchange
+> uses **per-container queues with exact routing key matches**
+> (`command_n_control.github-producer`, etc.). This is because each producer only
+> needs to receive commands addressed specifically to it — there is no entity-type
+> fan-out in the command bus.
 
 ### Files to modify
 
@@ -796,7 +844,7 @@ Only shown for connector types that have a `producer_container` in the registry.
 #### `src/app/dash_app/pages/connectors/layout.py`
 
 In `get_detail_layout()`:
-1. Import `CONNECTOR_REGISTRY` (already imported)
+1. Import `CONNECTOR_REGISTRY` (already imported), `SPACING_SMALL` from `app.dash_app.styles`
 2. After the "Test Connection" / "Delete Configuration" button row, conditionally
    render a "Run Scan" button (only if `registry.get(producer_container)` is set):
    ```python
@@ -820,9 +868,12 @@ In `get_detail_layout()`:
 
 #### `src/app/dash_app/pages/connectors/callbacks.py`
 
-New callbacks:
+New callbacks (add to `callbacks.py`):
 
 ```python
+from dash import callback_context, no_update, callback, Input, Output, State, MATCH
+from app.dash_app.styles import SPACING_SMALL  # if needed for layout tokens
+
 @callback(
     Output("connector-action-feedback", "children", allow_duplicate=True),
     Input({"type": "connector-run-scan", "connector_type": MATCH}, "n_clicks"),
@@ -930,6 +981,17 @@ def render_scan_item(command: dict) -> html.Div:
 Update docker-compose.yml to make producers long-running, add `CONTAINER_NAME`
 env var, and ensure the app `depends_on` includes the control topology.
 
+### Dependency changes
+
+Add `httpx` to all three producer requirement files (needed by the daemon for
+async HTTP PATCH callbacks to the app's API):
+
+| File | Addition |
+|---|---|
+| `requirements.github-producer.txt` | `httpx` |
+| `requirements.jira-producer.txt` | `httpx` |
+| `requirements.confluence-producer.txt` | `httpx` |
+
 ### Files to modify
 
 #### `docker-compose.yml`
@@ -942,13 +1004,29 @@ github-producer:
   environment:
     CONTAINER_NAME: github-producer  # NEW
     # ... existing env vars stay ...
-  # depends_on stays the same
+  # CHANGED: Remove "app: condition: service_healthy" from depends_on.
+  # The daemon no longer blocks on app startup — it connects to RabbitMQ
+  # independently. Status PATCH callbacks will gracefully degrade (log a
+  # warning) if the app is temporarily unavailable.
+  depends_on:
+    postgres:
+      condition: service_healthy
+    rabbitmq:
+      condition: service_healthy
 ```
 
 Same pattern for jira-producer and confluence-producer.
 
 **app service — no changes needed** (already depends on rabbitmq and producers
 are independent of app health now).
+
+#### Dockerfile entrypoint verification
+
+The existing `Dockerfile.github-producer`, `Dockerfile.jira-producer`, and
+`Dockerfile.confluence-producer` each run `CMD ["python", "main.py"]` or similar.
+After the rename (`main.py` → `scan.py`), the new `main.py` (daemon) lives at the
+same path, so the Dockerfile `CMD` does **not** need to change. Verify this during
+implementation by checking each Dockerfile's `CMD` instruction.
 
 ### Tests to verify
 
@@ -967,6 +1045,9 @@ are independent of app health now).
 - [ ] `docker-compose.yml` — github-producer `restart: unless-stopped` + `CONTAINER_NAME`
 - [ ] `docker-compose.yml` — jira-producer `restart: unless-stopped` + `CONTAINER_NAME`
 - [ ] `docker-compose.yml` — confluence-producer `restart: unless-stopped` + `CONTAINER_NAME`
+- [ ] `docker-compose.yml` — producer `depends_on` updated (removed `app` dependency)
+- [ ] Dockerfile entrypoints verified — `CMD` still points to the correct (new) `main.py`
+- [ ] `httpx` added to `requirements.github-producer.txt`, `requirements.jira-producer.txt`, `requirements.confluence-producer.txt`
 - [ ] Full stack up: `docker compose up -d` — all containers start successfully
 - [ ] All 3 producers show "daemon started" in logs
 - [ ] All 3 `cnc.*` queues show 1 consumer in RabbitMQ UI
@@ -1012,7 +1093,7 @@ pytest tests/ -q
 
 - [ ] Existing connector API endpoints work (CRUD configs, test connection)
 - [ ] Existing Dash pages work (Chat, People, Progress, Graph, Analytics, Settings)
-- [ ] Signal consumer still processes signals correctly
+- [ ] Signal consumer still processes signals correctly (unaffected by new exchange)
 - [ ] Existing tests pass: `pytest -m unit tests/ -q`
 - [ ] Type checking: `mypy src/`
 - [ ] Linting: `pylint src/`
