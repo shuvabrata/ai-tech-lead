@@ -24,7 +24,7 @@
 
 | Phase | Title | Effort | Status |
 |-------|-------|--------|--------|
-| 1 | Shared library (`src/common/command_n_control/`) | M | DRAFT |
+| 1 | Shared library (`src/common/command_n_control/`) | M | ✅ DONE |
 | 2 | Database model + migration | S | DRAFT |
 | 3 | API endpoints (`/api/v1/commands/`) | M | DRAFT |
 | 4 | Producer daemon conversion | L | DRAFT |
@@ -193,14 +193,15 @@ Message format (CommandEnvelope):
 
 ### Phase 1 progress
 
-- [ ] `src/common/command_n_control/__init__.py` created
-- [ ] `src/common/command_n_control/models.py` created
-- [ ] `src/common/command_n_control/publisher.py` created
-- [ ] `src/common/command_n_control/listener.py` created
-- [ ] Unit tests written and passing: `pytest -m unit tests/ -q -k "command_n_control or command_envelope"`
-- [ ] Manual verification: publish a command, verify in RabbitMQ UI
-- [ ] `pylint src/common/command_n_control/` — no errors
-- [ ] `mypy src/common/command_n_control/` — no errors
+- [x] `src/common/command_n_control/__init__.py` created
+- [x] `src/common/command_n_control/models.py` created
+- [x] `src/common/command_n_control/publisher.py` created
+- [x] `src/common/command_n_control/listener.py` created
+- [x] Unit tests written and passing: `pytest -m unit tests/ -q -k "command_n_control or command_envelope"` — 24/24 passed
+- [x] Manual verification: publish a command, verify in RabbitMQ UI
+- [x] `pylint src/common/command_n_control/` — 10.00/10 (no errors)
+- [x] `mypy src/common/command_n_control/` — no errors found (4 source files)
+- [x] Regression: existing unit tests still pass — 763/763 passed
 
 ---
 
