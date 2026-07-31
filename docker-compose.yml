@@ -223,9 +223,7 @@ services:
     volumes:
       - ./logs/github-producer:/var/log/github-producer
     depends_on:
-      postgres:
-        condition: service_healthy
-      rabbitmq:
+      app:
         condition: service_healthy
     restart: unless-stopped
     networks:
@@ -248,9 +246,7 @@ services:
     volumes:
       - ./logs/jira-producer:/var/log/jira-producer
     depends_on:
-      postgres:
-        condition: service_healthy
-      rabbitmq:
+      app:
         condition: service_healthy
     restart: unless-stopped
     networks:
@@ -273,9 +269,7 @@ services:
     volumes:
       - ./logs/confluence-producer:/var/log/confluence-producer
     depends_on:
-      postgres:
-        condition: service_healthy
-      rabbitmq:
+      app:
         condition: service_healthy
     restart: unless-stopped
     networks:
@@ -304,13 +298,7 @@ services:
     volumes:
       - ./logs/signal-consumer:/var/log/signal-consumer
     depends_on:
-      rabbitmq:
-        condition: service_healthy
-      neo4j:
-        condition: service_healthy
       app:
-        condition: service_healthy
-      elasticsearch:
         condition: service_healthy
     restart: unless-stopped  # Long-running consumer; restart on failure
     networks:

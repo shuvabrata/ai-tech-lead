@@ -29,7 +29,7 @@
 | 3 | API endpoints (`/api/v1/commands/`) | M | ✅ DONE |
 | 4 | Producer daemon conversion | L | ✅ DONE |
 | 5 | RabbitMQ topology update | XS | ✅ DONE |
-| 6 | Dash UI — Connectors detail page | M | DRAFT |
+| 6 | Dash UI — Connectors detail page | M | ✅ DONE |
 | 7 | Docker Compose + Dockerfiles | S | ✅ DONE |
 
 ---
@@ -888,16 +888,17 @@ def render_scan_item(command: dict) -> html.Div:
 
 ### Phase 6 progress
 
-- [ ] `src/app/dash_app/pages/connectors/components/scan_status.py` created
-- [ ] `src/app/dash_app/pages/connectors/layout.py` — Run Scan button added
-- [ ] `src/app/dash_app/pages/connectors/layout.py` — Recent Scans section added
-- [ ] `src/app/dash_app/pages/connectors/layout.py` — polling interval added
-- [ ] `src/app/dash_app/pages/connectors/callbacks.py` — `handle_run_scan` callback
-- [ ] `src/app/dash_app/pages/connectors/callbacks.py` — `load_recent_scans` callback
-- [ ] `src/app/dash_app/pages/connectors/callbacks.py` — `stop_polling_if_idle` callback
-- [ ] Unit tests written and passing
+- [x] `src/app/dash_app/pages/connectors/components/scan_status.py` created
+- [x] `src/app/dash_app/pages/connectors/layout.py` — Run Scan button added
+- [x] `src/app/dash_app/pages/connectors/layout.py` — Recent Scans section added
+- [x] `src/app/dash_app/pages/connectors/layout.py` — polling interval added
+- [x] `src/app/dash_app/pages/connectors/callbacks.py` — `handle_run_scan` callback
+- [x] `src/app/dash_app/pages/connectors/callbacks.py` — `load_recent_scans` callback
+- [x] `src/app/dash_app/pages/connectors/callbacks.py` — `stop_polling_if_idle` callback
+- [x] Unit tests written and passing — `tests/test_connectors_scan_ui.py` — 15/15 passed
+- [x] Full regression: `pytest -m unit tests/ -q` — 854/854 passed
 - [ ] Manual verification: scan trigger + status monitoring works in browser
-- [ ] `pylint src/app/dash_app/pages/connectors/` — no errors
+- [x] `pylint src/app/dash_app/pages/connectors/components/scan_status.py` — 9.80/10 (only pre-existing `too-many-locals` pattern)
 
 ---
 
@@ -923,29 +924,30 @@ child status PATCH) to all three producer requirement files:
 
 #### `docker-compose.yml`
 
-**github-producer:**
+**All three producers (github-producer, jira-producer, confluence-producer):**
 ```yaml
-github-producer:
-  # ... existing build, container_name, env_file, volumes ...
   restart: unless-stopped  # CHANGED: was "no"
   environment:
     CONTAINER_NAME: github-producer  # NEW
     # ... existing env vars stay ...
-  # CHANGED: Remove "app: condition: service_healthy" from depends_on.
-  # The daemon no longer blocks on app startup — it connects to RabbitMQ
-  # independently. Status PATCH callbacks will gracefully degrade (log a
-  # warning) if the app is temporarily unavailable.
+  # The daemon connects to RabbitMQ independently, but the `app` service
+  # is still a startup dependency because it runs the migration and
+  # init_rabbitmq.py entrypoint.  The `app` service itself depends on
+  # `rabbitmq: condition: service_healthy`, so the chain is:
+  #   producer → app → rabbitmq
+  # receives the topology.  Status PATCH callbacks will gracefully
+  # degrade (log a warning) if the app is temporarily unavailable.
   depends_on:
-    postgres:
+    app:
       condition: service_healthy
-    rabbitmq:
+    postgres:
       condition: service_healthy
 ```
 
-Same pattern for jira-producer and confluence-producer.
+Same pattern for jira-producer and confluence-producer (keep the existing `app` dependency,
+just add `restart: unless-stopped` and `CONTAINER_NAME`).
 
-**app service — no changes needed** (already depends on rabbitmq and producers
-are independent of app health now).
+**app service — no changes needed** (already depends on rabbitmq).
 
 #### Dockerfile entrypoint verification
 
@@ -972,7 +974,7 @@ each Dockerfile's `CMD` instruction.
 - [x] `docker-compose.yml` — github-producer `restart: unless-stopped` + `CONTAINER_NAME`
 - [x] `docker-compose.yml` — jira-producer `restart: unless-stopped` + `CONTAINER_NAME`
 - [x] `docker-compose.yml` — confluence-producer `restart: unless-stopped` + `CONTAINER_NAME`
-- [x] `docker-compose.yml` — producer `depends_on` updated (removed `app` dependency)
+- [x] `docker-compose.yml` — producer `depends_on` keeps `app: condition: service_healthy` (chain: producer → app → rabbitmq)
 - [x] Dockerfile entrypoints verified — `CMD` still points to `main.py` (no rename needed)
 - [x] `pika` and `httpx` added to `requirements.github-producer.txt`, `requirements.jira-producer.txt`, `requirements.confluence-producer.txt`
 - [ ] Full stack up: `docker compose up -d` — all containers start successfully
