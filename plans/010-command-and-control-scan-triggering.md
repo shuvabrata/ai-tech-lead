@@ -630,23 +630,23 @@ The shared module handles:
 - [x] `src/connectors/producers/github/main.py` — injected `producer_main()` call
 - [x] `main_async()` preserved unchanged (no refactoring)
 - [x] Unit tests written and passing for github daemon
-- [ ] Manual verification: daemon starts, spawns children, reaps via SIGCHLD
+- [x] Manual verification: daemon starts, spawns children, reaps via SIGCHLD
 
 **Jira producer:**
 - [x] `src/connectors/producers/jira/main.py` — injected `producer_main()` call
 - [x] `main_async()` preserved unchanged
 - [x] Unit tests written and passing for jira daemon
-- [ ] Manual verification: daemon starts, spawns children, reaps via SIGCHLD
+- [x] Manual verification: daemon starts, spawns children, reaps via SIGCHLD
 
 **Confluence producer:**
 - [x] `src/connectors/producers/confluence/main.py` — injected `producer_main()` call
 - [x] `main_async()` preserved unchanged
 - [x] Unit tests written and passing for confluence daemon
-- [ ] Manual verification: daemon starts, spawns children, reaps via SIGCHLD
+- [x] Manual verification: daemon starts, spawns children, reaps via SIGCHLD
 
 **All producers:**
 - [x] `pika` and `httpx` added to all three `requirements.*.txt` files
-- [ ] Integration test: end-to-end scan via API → RabbitMQ → daemon → child → status update
+- [x] Integration test: end-to-end scan via API → RabbitMQ → daemon → child → status update
 - [x] `pytest -m unit tests/ -q` — 811/811 passed
 - [x] `pylint src/connectors/producers/*/main.py src/connectors/producers/daemon_common.py` — no errors (9.94/10)
 
