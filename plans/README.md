@@ -14,7 +14,7 @@ fully before starting, honor its STOP conditions, and update your row when done.
 | 001  | [Remove `include_secrets` from public routes](001-remove-include-secrets-from-public-routes.md) | P0 | S | — | TODO |
 | 005  | [MCP thread join timeout](005-mcp-thread-join-timeout.md) | P2 | S | — | TODO |
 | 009  | [Branch node — model, display properties, and backfill](009-branch-node-model-and-display-properties.md) | P2 | S-M | — | DRAFT 🚧 |
-| 010  | [Command-and-control scan triggering via RabbitMQ](010-command-and-control-scan-triggering.md) | P1 | L | Phases 1→7 | DRAFT 🚧 |
+
 
 
 ## Reconciliation notes (2026-06-27)
