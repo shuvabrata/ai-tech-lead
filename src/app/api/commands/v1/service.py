@@ -23,7 +23,7 @@ from app.settings import settings
 # Valid status lifecycle transitions.
 _VALID_TRANSITIONS: dict[str, set[str]] = {
     "pending": {"accepted", "failed"},
-    "accepted": {"queued", "failed"},
+    "accepted": {"queued", "running", "failed"},
     "queued": {"running", "failed"},
     "running": {"completed", "failed"},
     "completed": set(),
