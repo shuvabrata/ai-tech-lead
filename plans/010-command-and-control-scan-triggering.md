@@ -27,10 +27,10 @@
 | 1 | Shared library (`src/common/command_n_control/`) | M | ✅ DONE |
 | 2 | Database model + migration | S | ✅ DONE |
 | 3 | API endpoints (`/api/v1/commands/`) | M | ✅ DONE |
-| 4 | Producer daemon conversion | L | DRAFT |
+| 4 | Producer daemon conversion | L | ✅ DONE |
 | 5 | RabbitMQ topology update | XS | DRAFT |
 | 6 | Dash UI — Connectors detail page | M | DRAFT |
-| 7 | Docker Compose + Dockerfiles | S | DRAFT |
+| 7 | Docker Compose + Dockerfiles | S | ✅ DONE |
 
 ---
 
@@ -964,12 +964,12 @@ each Dockerfile's `CMD` instruction.
 
 ### Phase 7 progress
 
-- [ ] `docker-compose.yml` — github-producer `restart: unless-stopped` + `CONTAINER_NAME`
-- [ ] `docker-compose.yml` — jira-producer `restart: unless-stopped` + `CONTAINER_NAME`
-- [ ] `docker-compose.yml` — confluence-producer `restart: unless-stopped` + `CONTAINER_NAME`
-- [ ] `docker-compose.yml` — producer `depends_on` updated (removed `app` dependency)
-- [ ] Dockerfile entrypoints verified — `CMD` still points to the correct (new) `main.py`
-- [ ] `pika` and `httpx` added to `requirements.github-producer.txt`, `requirements.jira-producer.txt`, `requirements.confluence-producer.txt`
+- [x] `docker-compose.yml` — github-producer `restart: unless-stopped` + `CONTAINER_NAME`
+- [x] `docker-compose.yml` — jira-producer `restart: unless-stopped` + `CONTAINER_NAME`
+- [x] `docker-compose.yml` — confluence-producer `restart: unless-stopped` + `CONTAINER_NAME`
+- [x] `docker-compose.yml` — producer `depends_on` updated (removed `app` dependency)
+- [x] Dockerfile entrypoints verified — `CMD` still points to `main.py` (no rename needed)
+- [x] `pika` and `httpx` added to `requirements.github-producer.txt`, `requirements.jira-producer.txt`, `requirements.confluence-producer.txt`
 - [ ] Full stack up: `docker compose up -d` — all containers start successfully
 - [ ] All 3 producers show "daemon started" in logs
 - [ ] All 3 `cnc.*` queues show 1 consumer in RabbitMQ UI
