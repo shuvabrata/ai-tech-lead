@@ -1,7 +1,7 @@
 """Unit tests for the command-and-control shared library.
 
-Tests the Pydantic models, publisher routing logic, and listener message
-parsing — all without a live RabbitMQ broker.
+Tests the Pydantic models and publisher routing logic — all without a live
+RabbitMQ broker.
 """
 
 from __future__ import annotations
@@ -17,7 +17,6 @@ from pydantic import ValidationError
 
 from common.command_n_control.models import CommandEnvelope, CommandStatusUpdate
 from common.command_n_control.publisher import CommandPublisher
-from common.command_n_control.listener import CommandListener
 
 
 # ===========================================================================
@@ -283,98 +282,6 @@ class TestCommandPublisher:
 # ===========================================================================
 # CommandListener unit tests
 # ===========================================================================
-
-
-class TestCommandListener:
-    """Queue declaration, topology, and message parsing (mocked)."""
-
-    @pytest.mark.unit
-    @pytest.mark.asyncio
-    async def test_queue_name_and_binding(self) -> None:
-        """Queue is named ``cnc.<container_name>`` and bound with correct routing key."""
-        mock_channel = AsyncMock()
-        mock_queue = AsyncMock()
-        mock_channel.declare_queue = AsyncMock(return_value=mock_queue)
-
-        await CommandListener.declare_topology(mock_channel)
-
-        # Verify DLX, DLQ, and exchange were declared.
-        declare_exchange_calls = mock_channel.declare_exchange.await_args_list
-        exchange_names = [call.args[0] for call in declare_exchange_calls]
-        assert "command_n_control" in exchange_names
-        assert "command_n_control_dlx" in exchange_names
-
-        mock_channel.declare_queue.assert_awaited_once_with(
-            "command_n_control_dlq",
-            durable=True,
-        )
-
-    @pytest.mark.unit
-    def test_listener_queue_naming(self) -> None:
-        """Queue name follows the ``cnc.<container_name>`` convention."""
-        for container_name, expected in [
-            ("github-producer", "cnc.github-producer"),
-            ("jira-producer", "cnc.jira-producer"),
-            ("confluence-producer", "cnc.confluence-producer"),
-        ]:
-            listener = CommandListener("amqp://fake:5672/", container_name)
-            assert listener._queue_name == expected
-
-    @pytest.mark.unit
-    def test_listener_routing_key_convention(self) -> None:
-        """Routing key follows the ``command_n_control.<container_name>`` convention."""
-        for container_name, expected in [
-            ("github-producer", "command_n_control.github-producer"),
-            ("jira-producer", "command_n_control.jira-producer"),
-            ("confluence-producer", "command_n_control.confluence-producer"),
-        ]:
-            routing_key = f"command_n_control.{container_name}"
-            assert routing_key == expected
-
-    @pytest.mark.unit
-    @pytest.mark.asyncio
-    async def test_parse_valid_message(self) -> None:
-        """Valid JSON yields a ``CommandEnvelope``."""
-        command_id = uuid.uuid4()
-        payload = {
-            "command_id": str(command_id),
-            "command_type": "scan",
-            "target": "github-producer",
-            "parameters": None,
-            "issued_at": "2026-07-29T12:00:00Z",
-        }
-        mock_message = MagicMock()
-        mock_message.body = json.dumps(payload).encode()
-        mock_message.nack = AsyncMock()
-
-        result = await CommandListener._parse_message(mock_message)
-        assert result is not None
-        assert isinstance(result, CommandEnvelope)
-        assert result.command_id == command_id
-        assert result.command_type == "scan"
-        mock_message.nack.assert_not_called()
-
-    @pytest.mark.unit
-    @pytest.mark.asyncio
-    async def test_parse_invalid_message_nacks(self) -> None:
-        """Invalid JSON nacks with ``requeue=False``."""
-        mock_message = MagicMock()
-        mock_message.body = b"not valid json"
-        mock_message.nack = AsyncMock()
-
-        result = await CommandListener._parse_message(mock_message)
-        assert result is None
-        mock_message.nack.assert_awaited_once_with(requeue=False)
-
-    @pytest.mark.unit
-    @pytest.mark.asyncio
-    async def test_parse_invalid_schema_nacks(self) -> None:
-        """Valid JSON but missing required fields nacks with ``requeue=False``."""
-        payload = {"command_type": "scan"}  # missing command_id, target, issued_at
-        mock_message = MagicMock()
-        mock_message.body = json.dumps(payload).encode()
-        mock_message.nack = AsyncMock()
-
-        result = await CommandListener._parse_message(mock_message)
-        assert result is None
-        mock_message.nack.assert_awaited_once_with(requeue=False)
+# NOTE: CommandListener was removed as dead code (finding 1 from branch audit).
+# The async listener class is unused in production — the daemon uses a sync
+# pika loop.  If a future async listener is needed, refer to git history.

@@ -1164,12 +1164,12 @@ def stop_polling_if_idle(scans_list: Any):
     if isinstance(scans_list, html.Div):
         return True
 
-    # Check if any scan item has a running/queued status
+    # Check if any scan item has a running/accepted status
     if isinstance(scans_list, html.Div):
         for child in getattr(scans_list, "children", []) or []:
             if isinstance(child, html.Div):
                 text = _get_div_text(child)
-                if "Running" in text or "Queued" in text or "Accepted" in text:
+                if "Running" in text or "Accepted" in text:
                     return False
         return True
 
