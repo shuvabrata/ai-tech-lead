@@ -35,6 +35,7 @@ from .components.config_forms import (
     FIELD_NUMBER,
     FIELD_TEXTAREA,
 )
+from .components.scan_status import render_scan_item
 
 TIMEOUT_SECONDS = settings.HTTP_REQUEST_TIMEOUT
 
@@ -1040,3 +1041,147 @@ def handle_inline_toggle(new_enabled_state: bool, store: Dict[str, Any] | None):
     except requests.exceptions.RequestException as exc:
         error_alert = create_alert(f"Failed to update configuration: {str(exc)}", color="danger", class_name="mb-0")
         return error_alert, not new_enabled_state, "Active" if not new_enabled_state else "Disabled", no_update
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  Scan callbacks
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+@callback(
+    Output("connector-action-feedback", "children", allow_duplicate=True),
+    Input({"type": "connector-run-scan", "connector_type": ALL}, "n_clicks"),
+    prevent_initial_call=True,
+)
+def handle_run_scan(n_clicks: List[int | None]):
+    """Send a scan command via the API when the "Run Scan" button is clicked."""
+    _ = n_clicks  # used by Dash as trigger
+    if not callback_context.triggered:
+        return no_update
+    triggered_value = callback_context.triggered[0].get("value")
+    if not triggered_value:
+        return no_update
+    triggered = callback_context.triggered_id
+    if not isinstance(triggered, dict):
+        return no_update
+    connector_type = triggered.get("connector_type")
+    if not connector_type or connector_type not in CONNECTOR_REGISTRY:
+        return no_update
+
+    container_name = CONNECTOR_REGISTRY[connector_type].get("producer_container")
+    if not container_name:
+        return create_alert(
+            f"No producer container configured for {connector_type}.",
+            color="warning",
+            class_name="mb-0",
+        )
+
+    api_base = _get_api_base_url()
+    try:
+        response = requests.post(
+            f"{api_base}/api/v1/commands/",
+            json={
+                "command_type": "scan",
+                "target": container_name,
+                "parameters": {},
+            },
+            timeout=TIMEOUT_SECONDS,
+        )
+        response.raise_for_status()
+        data = response.json()
+        command_id = data.get("command_id", "unknown")
+        return create_alert(
+            f"Scan triggered! Command ID: {command_id}",
+            color="success",
+            class_name="mb-0",
+        )
+    except requests.exceptions.RequestException as exc:
+        return create_alert(
+            f"Failed to trigger scan: {exc}",
+            color="danger",
+            class_name="mb-0",
+        )
+
+
+@callback(
+    Output("connector-scans-list", "children"),
+    Input("connector-scans-poll", "n_intervals"),
+    State("url", "pathname"),
+)
+def load_recent_scans(n_intervals: int | None, pathname: str | None):
+    """Load recent scan commands for this connector.
+
+    Polled every 5 seconds while scans are in progress.  Disabled when idle.
+    """
+    _ = n_intervals  # used by Dash as trigger
+    if not pathname or not pathname.startswith("/app/connectors/"):
+        return no_update
+
+    connector_type = pathname.split("/app/connectors/")[-1]
+    if not connector_type or connector_type not in CONNECTOR_REGISTRY:
+        return no_update
+
+    container_name = CONNECTOR_REGISTRY[connector_type].get("producer_container")
+    if not container_name:
+        return no_update
+
+    api_base = _get_api_base_url()
+    try:
+        response = requests.get(
+            f"{api_base}/api/v1/commands/",
+            params={"target": container_name, "limit": 10},
+            timeout=TIMEOUT_SECONDS,
+        )
+        response.raise_for_status()
+        data = response.json()
+        commands = data.get("commands", [])
+        if not commands:
+            return html.Div(
+                "No recent scans.",
+                style={
+                    "fontFamily": FONT_SANS,
+                    "fontSize": FONT_SIZE_SMALL,
+                    "color": COLOR_GRAY_MEDIUM,
+                },
+            )
+        items = [render_scan_item(cmd) for cmd in commands]
+        return html.Div(items)
+    except requests.exceptions.RequestException:
+        # Silently fail on poll — don't spam UI with errors every 5s
+        return no_update
+
+
+@callback(
+    Output("connector-scans-poll", "disabled"),
+    Input("connector-scans-list", "children"),
+)
+def stop_polling_if_idle(scans_list: Any):
+    """Disable polling when no scans are in progress."""
+    if scans_list is None:
+        return True  # no content yet, keep disabled
+
+    # If the list contains a "No recent scans" message, no polling needed
+    if isinstance(scans_list, html.Div):
+        return True
+
+    # Check if any scan item has a running/queued status
+    if isinstance(scans_list, html.Div):
+        for child in getattr(scans_list, "children", []) or []:
+            if isinstance(child, html.Div):
+                text = _get_div_text(child)
+                if "Running" in text or "Queued" in text or "Accepted" in text:
+                    return False
+        return True
+
+    return True
+
+
+def _get_div_text(div: html.Div) -> str:
+    """Extract the text content of a div for status detection."""
+    parts: list[str] = []
+    for child in getattr(div, "children", []) or []:
+        if hasattr(child, "children"):
+            parts.append(_get_div_text(child))
+        elif isinstance(child, str):
+            parts.append(child)
+    return " ".join(parts)

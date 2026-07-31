@@ -29,7 +29,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.app.txt -r requirements.github-sync.txt -r requirements.jira-sync.txt -r requirements_dev.txt
+          pip install -r requirements.app.txt -r requirements.github-producer.txt -r requirements.jira-producer.txt -r requirements.confluence-producer.txt -r requirements_dev.txt
 
       - name: Run unit tests
         run: pytest -q -m unit tests --cov=src --cov-report=term-missing:skip-covered
@@ -84,11 +84,11 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.app.txt -r requirements.github-sync.txt -r requirements.jira-sync.txt -r requirements_dev.txt
+          pip install -r requirements.app.txt -r requirements.github-producer.txt -r requirements.jira-producer.txt -r requirements.confluence-producer.txt -r requirements_dev.txt
 
       - name: Run pylint on src
         run: |
-          SCORE=$(pylint src--score=y --exit-zero | tee pylint.log | grep 'Your code has been rated at' | awk '{print $7}' | cut -d'/' -f1)
+          SCORE=$(pylint src --score=y --exit-zero | tee pylint.log | grep 'Your code has been rated at' | awk '{print $7}' | cut -d'/' -f1)
           PASS=$(echo "$SCORE >= 9.0" | bc)
           if [ "$PASS" -ne 1 ]; then
             echo "Pylint score is less than 9.0 ($SCORE). Failing the job."

@@ -113,6 +113,7 @@ def get_detail_layout(connector_type: str):
                         id={"type": "connector-search-filters-store", "connector_type": connector_type},
                         storage_type="memory",
                     ),
+                    dcc.Interval(id="connector-scans-poll", interval=5000, disabled=True),
                     html.Div(
                         id="connector-action-feedback",
                         key=f"connector-feedback-{connector_type}-{uuid.uuid4()}",
@@ -180,11 +181,75 @@ def get_detail_layout(connector_type: str):
                             ),
                         ]
                     ),
+                    # Run Scan button — only for producer connectors
+                    html.Div(
+                        _render_scan_section(connector_type, connector_meta),
+                        style={"marginTop": SPACING_SMALL},
+                    ),
                 ],
                 style=CARD_CONTAINER_STYLE,
             ),
         ],
         className="mt-3",
+    )
+
+
+# ── Scan section helper ──────────────────────────────────────────────────
+
+
+def _render_scan_section(connector_type: str, connector_meta: dict) -> html.Div:
+    """Render the "Run Scan" button and "Recent Scans" section.
+
+    Only shown for connectors that have a ``producer_container`` in the
+    registry (i.e. GitHub, Jira, Confluence).
+    """
+    producer_container = connector_meta.get("producer_container")
+    if not producer_container:
+        return html.Div()
+
+    return html.Div(
+        [
+            _section_title("Scan & Sync"),
+            html.Div(
+                "Trigger a data scan to fetch and sync the latest data from this source.",
+                style={
+                    "fontFamily": FONT_SANS,
+                    "fontSize": FONT_SIZE_SMALL,
+                    "color": COLOR_GRAY_MEDIUM,
+                    "marginBottom": SPACING_XSMALL,
+                },
+            ),
+            html.Div(
+                [
+                    dbc.Button(
+                        "Run Scan",
+                        id={"type": "connector-run-scan", "connector_type": connector_type},
+                        color="success",
+                        size="sm",
+                        className="me-2",
+                    ),
+                ],
+                style={"marginBottom": SPACING_SMALL},
+            ),
+            html.Div(
+                [
+                    _section_title("Recent Scans"),
+                    html.Div(
+                        id="connector-scans-list",
+                        children="No recent scans.",
+                        style={
+                            "fontFamily": FONT_SANS,
+                            "fontSize": FONT_SIZE_SMALL,
+                            "color": COLOR_GRAY_MEDIUM,
+                        },
+                    ),
+                ],
+                style={
+                    "borderTop": f"1px solid {COLOR_BORDER}",
+                    "paddingTop": SPACING_XSMALL,
+                },
+            ),
+        ],
     )
 
 

@@ -219,16 +219,13 @@ services:
       RABBITMQ_URL: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASSWORD:-guest}@rabbitmq:5672/
       PYTHONPATH: /app
       LOG_DIR: /var/log/github-producer
+      CONTAINER_NAME: github-producer
     volumes:
       - ./logs/github-producer:/var/log/github-producer
     depends_on:
-      postgres:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
       app:
         condition: service_healthy
-    restart: "no"  # One-shot execution, run manually via docker compose run
+    restart: unless-stopped
     networks:
       - wba-ai-network
 
@@ -245,16 +242,13 @@ services:
       RABBITMQ_URL: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASSWORD:-guest}@rabbitmq:5672/
       PYTHONPATH: /app
       LOG_DIR: /var/log/jira-producer
+      CONTAINER_NAME: jira-producer
     volumes:
       - ./logs/jira-producer:/var/log/jira-producer
     depends_on:
-      postgres:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
       app:
         condition: service_healthy
-    restart: "no"  # One-shot execution, run manually via docker compose run
+    restart: unless-stopped
     networks:
       - wba-ai-network
 
@@ -271,16 +265,13 @@ services:
       RABBITMQ_URL: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASSWORD:-guest}@rabbitmq:5672/
       PYTHONPATH: /app
       LOG_DIR: /var/log/confluence-producer
+      CONTAINER_NAME: confluence-producer
     volumes:
       - ./logs/confluence-producer:/var/log/confluence-producer
     depends_on:
-      postgres:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
       app:
         condition: service_healthy
-    restart: "no"  # One-shot execution, run manually via docker compose run
+    restart: unless-stopped
     networks:
       - wba-ai-network
 
@@ -307,13 +298,7 @@ services:
     volumes:
       - ./logs/signal-consumer:/var/log/signal-consumer
     depends_on:
-      rabbitmq:
-        condition: service_healthy
-      neo4j:
-        condition: service_healthy
       app:
-        condition: service_healthy
-      elasticsearch:
         condition: service_healthy
     restart: unless-stopped  # Long-running consumer; restart on failure
     networks:

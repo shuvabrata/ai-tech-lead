@@ -1,8 +1,19 @@
-"""Confluence ActivitySignal producer.
+"""Confluence ActivitySignal producer — unified entry point (daemon + scan).
 
-This module converts the prep workflow in ``test_confluence_access.py`` into a
-real producer entrypoint.  It reuses the existing fetch helpers wherever
-possible and publishes normalized ``ActivitySignal`` payloads to RabbitMQ.
+Usage:
+    python main.py                          # daemon mode (default)
+    python main.py --mode scan ...          # one-shot scan mode
+
+The daemon mode listens on the ``command_n_control`` RabbitMQ exchange for
+``scan`` commands targeted at ``confluence-producer``.  Each accepted command
+spawns a child process in ``--mode scan`` that runs the existing one-shot
+scan logic (loading its own config and reporting status via HTTP PATCH).
+
+Environment variables:
+    CONTAINER_NAME         (default: "confluence-producer")
+    RABBITMQ_URL           (default: "amqp://guest:guest@localhost:5672/")
+    API_SERVER             (default: "http://localhost:8000")
+    MAX_CONCURRENT_SCANS   (default: 5)
 """
 
 from __future__ import annotations
@@ -45,6 +56,7 @@ from connectors.producers.confluence.parse_body_for_relations import (
     parse_body_for_relations,
 )
 from connectors.producers.sync_cursor import get_sync_cursor, set_sync_cursor
+from connectors.producers.daemon_common import producer_main
 
 _SOURCE = "confluence"
 _VERSION = "1.0"
@@ -831,7 +843,14 @@ async def main_async() -> None:
 
 
 def main() -> None:
-    asyncio.run(main_async())
+    """Unified CLI entry point — delegates to ``daemon_common``."""
+
+    producer_main(
+        description="Confluence Producer",
+        default_container="confluence-producer",
+        producer_main_path=__file__,
+        scan_func=main_async,
+    )
 
 
 if __name__ == "__main__":

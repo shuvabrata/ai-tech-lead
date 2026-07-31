@@ -16,6 +16,7 @@ fully before starting, honor its STOP conditions, and update your row when done.
 | 009  | [Branch node — model, display properties, and backfill](009-branch-node-model-and-display-properties.md) | P2 | S-M | — | DRAFT 🚧 |
 
 
+
 ## Reconciliation notes (2026-06-27)
 
 - **002 DONE ✓** — Verified at `24c665d`: `grep -cn "READ_ACCESS" query.py` → 3 matches; `tests/test_graph_query_validation.py` exists and 15/15 tests pass. The `import neo4j` and `default_access_mode=neo4j.READ_ACCESS` changes landed in commit `74a327f` (PR #177).

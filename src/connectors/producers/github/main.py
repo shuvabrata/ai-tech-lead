@@ -1,26 +1,31 @@
-"""GitHub ActivitySignal producer.
+"""GitHub ActivitySignal producer — unified entry point (daemon + scan).
 
-One-shot async script that:
-1. Loads GitHub connector configuration (server or file).
-2. For each configured repository:
-   a. Reads the sync cursor from Postgres (``producer_sync_state``).
-   b. Fetches repositories, branches, commits, pull requests, and persons.
-   c. Maps each entity to an ``ActivitySignal`` Pydantic model.
-   d. Publishes valid signals to RabbitMQ (``activity_signals`` exchange).
-   e. Updates the sync cursor on success.
+Usage:
+    python main.py                          # daemon mode (default)
+    python main.py --mode scan ...          # one-shot scan mode
+
+The daemon mode listens on the ``command_n_control`` RabbitMQ exchange for
+``scan`` commands targeted at ``github-producer``.  Each accepted command
+spawns a child process in ``--mode scan`` that runs the existing one-shot
+scan logic (loading its own config and reporting status via HTTP PATCH).
+
+Environment variables:
+    CONTAINER_NAME         (default: "github-producer")
+    RABBITMQ_URL           (default: "amqp://guest:guest@localhost:5672/")
+    API_SERVER             (default: "http://localhost:8000")
+    MAX_CONCURRENT_SCANS   (default: 5)
 
 Run via::
 
-    PYTHONPATH=/app python connectors/producers/github_producer.py
+    PYTHONPATH=/app python connectors/producers/github/main.py
 
 Or in Docker::
 
     docker compose run github-producer
 """
-import asyncio
 import os
-from typing import Any, Dict, List
 from datetime import datetime, timezone
+from typing import Any, Dict, List
 
 from github import Github, Auth  # type: ignore[import-untyped]
 
@@ -40,6 +45,7 @@ from connectors.producers.github.process_repo_signals import (
     process_repo_signals,
 )
 from connectors.producers.sync_cursor import get_sync_cursor, set_sync_cursor
+from connectors.producers.daemon_common import producer_main
 
 
 async def main_async() -> None:
@@ -78,7 +84,8 @@ async def main_async() -> None:
                 if is_wildcard_url(url):
                     owner, _ = parse_repo_url(url)
                     filters = repo_cfg.get("search_filters", {})
-                    logger.info(f"Wildcard pattern detected. Fetching all repositories for: {owner} with filters: {filters} ")
+                    logger.info(f"Wildcard pattern detected. Fetching all repositories "
+                                f"for: {owner} with filters: {filters} ")
                     repo_list = get_all_repos_for_owner(g, owner, filters)
                 else:
                     owner, repo_name = parse_repo_url(url)
@@ -118,8 +125,14 @@ async def main_async() -> None:
 
 
 def main() -> None:
-    """Synchronous entry point for Docker CMD."""
-    asyncio.run(main_async())
+    """Unified CLI entry point — delegates to ``daemon_common``."""
+
+    producer_main(
+        description="GitHub Producer",
+        default_container="github-producer",
+        producer_main_path=__file__,
+        scan_func=main_async,
+    )
 
 
 if __name__ == "__main__":

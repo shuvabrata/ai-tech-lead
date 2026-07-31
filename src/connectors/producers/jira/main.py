@@ -1,14 +1,19 @@
-"""Jira ActivitySignal producer.
+"""Jira ActivitySignal producer — unified entry point (daemon + scan).
 
-One-shot async script that:
-1. Loads Jira connector configuration (server or file).
-2. Connects to Jira and fetches Projects, Initiatives, Epics, Sprints,
-   Issues, and Person nodes.
-3. Maps each entity to an ``ActivitySignal`` Pydantic model.
-4. Publishes valid signals to RabbitMQ (``activity_signals`` exchange).
-5. Updates the Postgres sync cursor on success.
+Usage:
+    python main.py                          # daemon mode (default)
+    python main.py --mode scan ...          # one-shot scan mode
 
-Sync cursor key: ``source="jira"``, ``resource_id=<jira_base_url>``.
+The daemon mode listens on the ``command_n_control`` RabbitMQ exchange for
+``scan`` commands targeted at ``jira-producer``.  Each accepted command
+spawns a child process in ``--mode scan`` that runs the existing one-shot
+scan logic (loading its own config and reporting status via HTTP PATCH).
+
+Environment variables:
+    CONTAINER_NAME         (default: "jira-producer")
+    RABBITMQ_URL           (default: "amqp://guest:guest@localhost:5672/")
+    API_SERVER             (default: "http://localhost:8000")
+    MAX_CONCURRENT_SCANS   (default: 5)
 
 Run via::
 
@@ -41,6 +46,7 @@ from common.activity_signal.models import (
     SprintAttributes,
 )
 from common.messaging.rabbitmq import RabbitMQPublisher
+from common.logger import logger
 from connectors.producers.jira.jira_config import (
     create_jira_connection,
     load_config_from_file,
@@ -63,7 +69,7 @@ from connectors.producers.jira.map_jira import (
     map_sprint,
 )
 from connectors.producers.sync_cursor import get_sync_cursor, set_sync_cursor
-from common.logger import logger
+from connectors.producers.daemon_common import producer_main
 
 _SOURCE = "jira"
 _VERSION = "1.0"
@@ -778,8 +784,14 @@ async def main_async() -> None:
 
 
 def main() -> None:
-    """Synchronous entry point for Docker CMD."""
-    asyncio.run(main_async())
+    """Unified CLI entry point — delegates to ``daemon_common``."""
+
+    producer_main(
+        description="Jira Producer",
+        default_container="jira-producer",
+        producer_main_path=__file__,
+        scan_func=main_async,
+    )
 
 
 if __name__ == "__main__":

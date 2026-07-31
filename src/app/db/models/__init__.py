@@ -1,3 +1,4 @@
+from app.db.models.command_status import CommandStatus
 from app.db.models.project import Project
 from app.db.models.connector import Connector
 from app.db.models.producer_sync_state import ProducerSyncState
