@@ -85,7 +85,7 @@ class CommandListener:
             _DLQ_NAME,
             durable=True,
         )
-        await dlq.bind(dlx, routing_key="")
+        await dlq.bind(dlx, routing_key=_DLQ_NAME)
 
     async def listen(
         self,
@@ -113,6 +113,7 @@ class CommandListener:
                 durable=True,
                 arguments={
                     "x-dead-letter-exchange": _DLX_NAME,
+                    "x-dead-letter-routing-key": _DLQ_NAME,
                 },
             )
             routing_key = f"command_n_control.{self._container_name}"

@@ -563,7 +563,11 @@ class TestRunDaemon:
             durable=True,
         )
         mock_channel.queue_declare.assert_called_with(
-            queue="cnc.test-container", durable=True
+            queue="cnc.test-container", durable=True,
+            arguments={
+                "x-dead-letter-exchange": "command_n_control_dlx",
+                "x-dead-letter-routing-key": "command_n_control_dlq",
+            },
         )
         mock_channel.queue_bind.assert_called_with(
             queue="cnc.test-container",

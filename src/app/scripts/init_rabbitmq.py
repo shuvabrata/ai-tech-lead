@@ -20,6 +20,10 @@ Routing key convention
 This script is designed to be run at container startup (before Uvicorn) via
 ``src/app/entrypoint.sh``.  It is idempotent: re-running it is safe because
 RabbitMQ ignores re-declarations that match the existing topology exactly.
+
+It also declares the ``command_n_control`` topic exchange, DLX, DLQ, and
+per-producer queues for the generic command-and-control bus.  See
+``common.command_n_control`` for the corresponding listener/publisher code.
 """
 
 import asyncio
@@ -41,6 +45,17 @@ SOURCE_QUEUES: list[tuple[str, str]] = [
     ("github_queue", "github.#"),
     ("jira_queue", "jira.#"),
     ("confluence_queue", "confluence.#"),
+]
+
+# ── Command-and-control exchange (generic command bus) ────────────────────
+CONTROL_EXCHANGE: str = "command_n_control"
+CONTROL_DLX: str = "command_n_control_dlx"
+CONTROL_DLQ: str = "command_n_control_dlq"
+
+CONTROL_QUEUES: list[tuple[str, str]] = [
+    ("cnc.github-producer", "command_n_control.github-producer"),
+    ("cnc.jira-producer", "command_n_control.jira-producer"),
+    ("cnc.confluence-producer", "command_n_control.confluence-producer"),
 ]
 
 
@@ -99,6 +114,45 @@ async def init_rabbitmq(url: str) -> None:
                 },
             )
             await queue.bind(exchange, routing_key=routing_key)
+            logger.info(
+                "Queue ready: %s  ← routing key: %s", queue_name, routing_key
+            )
+
+        # ── Command-and-control exchange ─────────────────────────────────────
+        logger.info("Declaring command_n_control topology...")
+
+        # 5. Control topic exchange
+        control_exchange = await channel.declare_exchange(
+            CONTROL_EXCHANGE,
+            aio_pika.ExchangeType.TOPIC,
+            durable=True,
+        )
+        logger.info("Exchange ready: %s (topic, durable)", CONTROL_EXCHANGE)
+
+        # 6. Control dead-letter exchange (direct)
+        control_dlx = await channel.declare_exchange(
+            CONTROL_DLX,
+            aio_pika.ExchangeType.DIRECT,
+            durable=True,
+        )
+        logger.info("Exchange ready: %s (direct, durable)", CONTROL_DLX)
+
+        # 7. Control dead-letter queue bound to DLX
+        control_dlq = await channel.declare_queue(CONTROL_DLQ, durable=True)
+        await control_dlq.bind(control_dlx, routing_key=CONTROL_DLQ)
+        logger.info("Queue ready: %s, bound to exchange %s", CONTROL_DLQ, CONTROL_DLX)
+
+        # 8. Per-producer control queues
+        for queue_name, routing_key in CONTROL_QUEUES:
+            queue = await channel.declare_queue(
+                queue_name,
+                durable=True,
+                arguments={
+                    "x-dead-letter-exchange": CONTROL_DLX,
+                    "x-dead-letter-routing-key": CONTROL_DLQ,
+                },
+            )
+            await queue.bind(control_exchange, routing_key=routing_key)
             logger.info(
                 "Queue ready: %s  ← routing key: %s", queue_name, routing_key
             )

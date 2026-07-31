@@ -28,7 +28,7 @@
 | 2 | Database model + migration | S | ✅ DONE |
 | 3 | API endpoints (`/api/v1/commands/`) | M | ✅ DONE |
 | 4 | Producer daemon conversion | L | ✅ DONE |
-| 5 | RabbitMQ topology update | XS | DRAFT |
+| 5 | RabbitMQ topology update | XS | ✅ DONE |
 | 6 | Dash UI — Connectors detail page | M | DRAFT |
 | 7 | Docker Compose + Dockerfiles | S | ✅ DONE |
 
@@ -745,11 +745,16 @@ for queue_name, routing_key in CONTROL_QUEUES:
 
 ### Phase 5 progress
 
-- [ ] `src/app/scripts/init_rabbitmq.py` — control exchange topology added
-- [ ] Integration tests written and passing
-- [ ] Manual verification: queues/exchanges visible in RabbitMQ UI
-- [ ] `docker compose restart app` — app starts without errors, topology created
-- [ ] `pylint src/app/scripts/init_rabbitmq.py` — no errors
+- [x] `src/app/scripts/init_rabbitmq.py` — control exchange topology added
+- [x] `src/common/command_n_control/listener.py` — fixed DLQ binding routing key and queue DLX arguments to match working `activity_signals` pattern
+- [x] `src/connectors/producers/daemon_common.py` — added `x-dead-letter-exchange` and `x-dead-letter-routing-key` to pika queue declaration
+- [x] `tests/producers/test_daemon_common.py` — updated test assertion to match new queue declaration args
+- [x] `tests/producers/test_daemon_integration.py` — corrected `_declare_control_topology` helper to match listener topology
+- [x] Integration tests written and passing — 16/16 passed
+- [x] Manual verification: queues/exchanges visible in RabbitMQ UI
+- [x] Full regression: `pytest -m unit tests/ -q` — 839/839 passed
+- [x] `pylint src/app/scripts/init_rabbitmq.py` — 10.00/10 (no errors)
+- [x] `mypy src/app/scripts/init_rabbitmq.py` — no errors found
 
 ---
 

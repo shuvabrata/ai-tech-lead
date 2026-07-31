@@ -132,7 +132,14 @@ def run_daemon(
         exchange_type="topic",
         durable=True,
     )
-    channel.queue_declare(queue=queue_name, durable=True)
+    channel.queue_declare(
+        queue=queue_name,
+        durable=True,
+        arguments={
+            "x-dead-letter-exchange": "command_n_control_dlx",
+            "x-dead-letter-routing-key": "command_n_control_dlq",
+        },
+    )
     channel.queue_bind(
         queue=queue_name,
         exchange="command_n_control",
