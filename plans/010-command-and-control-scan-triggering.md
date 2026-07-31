@@ -38,11 +38,15 @@
 
 Convert the three one-shot producer containers (github-producer, jira-producer,
 confluence-producer) into long-running daemons that listen on a
-`command_n_control` topic exchange for generic commands. Add a `CommandStatus`
-table in Postgres (via Alembic) and a `/api/v1/commands/` REST API on the app
-to send commands and query status. The Dash Connectors detail page gets a "Run
-Scan" button and a "Recent Scans" section. Producers update status via HTTP
-callbacks to the app's API.
+`command_n_control` topic exchange for generic commands. Each producer's
+`main.py` becomes a unified entry point with `--mode daemon` (default) and
+`--mode scan` flags. The daemon uses a **sync-first** architecture: `pika` for
+RabbitMQ consumption, `subprocess.Popen` to spawn child processes for each
+scan, and a `SIGCHLD` handler for reaping. Children report status via sync
+`httpx` PATCH calls. Add a `CommandStatus` table in Postgres (via Alembic) and
+a `/api/v1/commands/` REST API on the app to send commands and query status.
+The Dash Connectors detail page gets a "Run Scan" button and a "Recent Scans"
+section.
 
 > **Note — Consumer unaffected**: The existing signal consumer
 > (`src/connectors/consumers/`) listens on the `activity_signals` exchange and is
@@ -62,15 +66,20 @@ callbacks to the app's API.
 | 5 | Command schema | Loose JSON `parameters`, `command_id` as UUID correlation key, no `reply_to` queue |
 | 6 | Status tracking | Postgres `command_status` table via SQLAlchemy (app reads) / HTTP PATCH (producers write) |
 | 7 | Status lifecycle | `pending → accepted → queued → running → completed / failed` |
-| 8 | "scan already running" | Accept + ack message → set status to `failed` with reason `"scan already in progress"` |
+| 8 | "scan already running" | Accept + ack message → set status to `failed` with reason `"max concurrent scans reached"` (enforced by max-concurrency limit, default 5) |
 | 9 | Shared library location | `src/common/command_n_control/` |
-| 10 | Config reload | Load once at daemon startup (config refresh deferred) |
-| 11 | Status DB access from producers | HTTP PATCH to `/api/v1/commands/{id}/status` |
-| 12 | Producer `main.py` rename | Existing `main.py` → `scan.py`, new `main.py` is daemon entry point |
+| 10 | Config reload | Child loads config independently at scan start (daemon does not touch config) |
+| 11 | Status DB access from producers | HTTP PATCH to `/api/v1/commands/{id}/status` (done by child process) |
+| 12 | Producer entry point | Single `main.py` with CLI dispatch: `--mode daemon` (default) or `--mode scan` (no rename needed) |
 | 13 | Container identity | `CONTAINER_NAME` env var, default = docker compose service name |
 | 14 | Connector→producer mapping | `producer_container` field in `CONNECTOR_REGISTRY` |
 | 15 | UI placement | "Run Scan" button + "Recent Scans" section on connector detail page |
-| 16 | Graceful shutdown | SIGTERM → cancel scan task → mark status as `failed: "container shutting down"` |
+| 16 | Graceful shutdown | Daemon kills tracked child PIDs on shutdown; child detects parent death and self-terminates |
+| 17 | Daemon concurrency model | Sync main loop: `pika` for RabbitMQ, `subprocess.Popen` for child spawn, SIGCHLD for reaping |
+| 18 | Max parallel scans | `MAX_CONCURRENT_SCANS` env var, default 5 |
+| 19 | Cancel command | Via RabbitMQ `command_type: "cancel"` — deferred to future implementation |
+| 20 | Daemon RabbitMQ library | `pika` (sync) — new dependency for producer containers |
+| 21 | Child status reporting | Child process owns its own PATCH calls (sync `httpx`) — daemon does not proxy |
 
 ---
 
@@ -461,275 +470,376 @@ async def patch_command_status(...)
 
 ### What
 
-Convert each of the three one-shot producer scripts into long-running daemons.
-This is the largest phase. Each producer follows an identical structural pattern:
+Convert each of the three one-shot producer scripts into long-running daemons
+using a **sync-first** architecture. Each producer's `main.py` becomes a unified
+entry point with CLI dispatch:
 
-- `scan.py` — the extracted scan logic (one-shot runnable for debugging)
-- `main.py` — the daemon entry point (command listener + scan worker)
+```
+main.py
+  ├── --mode daemon (default)  →  daemon_main()  [pika loop + subprocess.Popen]
+  └── --mode scan              →  run_scan()     [existing scan logic + status PATCH]
+```
 
-### Step-by-step for GitHub producer
+The daemon is a simple synchronous loop: block on RabbitMQ, spawn a child
+process via `subprocess.Popen`, track its PID, and go back to listening.
+Children are reaped via a `SIGCHLD` handler. The child process (scan mode)
+loads its own config and reports status via sync `httpx` PATCH calls.
 
-#### Step 4a: Rename `main.py` → `scan.py` + extract `run_scan()`
-- `mv src/connectors/producers/github/main.py src/connectors/producers/github/scan.py`
-- **Extract config loading**: In `scan.py`, extract the config-loading logic (reading
-  from `CONFIGURATION_SOURCE` env var, fetching from `API_SERVER` or `FILE`) into a
-  standalone async function: `async def load_config() -> dict`. This function is called
-  once by the daemon's `main_async()` at startup (per design decision #10), not by
-  `run_scan()`.
-- **Create `run_scan()`**: Rename the existing `main_async()` to
-  `async def run_scan(publisher: RabbitMQPublisher, command_envelope: CommandEnvelope, config: dict) -> dict[str, int]`:
-  - `publisher` — pre-created `RabbitMQPublisher` instance (daemon opens one per scan)
-  - `command_envelope` — the command that triggered the scan; `command_envelope.parameters`
-    may contain overrides like `{"force_full": true}` or `{"since": "2026-01-01"}`
-  - `config` — the pre-loaded configuration dict
-  - Returns a result summary dict like `{"signals_published": 42}` for status tracking
-- Keep `main()` as a one-shot convenience entry point for local debugging
-- Remove RabbitMQ URL fetch from `run_scan()` — the publisher is passed in
-- Update the module docstring to reflect it's now the scan logic module, not the entry point
+### Design decisions (from grill-me session)
 
-#### Step 4b: Create new `main.py`
-Structure:
+| # | Decision | Rationale |
+|---|----------|-----------|
+| 1 | Single `main.py` with `--mode` flag | No rename needed; backward compat for one-shot debugging |
+| 2 | Child process owns status PATCH calls | Keeps daemon thin; child is self-contained |
+| 3 | SIGCHLD handler for reaping | Cleaner than polling loop; no timer needed |
+| 4 | `subprocess.Popen` for spawning | Standard, portable, simple |
+| 5 | `pika` (sync) for daemon RabbitMQ | Avoids asyncio in daemon main loop; `aio_pika` stays in shared lib for app-side publisher |
+| 6 | `MAX_CONCURRENT_SCANS` env var (default 5) | Enables parallel scans; daemon tracks PID→command_id map |
+| 7 | Child loads config independently | Daemon stays config-agnostic; child works standalone for debugging |
+| 8 | Cancel via RabbitMQ `command_type: "cancel"` | Deferred to future; PID tracking infra in place |
+| 9 | No SIGTERM handling in daemon (unless needed) | Child detects parent death; daemon just kills children on exit |
+
+### CLI interface
+
+```bash
+# Daemon mode (default — used by Docker CMD)
+python main.py
+
+# Daemon mode (explicit)
+python main.py --mode daemon
+
+# Scan mode (one-shot — for debugging or direct invocation)
+python main.py --mode scan --command-id <uuid> --target github-producer --parameters '{"force_full": true}'
+```
+
+### Daemon main loop pseudocode
+
 ```python
 """
-GitHub Producer Daemon.
+Unified entry point for the GitHub Producer.
 
-Listens on ``command_n_control`` exchange for ``scan`` commands targeted at
-``github-producer``.  Runs one scan at a time; queues additional commands.
+Usage:
+    python main.py                          # daemon mode (default)
+    python main.py --mode scan ...          # one-shot scan mode
 
 Environment variables:
-    CONTAINER_NAME     (default: "github-producer")
-    RABBITMQ_URL       (default: "amqp://guest:guest@localhost:5672/")
-    API_SERVER         (default: "http://localhost:8000")
+    CONTAINER_NAME         (default: "github-producer")
+    RABBITMQ_URL           (default: "amqp://guest:guest@localhost:5672/")
+    API_SERVER             (default: "http://localhost:8000")
+    MAX_CONCURRENT_SCANS   (default: 5)
 """
 
-import asyncio, os, signal, uuid
+import argparse, os, signal, subprocess, sys, time, uuid
 from datetime import datetime, timezone
 
+import pika
 import httpx
 
 from common.command_n_control.models import CommandEnvelope, CommandStatusUpdate
-from common.command_n_control.listener import CommandListener
-from common.messaging.rabbitmq import RabbitMQPublisher
 from common.logger import logger
-from connectors.producers.github.scan import run_scan
-# sync_cursor module used inside scan.py — no change needed
 
 
-async def _update_status(command_id: uuid.UUID, update: CommandStatusUpdate) -> None:
-    """PATCH a status update to the app's API."""
+# ── Global state ──────────────────────────────────────────────────────────
+_children: dict[int, uuid.UUID] = {}  # pid → command_id
+_max_scans: int = int(os.environ.get("MAX_CONCURRENT_SCANS", "5"))
+
+
+def _reap_children(signum, frame):
+    """SIGCHLD handler — reap finished children and log their exit."""
+    while True:
+        try:
+            pid, exit_code = os.waitpid(-1, os.WNOHANG)
+            if pid == 0:
+                break
+            command_id = _children.pop(pid, None)
+            if command_id:
+                logger.info(
+                    "Child reaped pid=%d command_id=%s exit_code=%d",
+                    pid, command_id, exit_code,
+                )
+        except ChildProcessError:
+            break
+
+
+def _update_status(command_id: uuid.UUID, update: CommandStatusUpdate) -> None:
+    """PATCH a status update to the app's API (sync)."""
     api_base = os.environ.get("API_SERVER", "http://localhost:8000").rstrip("/")
     url = f"{api_base}/api/v1/commands/{command_id}/status"
     try:
-        async with httpx.AsyncClient(timeout=10) as client:
-            resp = await client.patch(url, json=update.model_dump(exclude_none=True))
+        with httpx.Client(timeout=10) as client:
+            resp = client.patch(url, json=update.model_dump(exclude_none=True))
             resp.raise_for_status()
     except httpx.HTTPError as exc:
         logger.warning("Failed to update command status: %s", exc)
 
 
-async def scan_worker(queue: asyncio.Queue, shutdown_event: asyncio.Event):
-    """Pull commands from the queue and execute scans."""
-    while not shutdown_event.is_set():
-        try:
-            envelope = await asyncio.wait_for(queue.get(), timeout=1.0)
-        except asyncio.TimeoutError:
-            continue
-
-        command_id = envelope.command_id
-        logger.info("Starting scan command_id=%s", command_id)
-
-        # Mark as running
-        await _update_status(command_id, CommandStatusUpdate(
-            status="running", started_at=datetime.now(timezone.utc)
+def _spawn_scan(envelope: CommandEnvelope) -> subprocess.Popen | None:
+    """Spawn a child process to run the scan."""
+    if len(_children) >= _max_scans:
+        logger.warning(
+            "Max concurrent scans reached (%d) — rejecting command_id=%s",
+            _max_scans, envelope.command_id,
+        )
+        _update_status(envelope.command_id, CommandStatusUpdate(
+            status="failed", completed_at=datetime.now(timezone.utc),
+            error_message=f"Max concurrent scans reached ({_max_scans})",
         ))
+        return None
 
-        try:
-            # The existing scan logic expects a RabbitMQPublisher.
-            # We create one per scan (config loaded fresh at daemon start,
-            # per design decision #10).
-            async with RabbitMQPublisher(
-                os.environ.get("RABBITMQ_URL", "amqp://guest:guest@localhost:5672/")
-            ) as publisher:
-                result_summary = await run_scan(
-                    publisher, envelope, config
-                )  # returns dict[str, int] like {"signals_published": 42}
+    # Build CLI args for the child
+    cmd = [
+        sys.executable, __file__,
+        "--mode", "scan",
+        "--command-id", str(envelope.command_id),
+        "--target", envelope.target,
+    ]
+    if envelope.parameters:
+        import json
+        cmd += ["--parameters", json.dumps(envelope.parameters)]
 
-            logger.info("Scan completed command_id=%s", command_id)
-            await _update_status(command_id, CommandStatusUpdate(
-                status="completed", completed_at=datetime.now(timezone.utc),
-                result_summary=result_summary,
-            ))
-        except asyncio.CancelledError:
-            logger.warning("Scan cancelled command_id=%s — container shutting down", command_id)
-            await _update_status(command_id, CommandStatusUpdate(
-                status="failed", completed_at=datetime.now(timezone.utc),
-                error_message="Scan cancelled: container shutting down",
-            ))
-            break  # Worker exits on cancellation
-        except Exception as exc:
-            logger.error("Scan failed command_id=%s: %s", command_id, exc, exc_info=True)
-            await _update_status(command_id, CommandStatusUpdate(
-                status="failed", completed_at=datetime.now(timezone.utc),
-                error_message=str(exc),
-            ))
-
-    logger.info("Scan worker stopped")
+    logger.info("Spawning scan child command_id=%s", envelope.command_id)
+    child = subprocess.Popen(cmd, stdout=sys.stdout, stderr=sys.stderr)
+    _children[child.pid] = envelope.command_id
+    return child
 
 
-async def listen_and_dispatch(queue: asyncio.Queue, shutdown_event: asyncio.Event):
-    """Consume commands from RabbitMQ and push to the internal queue."""
+def daemon_main():
+    """Daemon entry point — sync pika loop + subprocess children."""
+    signal.signal(signal.SIGCHLD, _reap_children)
+
     container_name = os.environ.get("CONTAINER_NAME", "github-producer")
     rabbitmq_url = os.environ.get("RABBITMQ_URL", "amqp://guest:guest@localhost:5672/")
-    listener = CommandListener(rabbitmq_url, container_name)
+    queue_name = f"cnc.{container_name}"
 
-    async for envelope, message in listener.listen():
-        if shutdown_event.is_set():
-            break
+    logger.info(
+        "Daemon started container=%s max_concurrent_scans=%d",
+        container_name, _max_scans,
+    )
 
-        logger.info("Received command command_id=%s type=%s", envelope.command_id, envelope.command_type)
+    connection = pika.BlockingConnection(pika.URLParameters(rabbitmq_url))
+    channel = connection.channel()
+    channel.basic_qos(prefetch_count=1)
 
-        # Ack immediately
-        await message.ack()
+    # Declare queue (idempotent — safe if init_rabbitmq.py already ran)
+    channel.queue_declare(queue=queue_name, durable=True)
 
-        # Check if queue is full → scan already running or queued
-        if queue.full():
-            logger.warning("Scan already in progress — rejecting command_id=%s", envelope.command_id)
-            await _update_status(envelope.command_id, CommandStatusUpdate(
-                status="failed", completed_at=datetime.now(timezone.utc),
-                error_message="Scan already in progress",
-            ))
-            continue
+    logger.info("Consuming from queue=%s", queue_name)
 
-        # Mark as queued and push to worker
-        await _update_status(envelope.command_id, CommandStatusUpdate(
-            status="queued"
+    try:
+        for method_frame, properties, body in channel.consume(queue_name, inactivity_timeout=1):
+            if method_frame is None:
+                continue  # timeout, loop back
+
+            try:
+                envelope = CommandEnvelope.model_validate_json(body)
+            except Exception:
+                logger.warning("Invalid command message — nacking to DLQ")
+                channel.basic_nack(method_frame.delivery_tag, requeue=False)
+                continue
+
+            logger.info(
+                "Received command command_id=%s type=%s",
+                envelope.command_id, envelope.command_type,
+            )
+
+            if envelope.command_type == "scan":
+                _spawn_scan(envelope)
+            elif envelope.command_type == "cancel":
+                logger.info("Cancel command received — not yet implemented (command_id=%s)", envelope.command_id)
+            else:
+                logger.warning("Unknown command type=%s — discarding", envelope.command_type)
+
+            channel.basic_ack(method_frame.delivery_tag)
+
+    except KeyboardInterrupt:
+        logger.info("Received KeyboardInterrupt — shutting down")
+    finally:
+        # Kill all tracked children
+        for pid in list(_children.keys()):
+            try:
+                os.kill(pid, signal.SIGTERM)
+                logger.info("Sent SIGTERM to child pid=%d", pid)
+            except ProcessLookupError:
+                pass
+        connection.close()
+        logger.info("Daemon stopped")
+
+
+def scan_main():
+    """Scan mode entry point — run scan and report status."""
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--command-id", required=True)
+    parser.add_argument("--target", required=True)
+    parser.add_argument("--parameters", default="{}")
+    args = parser.parse_args()
+
+    command_id = uuid.UUID(args.command_id)
+    parameters = json.loads(args.parameters) if args.parameters else {}
+
+    logger.info("Scan started command_id=%s target=%s", command_id, args.target)
+
+    # Report running
+    _update_status(command_id, CommandStatusUpdate(
+        status="running", started_at=datetime.now(timezone.utc),
+    ))
+
+    try:
+        # Import and run the existing scan logic
+        # (Each producer imports its own module here)
+        from connectors.producers.github.scan import run_scan
+
+        # The scan logic creates its own RabbitMQPublisher internally
+        # (or receives one — adapt based on existing signature)
+        result_summary = run_scan(parameters)
+
+        logger.info("Scan completed command_id=%s", command_id)
+        _update_status(command_id, CommandStatusUpdate(
+            status="completed", completed_at=datetime.now(timezone.utc),
+            result_summary=result_summary,
         ))
-        await queue.put(envelope)
-
-    logger.info("Command listener stopped")
-
-
-async def main_async():
-    """Daemon entry point."""
-    shutdown_event = asyncio.Event()
-
-    # Register signal handlers
-    loop = asyncio.get_running_loop()
-    loop.add_signal_handler(signal.SIGTERM, shutdown_event.set)
-    loop.add_signal_handler(signal.SIGINT, shutdown_event.set)
-
-    # Load config once at startup (design decision #10)
-    # ... (existing config loading logic)
-
-    command_queue: asyncio.Queue[CommandEnvelope] = asyncio.Queue(maxsize=1)
-
-    listener_task = asyncio.create_task(listen_and_dispatch(command_queue, shutdown_event))
-    worker_task = asyncio.create_task(scan_worker(command_queue, shutdown_event))
-
-    logger.info("GitHub Producer daemon started (container=%s)", os.environ.get("CONTAINER_NAME", "github-producer"))
-
-    await asyncio.gather(listener_task, worker_task, return_exceptions=True)
-    logger.info("GitHub Producer daemon stopped")
+    except Exception as exc:
+        logger.error("Scan failed command_id=%s: %s", command_id, exc, exc_info=True)
+        _update_status(command_id, CommandStatusUpdate(
+            status="failed", completed_at=datetime.now(timezone.utc),
+            error_message=str(exc),
+        ))
+        sys.exit(1)
 
 
 def main():
-    asyncio.run(main_async())
+    parser = argparse.ArgumentParser(description="GitHub Producer")
+    parser.add_argument("--mode", choices=["daemon", "scan"], default="daemon")
+    # Scan-mode args (parsed by scan_main if needed, but declared here for help text)
+    parser.add_argument("--command-id")
+    parser.add_argument("--target")
+    parser.add_argument("--parameters")
+
+    args, _ = parser.parse_known_args()
+
+    if args.mode == "daemon":
+        daemon_main()
+    else:
+        scan_main()
 
 
 if __name__ == "__main__":
     main()
 ```
 
-#### Step 4c: Repeat for Jira producer
-Same pattern. `src/connectors/producers/jira/main.py` → `scan.py`, new `main.py`.
-The `run_scan()` function wraps the existing `main_async()` logic.
+### Step-by-step for each producer
 
-#### Step 4d: Repeat for Confluence producer
-Same pattern. `src/connectors/producers/confluence/main.py` → `scan.py`, new `main.py`.
+Each producer follows the same pattern:
 
-### Files to create / rename
+1. **Refactor `main.py`**: Add CLI dispatch (`--mode daemon` / `--mode scan`).
+   The existing `main_async()` becomes `run_scan()` inside `scan_main()`.
+   The daemon code is added as `daemon_main()`.
+
+2. **Extract `run_scan()`**: The existing scan logic is wrapped in a function
+   that accepts `parameters: dict` and returns `dict[str, int]` (result summary).
+   Config loading stays inside the scan function (child loads its own config).
+
+3. **No file rename**: `main.py` stays as `main.py`. The Dockerfile `CMD`
+   does not need to change.
+
+### Files to modify
 
 | Action | Path |
 |---|---|
-| RENAME | `src/connectors/producers/github/main.py` → `src/connectors/producers/github/scan.py` |
-| CREATE | `src/connectors/producers/github/main.py` (daemon) |
-| RENAME | `src/connectors/producers/jira/main.py` → `src/connectors/producers/jira/scan.py` |
-| CREATE | `src/connectors/producers/jira/main.py` (daemon) |
-| RENAME | `src/connectors/producers/confluence/main.py` → `src/connectors/producers/confluence/scan.py` |
-| CREATE | `src/connectors/producers/confluence/main.py` (daemon) |
+| MODIFY | `src/connectors/producers/github/main.py` — add CLI dispatch + daemon loop |
+| MODIFY | `src/connectors/producers/jira/main.py` — same pattern |
+| MODIFY | `src/connectors/producers/confluence/main.py` — same pattern |
+
+### Dependency changes
+
+| File | Addition |
+|---|---|
+| `requirements.github-producer.txt` | `pika`, `httpx` |
+| `requirements.jira-producer.txt` | `pika`, `httpx` |
+| `requirements.confluence-producer.txt` | `pika`, `httpx` |
 
 ### Tests to write
 
 | Level | Test | What it verifies |
 |---|---|---|
-| Unit | `test_daemon_accepts_command_when_idle` | Internal queue size increases when command received |
-| Unit | `test_daemon_rejects_command_when_busy` | `queue.full()` → status update sent with `"scan already in progress"` |
-| Unit | `test_daemon_graceful_shutdown` | SIGTERM → worker exits, cancelled status sent |
-| Unit | `test_scan_worker_updates_status_running` | Status set to `"running"` before scan starts |
-| Unit | `test_scan_worker_updates_status_completed` | Status set to `"completed"` after scan succeeds |
-| Unit | `test_scan_worker_updates_status_failed_on_error` | Status set to `"failed"` with error message on exception |
-| Int | `test_daemon_receives_command_via_rabbitmq` | Publish to `command_n_control.github-producer` → daemon picks it up |
+| Unit | `test_cli_daemon_mode_default` | No args → `daemon_main()` is invoked |
+| Unit | `test_cli_scan_mode` | `--mode scan --command-id ...` → `scan_main()` is invoked |
+| Unit | `test_daemon_spawns_child_on_scan_command` | Valid `scan` envelope → `subprocess.Popen` called |
+| Unit | `test_daemon_rejects_when_max_concurrent` | `len(_children) >= max` → status=failed, no spawn |
+| Unit | `test_daemon_unknown_command_type` | Unknown type → ack + discard, no spawn |
+| Unit | `test_sigchld_reaps_children` | SIGCHLD → `os.waitpid` called, PID removed from `_children` |
+| Unit | `test_scan_mode_updates_status_running` | Status PATCH with `running` before scan starts |
+| Unit | `test_scan_mode_updates_status_completed` | Status PATCH with `completed` after scan succeeds |
+| Unit | `test_scan_mode_updates_status_failed` | Status PATCH with `failed` + error message on exception |
+| Unit | `test_daemon_kills_children_on_shutdown` | Daemon exit → SIGTERM sent to all tracked PIDs |
+| Int | `test_daemon_receives_command_via_rabbitmq` | Publish to `command_n_control.github-producer` → daemon spawns child |
+| Int | `test_scan_end_to_end` | Full flow: API POST → RabbitMQ → daemon → child → status completed |
 
 ### Manual verification
 
-1. Build and start the modified producer:
+1. Start the daemon directly:
    ```bash
-   docker compose build github-producer
-   docker compose up -d github-producer
+   CONTAINER_NAME=github-producer python src/connectors/producers/github/main.py
    ```
-2. Check logs: `docker compose logs github-producer`
-   → Should show "GitHub Producer daemon started"
-3. Send a scan command via API:
+   → Should show "Daemon started container=github-producer max_concurrent_scans=5"
+
+2. Send a scan command via API:
    ```bash
    curl -X POST http://localhost:8000/api/v1/commands/ \
      -H "Content-Type: application/json" \
      -d '{"command_type": "scan", "target": "github-producer"}'
    ```
-4. Watch logs: `docker compose logs -f github-producer`
-   → Should show "Received command" → "Starting scan" → progress messages → "Scan completed"
-5. Check command status via API:
+   → Daemon logs "Received command" → "Spawning scan child" → child logs scan progress
+
+3. Check command status:
    ```bash
    curl http://localhost:8000/api/v1/commands/{command_id}
    ```
    → Expect status="completed"
-6. Send another scan while the first is running (if slow enough):
-   → Expect status="failed" with reason "Scan already in progress"
-7. Test graceful shutdown:
+
+4. Test max concurrency: send 6 scan commands rapidly → 5th+ should show
+   "Max concurrent scans reached" with status="failed"
+
+5. Test scan mode directly (debugging):
    ```bash
-   docker compose stop github-producer
+   python src/connectors/producers/github/main.py \
+     --mode scan \
+     --command-id "$(uuidgen)" \
+     --target github-producer
    ```
-   → Logs should show "Received SIGTERM — initiating graceful shutdown"
-   → If a scan was running, its status should be "failed: container shutting down"
-8. Repeat steps 1-7 for jira-producer and confluence-producer
+
+6. Test daemon shutdown kills children:
+   ```bash
+   # Start daemon, send a scan, Ctrl+C the daemon
+   # → Logs should show "Sent SIGTERM to child pid=..."
+   ```
+
+7. Repeat steps 1-6 for jira-producer and confluence-producer
 
 ### Phase 4 progress
 
 **GitHub producer:**
-- [ ] `src/connectors/producers/github/scan.py` created (renamed from main.py)
-- [ ] `run_scan()` function extracted from `main_async()`
-- [ ] `src/connectors/producers/github/main.py` — daemon entry point created
+- [ ] `src/connectors/producers/github/main.py` — CLI dispatch + `daemon_main()` + `scan_main()`
+- [ ] `run_scan()` function extracted from existing scan logic
 - [ ] Unit tests written and passing for github daemon
-- [ ] Manual verification: daemon starts, receives commands, runs scans, handles shutdown
+- [ ] Manual verification: daemon starts, spawns children, reaps via SIGCHLD
 
 **Jira producer:**
-- [ ] `src/connectors/producers/jira/scan.py` created
+- [ ] `src/connectors/producers/jira/main.py` — CLI dispatch + `daemon_main()` + `scan_main()`
 - [ ] `run_scan()` function extracted
-- [ ] `src/connectors/producers/jira/main.py` — daemon entry point created
 - [ ] Unit tests written and passing for jira daemon
-- [ ] Manual verification: daemon starts, receives commands, runs scans
+- [ ] Manual verification: daemon starts, spawns children, reaps via SIGCHLD
 
 **Confluence producer:**
-- [ ] `src/connectors/producers/confluence/scan.py` created
+- [ ] `src/connectors/producers/confluence/main.py` — CLI dispatch + `daemon_main()` + `scan_main()`
 - [ ] `run_scan()` function extracted
-- [ ] `src/connectors/producers/confluence/main.py` — daemon entry point created
 - [ ] Unit tests written and passing for confluence daemon
-- [ ] Manual verification: daemon starts, receives commands, runs scans
+- [ ] Manual verification: daemon starts, spawns children, reaps via SIGCHLD
 
 **All producers:**
-- [ ] `httpx` added to `requirements.github-producer.txt`, `requirements.jira-producer.txt`, `requirements.confluence-producer.txt`
-- [ ] Integration test: end-to-end scan via API → RabbitMQ → daemon → status update
+- [ ] `pika` and `httpx` added to all three `requirements.*.txt` files
+- [ ] Integration test: end-to-end scan via API → RabbitMQ → daemon → child → status update
 - [ ] `pytest -m unit tests/ -q` — all existing tests still pass
-- [ ] `pylint src/connectors/producers/*/main.py src/connectors/producers/*/scan.py` — no errors
+- [ ] `pylint src/connectors/producers/*/main.py` — no errors
 
 ---
 
@@ -957,7 +1067,8 @@ def render_scan_item(command: dict) -> html.Div:
 5. Scroll down → "Recent Scans" section shows the scan with status "accepted" or "queued"
 6. Within a few seconds, status should transition to "running" → "completed"
 7. Verify icons update accordingly (blue spinner → green checkmark)
-8. Click "Run Scan" again while one is running → verify "failed: scan already in progress"
+8. Click "Run Scan" several times quickly → verify multiple scans run in parallel
+   (up to `MAX_CONCURRENT_SCANS`), then additional ones show "max concurrent scans reached"
 9. Navigate to Slack connector → verify "Run Scan" button is NOT visible
 10. Test auto-poll stops after last scan completes (no more API calls)
 
@@ -985,14 +1096,14 @@ env var, and ensure the app `depends_on` includes the control topology.
 
 ### Dependency changes
 
-Add `httpx` to all three producer requirement files (needed by the daemon for
-async HTTP PATCH callbacks to the app's API):
+Add `pika` (sync RabbitMQ client for daemon loop) and `httpx` (sync HTTP for
+child status PATCH) to all three producer requirement files:
 
 | File | Addition |
 |---|---|
-| `requirements.github-producer.txt` | `httpx` |
-| `requirements.jira-producer.txt` | `httpx` |
-| `requirements.confluence-producer.txt` | `httpx` |
+| `requirements.github-producer.txt` | `pika`, `httpx` |
+| `requirements.jira-producer.txt` | `pika`, `httpx` |
+| `requirements.confluence-producer.txt` | `pika`, `httpx` |
 
 ### Files to modify
 
@@ -1026,9 +1137,9 @@ are independent of app health now).
 
 The existing `Dockerfile.github-producer`, `Dockerfile.jira-producer`, and
 `Dockerfile.confluence-producer` each run `CMD ["python", "main.py"]` or similar.
-After the rename (`main.py` → `scan.py`), the new `main.py` (daemon) lives at the
-same path, so the Dockerfile `CMD` does **not** need to change. Verify this during
-implementation by checking each Dockerfile's `CMD` instruction.
+Since `main.py` is preserved as the unified entry point (no rename), the Dockerfile
+`CMD` does **not** need to change. Verify this during implementation by checking
+each Dockerfile's `CMD` instruction.
 
 ### Tests to verify
 
@@ -1049,7 +1160,7 @@ implementation by checking each Dockerfile's `CMD` instruction.
 - [ ] `docker-compose.yml` — confluence-producer `restart: unless-stopped` + `CONTAINER_NAME`
 - [ ] `docker-compose.yml` — producer `depends_on` updated (removed `app` dependency)
 - [ ] Dockerfile entrypoints verified — `CMD` still points to the correct (new) `main.py`
-- [ ] `httpx` added to `requirements.github-producer.txt`, `requirements.jira-producer.txt`, `requirements.confluence-producer.txt`
+- [ ] `pika` and `httpx` added to `requirements.github-producer.txt`, `requirements.jira-producer.txt`, `requirements.confluence-producer.txt`
 - [ ] Full stack up: `docker compose up -d` — all containers start successfully
 - [ ] All 3 producers show "daemon started" in logs
 - [ ] All 3 `cnc.*` queues show 1 consumer in RabbitMQ UI
@@ -1086,8 +1197,8 @@ pytest tests/ -q
 4. Wait for scan to complete (status → "completed" with green icon)
 5. Open Graph page → verify new Neo4j data is visible
 6. Go to Jira connector → click "Run Scan" → verify it works independently
-7. Trigger a second scan while one is running → verify "failed: scan already in progress"
-8. `docker compose restart github-producer` while scan is running → verify "failed: container shutting down"
+7. Trigger a 6th scan while 5 are running → verify "failed: max concurrent scans reached"
+8. `docker compose restart github-producer` while scan is running → verify daemon kills children on shutdown
 9. After restart, run scan again → verify it works normally
 10. Check command history: `curl http://localhost:8000/api/v1/commands/` → see all commands
 
