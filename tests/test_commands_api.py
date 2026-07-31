@@ -20,7 +20,7 @@ from app.api.commands.v1.models import (
 from app.db.models.command_status import CommandStatus
 
 
-pytestmark = [pytest.mark.unit, pytest.mark.asyncio]
+pytestmark = [pytest.mark.unit]
 
 
 # ===========================================================================
@@ -148,6 +148,8 @@ class TestTargetValidation:
 class TestCreateAndPublishCommand:
     """Verify the create_and_publish_command service function."""
 
+    pytestmark = [pytest.mark.asyncio]
+
     @pytest.mark.unit
     async def test_invalid_target_raises(self, mock_db: AsyncMock) -> None:
         """An unknown target raises ValueError."""
@@ -238,6 +240,8 @@ class TestCreateAndPublishCommand:
 class TestGetCommand:
     """Verify the get_command service function."""
 
+    pytestmark = [pytest.mark.asyncio]
+
     @pytest.mark.unit
     async def test_found(self, mock_db: AsyncMock) -> None:
         """Returns the command when found by command_id."""
@@ -269,6 +273,8 @@ class TestGetCommand:
 
 class TestListCommands:
     """Verify the list_commands service function."""
+
+    pytestmark = [pytest.mark.asyncio]
 
     @pytest.mark.unit
     async def test_no_filters(self, mock_db: AsyncMock) -> None:
@@ -346,6 +352,8 @@ class TestListCommands:
 
 class TestUpdateCommandStatus:
     """Verify the update_command_status service function."""
+
+    pytestmark = [pytest.mark.asyncio]
 
     @pytest.mark.unit
     async def test_valid_transition(self, mock_db: AsyncMock) -> None:
