@@ -35,11 +35,6 @@ STATUS_CONFIG = {
         "color": COLOR_WARNING,
         "label": "Accepted",
     },
-    "queued": {
-        "icon": "fa-regular fa-hourglass-half",
-        "color": COLOR_WARNING,
-        "label": "Queued",
-    },
     "running": {
         "icon": "fa-solid fa-spinner fa-spin",
         "color": COLOR_WARNING,

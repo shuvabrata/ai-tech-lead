@@ -23,11 +23,9 @@ Message format (CommandEnvelope):
 
 from common.command_n_control.models import CommandEnvelope, CommandStatusUpdate
 from common.command_n_control.publisher import CommandPublisher
-from common.command_n_control.listener import CommandListener
 
 __all__ = [
     "CommandEnvelope",
     "CommandStatusUpdate",
     "CommandPublisher",
-    "CommandListener",
 ]
