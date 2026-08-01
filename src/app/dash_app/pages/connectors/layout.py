@@ -137,14 +137,14 @@ def get_detail_layout(connector_type: str):
                     _section_container(_render_top_action_bar(connector_type, connector_meta)),
                     # 2. Recent Scans — always visible
                     _section_container(_render_recent_scans(connector_type, connector_meta)),
-                    # 3. Add New Repository — collapsible form, collapsed by default
+                    # 3. Add New {item label} — collapsible form, collapsed by default
                     _section_container(
                         html.Div(
                             [
                                 html.Div(
                                     [
                                         html.I(className="fas fa-plus me-1", style={"fontSize": "11px"}),
-                                        "Add New Repository",
+                                        f"Add New {form_spec.get('item', {}).get('label', 'Item')}",
                                     ],
                                     id="add-item-collapse-toggle",
                                     className="collapse-toggle-subtle",
