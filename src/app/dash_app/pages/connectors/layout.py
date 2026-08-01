@@ -257,6 +257,9 @@ def _render_recent_scans(_connector_type: str, connector_meta: dict) -> html.Div
 
     Only shown for connectors that have a ``producer_container`` in the
     registry (i.e. GitHub, Jira, Confluence).
+
+    Note: ``_connector_type`` is reserved for future use — it will be used
+    to tailor scan messaging per connector type.
     """
     producer_container = connector_meta.get("producer_container")
     if not producer_container:

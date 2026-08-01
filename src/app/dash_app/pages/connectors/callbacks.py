@@ -1292,16 +1292,17 @@ def stop_polling_if_idle(scans_list: Any):
     if scans_list is None:
         return True  # no content yet, keep disabled
 
-    # If the list contains a "No recent scans" message, no polling needed
     if isinstance(scans_list, html.Div):
-        return True
+        text = _get_div_text(scans_list)
+        # "No recent scans" message — no polling needed
+        if "No recent scans" in text:
+            return True
 
-    # Check if any scan item has a running/queued status
-    if isinstance(scans_list, html.Div):
+        # Check if any scan item has a running/queued status
         for child in getattr(scans_list, "children", []) or []:
             if isinstance(child, html.Div):
-                text = _get_div_text(child)
-                if "Running" in text or "Queued" in text or "Accepted" in text:
+                child_text = _get_div_text(child)
+                if "Running" in child_text or "Queued" in child_text or "Accepted" in child_text:
                     return False
         return True
 
@@ -1311,7 +1312,12 @@ def stop_polling_if_idle(scans_list: Any):
 def _get_div_text(div: html.Div) -> str:
     """Extract the text content of a div for status detection."""
     parts: list[str] = []
-    for child in getattr(div, "children", []) or []:
+    children = getattr(div, "children", None)
+    if children is None:
+        return ""
+    if not isinstance(children, list):
+        children = [children]
+    for child in children:
         if hasattr(child, "children"):
             parts.append(_get_div_text(child))
         elif isinstance(child, str):

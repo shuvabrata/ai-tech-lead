@@ -4,6 +4,9 @@ Tests cover:
   - ``render_scan_item`` — scan status row rendering (icons, colors, timestamps)
   - ``_render_top_action_bar`` / ``_render_recent_scans`` — Run Scan button visibility rules
   - Scan callback helpers — polling, API interaction
+  - ``toggle_add_item_collapse`` — collapsible form toggle
+  - ``stop_polling_if_idle`` — scan polling enable/disable logic
+  - Search filter callbacks — store, update, render
 """
 
 from __future__ import annotations
@@ -13,9 +16,17 @@ from unittest.mock import MagicMock, patch
 import uuid
 
 import pytest
-from dash import html
+from dash import html, no_update
+from dash.exceptions import PreventUpdate
 
 from app.api.connectors.v1.registry import CONNECTOR_REGISTRY
+from app.dash_app.pages.connectors.callbacks import (
+    populate_search_filters_store,
+    render_search_filters_list,
+    stop_polling_if_idle,
+    toggle_add_item_collapse,
+    update_search_filters_store,
+)
 from app.dash_app.pages.connectors.components.scan_status import (
     STATUS_CONFIG,
     render_scan_item,
@@ -249,3 +260,211 @@ class TestScanCallbacks:
         assert STATUS_CONFIG["failed"]["color"] == COLOR_ERROR
         assert STATUS_CONFIG["running"]["color"] == COLOR_WARNING
         assert STATUS_CONFIG["pending"]["color"] == COLOR_GRAY_MEDIUM
+
+
+# ---------------------------------------------------------------------------
+# toggle_add_item_collapse
+# ---------------------------------------------------------------------------
+
+
+class TestToggleAddItemCollapse:
+    """Tests for ``toggle_add_item_collapse``."""
+
+    def test_toggle_opens_when_closed(self):
+        """Clicking the toggle when closed returns open (True)."""
+        result = toggle_add_item_collapse(n_clicks=1, is_open=False)
+        assert result is True
+
+    def test_toggle_closes_when_open(self):
+        """Clicking the toggle when open returns closed (False)."""
+        result = toggle_add_item_collapse(n_clicks=1, is_open=True)
+        assert result is False
+
+    def test_no_clicks_raises_prevent_update(self):
+        """No clicks (None) raises PreventUpdate."""
+        with pytest.raises(PreventUpdate):
+            toggle_add_item_collapse(n_clicks=None, is_open=False)
+
+    def test_zero_clicks_raises_prevent_update(self):
+        """0 n_clicks also raises PreventUpdate (matches the 'if not n_clicks' guard)."""
+        with pytest.raises(PreventUpdate):
+            toggle_add_item_collapse(n_clicks=0, is_open=False)
+
+
+# ---------------------------------------------------------------------------
+# stop_polling_if_idle
+# ---------------------------------------------------------------------------
+
+
+class TestStopPollingIfIdle:
+    """Tests for ``stop_polling_if_idle``."""
+
+    def test_none_returns_true(self):
+        """None input (no content yet) disables polling."""
+        assert stop_polling_if_idle(None) is True
+
+    def test_no_recent_scans_message_disables_polling(self):
+        """'No recent scans' text disables polling."""
+        div = html.Div("No recent scans.")
+        assert stop_polling_if_idle(div) is True
+
+    def test_running_scan_enables_polling(self):
+        """A scan with 'Running' status enables polling."""
+        scan_item = html.Div(
+            children=[
+                html.Div(
+                    children=[
+                        html.Span("Running"),
+                        html.Span("2m ago"),
+                    ]
+                )
+            ]
+        )
+        assert stop_polling_if_idle(scan_item) is False
+
+    def test_queued_scan_enables_polling(self):
+        """A scan with 'Queued' status enables polling."""
+        scan_item = html.Div(
+            children=[
+                html.Div(
+                    children=[
+                        html.Span("Queued"),
+                        html.Span("1m ago"),
+                    ]
+                )
+            ]
+        )
+        assert stop_polling_if_idle(scan_item) is False
+
+    def test_accepted_scan_enables_polling(self):
+        """A scan with 'Accepted' status enables polling."""
+        scan_item = html.Div(
+            children=[
+                html.Div(
+                    children=[
+                        html.Span("Accepted"),
+                        html.Span("30s ago"),
+                    ]
+                )
+            ]
+        )
+        assert stop_polling_if_idle(scan_item) is False
+
+    def test_completed_scan_disables_polling(self):
+        """A scan with 'Completed' status disables polling (no active scans)."""
+        scan_item = html.Div(
+            children=[
+                html.Div(
+                    children=[
+                        html.Span("Completed"),
+                        html.Span("5m ago"),
+                    ]
+                )
+            ]
+        )
+        assert stop_polling_if_idle(scan_item) is True
+
+    def test_multiple_scans_with_active_track_running(self):
+        """When one of several scans is running, polling stays enabled."""
+        scan_list = html.Div(
+            children=[
+                html.Div(children=[html.Span("Completed")]),
+                html.Div(children=[html.Span("Running")]),
+                html.Div(children=[html.Span("Queued")]),
+            ]
+        )
+        assert stop_polling_if_idle(scan_list) is False
+
+    def test_all_completed_scans_disable_polling(self):
+        """When all scans are done, polling is disabled."""
+        scan_list = html.Div(
+            children=[
+                html.Div(children=[html.Span("Completed"), html.Span("Signals Published: 42")]),
+                html.Div(children=[html.Span("Failed"), html.Span("Error: timeout")]),
+            ]
+        )
+        assert stop_polling_if_idle(scan_list) is True
+
+    def test_fallback_returns_true(self):
+        """Non-Div types (shouldn't happen) degrade safely to disabled."""
+        assert stop_polling_if_idle("unexpected string") is True
+
+
+# ---------------------------------------------------------------------------
+# Search filter callbacks
+# ---------------------------------------------------------------------------
+
+
+class TestSearchFilterCallbacks:
+    """Tests for search filter store, update, and render callbacks."""
+
+    def test_populate_search_filters_store_ignores_non_github(self):
+        """Non-github connector types return no_update."""
+        from dash import no_update
+
+        result = populate_search_filters_store(
+            edit_state=None,
+            store_id={"type": "connector-search-filters-store", "connector_type": "jira"},
+        )
+        assert result is no_update
+
+    def test_populate_search_filters_store_from_item_data(self):
+        """Filters are extracted from item data when editing an existing item."""
+        edit_state = {
+            "connector_type": "github",
+            "item_id": 42,
+            "item": {
+                "search_filters": {"props.division": "platform", "props.team": "infra"},
+            },
+        }
+        result = populate_search_filters_store(
+            edit_state=edit_state,
+            store_id={"type": "connector-search-filters-store", "connector_type": "github"},
+        )
+        assert result == {"props.division": "platform", "props.team": "infra"}
+
+    def test_populate_search_filters_clear_returns_empty(self):
+        """A 'clear' action returns an empty dict."""
+        edit_state = {"connector_type": "github", "action": "clear"}
+        result = populate_search_filters_store(
+            edit_state=edit_state,
+            store_id={"type": "connector-search-filters-store", "connector_type": "github"},
+        )
+        assert result == {}
+
+    def test_render_search_filters_list_empty(self):
+        """No filters shows a placeholder message."""
+        result = render_search_filters_list(
+            store_data={},
+            list_component_id={"type": "connector-search-filter-list", "connector_type": "github"},
+        )
+        text = _flatten_dash(result)
+        assert "No search filters configured" in text
+
+    def test_render_search_filters_list_with_filters(self):
+        """Filters are rendered as key: value rows with Remove buttons."""
+        filters = {"props.division": "platform", "props.team": "infra"}
+        result = render_search_filters_list(
+            store_data=filters,
+            list_component_id={"type": "connector-search-filter-list", "connector_type": "github"},
+        )
+        assert isinstance(result, list)
+        assert len(result) == 2
+        text = _flatten_dash(result)
+        assert "props.division: platform" in text
+        assert "props.team: infra" in text
+        assert "Remove" in text
+
+
+def _flatten_dash(component):
+    """Flatten a Dash component (or list of components) to text."""
+    if isinstance(component, list):
+        return " ".join(_flatten_dash(c) for c in component)
+    if isinstance(component, (str, int, float)):
+        return str(component)
+    children = getattr(component, "children", None)
+    if children is None:
+        return ""
+    if not isinstance(children, list):
+        children = [children]
+    return " ".join(_flatten_dash(c) for c in children)
