@@ -632,6 +632,13 @@ def render_items_list(store: Dict[str, Any] | None):
                     html.Div(
                         [
                             dbc.Button(
+                                "Test Connection",
+                                id={"type": "connector-item-test", "connector_type": connector_type, "item_id": item_id},
+                                size="sm",
+                                color="secondary",
+                                className="me-2",
+                            ),
+                            dbc.Button(
                                 "Edit",
                                 id={"type": "connector-item-edit", "connector_type": connector_type, "item_id": item_id},
                                 size="sm",
@@ -846,6 +853,40 @@ def handle_item_cancel(_clicks: List[int | None]):
 
 
 @callback(
+    Output("connector-action-feedback", "children", allow_duplicate=True),
+    Input({"type": "connector-item-test", "connector_type": ALL, "item_id": ALL}, "n_clicks"),
+    prevent_initial_call=True,
+)
+def handle_item_test_connection(_clicks: List[int | None]):
+    """Test connection for a specific config item via the connector-level test endpoint."""
+    if not callback_context.triggered:
+        return no_update
+    triggered_value = callback_context.triggered[0].get("value")
+    if not triggered_value:
+        return no_update
+    triggered = callback_context.triggered_id
+    if not isinstance(triggered, dict):
+        return no_update
+
+    connector_type = triggered.get("connector_type")
+    if not connector_type:
+        return no_update
+
+    api_base = _get_api_base_url()
+    try:
+        response = requests.post(
+            f"{api_base}/api/v1/connectors/{connector_type}/test",
+            timeout=TIMEOUT_SECONDS,
+        )
+        response.raise_for_status()
+        data = response.json()
+        message = data.get("message", "Connection verified.")
+        return create_alert(message, color="success", class_name="mb-0")
+    except requests.exceptions.RequestException as exc:
+        return create_alert(f"Test failed: {exc}", color="danger", class_name="mb-0")
+
+
+@callback(
     [
         Output("connector-detail-store", "data", allow_duplicate=True),
         Output("connector-action-feedback", "children", allow_duplicate=True),
@@ -886,30 +927,6 @@ def handle_connector_save(
             no_update,
             create_alert(f"Failed to save configuration: {exc}", color="danger", class_name="mb-0"),
         )
-
-
-@callback(
-    Output("connector-action-feedback", "children", allow_duplicate=True),
-    Input({"type": "connector-test", "connector_type": ALL}, "n_clicks"),
-    prevent_initial_call=True,
-)
-def handle_connector_test(_clicks: List[int | None]):
-    triggered = callback_context.triggered_id
-    if not isinstance(triggered, dict):
-        return no_update
-    connector_type = triggered.get("connector_type")
-    api_base = _get_api_base_url()
-    try:
-        response = requests.post(
-            f"{api_base}/api/v1/connectors/{connector_type}/test",
-            timeout=TIMEOUT_SECONDS,
-        )
-        response.raise_for_status()
-        data = response.json()
-        message = data.get("message", "Connection verified.")
-        return create_alert(message, color="success", class_name="mb-0")
-    except requests.exceptions.RequestException as exc:
-        return create_alert(f"Test failed: {exc}", color="danger", class_name="mb-0")
 
 
 @callback(
