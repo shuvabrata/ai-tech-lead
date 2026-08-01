@@ -90,9 +90,9 @@ def render_scan_item(command: dict) -> html.Div:  # type: ignore[type-arg]
     completed_str = _format_timestamp(command.get("completed_at"))
     error_message: str | None = command.get("error_message")  # type: ignore[type-arg]
 
-    # Duration calculation
+    # Duration calculation — only when the scan has finished
     start_dt = command.get("started_at")
-    end_dt = command.get("completed_at") or command.get("created_at")
+    end_dt = command.get("completed_at")
     duration_text = None
     if start_dt and end_dt:
         try:
@@ -127,47 +127,41 @@ def render_scan_item(command: dict) -> html.Div:  # type: ignore[type-arg]
 
     return html.Div(
         [
-            # Row 1: Status icon + label
-            html.Div(
-                [
-                    html.I(
-                        className=cfg["icon"],
-                        style={
-                            "color": cfg["color"],
-                            "marginRight": SPACING_XSMALL,
-                            "width": "16px",
-                            "textAlign": "center",
-                        },
-                    ),
-                    html.Span(
-                        cfg["label"],
-                        style={
-                            "fontFamily": FONT_SANS,
-                            "fontSize": FONT_SIZE_SMALL,
-                            "color": cfg["color"],
-                            "fontWeight": "500",
-                        },
-                    ),
-                ],
+            html.I(
+                className=cfg["icon"],
                 style={
-                    "display": "flex",
-                    "alignItems": "center",
-                    "marginBottom": SPACING_XXXSMALL,
+                    "color": cfg["color"],
+                    "marginRight": SPACING_XSMALL,
+                    "width": "16px",
+                    "textAlign": "center",
+                    "flexShrink": 0,
                 },
             ),
-            # Row 2: Labeled timestamps and duration
-            html.Div(
+            html.Span(
+                cfg["label"],
+                style={
+                    "fontFamily": FONT_SANS,
+                    "fontSize": FONT_SIZE_SMALL,
+                    "color": cfg["color"],
+                    "fontWeight": "500",
+                    "marginRight": SPACING_XSMALL,
+                    "flexShrink": 0,
+                },
+            ),
+            html.Span(
                 detail_line,
                 style={
                     "fontFamily": FONT_SANS,
                     "fontSize": FONT_SIZE_XSMALL,
                     "color": COLOR_GRAY_MEDIUM,
-                    "marginLeft": "22px",  # indent to align with status text
-                    "marginBottom": SPACING_XXXSMALL,
                 },
             ),
         ],
         style={
+            "display": "flex",
+            "alignItems": "center",
+            "flexWrap": "wrap",
+            "gap": SPACING_XXXSMALL,
             "padding": f"{SPACING_XSMALL} {SPACING_SMALL}",
             "borderBottom": f"1px solid {COLOR_BORDER}",
         },

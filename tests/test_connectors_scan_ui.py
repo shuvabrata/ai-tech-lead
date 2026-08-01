@@ -5,7 +5,6 @@ Tests cover:
   - ``_render_top_action_bar`` / ``_render_recent_scans`` — Run Scan button visibility rules
   - Scan callback helpers — polling, API interaction
   - ``toggle_add_item_collapse`` — collapsible form toggle
-  - ``stop_polling_if_idle`` — scan polling enable/disable logic
   - Search filter callbacks — store, update, render
 """
 
@@ -16,14 +15,13 @@ from unittest.mock import MagicMock, patch
 import uuid
 
 import pytest
-from dash import html, no_update
+from dash import no_update
 from dash.exceptions import PreventUpdate
 
 from app.api.connectors.v1.registry import CONNECTOR_REGISTRY
 from app.dash_app.pages.connectors.callbacks import (
     populate_search_filters_store,
     render_search_filters_list,
-    stop_polling_if_idle,
     toggle_add_item_collapse,
     update_search_filters_store,
 )
@@ -330,102 +328,17 @@ class TestToggleAddItemCollapse:
 
 
 # ---------------------------------------------------------------------------
-# stop_polling_if_idle
+# stop_polling_if_idle — MOVED TO CLIENT-SIDE
 # ---------------------------------------------------------------------------
-
-
-class TestStopPollingIfIdle:
-    """Tests for ``stop_polling_if_idle``."""
-
-    def test_none_returns_true(self):
-        """None input (no content yet) disables polling."""
-        assert stop_polling_if_idle(None) is True
-
-    def test_no_recent_scans_message_disables_polling(self):
-        """'No recent scans' text disables polling."""
-        div = html.Div("No recent scans.")
-        assert stop_polling_if_idle(div) is True
-
-    def test_running_scan_enables_polling(self):
-        """A scan with 'Running' status enables polling."""
-        scan_item = html.Div(
-            children=[
-                html.Div(
-                    children=[
-                        html.Span("Running"),
-                        html.Span("2m ago"),
-                    ]
-                )
-            ]
-        )
-        assert stop_polling_if_idle(scan_item) is False
-
-    def test_queued_scan_enables_polling(self):
-        """A scan with 'Queued' status enables polling."""
-        scan_item = html.Div(
-            children=[
-                html.Div(
-                    children=[
-                        html.Span("Queued"),
-                        html.Span("1m ago"),
-                    ]
-                )
-            ]
-        )
-        assert stop_polling_if_idle(scan_item) is False
-
-    def test_accepted_scan_enables_polling(self):
-        """A scan with 'Accepted' status enables polling."""
-        scan_item = html.Div(
-            children=[
-                html.Div(
-                    children=[
-                        html.Span("Accepted"),
-                        html.Span("30s ago"),
-                    ]
-                )
-            ]
-        )
-        assert stop_polling_if_idle(scan_item) is False
-
-    def test_completed_scan_disables_polling(self):
-        """A scan with 'Completed' status disables polling (no active scans)."""
-        scan_item = html.Div(
-            children=[
-                html.Div(
-                    children=[
-                        html.Span("Completed"),
-                        html.Span("5m ago"),
-                    ]
-                )
-            ]
-        )
-        assert stop_polling_if_idle(scan_item) is True
-
-    def test_multiple_scans_with_active_track_running(self):
-        """When one of several scans is running, polling stays enabled."""
-        scan_list = html.Div(
-            children=[
-                html.Div(children=[html.Span("Completed")]),
-                html.Div(children=[html.Span("Running")]),
-                html.Div(children=[html.Span("Queued")]),
-            ]
-        )
-        assert stop_polling_if_idle(scan_list) is False
-
-    def test_all_completed_scans_disable_polling(self):
-        """When all scans are done, polling is disabled."""
-        scan_list = html.Div(
-            children=[
-                html.Div(children=[html.Span("Completed"), html.Span("Signals Published: 42")]),
-                html.Div(children=[html.Span("Failed"), html.Span("Error: timeout")]),
-            ]
-        )
-        assert stop_polling_if_idle(scan_list) is True
-
-    def test_fallback_returns_true(self):
-        """Non-Div types (shouldn't happen) degrade safely to disabled."""
-        assert stop_polling_if_idle("unexpected string") is True
+# The ``stop_polling_if_idle`` logic was migrated to a ``clientside_callback``
+# in ``callbacks.py`` (JavaScript running in the browser).  It is no longer a
+# Python serverside callback and cannot be unit-tested from Python.
+#
+# The JS function recursively walks the serialized Dash component tree
+# (``props.children``) looking for the strings "Running", "Queued", or
+# "Accepted".  If any are found, it returns ``false`` (keep polling);
+# otherwise it returns ``true`` (disable the poll interval).
+# ---------------------------------------------------------------------------
 
 
 # ---------------------------------------------------------------------------

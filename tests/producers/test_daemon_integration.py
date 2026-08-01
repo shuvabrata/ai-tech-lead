@@ -792,7 +792,9 @@ class TestScanEndToEnd:
                 json={"command_type": "scan", "target": "github-producer"},
             )
             assert resp.status_code == 201
-            command_id = uuid.UUID(resp.json()["command_id"])
+            command_id_str = resp.json()["command_id"]
+            command_id = uuid.UUID(command_id_str)
+            self._created_command_ids.append(command_id_str)
 
         from connectors.producers.daemon_common import _update_status  # pylint: disable=import-outside-toplevel
         from common.command_n_control.models import CommandStatusUpdate  # pylint: disable=import-outside-toplevel
