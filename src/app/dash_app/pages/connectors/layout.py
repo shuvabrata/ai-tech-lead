@@ -1,7 +1,5 @@
 """Dash layouts for the Connectors pages."""
 
-import uuid
-
 from dash import dcc, html
 import dash_bootstrap_components as dbc
 
@@ -9,13 +7,19 @@ from app.api.connectors.v1.registry import CONNECTOR_REGISTRY
 from app.settings import settings
 from app.dash_app.components.common import create_alert, create_page_header
 from app.dash_app.styles import (
+    CARD_CONTAINER_STYLE,
+    COLOR_BACKGROUND_LIGHT,
     COLOR_BORDER,
     COLOR_CHARCOAL_MEDIUM,
     COLOR_CODE_BACKGROUND,
+    COLOR_GRAY_DARK,
     COLOR_GRAY_MEDIUM,
+    COLOR_NAVY,
+    COLOR_SHADOW_LIGHT,
     FONT_SANS,
     FONT_SIZE_SMALL,
     FONT_WEIGHT_MEDIUM,
+    FONT_WEIGHT_SEMIBOLD,
     SPACING_XSMALL,
     SPACING_SMALL,
 )
@@ -109,6 +113,7 @@ def get_detail_layout(connector_type: str):
                     dcc.Store(id="connector-detail-store", storage_type="memory"),
                     dcc.Store(id="connector-items-store", storage_type="memory"),
                     dcc.Store(id="connector-edit-item", storage_type="memory"),
+                    dcc.Store(id="connector-scroll-trigger", storage_type="memory"),
                     dcc.Store(
                         id={"type": "connector-search-filters-store", "connector_type": connector_type},
                         storage_type="memory",
@@ -116,75 +121,84 @@ def get_detail_layout(connector_type: str):
                     dcc.Interval(id="connector-scans-poll", interval=settings.CONNECTOR_SCAN_POLL_INTERVAL, disabled=True),
                     html.Div(
                         id="connector-action-feedback",
-                        key=f"connector-feedback-{connector_type}-{uuid.uuid4()}",
+                        key=f"connector-feedback-{connector_type}",
                         style={
                             "position": "sticky",
                             "top": SPACING_SMALL,
                             "zIndex": 1000,
                             "marginBottom": SPACING_SMALL,
+                            "backgroundColor": COLOR_BACKGROUND_LIGHT,
+                            "border": f"1px solid {COLOR_BORDER}",
+                            "borderRadius": "2px",
+                            "padding": f"{SPACING_XSMALL} {SPACING_SMALL}",
+                            "boxShadow": f"0 2px 4px {COLOR_SHADOW_LIGHT}",
                         },
                     ),
-                    html.Div(
-                        [
-                            _section_title("Connector Settings"),
-                            _render_connector_config(form_spec, connector_type),
-                            dbc.Button(
-                                "Save Configuration",
-                                id={"type": "connector-save", "connector_type": connector_type},
-                                color="primary",
-                                size="sm",
-                                className="mt-2",
-                            ),
-                        ],
-                        style={"marginBottom": SPACING_SMALL},
+                    # 1. Top Action Bar — most-used actions
+                    _section_container(_render_top_action_bar(connector_type, connector_meta)),
+                    # 2. Recent Scans — always visible
+                    _section_container(_render_recent_scans(connector_type, connector_meta)),
+                    # 3. Add New {item label} — collapsible form, collapsed by default
+                    _section_container(
+                        html.Div(
+                            [
+                                html.Div(
+                                    [
+                                        html.I(className="fas fa-plus me-1", style={"fontSize": "11px"}),
+                                        f"Add New {form_spec.get('item', {}).get('label', 'Item')}",
+                                    ],
+                                    id="add-item-collapse-toggle",
+                                    className="collapse-toggle-subtle",
+                                    style={
+                                        "fontSize": "11px",
+                                        "fontWeight": FONT_WEIGHT_SEMIBOLD,
+                                        "color": COLOR_GRAY_DARK,
+                                        "marginBottom": SPACING_XSMALL,
+                                        "cursor": "pointer",
+                                        "userSelect": "none",
+                                    },
+                                ),
+                                dbc.Collapse(
+                                    id="add-item-collapse",
+                                    is_open=False,
+                                    children=_render_item_form(form_spec, connector_type),
+                                ),
+                            ],
+                            style={"display": "none" if not supports_items else "block"},
+                        )
                     ),
-                    html.Div(
-                        [
-                            _section_title("Configured Items"),
-                            _render_item_form(form_spec, connector_type),
-                            html.Div(
-                                id="connector-items-list",
-                                children=[
-                                    html.Div(
-                                        "No items configured yet.",
-                                        style={
-                                            "fontFamily": FONT_SANS,
-                                            "fontSize": FONT_SIZE_SMALL,
-                                            "color": COLOR_GRAY_MEDIUM,
-                                            "paddingTop": SPACING_XSMALL,
-                                        },
-                                    )
-                                ],
-                                style={
-                                    "marginTop": SPACING_SMALL,
-                                    "borderTop": f"1px solid {COLOR_BORDER}",
-                                    "paddingTop": SPACING_SMALL,
-                                },
-                            ),
-                        ],
-                        style={"marginBottom": SPACING_SMALL, "display": "none" if not supports_items else "block"},
+                    # 4. Repository Cards — list of configured items
+                    _section_container(
+                        html.Div(
+                            id="connector-items-list",
+                            children=[
+                                html.Div(
+                                    "No items configured yet.",
+                                    style={
+                                        "fontFamily": FONT_SANS,
+                                        "fontSize": FONT_SIZE_SMALL,
+                                        "color": COLOR_GRAY_MEDIUM,
+                                        "paddingTop": SPACING_XSMALL,
+                                    },
+                                )
+                            ],
+                        )
                     ),
-                    html.Div(
-                        [
-                            dbc.Button(
-                                "Test Connection",
-                                id={"type": "connector-test", "connector_type": connector_type},
-                                color="secondary",
-                                size="sm",
-                                className="me-2",
-                            ),
-                            dbc.Button(
-                                "Delete Configuration",
-                                id={"type": "connector-delete", "connector_type": connector_type},
-                                color="danger",
-                                size="sm",
-                            ),
-                        ]
-                    ),
-                    # Run Scan button — only for producer connectors
-                    html.Div(
-                        _render_scan_section(connector_type, connector_meta),
-                        style={"marginTop": SPACING_SMALL},
+                    # 5. Global Configuration — connector-level settings
+                    _section_container(
+                        html.Div(
+                            [
+                                _section_title("Connector Settings"),
+                                _render_connector_config(form_spec, connector_type),
+                                dbc.Button(
+                                    "Save Configuration",
+                                    id={"type": "connector-save", "connector_type": connector_type},
+                                    color="primary",
+                                    size="sm",
+                                    className="mt-2",
+                                ),
+                            ],
+                        )
                     ),
                 ],
                 style=CARD_CONTAINER_STYLE,
@@ -194,14 +208,58 @@ def get_detail_layout(connector_type: str):
     )
 
 
-# ── Scan section helper ──────────────────────────────────────────────────
+# ── Top action bar ───────────────────────────────────────────────────────
 
 
-def _render_scan_section(connector_type: str, connector_meta: dict) -> html.Div:
-    """Render the "Run Scan" button and "Recent Scans" section.
+def _render_top_action_bar(connector_type: str, connector_meta: dict) -> html.Div:
+    """Render the top action bar with Run Scan and Delete Configuration.
+
+    Run Scan is only shown for connectors that have a ``producer_container``
+    in the registry (i.e. GitHub, Jira, Confluence).
+    """
+    producer_container = connector_meta.get("producer_container")
+    buttons = []
+
+    if producer_container:
+        buttons.append(
+            dbc.Button(
+                "Run Scan",
+                id={"type": "connector-run-scan", "connector_type": connector_type},
+                color="success",
+                size="sm",
+                className="me-2",
+            ),
+        )
+
+    buttons.append(
+        dbc.Button(
+            "Delete Configuration",
+            id={"type": "connector-delete", "connector_type": connector_type},
+            color="danger",
+            size="sm",
+        ),
+    )
+
+    return html.Div(
+        buttons,
+        style={
+            "display": "flex",
+            "alignItems": "center",
+        },
+    )
+
+
+# ── Recent Scans section ─────────────────────────────────────────────────
+
+
+def _render_recent_scans(_connector_type: str, connector_meta: dict) -> html.Div:
+    """Render the Recent Scans section.
 
     Only shown for connectors that have a ``producer_container`` in the
     registry (i.e. GitHub, Jira, Confluence).
+
+    Note: ``_connector_type`` is reserved for future use — it will be used
+    to tailor scan messaging per connector type.
     """
     producer_container = connector_meta.get("producer_container")
     if not producer_container:
@@ -209,47 +267,35 @@ def _render_scan_section(connector_type: str, connector_meta: dict) -> html.Div:
 
     return html.Div(
         [
-            _section_title("Scan & Sync"),
+            _section_title("Recent Scans"),
             html.Div(
-                "Trigger a data scan to fetch and sync the latest data from this source.",
+                id="connector-scans-list",
+                children="No recent scans.",
                 style={
                     "fontFamily": FONT_SANS,
                     "fontSize": FONT_SIZE_SMALL,
                     "color": COLOR_GRAY_MEDIUM,
-                    "marginBottom": SPACING_XSMALL,
-                },
-            ),
-            html.Div(
-                [
-                    dbc.Button(
-                        "Run Scan",
-                        id={"type": "connector-run-scan", "connector_type": connector_type},
-                        color="success",
-                        size="sm",
-                        className="me-2",
-                    ),
-                ],
-                style={"marginBottom": SPACING_SMALL},
-            ),
-            html.Div(
-                [
-                    _section_title("Recent Scans"),
-                    html.Div(
-                        id="connector-scans-list",
-                        children="No recent scans.",
-                        style={
-                            "fontFamily": FONT_SANS,
-                            "fontSize": FONT_SIZE_SMALL,
-                            "color": COLOR_GRAY_MEDIUM,
-                        },
-                    ),
-                ],
-                style={
-                    "borderTop": f"1px solid {COLOR_BORDER}",
-                    "paddingTop": SPACING_XSMALL,
                 },
             ),
         ],
+    )
+
+
+# ── Section container helper ─────────────────────────────────────────────
+
+
+def _section_container(children: html.Div) -> html.Div:
+    """Wrap a section in a subtle card with a left navy accent border."""
+    return html.Div(
+        children,
+        style={
+            "padding": SPACING_SMALL,
+            "backgroundColor": COLOR_BACKGROUND_LIGHT,
+            "border": f"1px solid {COLOR_BORDER}",
+            "borderLeft": f"3px solid {COLOR_NAVY}",
+            "borderRadius": "2px",
+            "marginBottom": SPACING_SMALL,
+        },
     )
 
 
@@ -339,6 +385,30 @@ def _render_item_form(form_spec: dict, connector_type: str) -> html.Div:
         dbc.Col(_render_field(field, connector_type, section="item"), md=6, xs=12)
         for field in fields
     ]
+
+    # Build grid rows: fields in pairs, then search filters in right column
+    grid_rows = []
+    for i in range(0, len(field_components), 2):
+        left = field_components[i]
+        right = field_components[i + 1] if i + 1 < len(field_components) else dbc.Col(html.Div(), md=6, xs=12)
+        grid_rows.append(dbc.Row([left, right], className="g-3"))
+
+    # Add search filters row (right column only) — only for github where search filters exist
+    if connector_type == "github":
+        grid_rows.append(
+            dbc.Row(
+                [
+                    dbc.Col(html.Div(), md=6, xs=12),
+                    dbc.Col(
+                        _render_search_filters_editor(connector_type),
+                        md=6,
+                        xs=12,
+                    ),
+                ],
+                className="g-3",
+            )
+        )
+
     return html.Div(
         [
             html.Div(
@@ -351,8 +421,7 @@ def _render_item_form(form_spec: dict, connector_type: str) -> html.Div:
                     "marginBottom": SPACING_XSMALL,
                 },
             ),
-            dbc.Row(field_components, className="g-3"),
-            _render_search_filters_editor(connector_type),
+            html.Div(grid_rows),
             html.Div(
                 [
                     dbc.Button(
@@ -591,6 +660,7 @@ def _get_manual_setup_layout(connector_type: str, connector_meta: dict) -> html.
                     dcc.Store(id="connector-detail-store", storage_type="memory"),
                     dcc.Store(id="connector-items-store", storage_type="memory"),
                     dcc.Store(id="connector-edit-item", storage_type="memory"),
+                    dcc.Store(id="connector-scroll-trigger", storage_type="memory"),
                     dcc.Store(
                         id={"type": "connector-search-filters-store", "connector_type": connector_type},
                         storage_type="memory",

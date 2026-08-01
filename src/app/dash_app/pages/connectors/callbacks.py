@@ -9,7 +9,8 @@ from typing import Any, Dict, List
 
 import requests
 import dash_bootstrap_components as dbc
-from dash import ALL, MATCH, Input, Output, State, callback, callback_context, html, no_update
+from dash import ALL, MATCH, Input, Output, State, callback, callback_context, clientside_callback, html, no_update
+from dash.exceptions import PreventUpdate
 
 from app.common.timezone import humanize_duration, to_app_timezone
 from app.settings import settings
@@ -236,6 +237,19 @@ def load_connector_detail(pathname: str):
     except requests.exceptions.RequestException as exc:
         error = {"status": "error", "connector_type": connector_type, "message": str(exc)}
         return error, error, None, None
+
+
+@callback(
+    Output("add-item-collapse", "is_open"),
+    Input("add-item-collapse-toggle", "n_clicks"),
+    State("add-item-collapse", "is_open"),
+    prevent_initial_call=True,
+)
+def toggle_add_item_collapse(n_clicks: int | None, is_open: bool) -> bool:
+    """Toggle the Add New Repository collapsible section."""
+    if not n_clicks:
+        raise PreventUpdate
+    return not is_open
 
 
 @callback(
@@ -485,15 +499,25 @@ def render_items_list(store: Dict[str, Any] | None):
                     header_text = f"{label}: last configured at {updated_at}"
 
         is_active = item.get("enabled", True)
-        fields = [k for k in item.keys() if k not in ("id", "connector_id", "created_at", "updated_at", "enabled") and not k.endswith("token") and not k.endswith("password")]
-        field_rows = []
-        for key in fields:
-            value = _format_display_value(item.get(key))
-            field_rows.append(
-                html.Div(
+
+        # Build 2-column grid from spec field order
+        spec_fields = item_spec.get("fields", [])
+        grid_rows = []
+        for i in range(0, len(spec_fields), 2):
+            left_spec = spec_fields[i]
+            right_spec = spec_fields[i + 1] if i + 1 < len(spec_fields) else None
+
+            # Left cell
+            left_key = left_spec["key"]
+            if left_key.endswith("token") or left_key.endswith("password"):
+                left_cell = html.Div()
+            else:
+                left_value = _format_display_value(item.get(left_key))
+                left_label = left_spec.get("label", left_key.replace("_", " ").title())
+                left_cell = html.Div(
                     [
                         html.Span(
-                            f"{key.replace('_', ' ').title()}: ",
+                            f"{left_label}: ",
                             style={
                                 "fontFamily": FONT_SANS,
                                 "fontSize": FONT_SIZE_SMALL,
@@ -501,14 +525,92 @@ def render_items_list(store: Dict[str, Any] | None):
                             },
                         ),
                         html.Span(
-                            value,
+                            left_value,
                             style={
                                 "fontFamily": FONT_SANS,
                                 "fontSize": FONT_SIZE_SMALL,
                                 "color": COLOR_CHARCOAL_MEDIUM,
                             },
                         ),
+                    ]
+                )
+
+            # Right cell
+            if right_spec:
+                right_key = right_spec["key"]
+                if right_key.endswith("token") or right_key.endswith("password"):
+                    right_cell = html.Div()
+                else:
+                    right_value = _format_display_value(item.get(right_key))
+                    right_label = right_spec.get("label", right_key.replace("_", " ").title())
+                    right_cell = html.Div(
+                        [
+                            html.Span(
+                                f"{right_label}: ",
+                                style={
+                                    "fontFamily": FONT_SANS,
+                                    "fontSize": FONT_SIZE_SMALL,
+                                    "color": COLOR_GRAY_MEDIUM,
+                                },
+                            ),
+                            html.Span(
+                                right_value,
+                                style={
+                                    "fontFamily": FONT_SANS,
+                                    "fontSize": FONT_SIZE_SMALL,
+                                    "color": COLOR_CHARCOAL_MEDIUM,
+                                },
+                            ),
+                        ]
+                    )
+            else:
+                right_cell = html.Div()
+
+            grid_rows.append(
+                dbc.Row(
+                    [
+                        dbc.Col(left_cell, md=6, xs=12),
+                        dbc.Col(right_cell, md=6, xs=12),
                     ],
+                    className="g-3",
+                    style={"marginBottom": SPACING_XXXSMALL},
+                )
+            )
+
+        # Search filters row — right column only
+        search_filters = item.get("search_filters")
+        if search_filters and isinstance(search_filters, dict) and search_filters:
+            filter_text = ", ".join([f"{k}: {v}" for k, v in search_filters.items()])
+            grid_rows.append(
+                dbc.Row(
+                    [
+                        dbc.Col(html.Div(), md=6, xs=12),
+                        dbc.Col(
+                            html.Div(
+                                [
+                                    html.Span(
+                                        "Search Filters: ",
+                                        style={
+                                            "fontFamily": FONT_SANS,
+                                            "fontSize": FONT_SIZE_SMALL,
+                                            "color": COLOR_GRAY_MEDIUM,
+                                        },
+                                    ),
+                                    html.Span(
+                                        filter_text,
+                                        style={
+                                            "fontFamily": FONT_SANS,
+                                            "fontSize": FONT_SIZE_SMALL,
+                                            "color": COLOR_CHARCOAL_MEDIUM,
+                                        },
+                                    ),
+                                ]
+                            ),
+                            md=6,
+                            xs=12,
+                        ),
+                    ],
+                    className="g-3",
                     style={"marginBottom": SPACING_XXXSMALL},
                 )
             )
@@ -526,9 +628,16 @@ def render_items_list(store: Dict[str, Any] | None):
                             "marginBottom": SPACING_XSMALL,
                         },
                     ),
-                    html.Div(field_rows),
+                    html.Div(grid_rows),
                     html.Div(
                         [
+                            dbc.Button(
+                                "Test Connection",
+                                id={"type": "connector-item-test", "connector_type": connector_type, "item_id": item_id},
+                                size="sm",
+                                color="secondary",
+                                className="me-2",
+                            ),
                             dbc.Button(
                                 "Edit",
                                 id={"type": "connector-item-edit", "connector_type": connector_type, "item_id": item_id},
@@ -561,6 +670,7 @@ def render_items_list(store: Dict[str, Any] | None):
                     "borderRadius": "2px",
                     "backgroundColor": COLOR_BACKGROUND_LIGHT,
                     "marginBottom": SPACING_SMALL,
+                    "opacity": "0.45" if not is_active else "1",
                 },
             )
         )
@@ -569,7 +679,10 @@ def render_items_list(store: Dict[str, Any] | None):
 
 
 @callback(
-    Output("connector-edit-item", "data", allow_duplicate=True),
+    [
+        Output("connector-edit-item", "data", allow_duplicate=True),
+        Output("add-item-collapse", "is_open", allow_duplicate=True),
+    ],
     Input({"type": "connector-item-edit", "connector_type": ALL, "item_id": ALL}, "n_clicks"),
     State({"type": "connector-item-edit", "connector_type": ALL, "item_id": ALL}, "id"),
     State("connector-items-store", "data"),
@@ -578,20 +691,20 @@ def render_items_list(store: Dict[str, Any] | None):
 def handle_item_edit(_clicks: List[int | None], ids: List[Dict[str, Any]], store: Dict[str, Any] | None):
     triggered = callback_context.triggered_id
     if not isinstance(triggered, dict):
-        return no_update
+        return no_update, no_update
 
     if not callback_context.triggered or not callback_context.triggered[0].get("value"):
-        return no_update
+        return no_update, no_update
 
     connector_type = triggered.get("connector_type")
     item_id = triggered.get("item_id")
     if not store or store.get("status") != "ok":
-        return no_update
+        return no_update, no_update
     items = store.get("items", [])
     for item in items:
         if item.get("id") == item_id:
-            return {"connector_type": connector_type, "item_id": item_id, "item": item}
-    return no_update
+            return {"connector_type": connector_type, "item_id": item_id, "item": item}, True
+    return no_update, no_update
 
 
 @callback(
@@ -599,6 +712,7 @@ def handle_item_edit(_clicks: List[int | None], ids: List[Dict[str, Any]], store
         Output("connector-items-store", "data", allow_duplicate=True),
         Output("connector-edit-item", "data", allow_duplicate=True),
         Output("connector-action-feedback", "children", allow_duplicate=True),
+        Output("add-item-collapse", "is_open", allow_duplicate=True),
     ],
     Input({"type": "connector-item-add", "connector_type": ALL}, "n_clicks"),
     State({"type": "connector-item-add", "connector_type": ALL}, "id"),
@@ -620,11 +734,11 @@ def handle_item_save(
 ):
     triggered = callback_context.triggered_id
     if not isinstance(triggered, dict):
-        return no_update, no_update, no_update
+        return no_update, no_update, no_update, no_update
 
     connector_type = triggered.get("connector_type")
     if not connector_type:
-        return no_update, no_update, no_update
+        return no_update, no_update, no_update, no_update
 
     is_update = bool(edit_state and edit_state.get("item_id") and edit_state.get("connector_type") == connector_type)
     payload = _build_payload(connector_type, "item", field_ids, field_values, skip_empty_secrets=is_update)
@@ -666,12 +780,14 @@ def handle_item_save(
             updated_store,
             clear_state,
             create_alert("Item saved successfully.", color="success", class_name="mb-0"),
+            False,
         )
     except requests.exceptions.RequestException as exc:
         return (
             no_update,
             no_update,
             create_alert(f"Failed to save item: {exc}", color="danger", class_name="mb-0"),
+            no_update,
         )
 
 
@@ -727,20 +843,57 @@ def handle_item_delete(_clicks: List[int | None]):
 
 
 @callback(
-    Output("connector-edit-item", "data", allow_duplicate=True),
+    [
+        Output("connector-edit-item", "data", allow_duplicate=True),
+        Output("add-item-collapse", "is_open", allow_duplicate=True),
+    ],
     Input({"type": "connector-item-cancel", "connector_type": ALL}, "n_clicks"),
     prevent_initial_call=True,
 )
 def handle_item_cancel(_clicks: List[int | None]):
     triggered = callback_context.triggered_id
     if not isinstance(triggered, dict):
-        return no_update
+        return no_update, no_update
     
     if not callback_context.triggered or not callback_context.triggered[0].get("value"):
+        return no_update, no_update
+
+    connector_type = triggered.get("connector_type")
+    return {"connector_type": connector_type, "action": "clear", "timestamp": time.time()}, False
+
+
+@callback(
+    Output("connector-action-feedback", "children", allow_duplicate=True),
+    Input({"type": "connector-item-test", "connector_type": ALL, "item_id": ALL}, "n_clicks"),
+    prevent_initial_call=True,
+)
+def handle_item_test_connection(_clicks: List[int | None]):
+    """Test connection for a specific config item via the connector-level test endpoint."""
+    if not callback_context.triggered:
+        return no_update
+    triggered_value = callback_context.triggered[0].get("value")
+    if not triggered_value:
+        return no_update
+    triggered = callback_context.triggered_id
+    if not isinstance(triggered, dict):
         return no_update
 
     connector_type = triggered.get("connector_type")
-    return {"connector_type": connector_type, "action": "clear", "timestamp": time.time()}
+    if not connector_type:
+        return no_update
+
+    api_base = _get_api_base_url()
+    try:
+        response = requests.post(
+            f"{api_base}/api/v1/connectors/{connector_type}/test",
+            timeout=TIMEOUT_SECONDS,
+        )
+        response.raise_for_status()
+        data = response.json()
+        message = data.get("message", "Connection verified.")
+        return create_alert(message, color="success", class_name="mb-0")
+    except requests.exceptions.RequestException as exc:
+        return create_alert(f"Test failed: {exc}", color="danger", class_name="mb-0")
 
 
 @callback(
@@ -784,30 +937,6 @@ def handle_connector_save(
             no_update,
             create_alert(f"Failed to save configuration: {exc}", color="danger", class_name="mb-0"),
         )
-
-
-@callback(
-    Output("connector-action-feedback", "children", allow_duplicate=True),
-    Input({"type": "connector-test", "connector_type": ALL}, "n_clicks"),
-    prevent_initial_call=True,
-)
-def handle_connector_test(_clicks: List[int | None]):
-    triggered = callback_context.triggered_id
-    if not isinstance(triggered, dict):
-        return no_update
-    connector_type = triggered.get("connector_type")
-    api_base = _get_api_base_url()
-    try:
-        response = requests.post(
-            f"{api_base}/api/v1/connectors/{connector_type}/test",
-            timeout=TIMEOUT_SECONDS,
-        )
-        response.raise_for_status()
-        data = response.json()
-        message = data.get("message", "Connection verified.")
-        return create_alert(message, color="success", class_name="mb-0")
-    except requests.exceptions.RequestException as exc:
-        return create_alert(f"Test failed: {exc}", color="danger", class_name="mb-0")
 
 
 @callback(
@@ -1050,23 +1179,27 @@ def handle_inline_toggle(new_enabled_state: bool, store: Dict[str, Any] | None):
 
 @callback(
     Output("connector-action-feedback", "children", allow_duplicate=True),
+    Output("connector-scans-poll", "disabled", allow_duplicate=True),
     Input({"type": "connector-run-scan", "connector_type": ALL}, "n_clicks"),
     prevent_initial_call=True,
 )
 def handle_run_scan(n_clicks: List[int | None]):
-    """Send a scan command via the API when the "Run Scan" button is clicked."""
+    """Send a scan command via the API when the "Run Scan" button is clicked.
+
+    Also enables the scan-polling interval so the scan list auto-refreshes.
+    """
     _ = n_clicks  # used by Dash as trigger
     if not callback_context.triggered:
-        return no_update
+        return no_update, no_update
     triggered_value = callback_context.triggered[0].get("value")
     if not triggered_value:
-        return no_update
+        return no_update, no_update
     triggered = callback_context.triggered_id
     if not isinstance(triggered, dict):
-        return no_update
+        return no_update, no_update
     connector_type = triggered.get("connector_type")
     if not connector_type or connector_type not in CONNECTOR_REGISTRY:
-        return no_update
+        return no_update, no_update
 
     container_name = CONNECTOR_REGISTRY[connector_type].get("producer_container")
     if not container_name:
@@ -1074,7 +1207,7 @@ def handle_run_scan(n_clicks: List[int | None]):
             f"No producer container configured for {connector_type}.",
             color="warning",
             class_name="mb-0",
-        )
+        ), no_update
 
     api_base = _get_api_base_url()
     try:
@@ -1090,25 +1223,34 @@ def handle_run_scan(n_clicks: List[int | None]):
         response.raise_for_status()
         data = response.json()
         command_id = data.get("command_id", "unknown")
-        return create_alert(
-            f"Scan triggered! Command ID: {command_id}",
-            color="success",
-            class_name="mb-0",
+        return (
+            create_alert(
+                f"Scan triggered! Command ID: {command_id}",
+                color="success",
+                class_name="mb-0",
+            ),
+            False,  # enable the polling interval
         )
     except requests.exceptions.RequestException as exc:
-        return create_alert(
-            f"Failed to trigger scan: {exc}",
-            color="danger",
-            class_name="mb-0",
+        return (
+            create_alert(
+                f"Failed to trigger scan: {exc}",
+                color="danger",
+                class_name="mb-0",
+            ),
+            no_update,
         )
 
 
 @callback(
     Output("connector-scans-list", "children"),
-    Input("connector-scans-poll", "n_intervals"),
-    State("url", "pathname"),
+    [Input("connector-scans-poll", "n_intervals"),
+     Input("url", "pathname")],
 )
-def load_recent_scans(n_intervals: int | None, pathname: str | None):
+def load_recent_scans(
+    n_intervals: int | None,
+    pathname: str | None,
+):
     """Load recent scan commands for this connector.
 
     Polled every 5 seconds while scans are in progress.  Disabled when idle.
@@ -1160,16 +1302,17 @@ def stop_polling_if_idle(scans_list: Any):
     if scans_list is None:
         return True  # no content yet, keep disabled
 
-    # If the list contains a "No recent scans" message, no polling needed
     if isinstance(scans_list, html.Div):
-        return True
+        text = _get_div_text(scans_list)
+        # "No recent scans" message — no polling needed
+        if "No recent scans" in text:
+            return True
 
-    # Check if any scan item has a running/accepted status
-    if isinstance(scans_list, html.Div):
+        # Check if any scan item has a running/queued status
         for child in getattr(scans_list, "children", []) or []:
             if isinstance(child, html.Div):
-                text = _get_div_text(child)
-                if "Running" in text or "Accepted" in text:
+                child_text = _get_div_text(child)
+                if "Running" in child_text or "Queued" in child_text or "Accepted" in child_text:
                     return False
         return True
 
@@ -1179,9 +1322,32 @@ def stop_polling_if_idle(scans_list: Any):
 def _get_div_text(div: html.Div) -> str:
     """Extract the text content of a div for status detection."""
     parts: list[str] = []
-    for child in getattr(div, "children", []) or []:
+    children = getattr(div, "children", None)
+    if children is None:
+        return ""
+    if not isinstance(children, list):
+        children = [children]
+    for child in children:
         if hasattr(child, "children"):
             parts.append(_get_div_text(child))
         elif isinstance(child, str):
             parts.append(child)
     return " ".join(parts)
+
+
+clientside_callback(
+    """
+    function(edit_data) {
+        if (edit_data && edit_data.item_id) {
+            setTimeout(function() {
+                var el = document.getElementById('add-item-collapse-toggle');
+                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }, 200);
+        }
+        return '';
+    }
+    """,
+    Output("connector-scroll-trigger", "data"),
+    Input("connector-edit-item", "data"),
+    prevent_initial_call=True,
+)

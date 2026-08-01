@@ -491,16 +491,24 @@ class TestScanEndToEnd:
         yield
 
     def _cleanup(self) -> None:
-        """Synchronous post-test cleanup: purge RabbitMQ messages and DB records."""
+        """Synchronous post-test cleanup: purge RabbitMQ messages and test-created DB records."""
         _purge_control_queues_sync()
-        # Clean up command_status DB records using a fresh event loop (the
-        # original loop is closed by the time the finalizer runs).
+        command_ids = list(self._created_command_ids)
+        if not command_ids:
+            return
+        # Clean up only the test-created command_status rows using a fresh
+        # event loop (the original loop is closed by the time the finalizer
+        # runs).
         async def _clean_db() -> None:
             from app.db.session import ASYNC_SESSION_LOCAL, engine  # pylint: disable=import-outside-toplevel
             from app.db.models.command_status import CommandStatus  # pylint: disable=import-outside-toplevel
             import sqlalchemy  # pylint: disable=import-outside-toplevel
             async with ASYNC_SESSION_LOCAL() as session:
-                await session.execute(sqlalchemy.delete(CommandStatus))
+                await session.execute(
+                    sqlalchemy.delete(CommandStatus).where(
+                        CommandStatus.command_id.in_(command_ids)
+                    )
+                )
                 await session.commit()
             # Dispose the engine so pooled connections don't leak warnings
             # when their (closed) event loop is garbage collected.
@@ -532,6 +540,7 @@ class TestScanEndToEnd:
         assert data["target"] == "github-producer"
         # Verify a UUID was generated
         assert len(data["command_id"]) == 36
+        self._created_command_ids.append(data["command_id"])
 
     @pytest.mark.asyncio
     @pytest.mark.server
@@ -549,6 +558,7 @@ class TestScanEndToEnd:
         assert resp.status_code == 201
         data = resp.json()
         command_id = data["command_id"]
+        self._created_command_ids.append(command_id)
 
         # Verify the message is consumable from the correct queue
         connection = await aio_pika.connect_robust(settings.RABBITMQ_URL)
@@ -583,6 +593,7 @@ class TestScanEndToEnd:
 
         assert resp.status_code == 201
         data = resp.json()
+        self._created_command_ids.append(data["command_id"])
         # The parameters should be stored
         assert data["parameters"] is not None
 
@@ -616,6 +627,7 @@ class TestScanEndToEnd:
             )
             assert create_resp.status_code == 201
             command_id = create_resp.json()["command_id"]
+            self._created_command_ids.append(command_id)
 
             # Update status to running
             patch_resp = await client.patch(
@@ -659,6 +671,7 @@ class TestScanEndToEnd:
             )
             assert resp.status_code == 201
             command_id = resp.json()["command_id"]
+            self._created_command_ids.append(command_id)
 
             # pending → accepted (already accepted from create)
             # accepted → queued
@@ -709,10 +722,12 @@ class TestScanEndToEnd:
         async with httpx.AsyncClient(base_url=self._API_BASE, timeout=10) as client:
             # Create a few commands
             for target in ("github-producer", "jira-producer"):
-                await client.post(
+                resp = await client.post(
                     "/commands/",
                     json={"command_type": "scan", "target": target},
                 )
+                if resp.status_code == 201:
+                    self._created_command_ids.append(resp.json()["command_id"])
 
             # Wait briefly for async processing
             await asyncio.sleep(0.3)
@@ -744,7 +759,9 @@ class TestScanEndToEnd:
                 json={"command_type": "scan", "target": "github-producer"},
             )
             assert resp.status_code == 201
-            command_id = uuid.UUID(resp.json()["command_id"])
+            command_id_str = resp.json()["command_id"]
+            self._created_command_ids.append(command_id_str)
+            command_id = uuid.UUID(command_id_str)
 
         # Simulate daemon child: PATCH running directly, then PATCH completed
         from connectors.producers.daemon_common import _update_status  # pylint: disable=import-outside-toplevel
