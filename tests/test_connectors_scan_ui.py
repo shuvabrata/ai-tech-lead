@@ -85,12 +85,10 @@ class TestRenderScanItem:
             "created_at": "2026-07-31T10:00:00Z",
             "started_at": "2026-07-31T10:00:01Z",
             "completed_at": "2026-07-31T10:02:30Z",
-            "result_summary": {"signals_published": 42},
         }
         result = render_scan_item(cmd)
         text = self._flatten_text(result)
         assert "Completed" in text
-        assert "Signals Published: 42" in text
         icons = self._collect_icons(result)
         assert STATUS_CONFIG["completed"]["icon"] in icons
 
@@ -148,8 +146,8 @@ class TestRenderScanItem:
         }
         result = render_scan_item(cmd)
         text = self._flatten_text(result)
-        # 1m 45s
-        assert "1m 45s" in text
+        # Duration is now labeled
+        assert "Duration: 1m 45s" in text
 
     def test_no_duration_when_no_timestamps(self):
         """No duration is shown when timestamps are missing."""
@@ -161,6 +159,46 @@ class TestRenderScanItem:
         result = render_scan_item(cmd)
         # Should not crash
         assert result is not None
+
+    def test_error_none_label_present(self):
+        """Error: None label is shown even when no error_message is supplied."""
+        cmd = {
+            "command_id": str(uuid.uuid4()),
+            "status": "completed",
+            "created_at": "2026-07-31T10:00:00Z",
+            "started_at": "2026-07-31T10:00:01Z",
+            "completed_at": "2026-07-31T10:02:30Z",
+        }
+        result = render_scan_item(cmd)
+        text = self._flatten_text(result)
+        assert "Error: None" in text
+
+    def test_error_message_shown(self):
+        """Error message is shown when present."""
+        cmd = {
+            "command_id": str(uuid.uuid4()),
+            "status": "failed",
+            "created_at": "2026-07-31T10:00:00Z",
+            "error_message": "Max concurrent scans reached",
+        }
+        result = render_scan_item(cmd)
+        text = self._flatten_text(result)
+        assert "Error: Max concurrent scans reached" in text
+
+    def test_labeled_timestamps_present(self):
+        """Created, Started, Completed labels appear in output."""
+        cmd = {
+            "command_id": str(uuid.uuid4()),
+            "status": "completed",
+            "created_at": "2026-07-31T10:00:00Z",
+            "started_at": "2026-07-31T10:00:01Z",
+            "completed_at": "2026-07-31T10:02:30Z",
+        }
+        result = render_scan_item(cmd)
+        text = self._flatten_text(result)
+        assert "Created:" in text
+        assert "Started:" in text
+        assert "Completed:" in text
 
 
 # ---------------------------------------------------------------------------

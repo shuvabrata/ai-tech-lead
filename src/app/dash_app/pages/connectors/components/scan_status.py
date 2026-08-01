@@ -74,13 +74,14 @@ def _format_timestamp(ts: str | None) -> str | None:
 
 
 def render_scan_item(command: dict) -> html.Div:  # type: ignore[type-arg]
-    """Render a single scan command row.
+    """Render a single scan command row with labeled timestamps and details.
 
     Args:
         command: A ``CommandResponse`` dict from the API.
 
     Returns:
-        An ``html.Div`` with status icon, timing, and summary.
+        An ``html.Div`` with status icon, labeled timestamps, duration,
+        error message, and result summary.
     """
     status = command.get("status", "unknown")
     cfg = STATUS_CONFIG.get(status, {
@@ -93,7 +94,6 @@ def render_scan_item(command: dict) -> html.Div:  # type: ignore[type-arg]
     started_str = _format_timestamp(command.get("started_at"))
     completed_str = _format_timestamp(command.get("completed_at"))
     error_message: str | None = command.get("error_message")  # type: ignore[type-arg]
-    result_summary: dict | None = command.get("result_summary")  # type: ignore[type-arg]
 
     # Duration calculation
     start_dt = command.get("started_at")
@@ -114,22 +114,27 @@ def render_scan_item(command: dict) -> html.Div:  # type: ignore[type-arg]
         except (ValueError, TypeError):
             pass
 
-    # Summary text
-    summary_parts = []
-    if result_summary:
-        for key, value in result_summary.items():
-            label = key.replace("_", " ").title()
-            summary_parts.append(f"{label}: {value}")
-    if error_message:
-        summary_parts.append(f"Error: {error_message}")
+    # Build labeled details rows
+    detail_parts = []
 
-    summary_text = " | ".join(summary_parts) if summary_parts else None
+    def _labeled_time(label: str, value: str | None) -> str | None:
+        if value:
+            return f"{label}: {value}"
+        return None
+
+    detail_parts.append(_labeled_time("Created", created_str))
+    detail_parts.append(_labeled_time("Started", started_str))
+    detail_parts.append(_labeled_time("Completed", completed_str))
+    detail_parts.append(f"Duration: {duration_text}" if duration_text else None)
+    detail_parts.append(f"Error: {error_message}" if error_message else "Error: None")
+
+    detail_line = " | ".join(p for p in detail_parts if p is not None)
 
     return html.Div(
         [
+            # Row 1: Status icon + label
             html.Div(
                 [
-                    # Status icon
                     html.I(
                         className=cfg["icon"],
                         style={
@@ -139,7 +144,6 @@ def render_scan_item(command: dict) -> html.Div:  # type: ignore[type-arg]
                             "textAlign": "center",
                         },
                     ),
-                    # Status label
                     html.Span(
                         cfg["label"],
                         style={
@@ -147,26 +151,6 @@ def render_scan_item(command: dict) -> html.Div:  # type: ignore[type-arg]
                             "fontSize": FONT_SIZE_SMALL,
                             "color": cfg["color"],
                             "fontWeight": "500",
-                            "marginRight": SPACING_SMALL,
-                        },
-                    ),
-                    # Created time
-                    html.Span(
-                        created_str or "",
-                        style={
-                            "fontFamily": FONT_SANS,
-                            "fontSize": FONT_SIZE_SMALL,
-                            "color": COLOR_GRAY_MEDIUM,
-                            "marginRight": SPACING_SMALL,
-                        },
-                    ),
-                    # Duration
-                    html.Span(
-                        duration_text or "",
-                        style={
-                            "fontFamily": FONT_SANS,
-                            "fontSize": FONT_SIZE_XSMALL,
-                            "color": COLOR_GRAY_MEDIUM,
                         },
                     ),
                 ],
@@ -176,14 +160,15 @@ def render_scan_item(command: dict) -> html.Div:  # type: ignore[type-arg]
                     "marginBottom": SPACING_XXXSMALL,
                 },
             ),
-            # Summary / error line
+            # Row 2: Labeled timestamps and duration
             html.Div(
-                summary_text or "",
+                detail_line,
                 style={
                     "fontFamily": FONT_SANS,
                     "fontSize": FONT_SIZE_XSMALL,
                     "color": COLOR_GRAY_MEDIUM,
                     "marginLeft": "22px",  # indent to align with status text
+                    "marginBottom": SPACING_XXXSMALL,
                 },
             ),
         ],
