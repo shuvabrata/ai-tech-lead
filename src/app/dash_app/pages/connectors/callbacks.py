@@ -708,6 +708,7 @@ def handle_item_edit(_clicks: List[int | None], ids: List[Dict[str, Any]], store
         Output("connector-items-store", "data", allow_duplicate=True),
         Output("connector-edit-item", "data", allow_duplicate=True),
         Output("connector-action-feedback", "children", allow_duplicate=True),
+        Output("add-item-collapse", "is_open", allow_duplicate=True),
     ],
     Input({"type": "connector-item-add", "connector_type": ALL}, "n_clicks"),
     State({"type": "connector-item-add", "connector_type": ALL}, "id"),
@@ -729,11 +730,11 @@ def handle_item_save(
 ):
     triggered = callback_context.triggered_id
     if not isinstance(triggered, dict):
-        return no_update, no_update, no_update
+        return no_update, no_update, no_update, no_update
 
     connector_type = triggered.get("connector_type")
     if not connector_type:
-        return no_update, no_update, no_update
+        return no_update, no_update, no_update, no_update
 
     is_update = bool(edit_state and edit_state.get("item_id") and edit_state.get("connector_type") == connector_type)
     payload = _build_payload(connector_type, "item", field_ids, field_values, skip_empty_secrets=is_update)
@@ -775,12 +776,14 @@ def handle_item_save(
             updated_store,
             clear_state,
             create_alert("Item saved successfully.", color="success", class_name="mb-0"),
+            False,
         )
     except requests.exceptions.RequestException as exc:
         return (
             no_update,
             no_update,
             create_alert(f"Failed to save item: {exc}", color="danger", class_name="mb-0"),
+            no_update,
         )
 
 
@@ -836,20 +839,23 @@ def handle_item_delete(_clicks: List[int | None]):
 
 
 @callback(
-    Output("connector-edit-item", "data", allow_duplicate=True),
+    [
+        Output("connector-edit-item", "data", allow_duplicate=True),
+        Output("add-item-collapse", "is_open", allow_duplicate=True),
+    ],
     Input({"type": "connector-item-cancel", "connector_type": ALL}, "n_clicks"),
     prevent_initial_call=True,
 )
 def handle_item_cancel(_clicks: List[int | None]):
     triggered = callback_context.triggered_id
     if not isinstance(triggered, dict):
-        return no_update
+        return no_update, no_update
     
     if not callback_context.triggered or not callback_context.triggered[0].get("value"):
-        return no_update
+        return no_update, no_update
 
     connector_type = triggered.get("connector_type")
-    return {"connector_type": connector_type, "action": "clear", "timestamp": time.time()}
+    return {"connector_type": connector_type, "action": "clear", "timestamp": time.time()}, False
 
 
 @callback(
@@ -1224,10 +1230,13 @@ def handle_run_scan(n_clicks: List[int | None]):
 
 @callback(
     Output("connector-scans-list", "children"),
-    Input("connector-scans-poll", "n_intervals"),
-    State("url", "pathname"),
+    [Input("connector-scans-poll", "n_intervals"),
+     Input("url", "pathname")],
 )
-def load_recent_scans(n_intervals: int | None, pathname: str | None):
+def load_recent_scans(
+    n_intervals: int | None,
+    pathname: str | None,
+):
     """Load recent scan commands for this connector.
 
     Polled every 5 seconds while scans are in progress.  Disabled when idle.

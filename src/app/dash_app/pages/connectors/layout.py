@@ -1,7 +1,5 @@
 """Dash layouts for the Connectors pages."""
 
-import uuid
-
 from dash import dcc, html
 import dash_bootstrap_components as dbc
 
@@ -122,7 +120,7 @@ def get_detail_layout(connector_type: str):
                     # Sticky feedback area at the very top
                     html.Div(
                         id="connector-action-feedback",
-                        key=f"connector-feedback-{connector_type}-{uuid.uuid4()}",
+                        key=f"connector-feedback-{connector_type}",
                         style={
                             "position": "sticky",
                             "top": SPACING_SMALL,
