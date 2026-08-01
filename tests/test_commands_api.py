@@ -70,10 +70,7 @@ class TestStateTransitions:
         [
             ("pending", "accepted"),
             ("pending", "failed"),
-            ("accepted", "queued"),
             ("accepted", "failed"),
-            ("queued", "running"),
-            ("queued", "failed"),
             ("running", "completed"),
             ("running", "failed"),
         ],
@@ -90,7 +87,6 @@ class TestStateTransitions:
             ("pending", "running"),
             ("pending", "completed"),
             ("accepted", "completed"),
-            ("queued", "completed"),
             ("completed", "running"),
             ("completed", "failed"),
             ("failed", "running"),
@@ -107,7 +103,7 @@ class TestStateTransitions:
     def test_terminal_states_have_no_transitions(self) -> None:
         """Terminal states (completed, failed) have no outgoing transitions."""
         for terminal in ("completed", "failed"):
-            for new_status in ("accepted", "queued", "running", "completed", "failed"):
+            for new_status in ("accepted", "running", "completed", "failed"):
                 if new_status != terminal:
                     with pytest.raises(ValueError, match="Invalid status transition"):
                         service._validate_state_transition(terminal, new_status)
@@ -374,15 +370,14 @@ class TestUpdateCommandStatus:
 
     @pytest.mark.unit
     async def test_full_lifecycle(self, mock_db: AsyncMock) -> None:
-        """Full lifecycle: pending→accepted→queued→running→completed."""
+        """Full lifecycle: pending→accepted→running→completed."""
         command_id = uuid.uuid4()
         started_at = datetime(2026, 7, 30, 10, 0, 0, tzinfo=timezone.utc)
         completed_at = datetime(2026, 7, 30, 10, 30, 0, tzinfo=timezone.utc)
 
         transitions = [
             ("pending", "accepted", None, None),
-            ("accepted", "queued", None, None),
-            ("queued", "running", started_at, None),
+            ("accepted", "running", started_at, None),
             ("running", "completed", None, completed_at),
         ]
 

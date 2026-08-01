@@ -4,6 +4,7 @@ from dash import dcc, html
 import dash_bootstrap_components as dbc
 
 from app.api.connectors.v1.registry import CONNECTOR_REGISTRY
+from app.settings import settings
 from app.dash_app.components.common import create_alert, create_page_header
 from app.dash_app.styles import (
     CARD_CONTAINER_STYLE,
@@ -117,8 +118,7 @@ def get_detail_layout(connector_type: str):
                         id={"type": "connector-search-filters-store", "connector_type": connector_type},
                         storage_type="memory",
                     ),
-                    dcc.Interval(id="connector-scans-poll", interval=5000, disabled=True),
-                    # Sticky feedback area at the very top
+                    dcc.Interval(id="connector-scans-poll", interval=settings.CONNECTOR_SCAN_POLL_INTERVAL, disabled=True),
                     html.Div(
                         id="connector-action-feedback",
                         key=f"connector-feedback-{connector_type}",
