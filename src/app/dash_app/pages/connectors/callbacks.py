@@ -670,6 +670,7 @@ def render_items_list(store: Dict[str, Any] | None):
                     "borderRadius": "2px",
                     "backgroundColor": COLOR_BACKGROUND_LIGHT,
                     "marginBottom": SPACING_SMALL,
+                    "opacity": "0.45" if not is_active else "1",
                 },
             )
         )
