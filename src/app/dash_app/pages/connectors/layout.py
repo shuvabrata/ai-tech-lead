@@ -383,6 +383,30 @@ def _render_item_form(form_spec: dict, connector_type: str) -> html.Div:
         dbc.Col(_render_field(field, connector_type, section="item"), md=6, xs=12)
         for field in fields
     ]
+
+    # Build grid rows: fields in pairs, then search filters in right column
+    grid_rows = []
+    for i in range(0, len(field_components), 2):
+        left = field_components[i]
+        right = field_components[i + 1] if i + 1 < len(field_components) else dbc.Col(html.Div(), md=6, xs=12)
+        grid_rows.append(dbc.Row([left, right], className="g-3"))
+
+    # Add search filters row (right column only) — only for github where search filters exist
+    if connector_type == "github":
+        grid_rows.append(
+            dbc.Row(
+                [
+                    dbc.Col(html.Div(), md=6, xs=12),
+                    dbc.Col(
+                        _render_search_filters_editor(connector_type),
+                        md=6,
+                        xs=12,
+                    ),
+                ],
+                className="g-3",
+            )
+        )
+
     return html.Div(
         [
             html.Div(
@@ -395,8 +419,7 @@ def _render_item_form(form_spec: dict, connector_type: str) -> html.Div:
                     "marginBottom": SPACING_XSMALL,
                 },
             ),
-            dbc.Row(field_components, className="g-3"),
-            _render_search_filters_editor(connector_type),
+            html.Div(grid_rows),
             html.Div(
                 [
                     dbc.Button(
