@@ -90,9 +90,9 @@ def render_scan_item(command: dict) -> html.Div:  # type: ignore[type-arg]
     completed_str = _format_timestamp(command.get("completed_at"))
     error_message: str | None = command.get("error_message")  # type: ignore[type-arg]
 
-    # Duration calculation
+    # Duration calculation — only when the scan has finished
     start_dt = command.get("started_at")
-    end_dt = command.get("completed_at") or command.get("created_at")
+    end_dt = command.get("completed_at")
     duration_text = None
     if start_dt and end_dt:
         try:

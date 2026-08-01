@@ -1293,46 +1293,56 @@ def load_recent_scans(
         return no_update
 
 
-@callback(
+clientside_callback(
+    """
+    function(scans_children) {
+        // Recursively search for active scan status text in the serialized
+        // Dash component tree.  Returns true (disable poll) when no scans
+        // are in progress, false (keep polling) when any are still active.
+        if (!scans_children) {
+            return true;
+        }
+
+        var activeStatuses = ['Running', 'Queued', 'Accepted'];
+
+        function walk(node) {
+            if (typeof node === 'string') {
+                for (var i = 0; i < activeStatuses.length; i++) {
+                    if (node.indexOf(activeStatuses[i]) !== -1) {
+                        return true;
+                    }
+                }
+                return false;
+            }
+            if (node && node.props && node.props.children) {
+                var children = node.props.children;
+                if (!Array.isArray(children)) {
+                    children = [children];
+                }
+                for (var j = 0; j < children.length; j++) {
+                    if (walk(children[j])) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+
+        // scans_children is the children of connector-scans-list.
+        // If it's an array, check each top-level item; otherwise check the single node.
+        var items = Array.isArray(scans_children) ? scans_children : [scans_children];
+        for (var k = 0; k < items.length; k++) {
+            if (walk(items[k])) {
+                return false;  // active scan found — keep polling
+            }
+        }
+        return true;  // no active scans — stop polling
+    }
+    """,
     Output("connector-scans-poll", "disabled"),
     Input("connector-scans-list", "children"),
+    prevent_initial_call=True,
 )
-def stop_polling_if_idle(scans_list: Any):
-    """Disable polling when no scans are in progress."""
-    if scans_list is None:
-        return True  # no content yet, keep disabled
-
-    if isinstance(scans_list, html.Div):
-        text = _get_div_text(scans_list)
-        # "No recent scans" message — no polling needed
-        if "No recent scans" in text:
-            return True
-
-        # Check if any scan item has a running/queued status
-        for child in getattr(scans_list, "children", []) or []:
-            if isinstance(child, html.Div):
-                child_text = _get_div_text(child)
-                if "Running" in child_text or "Queued" in child_text or "Accepted" in child_text:
-                    return False
-        return True
-
-    return True
-
-
-def _get_div_text(div: html.Div) -> str:
-    """Extract the text content of a div for status detection."""
-    parts: list[str] = []
-    children = getattr(div, "children", None)
-    if children is None:
-        return ""
-    if not isinstance(children, list):
-        children = [children]
-    for child in children:
-        if hasattr(child, "children"):
-            parts.append(_get_div_text(child))
-        elif isinstance(child, str):
-            parts.append(child)
-    return " ".join(parts)
 
 
 clientside_callback(
