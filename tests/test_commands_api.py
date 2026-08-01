@@ -89,6 +89,7 @@ class TestStateTransitions:
             ("pending", "running"),
             ("pending", "completed"),
             ("pending", "cancelled"),
+            ("pending", "queued"),
             ("accepted", "completed"),
             ("completed", "running"),
             ("completed", "failed"),
