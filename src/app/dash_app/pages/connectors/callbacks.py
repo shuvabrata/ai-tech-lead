@@ -499,15 +499,25 @@ def render_items_list(store: Dict[str, Any] | None):
                     header_text = f"{label}: last configured at {updated_at}"
 
         is_active = item.get("enabled", True)
-        fields = [k for k in item.keys() if k not in ("id", "connector_id", "created_at", "updated_at", "enabled") and not k.endswith("token") and not k.endswith("password")]
-        field_rows = []
-        for key in fields:
-            value = _format_display_value(item.get(key))
-            field_rows.append(
-                html.Div(
+
+        # Build 2-column grid from spec field order
+        spec_fields = item_spec.get("fields", [])
+        grid_rows = []
+        for i in range(0, len(spec_fields), 2):
+            left_spec = spec_fields[i]
+            right_spec = spec_fields[i + 1] if i + 1 < len(spec_fields) else None
+
+            # Left cell
+            left_key = left_spec["key"]
+            if left_key.endswith("token") or left_key.endswith("password"):
+                left_cell = html.Div()
+            else:
+                left_value = _format_display_value(item.get(left_key))
+                left_label = left_spec.get("label", left_key.replace("_", " ").title())
+                left_cell = html.Div(
                     [
                         html.Span(
-                            f"{key.replace('_', ' ').title()}: ",
+                            f"{left_label}: ",
                             style={
                                 "fontFamily": FONT_SANS,
                                 "fontSize": FONT_SIZE_SMALL,
@@ -515,14 +525,92 @@ def render_items_list(store: Dict[str, Any] | None):
                             },
                         ),
                         html.Span(
-                            value,
+                            left_value,
                             style={
                                 "fontFamily": FONT_SANS,
                                 "fontSize": FONT_SIZE_SMALL,
                                 "color": COLOR_CHARCOAL_MEDIUM,
                             },
                         ),
+                    ]
+                )
+
+            # Right cell
+            if right_spec:
+                right_key = right_spec["key"]
+                if right_key.endswith("token") or right_key.endswith("password"):
+                    right_cell = html.Div()
+                else:
+                    right_value = _format_display_value(item.get(right_key))
+                    right_label = right_spec.get("label", right_key.replace("_", " ").title())
+                    right_cell = html.Div(
+                        [
+                            html.Span(
+                                f"{right_label}: ",
+                                style={
+                                    "fontFamily": FONT_SANS,
+                                    "fontSize": FONT_SIZE_SMALL,
+                                    "color": COLOR_GRAY_MEDIUM,
+                                },
+                            ),
+                            html.Span(
+                                right_value,
+                                style={
+                                    "fontFamily": FONT_SANS,
+                                    "fontSize": FONT_SIZE_SMALL,
+                                    "color": COLOR_CHARCOAL_MEDIUM,
+                                },
+                            ),
+                        ]
+                    )
+            else:
+                right_cell = html.Div()
+
+            grid_rows.append(
+                dbc.Row(
+                    [
+                        dbc.Col(left_cell, md=6, xs=12),
+                        dbc.Col(right_cell, md=6, xs=12),
                     ],
+                    className="g-3",
+                    style={"marginBottom": SPACING_XXXSMALL},
+                )
+            )
+
+        # Search filters row — right column only
+        search_filters = item.get("search_filters")
+        if search_filters and isinstance(search_filters, dict) and search_filters:
+            filter_text = ", ".join([f"{k}: {v}" for k, v in search_filters.items()])
+            grid_rows.append(
+                dbc.Row(
+                    [
+                        dbc.Col(html.Div(), md=6, xs=12),
+                        dbc.Col(
+                            html.Div(
+                                [
+                                    html.Span(
+                                        "Search Filters: ",
+                                        style={
+                                            "fontFamily": FONT_SANS,
+                                            "fontSize": FONT_SIZE_SMALL,
+                                            "color": COLOR_GRAY_MEDIUM,
+                                        },
+                                    ),
+                                    html.Span(
+                                        filter_text,
+                                        style={
+                                            "fontFamily": FONT_SANS,
+                                            "fontSize": FONT_SIZE_SMALL,
+                                            "color": COLOR_CHARCOAL_MEDIUM,
+                                        },
+                                    ),
+                                ]
+                            ),
+                            md=6,
+                            xs=12,
+                        ),
+                    ],
+                    className="g-3",
                     style={"marginBottom": SPACING_XXXSMALL},
                 )
             )
@@ -540,7 +628,7 @@ def render_items_list(store: Dict[str, Any] | None):
                             "marginBottom": SPACING_XSMALL,
                         },
                     ),
-                    html.Div(field_rows),
+                    html.Div(grid_rows),
                     html.Div(
                         [
                             dbc.Button(
