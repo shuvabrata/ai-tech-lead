@@ -1180,26 +1180,29 @@ def handle_inline_toggle(new_enabled_state: bool, store: Dict[str, Any] | None):
 @callback(
     Output("connector-action-feedback", "children", allow_duplicate=True),
     Output("connector-scans-poll", "disabled", allow_duplicate=True),
+    Output("connector-scans-list", "children", allow_duplicate=True),
     Input({"type": "connector-run-scan", "connector_type": ALL}, "n_clicks"),
     prevent_initial_call=True,
 )
 def handle_run_scan(n_clicks: List[int | None]):
     """Send a scan command via the API when the "Run Scan" button is clicked.
 
-    Also enables the scan-polling interval so the scan list auto-refreshes.
+    Also enables the scan-polling interval so the scan list auto-refreshes,
+    and immediately loads the updated scan list so the new row appears
+    without waiting for the first poll tick.
     """
     _ = n_clicks  # used by Dash as trigger
     if not callback_context.triggered:
-        return no_update, no_update
+        return no_update, no_update, no_update
     triggered_value = callback_context.triggered[0].get("value")
     if not triggered_value:
-        return no_update, no_update
+        return no_update, no_update, no_update
     triggered = callback_context.triggered_id
     if not isinstance(triggered, dict):
-        return no_update, no_update
+        return no_update, no_update, no_update
     connector_type = triggered.get("connector_type")
     if not connector_type or connector_type not in CONNECTOR_REGISTRY:
-        return no_update, no_update
+        return no_update, no_update, no_update
 
     container_name = CONNECTOR_REGISTRY[connector_type].get("producer_container")
     if not container_name:
@@ -1207,7 +1210,7 @@ def handle_run_scan(n_clicks: List[int | None]):
             f"No producer container configured for {connector_type}.",
             color="warning",
             class_name="mb-0",
-        ), no_update
+        ), no_update, no_update
 
     api_base = _get_api_base_url()
     try:
@@ -1223,6 +1226,29 @@ def handle_run_scan(n_clicks: List[int | None]):
         response.raise_for_status()
         data = response.json()
         command_id = data.get("command_id", "unknown")
+
+        # Immediately fetch the updated scan list so the new row appears
+        # without waiting for the next poll interval.
+        scans_response = requests.get(
+            f"{api_base}/api/v1/commands/",
+            params={"target": container_name, "limit": 3},
+            timeout=TIMEOUT_SECONDS,
+        )
+        scans_response.raise_for_status()
+        scans_data = scans_response.json()
+        commands = scans_data.get("commands", [])
+        if commands:
+            scans_children = html.Div([render_scan_item(cmd) for cmd in commands])
+        else:
+            scans_children = html.Div(
+                "No recent scans.",
+                style={
+                    "fontFamily": FONT_SANS,
+                    "fontSize": FONT_SIZE_SMALL,
+                    "color": COLOR_GRAY_MEDIUM,
+                },
+            )
+
         return (
             create_alert(
                 f"Scan triggered! Command ID: {command_id}",
@@ -1230,6 +1256,7 @@ def handle_run_scan(n_clicks: List[int | None]):
                 class_name="mb-0",
             ),
             False,  # enable the polling interval
+            scans_children,
         )
     except requests.exceptions.RequestException as exc:
         return (
@@ -1238,6 +1265,7 @@ def handle_run_scan(n_clicks: List[int | None]):
                 color="danger",
                 class_name="mb-0",
             ),
+            no_update,
             no_update,
         )
 
@@ -1271,7 +1299,7 @@ def load_recent_scans(
     try:
         response = requests.get(
             f"{api_base}/api/v1/commands/",
-            params={"target": container_name, "limit": 10},
+            params={"target": container_name, "limit": 3},
             timeout=TIMEOUT_SECONDS,
         )
         response.raise_for_status()
