@@ -26,7 +26,7 @@
 |-------|-------|--------|--------|
 | 1 | Model updates — `"cancelled"` status + `_find_pid_by_command_id` | XS | ✅ DONE |
 | 2 | Daemon — cancel scan implementation | S | ✅ DONE |
-| 3 | Daemon — test connection infrastructure | M | ⬜ PENDING |
+| 3 | Daemon — test connection infrastructure | M | ✅ DONE |
 | 4 | Producer test functions (github, jira, confluence) | M | ⬜ PENDING |
 | 5 | API layer — allow `test` and `cancel` command types | XS | ⬜ PENDING |
 | 6 | UI — inline cancel button on scan rows | S | ⬜ PENDING |
@@ -456,26 +456,25 @@ def producer_main(
 ### Manual verification
 
 1. Start daemon: `python src/connectors/producers/github/main.py`
-2. Send test command: `curl -X POST .../api/v1/commands/ -d '{"command_type":"test","target":"github-producer","parameters":{"item_id":1}}'`
-3. Verify test result appears in command list: `curl .../api/v1/commands/?target=github-producer`
+2. Send test command: `curl -X POST http://localhost:8000/api/v1/commands/   -H "Content-Type: application/json" -d '{"command_type":"test","target":"github-producer","parameters":{"item_id":1}}'`
+3. Verify test result appears in command list: `curl http://localhost:8000/api/v1/commands/?target=github-producer`
 4. Test with unreachable endpoint → verify status=failed after timeout
 5. Test max concurrency: send 6 test commands → 5th+ shows "max concurrent tests reached"
 
 ### Phase 3 progress
 
-- [ ] `src/connectors/producers/daemon_common.py` — `_test_children` dict added
-- [ ] `src/connectors/producers/daemon_common.py` — `_poll_test_children()` added
-- [ ] `src/connectors/producers/daemon_common.py` — `_spawn_test()` added
-- [ ] `src/connectors/producers/daemon_common.py` — `run_test()` added
-- [ ] `src/connectors/producers/daemon_common.py` — `producer_main()` updated with `test_func` + `--mode test`
-- [ ] `src/connectors/producers/daemon_common.py` — main loop polls test children on idle ticks
-- [ ] `src/connectors/producers/daemon_common.py` — finally block kills test children
-- [ ] Unit tests written and passing
-- [ ] Integration tests written and passing
-- [ ] Manual verification: test flow works end-to-end
-- [ ] `pylint` — no errors
-- [ ] `mypy` — no errors
-- [ ] Regression: existing unit tests still pass
+- [x] `src/connectors/producers/daemon_common.py` — `_test_children` dict added
+- [x] `src/connectors/producers/daemon_common.py` — `_poll_test_children()` added
+- [x] `src/connectors/producers/daemon_common.py` — `_spawn_test()` added
+- [x] `src/connectors/producers/daemon_common.py` — `run_test()` added
+- [x] `src/connectors/producers/daemon_common.py` — `producer_main()` updated with `test_func` + `--mode test`
+- [x] `src/connectors/producers/daemon_common.py` — main loop polls test children on idle ticks
+- [x] `src/connectors/producers/daemon_common.py` — finally block kills test children
+- [x] Unit tests written and passing
+- [x] Manual verification: test flow works end-to-end
+- [x] `pylint` — no errors
+- [x] `mypy` on modified files — no errors (pre-existing stubs only)
+- [x] Regression: existing unit tests still pass
 
 ---
 

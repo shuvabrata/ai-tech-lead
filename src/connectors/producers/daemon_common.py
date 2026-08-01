@@ -1,11 +1,13 @@
 """Shared daemon infrastructure for producer containers.
 
 Provides the ``producer_main()`` entry point that handles ``--mode daemon``
-(default) and ``--mode scan`` CLI dispatch.  The daemon mode uses a sync
-``pika`` loop to consume commands from the ``command_n_control`` exchange
-and spawns child processes via ``subprocess.Popen``.  Children are reaped
-by a ``SIGCHLD`` handler.  The scan mode parses the command arguments,
-reports status via HTTP PATCH, and runs the producer's async scan logic.
+(default), ``--mode scan``, and ``--mode test`` CLI dispatch.  The daemon
+mode uses a sync ``pika`` loop to consume commands from the
+``command_n_control`` exchange and spawns child processes via
+``subprocess.Popen``.  Children are reaped by a ``SIGCHLD`` handler.  The
+scan mode parses the command arguments and runs the producer's async scan
+logic.  The test mode runs a lightweight connectivity check (same config
+loading, no data publishing).
 
 Usage in a producer's ``main.py``::
 
@@ -17,6 +19,7 @@ Usage in a producer's ``main.py``::
             default_container="github-producer",
             producer_main_path=__file__,
             scan_func=main_async,
+            test_func=test_connection,
         )
 """
 
@@ -42,6 +45,7 @@ from common.logger import logger
 
 # ── Module-level state (shared across daemon functions) ───────────────────
 _children: Dict[int, uuid.UUID] = {}  # pid → command_id
+_test_children: Dict[int, tuple[uuid.UUID, subprocess.Popen]] = {}  # pid → (command_id, Popen)
 _max_scans: int = int(os.environ.get("MAX_CONCURRENT_SCANS", "5"))
 
 
@@ -70,16 +74,40 @@ def _find_pid_by_command_id(command_id: uuid.UUID) -> int | None:
     return None
 
 
+def _poll_test_children() -> None:
+    """Poll all test child processes and PATCH status when they finish."""
+    for pid in list(_test_children.keys()):
+        command_id, popen_obj = _test_children[pid]
+        if popen_obj.poll() is not None:
+            stdout_bytes, stderr_bytes = popen_obj.communicate()
+            message = (stdout_bytes or stderr_bytes or b"").decode("utf-8", errors="replace").strip()
+            success = popen_obj.returncode == 0
+            # Advance through running first so the terminal-status PATCH
+            # has a valid transition path from accepted.
+            _update_status(command_id, CommandStatusUpdate(
+                status="running", started_at=datetime.now(timezone.utc),
+            ))
+            _update_status(command_id, CommandStatusUpdate(
+                status="completed" if success else "failed",
+                completed_at=datetime.now(timezone.utc),
+                result_summary={"message": message},
+            ))
+            del _test_children[pid]
+
+
 def _update_status(command_id: uuid.UUID, update: CommandStatusUpdate) -> None:
     """PATCH a status update to the app's API (sync)."""
     api_base = os.environ.get("API_SERVER", "http://localhost:8000").rstrip("/")
     url = f"{api_base}/api/v1/commands/{command_id}/status"
+    payload = update.model_dump(mode="json", exclude_none=True)
+    logger.debug("PATCH %s %s", url, payload)
     try:
         with httpx.Client(timeout=10) as client:
-            resp = client.patch(url, json=update.model_dump(mode="json", exclude_none=True))
+            resp = client.patch(url, json=payload)
+            logger.debug("Response status=%d body=%s", resp.status_code, resp.text)
             resp.raise_for_status()
     except httpx.HTTPError as exc:
-        logger.warning("Failed to update command status: %s", exc)
+        logger.warning("Failed to update command status (%s → %s): %s", url, payload.get("status"), exc)
 
 
 def _spawn_scan(
@@ -110,6 +138,37 @@ def _spawn_scan(
     logger.info("Spawning scan child command_id=%s pid=%d", envelope.command_id, len(_children) + 1)
     child = subprocess.Popen(cmd, stdout=sys.stdout, stderr=sys.stderr)  # pylint: disable=consider-using-with
     _children[child.pid] = envelope.command_id
+    return child
+
+
+def _spawn_test(
+    envelope: CommandEnvelope,
+    producer_main_path: str,
+) -> Optional[subprocess.Popen]:  # type: ignore[type-arg]
+    """Spawn a child process to run the test (or reject if at capacity)."""
+    if len(_test_children) >= _max_scans:
+        logger.warning(
+            "Max concurrent tests reached (%d) — rejecting command_id=%s",
+            _max_scans, envelope.command_id,
+        )
+        _update_status(envelope.command_id, CommandStatusUpdate(
+            status="failed", completed_at=datetime.now(timezone.utc),
+            error_message=f"Max concurrent tests reached ({_max_scans})",
+        ))
+        return None
+
+    cmd = [
+        sys.executable, producer_main_path,
+        "--mode", "test",
+        "--command-id", str(envelope.command_id),
+        "--target", envelope.target,
+    ]
+    if envelope.parameters:
+        cmd += ["--parameters", json.dumps(envelope.parameters)]
+
+    logger.info("Spawning test child command_id=%s", envelope.command_id)
+    child = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)  # pylint: disable=consider-using-with
+    _test_children[child.pid] = (envelope.command_id, child)
     return child
 
 
@@ -233,6 +292,7 @@ def run_daemon(
             queue_name, inactivity_timeout=1
         ):
             if method_frame is None:
+                _poll_test_children()  # poll test children on idle ticks
                 continue  # timeout, loop back
 
             try:
@@ -249,6 +309,8 @@ def run_daemon(
 
             if envelope.command_type == "scan":
                 _spawn_scan(envelope, producer_main_path)
+            elif envelope.command_type == "test":
+                _spawn_test(envelope, producer_main_path)
             elif envelope.command_type == "cancel":
                 _cancel_scan(envelope)
             else:
@@ -263,6 +325,11 @@ def run_daemon(
             try:
                 os.kill(pid, signal.SIGTERM)
                 logger.info("Sent SIGTERM to child pid=%d", pid)
+            except ProcessLookupError:
+                pass
+        for pid in list(_test_children.keys()):
+            try:
+                os.kill(pid, signal.SIGTERM)
             except ProcessLookupError:
                 pass
         connection.close()
@@ -297,14 +364,53 @@ def run_scan(
         sys.exit(1)
 
 
+def run_test(
+    *,
+    command_id: uuid.UUID,
+    parameters: dict[str, Any],
+    test_func: Callable[[], Coroutine[Any, Any, tuple[bool, str]]],
+) -> None:
+    """Test mode entry point — run test and print result to stdout.
+
+    The daemon parent process captures stdout/stderr via ``PIPE`` and
+    PATCHes the terminal status in ``_poll_test_children()`` based on
+    the exit code and printed message.  This function only needs to
+    print the result and exit with the appropriate code.
+    """
+    logger.info("Test started command_id=%s", command_id)
+
+    # Forward item_id to the test function via environment variable
+    # (Option A from design: keeps test_func signature clean)
+    if "item_id" in parameters:
+        os.environ["TEST_ITEM_ID"] = str(parameters["item_id"])
+
+    # Mark the test as running so the parent's terminal-status PATCH
+    # (completed/failed) has a valid transition path.
+    _update_status(command_id, CommandStatusUpdate(
+        status="running", started_at=datetime.now(timezone.utc),
+    ))
+
+    try:
+        success, message = asyncio.run(test_func())
+        if success:
+            print(f"SUCCESS: {message}")
+        else:
+            print(f"FAILED: {message}")
+            sys.exit(1)
+    except Exception as exc:
+        print(f"FAILED: {exc}")
+        sys.exit(1)
+
+
 def producer_main(
     *,
     description: str,
     default_container: str,
     producer_main_path: str,
     scan_func: Callable[[], Coroutine[Any, Any, None]],
+    test_func: Callable[[], Coroutine[Any, Any, tuple[bool, str]]] | None = None,
 ) -> None:
-    """Unified CLI entry point — dispatch to daemon or scan mode.
+    """Unified CLI entry point — dispatch to daemon, scan, or test mode.
 
     Args:
         description: Human-readable description for ``argparse`` help.
@@ -312,9 +418,11 @@ def producer_main(
         producer_main_path: ``__file__`` from the caller's module — used to
             spawn child processes.
         scan_func: The producer's async scan function (e.g. ``main_async``).
+        test_func: Optional async function returning ``(success, message)``
+            for connectivity testing.  Required for ``--mode test``.
     """
     parser = argparse.ArgumentParser(description=description)
-    parser.add_argument("--mode", choices=["daemon", "scan"], default="daemon")
+    parser.add_argument("--mode", choices=["daemon", "scan", "test"], default="daemon")
     parser.add_argument("--command-id")
     parser.add_argument("--target")
     parser.add_argument("--parameters")
@@ -325,6 +433,17 @@ def producer_main(
         run_daemon(
             container_name=os.environ.get("CONTAINER_NAME", default_container),
             producer_main_path=producer_main_path,
+        )
+    elif args.mode == "test":
+        if test_func is None:
+            print("ERROR: No test function provided for this producer.")
+            sys.exit(1)
+        command_id = uuid.UUID(args.command_id) if args.command_id else uuid.uuid4()
+        parameters = json.loads(args.parameters) if args.parameters else {}
+        run_test(
+            command_id=command_id,
+            parameters=parameters,
+            test_func=test_func,
         )
     else:
         command_id = uuid.UUID(args.command_id) if args.command_id else uuid.uuid4()
