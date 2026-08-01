@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import os
+import signal
 import subprocess
 import sys
 import uuid
@@ -492,9 +493,28 @@ class TestRunDaemon:
         assert call_envelope.command_id == envelope.command_id
         assert call_envelope.command_type == "scan"
 
-    def test_cancel_command_logs_not_implemented(self):
-        """A ``cancel`` command should log and not spawn."""
-        envelope = _make_envelope(command_type="cancel")
+    # ═══════════════════════════════════════════════════════════════════════════
+#  Cancel handler
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+class TestCancelHandler:
+    """Tests for the cancel command handler in ``run_daemon()``."""
+
+    def test_cancel_with_valid_command_id(self):
+        """A valid cancel command should send SIGTERM and PATCH cancelled."""
+        cancel_command_id = uuid.uuid4()
+        scan_command_id = uuid.uuid4()
+        child_pid = 9999
+
+        # Register the scan as a running child
+        daemon_mod._children[child_pid] = scan_command_id
+
+        envelope = _make_envelope(
+            command_id=cancel_command_id,
+            command_type="cancel",
+            parameters={"cancel_command_id": str(scan_command_id)},
+        )
         body = envelope.model_dump_json().encode()
 
         mock_channel = MagicMock()
@@ -504,7 +524,51 @@ class TestRunDaemon:
         mock_frame.delivery_tag = 1
         mock_channel.consume.return_value = [(mock_frame, None, body)]
 
-        with patch.object(daemon_mod, "_spawn_scan") as mock_spawn:
+        status_updates: list[tuple[uuid.UUID, str]] = []
+
+        def _track_status(cid, update):
+            status_updates.append((cid, update.status))
+
+        with patch.dict(os.environ, {"RABBITMQ_URL": "amqp://guest:guest@localhost:5672/"}):
+            with patch("os.kill") as mock_kill:
+                with patch.object(daemon_mod, "_update_status", side_effect=_track_status):
+                    with patch("pika.BlockingConnection", return_value=mock_connection):
+                        with patch("signal.signal"):
+                            daemon_mod.run_daemon(
+                                container_name="test-container",
+                                producer_main_path="/fake/main.py",
+                            )
+
+        # Should have sent SIGTERM to the child PID
+        mock_kill.assert_called_once_with(child_pid, signal.SIGTERM)
+        # Should have removed from _children
+        assert child_pid not in daemon_mod._children
+        # Two status updates: scan → cancelled, cancel → completed
+        assert (scan_command_id, "cancelled") in status_updates
+        assert (cancel_command_id, "completed") in status_updates
+
+    def test_cancel_missing_parameter(self):
+        """Cancel without cancel_command_id should PATCH failed."""
+        cancel_command_id = uuid.uuid4()
+        envelope = _make_envelope(
+            command_id=cancel_command_id,
+            command_type="cancel",
+        )
+        body = envelope.model_dump_json().encode()
+
+        mock_channel = MagicMock()
+        mock_connection = MagicMock()
+        mock_connection.channel.return_value = mock_channel
+        mock_frame = MagicMock()
+        mock_frame.delivery_tag = 1
+        mock_channel.consume.return_value = [(mock_frame, None, body)]
+
+        status_updates: list[tuple[uuid.UUID, str]] = []
+
+        def _track_status(cid, update):
+            status_updates.append((cid, update.status))
+
+        with patch.object(daemon_mod, "_update_status", side_effect=_track_status):
             with patch("pika.BlockingConnection", return_value=mock_connection):
                 with patch.object(daemon_mod, "signal"):
                     daemon_mod.run_daemon(
@@ -512,7 +576,114 @@ class TestRunDaemon:
                         producer_main_path="/fake/main.py",
                     )
 
-        mock_spawn.assert_not_called()
+        assert (cancel_command_id, "failed") in status_updates
+
+    def test_cancel_invalid_uuid(self):
+        """Cancel with non-UUID cancel_command_id should PATCH failed."""
+        cancel_command_id = uuid.uuid4()
+        envelope = _make_envelope(
+            command_id=cancel_command_id,
+            command_type="cancel",
+            parameters={"cancel_command_id": "not-a-uuid"},
+        )
+        body = envelope.model_dump_json().encode()
+
+        mock_channel = MagicMock()
+        mock_connection = MagicMock()
+        mock_connection.channel.return_value = mock_channel
+        mock_frame = MagicMock()
+        mock_frame.delivery_tag = 1
+        mock_channel.consume.return_value = [(mock_frame, None, body)]
+
+        status_updates: list[tuple[uuid.UUID, str]] = []
+
+        def _track_status(cid, update):
+            status_updates.append((cid, update.status))
+
+        with patch.object(daemon_mod, "_update_status", side_effect=_track_status):
+            with patch("pika.BlockingConnection", return_value=mock_connection):
+                with patch.object(daemon_mod, "signal"):
+                    daemon_mod.run_daemon(
+                        container_name="test-container",
+                        producer_main_path="/fake/main.py",
+                    )
+
+        assert (cancel_command_id, "failed") in status_updates
+
+    def test_cancel_no_running_scan(self):
+        """Cancel for non-existent command_id should PATCH completed."""
+        cancel_command_id = uuid.uuid4()
+        envelope = _make_envelope(
+            command_id=cancel_command_id,
+            command_type="cancel",
+            parameters={"cancel_command_id": str(uuid.uuid4())},
+        )
+        body = envelope.model_dump_json().encode()
+
+        mock_channel = MagicMock()
+        mock_connection = MagicMock()
+        mock_connection.channel.return_value = mock_channel
+        mock_frame = MagicMock()
+        mock_frame.delivery_tag = 1
+        mock_channel.consume.return_value = [(mock_frame, None, body)]
+
+        status_updates: list[tuple[uuid.UUID, str]] = []
+
+        def _track_status(cid, update):
+            status_updates.append((cid, update.status))
+
+        with patch.object(daemon_mod, "_update_status", side_effect=_track_status):
+            with patch("pika.BlockingConnection", return_value=mock_connection):
+                with patch.object(daemon_mod, "signal"):
+                    daemon_mod.run_daemon(
+                        container_name="test-container",
+                        producer_main_path="/fake/main.py",
+                    )
+
+        assert (cancel_command_id, "completed") in status_updates
+
+    def test_cancel_process_already_exited(self):
+        """Cancel for an already-exited process should PATCH completed."""
+        cancel_command_id = uuid.uuid4()
+        scan_command_id = uuid.uuid4()
+        child_pid = 8888
+
+        # Register the scan as a running child
+        daemon_mod._children[child_pid] = scan_command_id
+
+        envelope = _make_envelope(
+            command_id=cancel_command_id,
+            command_type="cancel",
+            parameters={"cancel_command_id": str(scan_command_id)},
+        )
+        body = envelope.model_dump_json().encode()
+
+        mock_channel = MagicMock()
+        mock_connection = MagicMock()
+        mock_connection.channel.return_value = mock_channel
+        mock_frame = MagicMock()
+        mock_frame.delivery_tag = 1
+        mock_channel.consume.return_value = [(mock_frame, None, body)]
+
+        status_updates: list[tuple[uuid.UUID, str]] = []
+
+        def _track_status(cid, update):
+            status_updates.append((cid, update.status))
+
+        with patch.dict(os.environ, {"RABBITMQ_URL": "amqp://guest:guest@localhost:5672/"}):
+            with patch("os.kill", side_effect=ProcessLookupError):
+                with patch.object(daemon_mod, "_update_status", side_effect=_track_status):
+                    with patch("pika.BlockingConnection", return_value=mock_connection):
+                        with patch("signal.signal"):
+                            daemon_mod.run_daemon(
+                                container_name="test-container",
+                                producer_main_path="/fake/main.py",
+                            )
+
+        # Should have removed from _children despite ProcessLookupError
+        assert child_pid not in daemon_mod._children
+        # Cancel command should be completed
+        assert (cancel_command_id, "completed") in status_updates
 
     def test_unknown_command_type_logs_and_acks(self):
         """An unknown command type should be acked and discarded."""

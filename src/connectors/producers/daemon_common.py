@@ -113,6 +113,78 @@ def _spawn_scan(
     return child
 
 
+def _cancel_scan(envelope: CommandEnvelope) -> None:
+    """Handle a cancel command — find the child PID, send SIGTERM, PATCH statuses.
+
+    Looks up the target scan via ``parameters.cancel_command_id``, sends
+    SIGTERM to the child process, and PATCHes both the scan and the cancel
+    command to their terminal statuses.
+    """
+    cancel_command_id = envelope.command_id
+    target_command_id_str = (envelope.parameters or {}).get("cancel_command_id")
+
+    # Mark the cancel command as running first so the eventual
+    # completed/failed PATCH is a valid transition.
+    _update_status(cancel_command_id, CommandStatusUpdate(
+        status="running", started_at=datetime.now(timezone.utc),
+    ))
+
+    if not target_command_id_str:
+        logger.warning("Cancel command missing cancel_command_id parameter")
+        _update_status(cancel_command_id, CommandStatusUpdate(
+            status="failed", completed_at=datetime.now(timezone.utc),
+            error_message="Missing cancel_command_id parameter",
+        ))
+        return
+
+    try:
+        target_command_id = uuid.UUID(str(target_command_id_str))
+    except ValueError:
+        logger.warning("Invalid cancel_command_id: %s", target_command_id_str)
+        _update_status(cancel_command_id, CommandStatusUpdate(
+            status="failed", completed_at=datetime.now(timezone.utc),
+            error_message=f"Invalid cancel_command_id: {target_command_id_str}",
+        ))
+        return
+
+    pid = _find_pid_by_command_id(target_command_id)
+    if pid is None:
+        logger.info("No running scan found for command_id=%s", target_command_id)
+        _update_status(cancel_command_id, CommandStatusUpdate(
+            status="completed", completed_at=datetime.now(timezone.utc),
+            result_summary={"message": f"No running scan found for {target_command_id}"},
+        ))
+        return
+
+    try:
+        os.kill(pid, signal.SIGTERM)
+        logger.info(
+            "Sent SIGTERM to pid=%d for command_id=%s",
+            pid, target_command_id,
+        )
+        # Remove from _children so reaper doesn't double-log
+        _children.pop(pid, None)
+        # Mark the scan as cancelled
+        _update_status(target_command_id, CommandStatusUpdate(
+            status="cancelled", completed_at=datetime.now(timezone.utc),
+        ))
+        # Mark the cancel command as completed
+        _update_status(cancel_command_id, CommandStatusUpdate(
+            status="completed", completed_at=datetime.now(timezone.utc),
+            result_summary={"cancelled_command_id": str(target_command_id)},
+        ))
+    except ProcessLookupError:
+        logger.warning(
+            "Process pid=%d already exited for command_id=%s",
+            pid, target_command_id,
+        )
+        _children.pop(pid, None)
+        _update_status(cancel_command_id, CommandStatusUpdate(
+            status="completed", completed_at=datetime.now(timezone.utc),
+            result_summary={"message": f"Process already exited for {target_command_id}"},
+        ))
+
+
 def run_daemon(
     *,
     container_name: str,
@@ -178,10 +250,7 @@ def run_daemon(
             if envelope.command_type == "scan":
                 _spawn_scan(envelope, producer_main_path)
             elif envelope.command_type == "cancel":
-                logger.info(
-                    "Cancel command received — not yet implemented (command_id=%s)",
-                    envelope.command_id,
-                )
+                _cancel_scan(envelope)
             else:
                 logger.warning("Unknown command type=%s — discarding", envelope.command_type)
 
