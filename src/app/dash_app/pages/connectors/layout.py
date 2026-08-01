@@ -12,10 +12,12 @@ from app.dash_app.styles import (
     COLOR_BORDER,
     COLOR_CHARCOAL_MEDIUM,
     COLOR_CODE_BACKGROUND,
+    COLOR_GRAY_DARK,
     COLOR_GRAY_MEDIUM,
     FONT_SANS,
     FONT_SIZE_SMALL,
     FONT_WEIGHT_MEDIUM,
+    FONT_WEIGHT_SEMIBOLD,
     SPACING_XSMALL,
     SPACING_SMALL,
 )
@@ -129,11 +131,30 @@ def get_detail_layout(connector_type: str):
                     _render_top_action_bar(connector_type, connector_meta),
                     # 2. Recent Scans — always visible
                     _render_recent_scans(connector_type, connector_meta),
-                    # 3. Add New Repository — collapsible form (Phase 2)
+                    # 3. Add New Repository — collapsible form, collapsed by default
                     html.Div(
                         [
-                            _section_title("Configured Items"),
-                            _render_item_form(form_spec, connector_type),
+                            html.Div(
+                                [
+                                    html.I(className="fas fa-plus me-1", style={"fontSize": "11px"}),
+                                    "Add New Repository",
+                                ],
+                                id="add-item-collapse-toggle",
+                                className="collapse-toggle-subtle",
+                                style={
+                                    "fontSize": "11px",
+                                    "fontWeight": FONT_WEIGHT_SEMIBOLD,
+                                    "color": COLOR_GRAY_DARK,
+                                    "marginBottom": SPACING_XSMALL,
+                                    "cursor": "pointer",
+                                    "userSelect": "none",
+                                },
+                            ),
+                            dbc.Collapse(
+                                id="add-item-collapse",
+                                is_open=False,
+                                children=_render_item_form(form_spec, connector_type),
+                            ),
                         ],
                         style={"marginBottom": SPACING_SMALL, "display": "none" if not supports_items else "block"},
                     ),
@@ -225,7 +246,7 @@ def _render_top_action_bar(connector_type: str, connector_meta: dict) -> html.Di
 # ── Recent Scans section ─────────────────────────────────────────────────
 
 
-def _render_recent_scans(connector_type: str, connector_meta: dict) -> html.Div:
+def _render_recent_scans(_connector_type: str, connector_meta: dict) -> html.Div:
     """Render the Recent Scans section.
 
     Only shown for connectors that have a ``producer_container`` in the

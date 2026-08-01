@@ -10,6 +10,7 @@ from typing import Any, Dict, List
 import requests
 import dash_bootstrap_components as dbc
 from dash import ALL, MATCH, Input, Output, State, callback, callback_context, html, no_update
+from dash.exceptions import PreventUpdate
 
 from app.common.timezone import humanize_duration, to_app_timezone
 from app.settings import settings
@@ -236,6 +237,19 @@ def load_connector_detail(pathname: str):
     except requests.exceptions.RequestException as exc:
         error = {"status": "error", "connector_type": connector_type, "message": str(exc)}
         return error, error, None, None
+
+
+@callback(
+    Output("add-item-collapse", "is_open"),
+    Input("add-item-collapse-toggle", "n_clicks"),
+    State("add-item-collapse", "is_open"),
+    prevent_initial_call=True,
+)
+def toggle_add_item_collapse(n_clicks: int | None, is_open: bool) -> bool:
+    """Toggle the Add New Repository collapsible section."""
+    if not n_clicks:
+        raise PreventUpdate
+    return not is_open
 
 
 @callback(
