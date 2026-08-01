@@ -9,7 +9,7 @@ from typing import Any, Dict, List
 
 import requests
 import dash_bootstrap_components as dbc
-from dash import ALL, MATCH, Input, Output, State, callback, callback_context, html, no_update
+from dash import ALL, MATCH, Input, Output, State, callback, callback_context, clientside_callback, html, no_update
 from dash.exceptions import PreventUpdate
 
 from app.common.timezone import humanize_duration, to_app_timezone
@@ -679,7 +679,10 @@ def render_items_list(store: Dict[str, Any] | None):
 
 
 @callback(
-    Output("connector-edit-item", "data", allow_duplicate=True),
+    [
+        Output("connector-edit-item", "data", allow_duplicate=True),
+        Output("add-item-collapse", "is_open", allow_duplicate=True),
+    ],
     Input({"type": "connector-item-edit", "connector_type": ALL, "item_id": ALL}, "n_clicks"),
     State({"type": "connector-item-edit", "connector_type": ALL, "item_id": ALL}, "id"),
     State("connector-items-store", "data"),
@@ -688,20 +691,20 @@ def render_items_list(store: Dict[str, Any] | None):
 def handle_item_edit(_clicks: List[int | None], ids: List[Dict[str, Any]], store: Dict[str, Any] | None):
     triggered = callback_context.triggered_id
     if not isinstance(triggered, dict):
-        return no_update
+        return no_update, no_update
 
     if not callback_context.triggered or not callback_context.triggered[0].get("value"):
-        return no_update
+        return no_update, no_update
 
     connector_type = triggered.get("connector_type")
     item_id = triggered.get("item_id")
     if not store or store.get("status") != "ok":
-        return no_update
+        return no_update, no_update
     items = store.get("items", [])
     for item in items:
         if item.get("id") == item_id:
-            return {"connector_type": connector_type, "item_id": item_id, "item": item}
-    return no_update
+            return {"connector_type": connector_type, "item_id": item_id, "item": item}, True
+    return no_update, no_update
 
 
 @callback(
@@ -1314,3 +1317,21 @@ def _get_div_text(div: html.Div) -> str:
         elif isinstance(child, str):
             parts.append(child)
     return " ".join(parts)
+
+
+clientside_callback(
+    """
+    function(edit_data) {
+        if (edit_data && edit_data.item_id) {
+            setTimeout(function() {
+                var el = document.getElementById('add-item-collapse-toggle');
+                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }, 200);
+        }
+        return '';
+    }
+    """,
+    Output("connector-scroll-trigger", "data"),
+    Input("connector-edit-item", "data"),
+    prevent_initial_call=True,
+)
