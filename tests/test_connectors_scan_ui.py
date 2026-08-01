@@ -2,7 +2,7 @@
 
 Tests cover:
   - ``render_scan_item`` — scan status row rendering (icons, colors, timestamps)
-  - ``_render_scan_section`` — Run Scan button visibility rules
+  - ``_render_top_action_bar`` / ``_render_recent_scans`` — Run Scan button visibility rules
   - Scan callback helpers — polling, API interaction
 """
 
@@ -20,7 +20,7 @@ from app.dash_app.pages.connectors.components.scan_status import (
     STATUS_CONFIG,
     render_scan_item,
 )
-from app.dash_app.pages.connectors.layout import _render_scan_section
+from app.dash_app.pages.connectors.layout import _render_top_action_bar, _render_recent_scans
 from app.dash_app.styles import (
     COLOR_ERROR,
     COLOR_GRAY_MEDIUM,
@@ -153,7 +153,7 @@ class TestRenderScanItem:
 
 
 # ---------------------------------------------------------------------------
-# _render_scan_section
+# _render_top_action_bar & _render_recent_scans
 # ---------------------------------------------------------------------------
 
 
@@ -190,34 +190,49 @@ class TestRenderScanSection:
 
     @pytest.mark.parametrize("connector_type", ["github", "jira", "confluence"])
     def test_scan_button_visible_for_producer_connectors(self, connector_type):
-        """GitHub/Jira/Confluence detail pages have a Run Scan button."""
+        """GitHub/Jira/Confluence detail pages have a Run Scan button in the top action bar."""
         meta = CONNECTOR_REGISTRY[connector_type]
-        section = _render_scan_section(connector_type, meta)
-        ids = self._collect_ids(section)
+        bar = _render_top_action_bar(connector_type, meta)
+        ids = self._collect_ids(bar)
         expected = (("connector_type", connector_type), ("type", "connector-run-scan"))
         assert expected in ids
-        text = self._flatten_text(section)
+        text = self._flatten_text(bar)
         assert "Run Scan" in text
-        assert "Recent Scans" in text
 
     @pytest.mark.parametrize("connector_type", ["slack", "teams", "google_docs"])
     def test_scan_button_hidden_for_non_producer_connectors(self, connector_type):
-        """Slack/Teams etc. don't have the Run Scan button."""
+        """Slack/Teams etc. don't have the Run Scan button in the top action bar."""
         meta = CONNECTOR_REGISTRY[connector_type]
-        section = _render_scan_section(connector_type, meta)
-        ids = self._collect_ids(section)
+        bar = _render_top_action_bar(connector_type, meta)
+        ids = self._collect_ids(bar)
         assert not any("connector-run-scan" in str(i) for i in ids)
-        # Empty section — no content
-        assert section is not None
 
-    def test_scan_section_empty_when_no_producer(self):
-        """Non-producer connectors get an empty div (no scan UI)."""
-        meta = {"display_name": "Slack", "setup_type": "db_backed"}
-        section = _render_scan_section("slack", meta)
-        assert section is not None
+    @pytest.mark.parametrize("connector_type", ["github", "jira", "confluence"])
+    def test_recent_scans_visible_for_producer_connectors(self, connector_type):
+        """GitHub/Jira/Confluence detail pages show the Recent Scans section."""
+        meta = CONNECTOR_REGISTRY[connector_type]
+        section = _render_recent_scans(connector_type, meta)
+        text = self._flatten_text(section)
+        assert "Recent Scans" in text
+
+    @pytest.mark.parametrize("connector_type", ["slack", "teams", "google_docs"])
+    def test_recent_scans_hidden_for_non_producer_connectors(self, connector_type):
+        """Slack/Teams etc. don't show the Recent Scans section."""
+        meta = CONNECTOR_REGISTRY[connector_type]
+        section = _render_recent_scans(connector_type, meta)
         # Should be an empty div
         children = getattr(section, "children", None)
         assert children is None or children == []
+
+    def test_delete_button_always_in_action_bar(self):
+        """Delete Configuration button is always present in the top action bar."""
+        meta = {"display_name": "Test", "setup_type": "db_backed"}
+        bar = _render_top_action_bar("test", meta)
+        ids = self._collect_ids(bar)
+        expected = (("connector_type", "test"), ("type", "connector-delete"))
+        assert expected in ids
+        text = self._flatten_text(bar)
+        assert "Delete Configuration" in text
 
 
 # ---------------------------------------------------------------------------
