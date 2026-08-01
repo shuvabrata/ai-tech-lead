@@ -62,6 +62,14 @@ def _reap_children(signum: int, frame: Any) -> None:  # pylint: disable=unused-a
             break
 
 
+def _find_pid_by_command_id(command_id: uuid.UUID) -> int | None:
+    """Linear scan of ``_children`` — max 5 entries, trivially cheap."""
+    for pid, cid in _children.items():
+        if cid == command_id:
+            return pid
+    return None
+
+
 def _update_status(command_id: uuid.UUID, update: CommandStatusUpdate) -> None:
     """PATCH a status update to the app's API (sync)."""
     api_base = os.environ.get("API_SERVER", "http://localhost:8000").rstrip("/")

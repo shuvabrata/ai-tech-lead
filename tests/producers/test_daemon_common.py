@@ -329,6 +329,45 @@ class TestUpdateStatus:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+#  _find_pid_by_command_id — reverse lookup helper
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+class TestFindPidByCommandId:
+    """Tests for the ``_find_pid_by_command_id()`` reverse lookup."""
+
+    def test_found(self) -> None:
+        """Returns the PID for a known ``command_id``."""
+        command_id = uuid.uuid4()
+        daemon_mod._children[100] = command_id
+        result = daemon_mod._find_pid_by_command_id(command_id)
+        assert result == 100
+
+    def test_not_found(self) -> None:
+        """Returns ``None`` for an unknown ``command_id``."""
+        daemon_mod._children[101] = uuid.uuid4()
+        result = daemon_mod._find_pid_by_command_id(uuid.uuid4())
+        assert result is None
+
+    def test_empty_children(self) -> None:
+        """Returns ``None`` when ``_children`` dict is empty."""
+        _reset_children()
+        result = daemon_mod._find_pid_by_command_id(uuid.uuid4())
+        assert result is None
+
+    def test_multiple_children_returns_correct_pid(self) -> None:
+        """Returns the correct PID when multiple children are tracked."""
+        cid1 = uuid.uuid4()
+        cid2 = uuid.uuid4()
+        cid3 = uuid.uuid4()
+        daemon_mod._children[201] = cid1
+        daemon_mod._children[202] = cid2
+        daemon_mod._children[203] = cid3
+        result = daemon_mod._find_pid_by_command_id(cid2)
+        assert result == 202
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 #  run_scan — scan mode lifecycle
 # ═══════════════════════════════════════════════════════════════════════════
 

@@ -39,6 +39,7 @@ CommandStatusValue = Literal[
     "running",
     "completed",
     "failed",
+    "cancelled",
 ]
 
 

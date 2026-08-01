@@ -87,9 +87,9 @@ class TestCommandStatusModel:
 
     @pytest.mark.unit
     def test_status_string_values(self) -> None:
-        """Model allows all valid status strings."""
+        """Model allows all valid status strings — including ``cancelled``."""
         now = datetime.now(timezone.utc)
-        for status in ("pending", "accepted", "queued", "running", "completed", "failed"):
+        for status in ("pending", "accepted", "queued", "running", "completed", "failed", "cancelled"):
             cmd = CommandStatus(
                 command_id=uuid.uuid4(),
                 command_type="scan",

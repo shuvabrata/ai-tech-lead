@@ -108,9 +108,10 @@ class TestCommandStatusUpdate:
     @pytest.mark.unit
     @pytest.mark.parametrize(
         "status",
-        ["accepted", "queued", "running", "completed", "failed"],
+        ["accepted", "queued", "running", "completed", "failed", "cancelled"],
     )
     def test_valid_status_values(self, status: str) -> None:
+        """All canonical status values are accepted — including ``cancelled``."""
         """All five canonical status values are accepted."""
         update = CommandStatusUpdate(status=status)  # type: ignore[arg-type]
         assert update.status == status
