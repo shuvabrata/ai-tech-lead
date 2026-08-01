@@ -53,7 +53,7 @@ class Settings(BaseSettings):
     GRAPH_UI_MAX_NODE_LABEL_CHARS: int = 10
     
     # Number of milliseconds between scan status polls in the connector UI
-    CONNECTOR_SCAN_POLL_INTERVAL: int = 5000
+    CONNECTOR_SCAN_POLL_INTERVAL: int = 10000
 
     # UI Configuration
     TIMEZONE: str = Field(default="UTC", validation_alias=AliasChoices("TIMEZONE", "TZ"))
