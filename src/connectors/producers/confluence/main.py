@@ -842,6 +842,39 @@ async def main_async() -> None:
     logger.info("Confluence ActivitySignal Producer finished.")
 
 
+def _get_test_item_id() -> int | None:
+    """Read ``TEST_ITEM_ID`` from environment — set by daemon for ``--mode test``."""
+    raw = os.environ.get("TEST_ITEM_ID")
+    return int(raw) if raw else None
+
+
+async def test_connection() -> tuple[bool, str]:
+    """Test Confluence connectivity.  Loads config, authenticates, returns result."""
+    config_source = os.getenv("CONFIGURATION_SOURCE", "FILE").upper()
+    config = load_config_from_server() if config_source == "SERVER" else load_config_from_file()
+    accounts = config.get("account", [])
+
+    item_id = _get_test_item_id()
+    if item_id is not None:
+        accounts = [a for a in accounts if a.get("id") == item_id]
+        if not accounts:
+            return (False, f"No Confluence account config found with id={item_id}")
+
+    for account in accounts:
+        url = account.get("url", "")
+        if not url:
+            continue
+        try:
+            confluence = create_confluence_connection({"account": [account]})
+            user = confluence.myself()
+            name = user.get("displayName", user.get("email", "Unknown"))
+            return (True, f"Authenticated as {name}")
+        except Exception as exc:
+            return (False, f"Confluence auth failed for {url}: {exc}")
+
+    return (False, "No enabled Confluence account configurations to test")
+
+
 def main() -> None:
     """Unified CLI entry point — delegates to ``daemon_common``."""
 
@@ -850,6 +883,7 @@ def main() -> None:
         default_container="confluence-producer",
         producer_main_path=__file__,
         scan_func=main_async,
+        test_func=test_connection,
     )
 
 

@@ -124,6 +124,47 @@ async def main_async() -> None:
     logger.info("GitHub ActivitySignal Producer finished.")
 
 
+def _get_test_item_id() -> int | None:
+    """Read ``TEST_ITEM_ID`` from environment — set by daemon for ``--mode test``."""
+    raw = os.environ.get("TEST_ITEM_ID")
+    return int(raw) if raw else None
+
+
+async def test_connection() -> tuple[bool, str]:
+    """Test GitHub connectivity.  Loads config, authenticates, returns result.
+
+    Returns:
+        ``(True, "Authenticated as <login>")`` on success, or
+        ``(False, "<error message>")`` on failure.
+    """
+    config_source = os.getenv("CONFIGURATION_SOURCE", "FILE").upper()
+    config = load_config_from_server() if config_source == "SERVER" else load_config_from_file()
+    repos_cfg: List[Dict[str, Any]] = config.get("repos", [])
+
+    item_id = _get_test_item_id()
+    if item_id is not None:
+        repos_cfg = [r for r in repos_cfg if r.get("id") == item_id]
+        if not repos_cfg:
+            return (False, f"No repository config found with id={item_id}")
+
+    for repo_cfg in repos_cfg:
+        url: str = repo_cfg.get("url", "")
+        access_token: str = repo_cfg.get("access_token", "")
+        if not url or not access_token:
+            continue
+        try:
+            auth = Auth.Token(access_token)
+            g = Github(auth=auth)
+            user = g.get_user()
+            login = user.login  # lightweight call to verify credentials
+            return (True, f"Authenticated as {login}")
+        except Exception as exc:
+            return (False, f"GitHub auth failed for {url}: {exc}")
+
+    return (False, "No enabled repository configurations to test")
+
+
+
 def main() -> None:
     """Unified CLI entry point — delegates to ``daemon_common``."""
 
@@ -132,6 +173,7 @@ def main() -> None:
         default_container="github-producer",
         producer_main_path=__file__,
         scan_func=main_async,
+        test_func=test_connection,
     )
 
 

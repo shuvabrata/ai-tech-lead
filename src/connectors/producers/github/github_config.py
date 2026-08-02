@@ -33,6 +33,7 @@ def load_config_from_server() -> Dict[str, Any]:
         transformed_configs: List[Dict[str, Any]] = []
         for raw_config in raw_configs:
             config_item: Dict[str, Any] = {
+                "id": raw_config.get("id"),
                 "enabled": raw_config.get("enabled", True),
                 "url": raw_config.get("url"),
                 "access_token": raw_config.get("access_token"),

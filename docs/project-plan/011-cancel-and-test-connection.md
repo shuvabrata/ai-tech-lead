@@ -27,7 +27,7 @@
 | 1 | Model updates — `"cancelled"` status + `_find_pid_by_command_id` | XS | ✅ DONE |
 | 2 | Daemon — cancel scan implementation | S | ✅ DONE |
 | 3 | Daemon — test connection infrastructure | M | ✅ DONE |
-| 4 | Producer test functions (github, jira, confluence) | M | ⬜ PENDING |
+| 4 | Producer test functions (github, jira, confluence) | M | ✅ DONE |
 | 5 | API layer — allow `test` and `cancel` command types | XS | ⬜ PENDING |
 | 6 | UI — inline cancel button on scan rows | S | ⬜ PENDING |
 | 7 | UI — per-item Test Connection via commands API | S | ⬜ PENDING |
@@ -657,18 +657,18 @@ async def test_connection() -> tuple[bool, str]:
 
 ### Phase 4 progress
 
-- [ ] `src/connectors/producers/github/main.py` — `test_connection()` added
-- [ ] `src/connectors/producers/github/main.py` — `producer_main()` call updated with `test_func`
-- [ ] `src/connectors/producers/jira/main.py` — `test_connection()` added
-- [ ] `src/connectors/producers/jira/main.py` — `producer_main()` call updated with `test_func`
-- [ ] `src/connectors/producers/confluence/main.py` — `test_connection()` added
-- [ ] `src/connectors/producers/confluence/main.py` — `producer_main()` call updated with `test_func`
-- [ ] `src/connectors/producers/daemon_common.py` — `run_test()` sets `TEST_ITEM_ID` env var
-- [ ] Unit tests written and passing
-- [ ] Manual verification: each producer's test works standalone
-- [ ] `pylint` — no errors
-- [ ] `mypy` — no errors
-- [ ] Regression: existing unit tests still pass
+- [x] `src/connectors/producers/github/main.py` — `test_connection()` added
+- [x] `src/connectors/producers/github/main.py` — `producer_main()` call updated with `test_func`
+- [x] `src/connectors/producers/jira/main.py` — `test_connection()` added
+- [x] `src/connectors/producers/jira/main.py` — `producer_main()` call updated with `test_func`
+- [x] `src/connectors/producers/confluence/main.py` — `test_connection()` added
+- [x] `src/connectors/producers/confluence/main.py` — `producer_main()` call updated with `test_func`
+- [x] `src/connectors/producers/daemon_common.py` — `run_test()` sets `TEST_ITEM_ID` env var
+- [x] Unit tests written and passing
+- [x] Manual verification: each producer's test works standalone
+- [x] `pylint` — no errors
+- [x] `mypy` — no errors (pre-existing stubs only)
+- [x] Regression: existing unit tests still pass
 
 ---
 

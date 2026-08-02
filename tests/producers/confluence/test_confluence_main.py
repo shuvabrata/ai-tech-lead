@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import AsyncMock, Mock, patch
@@ -9,6 +10,7 @@ import requests
 
 from connectors.producers.confluence.confluence_config import load_config_from_server
 from connectors.producers.confluence.main import (
+    _get_test_item_id,
     build_content_signal,
     build_person_signal,
     build_space_signal,
@@ -227,3 +229,130 @@ async def test_process_account_publishes_space_content_and_person_signals(monkey
     content_signal = publisher.publish.await_args_list[1].args[0]
     relationship_types = {rel.type for rel in content_signal.relationships}
     assert "REACTED_TO" in relationship_types
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  test_connection — connectivity check
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+@pytest.mark.unit
+class TestConfluenceTestConnection:
+    """Tests for ``test_connection()`` in ``confluence.main``."""
+
+    @patch.dict(os.environ, {"TEST_ITEM_ID": ""}, clear=True)
+    @pytest.mark.asyncio
+    async def test_confluence_test_connection_success(self) -> None:
+        """Valid credentials → returns (True, "Authenticated as ...")."""
+        mock_confluence = Mock()
+        mock_confluence.myself.return_value = {"displayName": "Bob Dev", "email": "bob@example.com"}
+
+        with patch(
+            "connectors.producers.confluence.main.create_confluence_connection",
+            return_value=mock_confluence,
+        ):
+            from connectors.producers.confluence.main import test_connection
+            success, message = await test_connection()
+
+        assert success is True
+        assert "Authenticated as Bob Dev" in message
+
+    @patch.dict(os.environ, {"TEST_ITEM_ID": ""}, clear=True)
+    @pytest.mark.asyncio
+    async def test_confluence_test_connection_failure(self) -> None:
+        """Invalid credentials → returns (False, "Confluence auth failed ...")."""
+        with patch(
+            "connectors.producers.confluence.main.create_confluence_connection",
+        ) as mock_create:
+            mock_create.side_effect = Exception("Invalid credentials")
+            from connectors.producers.confluence.main import test_connection
+            success, message = await test_connection()
+
+        assert success is False
+        assert "Confluence auth failed" in message
+
+    @patch.dict(os.environ, {"TEST_ITEM_ID": "7"}, clear=True)
+    @pytest.mark.asyncio
+    async def test_confluence_test_connection_with_item_id(self) -> None:
+        """Filters to specific item_id, tests only that one."""
+        mock_confluence = Mock()
+        mock_confluence.myself.return_value = {"displayName": "Filtered User"}
+
+        with (
+            patch(
+                "connectors.producers.confluence.main.load_config_from_file",
+            ) as mock_load,
+            patch(
+                "connectors.producers.confluence.main.create_confluence_connection",
+                return_value=mock_confluence,
+            ),
+        ):
+            mock_load.return_value = {
+                "account": [
+                    {
+                        "id": 7,
+                        "url": "https://test.atlassian.net",
+                        "email": "a@b.com",
+                        "api_token": "tok",
+                        "enabled": True,
+                    },
+                ]
+            }
+            from connectors.producers.confluence.main import test_connection
+            success, message = await test_connection()
+
+        assert success is True
+        assert "Filtered User" in message
+
+    @patch.dict(os.environ, {"TEST_ITEM_ID": "999"}, clear=True)
+    @pytest.mark.asyncio
+    async def test_confluence_test_connection_item_id_not_found(self) -> None:
+        """Unknown item_id → returns (False, "No Confluence account config found ...")."""
+        with patch(
+            "connectors.producers.confluence.main.load_config_from_file",
+        ) as mock_load:
+            mock_load.return_value = {
+                "account": [
+                    {
+                        "id": 1,
+                        "url": "https://test.atlassian.net",
+                        "email": "a@b.com",
+                        "api_token": "tok",
+                        "enabled": True,
+                    },
+                ]
+            }
+            from connectors.producers.confluence.main import test_connection
+            success, message = await test_connection()
+
+        assert success is False
+        assert "No Confluence account config found with id=999" in message
+
+    @patch.dict(os.environ, {"TEST_ITEM_ID": ""}, clear=True)
+    @pytest.mark.asyncio
+    async def test_confluence_test_connection_no_enabled_configs(self) -> None:
+        """No enabled accounts → returns (False, "No enabled Confluence account configurations to test")."""
+        with patch(
+            "connectors.producers.confluence.main.load_config_from_file",
+        ) as mock_load:
+            mock_load.return_value = {"account": []}
+            from connectors.producers.confluence.main import test_connection
+            success, message = await test_connection()
+
+        assert success is False
+        assert "No enabled Confluence account configurations" in message
+
+
+@pytest.mark.unit
+class TestConfluenceGetTestItemId:
+    """Tests for ``_get_test_item_id()`` in ``confluence.main``."""
+
+    def test_test_item_id_env_var(self) -> None:
+        """``TEST_ITEM_ID`` env var parsed correctly."""
+        with patch.dict(os.environ, {"TEST_ITEM_ID": "42"}, clear=True):
+            assert _get_test_item_id() == 42
+
+    def test_test_item_id_env_var_missing(self) -> None:
+        """No env var → returns None."""
+        with patch.dict(os.environ, {}, clear=True):
+            assert _get_test_item_id() is None
