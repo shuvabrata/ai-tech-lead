@@ -180,8 +180,3 @@ class EmailConfigItem(BaseModel):
     enabled: bool
 
     model_config = ConfigDict(from_attributes=True)
-
-
-class TestConnectionResponse(BaseModel):
-    success: bool
-    message: str
