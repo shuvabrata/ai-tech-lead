@@ -106,10 +106,9 @@ def get_detail_layout(connector_type: str):
 
     return html.Div(
         [
-            create_page_header("Connectors"),
+            create_page_header(f"Connectors / {display_name}"),
             html.Div(
                 [
-                    _breadcrumb(display_name),
                     dcc.Store(id="connector-detail-store", storage_type="memory"),
                     dcc.Store(id="connector-items-store", storage_type="memory"),
                     dcc.Store(id="connector-edit-item", storage_type="memory"),
@@ -127,16 +126,11 @@ def get_detail_layout(connector_type: str):
                             "top": SPACING_SMALL,
                             "zIndex": 1000,
                             "marginBottom": SPACING_SMALL,
-                            "backgroundColor": COLOR_BACKGROUND_LIGHT,
-                            "border": f"1px solid {COLOR_BORDER}",
-                            "borderRadius": "2px",
-                            "padding": f"{SPACING_XSMALL} {SPACING_SMALL}",
-                            "boxShadow": f"0 2px 4px {COLOR_SHADOW_LIGHT}",
                         },
                     ),
                     # 1. Top Action Bar — most-used actions
                     _section_container(_render_top_action_bar(connector_type, connector_meta)),
-                    # 2. Recent Scans — always visible
+                    # 2. Recent Actions — always visible
                     _section_container(_render_recent_scans(connector_type, connector_meta)),
                     # 3. Add New {item label} — collapsible form, collapsed by default
                     _section_container(
@@ -249,11 +243,11 @@ def _render_top_action_bar(connector_type: str, connector_meta: dict) -> html.Di
     )
 
 
-# ── Recent Scans section ─────────────────────────────────────────────────
+# ── Recent Actions section ───────────────────────────────────────────────
 
 
 def _render_recent_scans(_connector_type: str, connector_meta: dict) -> html.Div:
-    """Render the Recent Scans section.
+    """Render the Recent Actions section.
 
     Only shown for connectors that have a ``producer_container`` in the
     registry (i.e. GitHub, Jira, Confluence).
@@ -267,10 +261,10 @@ def _render_recent_scans(_connector_type: str, connector_meta: dict) -> html.Div
 
     return html.Div(
         [
-            _section_title("Recent Scans"),
+            _section_title("Recent Actions"),
             html.Div(
                 id="connector-scans-list",
-                children="No recent scans.",
+                children="No recent actions.",
                 style={
                     "fontFamily": FONT_SANS,
                     "fontSize": FONT_SIZE_SMALL,
@@ -652,10 +646,9 @@ def _get_manual_setup_layout(connector_type: str, connector_meta: dict) -> html.
 
     return html.Div(
         [
-            create_page_header("Connectors"),
+            create_page_header(f"Connectors / {display_name}"),
             html.Div(
                 [
-                    _breadcrumb(display_name),
                     # Required stores — callbacks still fire on all detail pages
                     dcc.Store(id="connector-detail-store", storage_type="memory"),
                     dcc.Store(id="connector-items-store", storage_type="memory"),

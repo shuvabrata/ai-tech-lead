@@ -659,7 +659,7 @@ class TestScanEndToEnd:
     @pytest.mark.asyncio
     @pytest.mark.server
     async def test_full_lifecycle_via_api(self):
-        """Full lifecycle: pending → accepted → queued → running → completed."""
+        """Full lifecycle: pending → accepted → running → completed."""
         async with httpx.AsyncClient(base_url=self._API_BASE, timeout=10) as client:
             # Create
             resp = await client.post(
@@ -674,15 +674,7 @@ class TestScanEndToEnd:
             self._created_command_ids.append(command_id)
 
             # pending → accepted (already accepted from create)
-            # accepted → queued
-            resp = await client.patch(
-                f"/commands/{command_id}/status",
-                json={"status": "queued"},
-            )
-            assert resp.status_code == 200
-            assert resp.json()["status"] == "queued"
-
-            # queued → running
+            # accepted → running
             resp = await client.patch(
                 f"/commands/{command_id}/status",
                 json={

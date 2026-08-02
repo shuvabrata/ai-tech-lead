@@ -28,6 +28,10 @@ class CommandStatus(Base):
 
         pending → accepted → queued → running → completed
                                                → failed
+                                               → cancelled
+
+        The ``cancelled`` terminal state is set by the daemon when it receives
+        a ``cancel`` command for a running or accepted scan.
     """
 
     __tablename__ = "command_status"

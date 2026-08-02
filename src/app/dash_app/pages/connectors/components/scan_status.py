@@ -7,6 +7,7 @@ and result summary.
 from datetime import datetime
 
 from dash import html
+import dash_bootstrap_components as dbc
 
 from app.common.timezone import humanize_duration, to_app_timezone
 from app.settings import settings
@@ -14,6 +15,7 @@ from app.dash_app.styles import (
     COLOR_BORDER,
     COLOR_ERROR,
     COLOR_GRAY_MEDIUM,
+    COLOR_INFO,
     COLOR_SUCCESS,
     COLOR_WARNING,
     FONT_SANS,
@@ -49,6 +51,11 @@ STATUS_CONFIG = {
         "icon": "fa-regular fa-circle-xmark",
         "color": COLOR_ERROR,
         "label": "Failed",
+    },
+    "cancelled": {
+        "icon": "fa-regular fa-circle-stop",
+        "color": COLOR_INFO,
+        "label": "Cancelled",
     },
 }
 
@@ -121,45 +128,116 @@ def render_scan_item(command: dict) -> html.Div:  # type: ignore[type-arg]
     detail_parts.append(_labeled_time("Started", started_str))
     detail_parts.append(_labeled_time("Completed", completed_str))
     detail_parts.append(f"Duration: {duration_text}" if duration_text else None)
-    detail_parts.append(f"Error: {error_message}" if error_message else "Error: None")
 
-    detail_line = " | ".join(p for p in detail_parts if p is not None)
+    # Build detail line from text parts, then append the error segment
+    # separately so it can be styled in red when there's a real error.
+    detail_prefix = " | ".join(p for p in detail_parts if p is not None)
+
+    has_error = bool(error_message)
+    error_part = html.Span(
+        f"Error: {error_message}" if has_error else "Error: None",
+        style={
+            "fontFamily": FONT_SANS,
+            "fontSize": FONT_SIZE_XSMALL,
+            "color": COLOR_ERROR if has_error else COLOR_GRAY_MEDIUM,
+        },
+    )
+
+    # Combine prefix and error into a single line
+    detail_line = html.Span(
+        [detail_prefix + " | ", error_part] if detail_prefix else error_part,
+        style={
+            "fontFamily": FONT_SANS,
+            "fontSize": FONT_SIZE_XSMALL,
+            "color": COLOR_GRAY_MEDIUM,
+        },
+    )
+
+    # Command type badge — distinguish scan, cancel, test actions
+    command_type = command.get("command_type", "scan")
+    type_badge = html.Span()
+    if command_type == "test":
+        type_badge = html.Span(
+            "[TEST]",
+            style={
+                "fontFamily": FONT_SANS,
+                "fontSize": FONT_SIZE_XSMALL,
+                "color": COLOR_INFO,
+                "fontWeight": "600",
+                "marginRight": SPACING_XSMALL,
+            },
+        )
+    elif command_type == "cancel":
+        type_badge = html.Span(
+            "[CANCEL]",
+            style={
+                "fontFamily": FONT_SANS,
+                "fontSize": FONT_SIZE_XSMALL,
+                "color": COLOR_WARNING,
+                "fontWeight": "600",
+                "marginRight": SPACING_XSMALL,
+            },
+        )
+    else:
+        type_badge = html.Span(
+            "[SCAN]",
+            style={
+                "fontFamily": FONT_SANS,
+                "fontSize": FONT_SIZE_XSMALL,
+                "color": COLOR_GRAY_MEDIUM,
+                "fontWeight": "600",
+                "marginRight": SPACING_XSMALL,
+            },
+        )
+
+    command_id = str(command.get("command_id", ""))
+    cancel_button = html.Div()
+    if status in ("running", "accepted"):
+        cancel_button = dbc.Button(
+            "Cancel",
+            id={"type": "connector-cancel-scan", "command_id": command_id},
+            color="warning",
+            size="sm",
+            className="ms-2",
+            style={"fontSize": "11px", "padding": "1px 6px"},
+        )
 
     return html.Div(
         [
-            html.I(
-                className=cfg["icon"],
-                style={
-                    "color": cfg["color"],
-                    "marginRight": SPACING_XSMALL,
-                    "width": "16px",
-                    "textAlign": "center",
-                    "flexShrink": 0,
-                },
+            html.Div(
+                [
+                    html.I(
+                        className=cfg["icon"],
+                        style={
+                            "color": cfg["color"],
+                            "marginRight": SPACING_XSMALL,
+                            "width": "16px",
+                            "textAlign": "center",
+                            "flexShrink": 0,
+                        },
+                    ),
+                    html.Span(
+                        cfg["label"],
+                        style={
+                            "fontFamily": FONT_SANS,
+                            "fontSize": FONT_SIZE_SMALL,
+                            "color": cfg["color"],
+                            "fontWeight": "500",
+                            "marginRight": SPACING_XSMALL,
+                            "flexShrink": 0,
+                        },
+                    ),
+                    type_badge,
+                    detail_line,
+                ],
+                style={"display": "flex", "alignItems": "center", "flex": "1"},
             ),
-            html.Span(
-                cfg["label"],
-                style={
-                    "fontFamily": FONT_SANS,
-                    "fontSize": FONT_SIZE_SMALL,
-                    "color": cfg["color"],
-                    "fontWeight": "500",
-                    "marginRight": SPACING_XSMALL,
-                    "flexShrink": 0,
-                },
-            ),
-            html.Span(
-                detail_line,
-                style={
-                    "fontFamily": FONT_SANS,
-                    "fontSize": FONT_SIZE_XSMALL,
-                    "color": COLOR_GRAY_MEDIUM,
-                },
-            ),
+            cancel_button,
         ],
         style={
             "display": "flex",
             "alignItems": "center",
+            "justifyContent": "space-between",
             "flexWrap": "wrap",
             "gap": SPACING_XXXSMALL,
             "padding": f"{SPACING_XSMALL} {SPACING_SMALL}",

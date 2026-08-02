@@ -71,12 +71,14 @@ class TestStateTransitions:
             ("pending", "accepted"),
             ("pending", "failed"),
             ("accepted", "failed"),
+            ("accepted", "cancelled"),
             ("running", "completed"),
             ("running", "failed"),
+            ("running", "cancelled"),
         ],
     )
     def test_valid_transitions(self, current: str, new: str) -> None:
-        """Allowed transitions do not raise."""
+        """Allowed transitions do not raise — including ``cancelled``."""
         # Should not raise.
         service._validate_state_transition(current, new)
 
@@ -86,27 +88,41 @@ class TestStateTransitions:
         [
             ("pending", "running"),
             ("pending", "completed"),
+            ("pending", "cancelled"),
+            ("pending", "queued"),
             ("accepted", "completed"),
             ("completed", "running"),
             ("completed", "failed"),
+            ("completed", "cancelled"),
             ("failed", "running"),
             ("failed", "accepted"),
+            ("failed", "cancelled"),
+            ("cancelled", "running"),
+            ("cancelled", "completed"),
+            ("cancelled", "failed"),
+            ("cancelled", "accepted"),
             ("running", "pending"),
         ],
     )
     def test_invalid_transitions_raise(self, current: str, new: str) -> None:
-        """Disallowed transitions raise ValueError."""
+        """Disallowed transitions raise ValueError — including ``cancelled``."""
         with pytest.raises(ValueError, match="Invalid status transition"):
             service._validate_state_transition(current, new)
 
     @pytest.mark.unit
     def test_terminal_states_have_no_transitions(self) -> None:
-        """Terminal states (completed, failed) have no outgoing transitions."""
-        for terminal in ("completed", "failed"):
+        """Terminal states (completed, failed, cancelled) have no outgoing transitions."""
+        for terminal in ("completed", "failed", "cancelled"):
             for new_status in ("accepted", "running", "completed", "failed"):
                 if new_status != terminal:
                     with pytest.raises(ValueError, match="Invalid status transition"):
                         service._validate_state_transition(terminal, new_status)
+
+    @pytest.mark.unit
+    def test_same_state_allowed(self) -> None:
+        """Same-state transitions are allowed (idempotent)."""
+        for state in ("pending", "accepted", "running"):
+            service._validate_state_transition(state, state)  # should not raise
 
 
 # ===========================================================================

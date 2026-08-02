@@ -17,6 +17,7 @@ import uuid
 import pytest
 from dash import no_update
 from dash.exceptions import PreventUpdate
+import dash_bootstrap_components as dbc
 
 from app.api.connectors.v1.registry import CONNECTOR_REGISTRY
 from app.dash_app.pages.connectors.callbacks import (
@@ -256,15 +257,15 @@ class TestRenderScanSection:
 
     @pytest.mark.parametrize("connector_type", ["github", "jira", "confluence"])
     def test_recent_scans_visible_for_producer_connectors(self, connector_type):
-        """GitHub/Jira/Confluence detail pages show the Recent Scans section."""
+        """GitHub/Jira/Confluence detail pages show the Recent Actions section."""
         meta = CONNECTOR_REGISTRY[connector_type]
         section = _render_recent_scans(connector_type, meta)
         text = self._flatten_text(section)
-        assert "Recent Scans" in text
+        assert "Recent Actions" in text
 
     @pytest.mark.parametrize("connector_type", ["slack", "teams", "google_docs"])
     def test_recent_scans_hidden_for_non_producer_connectors(self, connector_type):
-        """Slack/Teams etc. don't show the Recent Scans section."""
+        """Slack/Teams etc. don't show the Recent Actions section."""
         meta = CONNECTOR_REGISTRY[connector_type]
         section = _render_recent_scans(connector_type, meta)
         # Should be an empty div
@@ -419,3 +420,318 @@ def _flatten_dash(component):
     if not isinstance(children, list):
         children = [children]
     return " ".join(_flatten_dash(c) for c in children)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  Cancel button tests
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+class TestCancelButtonVisibility:
+    """Verify the Cancel button appears only for active scan statuses."""
+
+    def _has_cancel_button(self, result) -> bool:
+        """Check if result contains a Cancel dbc.Button."""
+        if isinstance(result, list):
+            for item in result:
+                if self._has_cancel_button(item):
+                    return True
+            return False
+        # Check if this component is a dbc.Button with Cancel text
+        if hasattr(result, "className") and "btn" in str(result.className):
+            text = _flatten_dash(result)
+            return "Cancel" in text and "Cancelled" not in text
+        children = getattr(result, "children", None)
+        if not children:
+            return False
+        if isinstance(children, list):
+            for child in children:
+                if self._has_cancel_button(child):
+                    return True
+            return False
+        return self._has_cancel_button(children)
+
+    @staticmethod
+    def _is_cancel_button(component) -> bool:
+        text = _flatten_dash(component)
+        return "Cancel" in text
+
+    def test_cancel_button_visible_for_running(self):
+        """Running scan row has Cancel button."""
+        cmd = {
+            "command_id": str(uuid.uuid4()),
+            "status": "running",
+            "created_at": "2026-07-31T10:00:00Z",
+        }
+        result = render_scan_item(cmd)
+        text = _flatten_dash(result)
+        assert "Cancel" in text
+
+    def test_cancel_button_visible_for_accepted(self):
+        """Accepted scan row has Cancel button."""
+        cmd = {
+            "command_id": str(uuid.uuid4()),
+            "status": "accepted",
+            "created_at": "2026-07-31T10:00:00Z",
+        }
+        result = render_scan_item(cmd)
+        text = _flatten_dash(result)
+        assert "Cancel" in text
+
+    def test_cancel_button_hidden_for_completed(self):
+        """Completed scan row has no Cancel button."""
+        cmd = {
+            "command_id": str(uuid.uuid4()),
+            "status": "completed",
+            "created_at": "2026-07-31T10:00:00Z",
+        }
+        result = render_scan_item(cmd)
+        assert not self._has_cancel_button(result)
+
+    def test_cancel_button_hidden_for_failed(self):
+        """Failed scan row has no Cancel button."""
+        cmd = {
+            "command_id": str(uuid.uuid4()),
+            "status": "failed",
+            "created_at": "2026-07-31T10:00:00Z",
+        }
+        result = render_scan_item(cmd)
+        assert not self._has_cancel_button(result)
+
+    def test_cancel_button_hidden_for_cancelled(self):
+        """Cancelled scan row has no Cancel button."""
+        cmd = {
+            "command_id": str(uuid.uuid4()),
+            "status": "cancelled",
+            "created_at": "2026-07-31T10:00:00Z",
+        }
+        result = render_scan_item(cmd)
+        assert not self._has_cancel_button(result)
+
+    def test_cancel_button_hidden_for_pending(self):
+        """Pending scan row has no Cancel button."""
+        cmd = {
+            "command_id": str(uuid.uuid4()),
+            "status": "pending",
+            "created_at": "2026-07-31T10:00:00Z",
+        }
+        result = render_scan_item(cmd)
+        assert not self._has_cancel_button(result)
+
+
+def test_cancelled_status_config_exists():
+    """The cancelled status has an entry in STATUS_CONFIG."""
+    assert "cancelled" in STATUS_CONFIG
+    assert STATUS_CONFIG["cancelled"]["label"] == "Cancelled"
+    assert "fa-regular fa-circle-stop" in STATUS_CONFIG["cancelled"]["icon"]
+
+
+class TestCancelButtonCallback:
+    """Tests for the ``handle_cancel_scan`` callback."""
+
+    def _make_triggered_id(self, command_id: str) -> dict:
+        return {"type": "connector-cancel-scan", "command_id": command_id}
+
+    def test_cancel_click_sends_api_request(self):
+        """Button click triggers POST to /api/v1/commands/ with cancel command."""
+        from app.dash_app.pages.connectors.callbacks import handle_cancel_scan
+
+        scan_command_id = str(uuid.uuid4())
+
+        with (
+            patch("app.dash_app.pages.connectors.callbacks.callback_context") as mock_ctx,
+            patch("app.dash_app.pages.connectors.callbacks.requests.post") as mock_post,
+        ):
+            mock_ctx.triggered = [
+                {
+                    "prop_id": f".{self._make_triggered_id(scan_command_id)}.n_clicks",
+                    "value": 1,
+                    "type": "",
+                    "index": "",
+                }
+            ]
+            mock_ctx.triggered_id = self._make_triggered_id(scan_command_id)
+            mock_response = MagicMock()
+            mock_response.raise_for_status.return_value = None
+            mock_post.return_value = mock_response
+
+            result = handle_cancel_scan([1], "/app/connectors/github")
+
+        assert result is not None
+        alert, poll_disabled = result
+        assert "Cancel sent" in _flatten_dash(alert)
+        assert poll_disabled is False
+        mock_post.assert_called_once()
+        call_kwargs = mock_post.call_args[1]
+        assert call_kwargs["json"]["command_type"] == "cancel"
+        assert call_kwargs["json"]["parameters"]["cancel_command_id"] == scan_command_id
+
+    def test_cancel_no_trigger_returns_no_update(self):
+        """No trigger → returns no_update for both outputs."""
+        from app.dash_app.pages.connectors.callbacks import handle_cancel_scan
+
+        with patch("app.dash_app.pages.connectors.callbacks.callback_context") as mock_ctx:
+            mock_ctx.triggered = []
+
+            result = handle_cancel_scan([None], "/app/connectors/github")
+
+        assert result == (no_update, no_update)
+
+    def test_cancel_no_pathname_returns_no_update(self):
+        """No pathname → returns no_update."""
+        from app.dash_app.pages.connectors.callbacks import handle_cancel_scan
+
+        with patch("app.dash_app.pages.connectors.callbacks.callback_context") as mock_ctx:
+            scan_command_id = str(uuid.uuid4())
+            mock_ctx.triggered = [
+                {
+                    "prop_id": f".{self._make_triggered_id(scan_command_id)}.n_clicks",
+                    "value": 1,
+                    "type": "",
+                    "index": "",
+                }
+            ]
+            mock_ctx.triggered_id = self._make_triggered_id(scan_command_id)
+
+            result = handle_cancel_scan([1], None)
+
+        assert result == (no_update, no_update)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  Command type badge tests
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+class TestCommandTypeBadge:
+    """Verify the command_type badge appears in scan rows."""
+
+    def _flatten_text(self, component):
+        if isinstance(component, (str, int, float)):
+            return str(component)
+        parts = []
+        children = getattr(component, "children", None)
+        if children is None:
+            return ""
+        if not isinstance(children, list):
+            children = [children]
+        for child in children:
+            parts.append(self._flatten_text(child))
+        return " ".join(parts)
+
+    def test_scan_badge_visible(self):
+        """A scan command shows [SCAN] badge."""
+        cmd = {
+            "command_id": str(uuid.uuid4()),
+            "command_type": "scan",
+            "status": "running",
+            "created_at": "2026-07-31T10:00:00Z",
+        }
+        result = render_scan_item(cmd)
+        text = self._flatten_text(result)
+        assert "[SCAN]" in text
+
+    def test_test_badge_visible(self):
+        """A test command shows [TEST] badge."""
+        cmd = {
+            "command_id": str(uuid.uuid4()),
+            "command_type": "test",
+            "status": "completed",
+            "created_at": "2026-07-31T10:00:00Z",
+        }
+        result = render_scan_item(cmd)
+        text = self._flatten_text(result)
+        assert "[TEST]" in text
+
+    def test_cancel_badge_visible(self):
+        """A cancel command shows [CANCEL] badge."""
+        cmd = {
+            "command_id": str(uuid.uuid4()),
+            "command_type": "cancel",
+            "status": "completed",
+            "created_at": "2026-07-31T10:00:00Z",
+        }
+        result = render_scan_item(cmd)
+        text = self._flatten_text(result)
+        assert "[CANCEL]" in text
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  Test Connection button callback tests
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+class TestTestConnectionCallback:
+    """Tests for the ``handle_item_test_connection`` callback."""
+
+    def test_test_connection_button_sends_command(self):
+        """Button click POSTs to /api/v1/commands/ with command_type: test."""
+        from app.dash_app.pages.connectors.callbacks import handle_item_test_connection
+
+        with (
+            patch("app.dash_app.pages.connectors.callbacks.callback_context") as mock_ctx,
+            patch("app.dash_app.pages.connectors.callbacks.requests.post") as mock_post,
+        ):
+            mock_ctx.triggered = [
+                {
+                    "prop_id": '.{"type":"connector-item-test","connector_type":"github","item_id":1}.n_clicks',
+                    "value": 1,
+                    "type": "",
+                    "index": "",
+                }
+            ]
+            mock_ctx.triggered_id = {"type": "connector-item-test", "connector_type": "github", "item_id": 1}
+            mock_response = MagicMock()
+            mock_response.raise_for_status.return_value = None
+            mock_response.json.return_value = {"command_id": "abc-123"}
+            mock_post.return_value = mock_response
+
+            result = handle_item_test_connection([1])
+
+        assert result is not None
+        alert, poll_disabled = result
+        alert_text = _flatten_dash(alert)
+        assert "Test triggered" in alert_text
+        assert "Recent Actions" in alert_text
+        assert poll_disabled is False
+        mock_post.assert_called_once()
+        call_kwargs = mock_post.call_args[1]
+        assert call_kwargs["json"]["command_type"] == "test"
+        assert call_kwargs["json"]["parameters"]["item_id"] == 1
+
+    def test_test_connection_no_producer_container(self):
+        """Non-producer connector shows warning, no API call."""
+        from app.dash_app.pages.connectors.callbacks import handle_item_test_connection
+
+        with (
+            patch("app.dash_app.pages.connectors.callbacks.callback_context") as mock_ctx,
+            patch("app.dash_app.pages.connectors.callbacks.requests.post") as mock_post,
+        ):
+            mock_ctx.triggered = [
+                {
+                    "prop_id": '.{"type":"connector-item-test","connector_type":"slack","item_id":1}.n_clicks',
+                    "value": 1,
+                    "type": "",
+                    "index": "",
+                }
+            ]
+            mock_ctx.triggered_id = {"type": "connector-item-test", "connector_type": "slack", "item_id": 1}
+
+            result = handle_item_test_connection([1])
+
+        assert result is not None
+        alert, poll_disabled = result
+        alert_text = _flatten_dash(alert)
+        assert "No producer container for slack" in alert_text
+        assert poll_disabled is no_update
+        mock_post.assert_not_called()
+
+    def test_test_connection_no_trigger(self):
+        """No trigger → returns no_update for both outputs."""
+        from app.dash_app.pages.connectors.callbacks import handle_item_test_connection
+
+        with patch("app.dash_app.pages.connectors.callbacks.callback_context") as mock_ctx:
+            mock_ctx.triggered = []
+            result = handle_item_test_connection([None])
+
+        assert result == (no_update, no_update)
