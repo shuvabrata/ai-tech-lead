@@ -247,10 +247,25 @@ class TestConfluenceTestConnection:
         mock_confluence = Mock()
         mock_confluence.myself.return_value = {"displayName": "Bob Dev", "email": "bob@example.com"}
 
-        with patch(
-            "connectors.producers.confluence.main.create_confluence_connection",
-            return_value=mock_confluence,
+        with (
+            patch(
+                "connectors.producers.confluence.main.load_config_from_file",
+            ) as mock_load,
+            patch(
+                "connectors.producers.confluence.main.create_confluence_connection",
+                return_value=mock_confluence,
+            ),
         ):
+            mock_load.return_value = {
+                "account": [
+                    {
+                        "url": "https://test.atlassian.net",
+                        "email": "a@b.com",
+                        "api_token": "tok",
+                        "enabled": True,
+                    },
+                ]
+            }
             from connectors.producers.confluence.main import test_connection
             success, message = await test_connection()
 
@@ -261,9 +276,24 @@ class TestConfluenceTestConnection:
     @pytest.mark.asyncio
     async def test_confluence_test_connection_failure(self) -> None:
         """Invalid credentials → returns (False, "Confluence auth failed ...")."""
-        with patch(
-            "connectors.producers.confluence.main.create_confluence_connection",
-        ) as mock_create:
+        with (
+            patch(
+                "connectors.producers.confluence.main.load_config_from_file",
+            ) as mock_load,
+            patch(
+                "connectors.producers.confluence.main.create_confluence_connection",
+            ) as mock_create,
+        ):
+            mock_load.return_value = {
+                "account": [
+                    {
+                        "url": "https://test.atlassian.net",
+                        "email": "a@b.com",
+                        "api_token": "bad_tok",
+                        "enabled": True,
+                    },
+                ]
+            }
             mock_create.side_effect = Exception("Invalid credentials")
             from connectors.producers.confluence.main import test_connection
             success, message = await test_connection()
