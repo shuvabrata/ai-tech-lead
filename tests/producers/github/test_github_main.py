@@ -86,7 +86,15 @@ class TestGitHubTestConnection:
         mock_user = Mock()
         mock_user.login = "testuser"
 
-        with patch("connectors.producers.github.main.Github") as mock_github:
+        with (
+            patch("connectors.producers.github.main.load_config_from_file") as mock_load,
+            patch("connectors.producers.github.main.Github") as mock_github,
+        ):
+            mock_load.return_value = {
+                "repos": [
+                    {"url": "https://github.com/owner/repo", "access_token": "tok", "enabled": True},
+                ]
+            }
             mock_github.return_value.get_user.return_value = mock_user
             from connectors.producers.github.main import test_connection
             success, message = await test_connection()
@@ -98,7 +106,15 @@ class TestGitHubTestConnection:
     @pytest.mark.asyncio
     async def test_github_test_connection_failure(self):
         """Invalid token → returns (False, "GitHub auth failed ...")."""
-        with patch("connectors.producers.github.main.Github") as mock_github:
+        with (
+            patch("connectors.producers.github.main.load_config_from_file") as mock_load,
+            patch("connectors.producers.github.main.Github") as mock_github,
+        ):
+            mock_load.return_value = {
+                "repos": [
+                    {"url": "https://github.com/owner/repo", "access_token": "bad_tok", "enabled": True},
+                ]
+            }
             mock_github.return_value.get_user.side_effect = Exception("Bad credentials")
             from connectors.producers.github.main import test_connection
             success, message = await test_connection()

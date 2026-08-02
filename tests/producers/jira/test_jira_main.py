@@ -97,7 +97,15 @@ class TestJiraTestConnection:
         mock_jira = Mock()
         mock_jira.myself.return_value = {"displayName": "Alice Dev", "emailAddress": "alice@example.com"}
 
-        with patch("connectors.producers.jira.main.create_jira_connection", return_value=mock_jira):
+        with (
+            patch("connectors.producers.jira.main.load_config_from_file") as mock_load,
+            patch("connectors.producers.jira.main.create_jira_connection", return_value=mock_jira),
+        ):
+            mock_load.return_value = {
+                "account": [
+                    {"url": "https://test.atlassian.net", "email": "a@b.com", "api_token": "tok", "enabled": True},
+                ]
+            }
             from connectors.producers.jira.main import test_connection
             success, message = await test_connection()
 
@@ -108,7 +116,15 @@ class TestJiraTestConnection:
     @pytest.mark.asyncio
     async def test_jira_test_connection_failure(self):
         """Invalid credentials → returns (False, "Jira auth failed ...")."""
-        with patch("connectors.producers.jira.main.create_jira_connection") as mock_create:
+        with (
+            patch("connectors.producers.jira.main.load_config_from_file") as mock_load,
+            patch("connectors.producers.jira.main.create_jira_connection") as mock_create,
+        ):
+            mock_load.return_value = {
+                "account": [
+                    {"url": "https://test.atlassian.net", "email": "a@b.com", "api_token": "bad_tok", "enabled": True},
+                ]
+            }
             mock_create.side_effect = Exception("Invalid credentials")
             from connectors.producers.jira.main import test_connection
             success, message = await test_connection()
