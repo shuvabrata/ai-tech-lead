@@ -75,23 +75,61 @@ def _find_pid_by_command_id(command_id: uuid.UUID) -> int | None:
 
 
 def _poll_test_children() -> None:
-    """Poll all test child processes and PATCH status when they finish."""
+    """Poll all test child processes and PATCH status when they finish.
+
+    Parses the child's stdout for ``SUCCESS:`` or ``FAILED:`` prefix to
+    determine the outcome, rather than relying on the exit code (which can
+    be unreliable across subprocess boundary).  The error message is
+    extracted into ``error_message`` for clean display in the UI.
+    """
     for pid in list(_test_children.keys()):
         command_id, popen_obj = _test_children[pid]
         if popen_obj.poll() is not None:
             stdout_bytes, stderr_bytes = popen_obj.communicate()
-            message = (stdout_bytes or stderr_bytes or b"").decode("utf-8", errors="replace").strip()
-            success = popen_obj.returncode == 0
+            raw = (stdout_bytes or stderr_bytes or b"").decode("utf-8", errors="replace").strip()
+            logger.debug("_poll_test_children pid=%d raw_stdout=%r", pid, raw)
+
+            # Search for SUCCESS: / FAILED: in any line (child prints log
+            # lines before the result line).
+            success = None
+            error_message = None
+            for line in raw.split("\n"):
+                stripped = line.strip()
+                if stripped.startswith("SUCCESS:"):
+                    success = True
+                    error_message = None
+                    break
+                if stripped.startswith("FAILED:"):
+                    success = False
+                    error_message = stripped[len("FAILED: "):]
+                    break
+
+            if success is None:
+                # Fallback to exit code if no recognizable prefix
+                success = popen_obj.returncode == 0
+                error_message = None
+                logger.debug(
+                    "_poll_test_children pid=%d no SUCCESS/FAILED prefix, "
+                    "falling back to returncode=%d success=%s",
+                    pid, popen_obj.returncode, success,
+                )
+
+            logger.debug(
+                "_poll_test_children pid=%d success=%s error_message=%s",
+                pid, success, error_message,
+            )
+
             # Advance through running first so the terminal-status PATCH
             # has a valid transition path from accepted (if the child
-            # already set it, the 422 is harmless — logged at DEBUG).
+            # already set it, same-state is now accepted server-side).
             _update_status(command_id, CommandStatusUpdate(
                 status="running", started_at=datetime.now(timezone.utc),
             ))
             _update_status(command_id, CommandStatusUpdate(
                 status="completed" if success else "failed",
                 completed_at=datetime.now(timezone.utc),
-                result_summary={"message": message},
+                error_message=error_message,
+                result_summary={"message": raw},
             ))
             del _test_children[pid]
 
