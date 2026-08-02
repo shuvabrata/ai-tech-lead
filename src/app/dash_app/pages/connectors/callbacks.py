@@ -917,7 +917,7 @@ def handle_item_test_connection(_clicks: List[int | None]):
 
         return (
             create_alert(
-                f"Test triggered! Command ID: {command_id}",
+                "Test triggered — check Recent Actions for the result.",
                 color="info",
                 class_name="mb-0",
             ),
@@ -1495,5 +1495,22 @@ clientside_callback(
     """,
     Output("connector-scroll-trigger", "data"),
     Input("connector-edit-item", "data"),
+    prevent_initial_call=True,
+)
+
+
+clientside_callback(
+    """
+    function(feedback_children) {
+        if (feedback_children) {
+            setTimeout(function() {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }, 100);
+        }
+        return '';
+    }
+    """,
+    Output("connector-scroll-trigger", "data"),
+    Input("connector-action-feedback", "children"),
     prevent_initial_call=True,
 )
