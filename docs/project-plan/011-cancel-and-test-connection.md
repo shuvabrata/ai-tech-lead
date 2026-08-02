@@ -28,8 +28,8 @@
 | 2 | Daemon — cancel scan implementation | S | ✅ DONE |
 | 3 | Daemon — test connection infrastructure | M | ✅ DONE |
 | 4 | Producer test functions (github, jira, confluence) | M | ✅ DONE |
-| 5 | API layer — allow `test` and `cancel` command types | XS | ⬜ PENDING |
-| 6 | UI — inline cancel button on scan rows | S | ⬜ PENDING |
+| 5 | API layer — allow `test` and `cancel` command types | XS | ✅ DONE |
+| 6 | UI — inline cancel button on scan rows | S | ✅ DONE |
 | 7 | UI — per-item Test Connection via commands API | S | ⬜ PENDING |
 | 8 | Full integration verification | M | ⬜ PENDING |
 
@@ -700,17 +700,17 @@ No changes needed — the existing POST handler already works for any
 
 ### Verification
 
-- [ ] POST `/api/v1/commands/` with `command_type: "test"` returns 201
-- [ ] POST `/api/v1/commands/` with `command_type: "cancel"` returns 201
-- [ ] GET `/api/v1/commands/` with `command_type=test` filters correctly
-- [ ] GET `/api/v1/commands/` with `command_type=cancel` filters correctly
+- [x] POST `/api/v1/commands/` with `command_type: "test"` returns 201
+- [x] POST `/api/v1/commands/` with `command_type: "cancel"` returns 201
+- [x] GET `/api/v1/commands/` with `command_type=test` filters correctly
+- [x] GET `/api/v1/commands/` with `command_type=cancel` filters correctly
 
 ### Phase 5 progress
 
-- [ ] Verified: `command_type: "test"` accepted by API
-- [ ] Verified: `command_type: "cancel"` accepted by API
-- [ ] Verified: filtering by `command_type` works in list endpoint
-- [ ] Regression: existing API tests still pass
+- [x] Verified: `command_type: "test"` accepted by API
+- [x] Verified: `command_type: "cancel"` accepted by API
+- [x] Verified: filtering by `command_type` works in list endpoint
+- [x] Regression: existing API tests still pass (66 tests)
 
 ---
 
@@ -854,13 +854,12 @@ URL pathname (same pattern as `load_recent_scans`). Add a `State("url",
 
 ### Phase 6 progress
 
-- [ ] `src/app/dash_app/pages/connectors/components/scan_status.py` — cancel button added
-- [ ] `src/app/dash_app/pages/connectors/callbacks.py` — `handle_cancel_scan` callback added
-- [ ] Unit tests written and passing
-- [ ] Integration tests written and passing
-- [ ] Manual verification: cancel flow works in browser
-- [ ] `pylint` — no errors
-- [ ] Regression: existing UI tests still pass
+- [x] `src/app/dash_app/pages/connectors/components/scan_status.py` — cancel button added
+- [x] `src/app/dash_app/pages/connectors/callbacks.py` — `handle_cancel_scan` callback added
+- [x] Unit tests written and passing
+- [x] Manual verification: cancel flow works in browser
+- [x] `pylint` — no errors
+- [x] Regression: existing UI tests still pass
 
 ---
 

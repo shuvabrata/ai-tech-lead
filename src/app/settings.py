@@ -54,6 +54,9 @@ class Settings(BaseSettings):
     
     # Number of milliseconds between scan status polls in the connector UI
     CONNECTOR_SCAN_POLL_INTERVAL: int = 10000
+    
+    # Max recent action rows to display in the connector UI
+    RECENT_ACTIONS_LIMIT: int = Field(default=5, ge=1, le=50)
 
     # UI Configuration
     TIMEZONE: str = Field(default="UTC", validation_alias=AliasChoices("TIMEZONE", "TZ"))

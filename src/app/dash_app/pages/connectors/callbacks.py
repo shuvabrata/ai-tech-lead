@@ -897,6 +897,76 @@ def handle_item_test_connection(_clicks: List[int | None]):
 
 
 @callback(
+    Output("connector-action-feedback", "children", allow_duplicate=True),
+    Output("connector-scans-poll", "disabled", allow_duplicate=True),
+    Input({"type": "connector-cancel-scan", "command_id": ALL}, "n_clicks"),
+    State("url", "pathname"),
+    prevent_initial_call=True,
+)
+def handle_cancel_scan(n_clicks: List[int | None], pathname: str | None):
+    """Cancel a running scan by sending a cancel command via the API."""
+    if not callback_context.triggered:
+        return no_update, no_update
+    triggered_value = callback_context.triggered[0].get("value")
+    if not triggered_value:
+        return no_update, no_update
+    triggered = callback_context.triggered_id
+    if not isinstance(triggered, dict):
+        return no_update, no_update
+
+    scan_command_id = triggered.get("command_id")
+    if not scan_command_id:
+        return no_update, no_update
+
+    # Resolve container name from URL pathname
+    if not pathname:
+        return no_update, no_update
+    connector_type = pathname.split("/app/connectors/")[-1]
+    if not connector_type or connector_type not in CONNECTOR_REGISTRY:
+        return no_update, no_update
+    container_name = CONNECTOR_REGISTRY[connector_type].get("producer_container")
+    if not container_name:
+        return (
+            create_alert(
+                f"No producer container for {connector_type}.",
+                color="warning",
+                class_name="mb-0",
+            ),
+            no_update,
+        )
+
+    api_base = _get_api_base_url()
+    try:
+        response = requests.post(
+            f"{api_base}/api/v1/commands/",
+            json={
+                "command_type": "cancel",
+                "target": container_name,
+                "parameters": {"cancel_command_id": scan_command_id},
+            },
+            timeout=TIMEOUT_SECONDS,
+        )
+        response.raise_for_status()
+        return (
+            create_alert(
+                f"Cancel sent for scan {scan_command_id[:8]}...",
+                color="warning",
+                class_name="mb-0",
+            ),
+            False,  # re-enable polling to see status transition
+        )
+    except requests.exceptions.RequestException as exc:
+        return (
+            create_alert(
+                f"Failed to cancel scan: {exc}",
+                color="danger",
+                class_name="mb-0",
+            ),
+            no_update,
+        )
+
+
+@callback(
     [
         Output("connector-detail-store", "data", allow_duplicate=True),
         Output("connector-action-feedback", "children", allow_duplicate=True),
@@ -1231,7 +1301,7 @@ def handle_run_scan(n_clicks: List[int | None]):
         # without waiting for the next poll interval.
         scans_response = requests.get(
             f"{api_base}/api/v1/commands/",
-            params={"target": container_name, "limit": 3},
+            params={"target": container_name, "limit": settings.RECENT_ACTIONS_LIMIT},
             timeout=TIMEOUT_SECONDS,
         )
         scans_response.raise_for_status()
@@ -1241,7 +1311,7 @@ def handle_run_scan(n_clicks: List[int | None]):
             scans_children = html.Div([render_scan_item(cmd) for cmd in commands])
         else:
             scans_children = html.Div(
-                "No recent scans.",
+                "No recent actions.",
                 style={
                     "fontFamily": FONT_SANS,
                     "fontSize": FONT_SIZE_SMALL,
@@ -1299,7 +1369,7 @@ def load_recent_scans(
     try:
         response = requests.get(
             f"{api_base}/api/v1/commands/",
-            params={"target": container_name, "limit": 3},
+            params={"target": container_name, "limit": settings.RECENT_ACTIONS_LIMIT},
             timeout=TIMEOUT_SECONDS,
         )
         response.raise_for_status()
@@ -1307,7 +1377,7 @@ def load_recent_scans(
         commands = data.get("commands", [])
         if not commands:
             return html.Div(
-                "No recent scans.",
+                "No recent actions.",
                 style={
                     "fontFamily": FONT_SANS,
                     "fontSize": FONT_SIZE_SMALL,
