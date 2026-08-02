@@ -128,9 +128,30 @@ def render_scan_item(command: dict) -> html.Div:  # type: ignore[type-arg]
     detail_parts.append(_labeled_time("Started", started_str))
     detail_parts.append(_labeled_time("Completed", completed_str))
     detail_parts.append(f"Duration: {duration_text}" if duration_text else None)
-    detail_parts.append(f"Error: {error_message}" if error_message else "Error: None")
 
-    detail_line = " | ".join(p for p in detail_parts if p is not None)
+    # Build detail line from text parts, then append the error segment
+    # separately so it can be styled in red when there's a real error.
+    detail_prefix = " | ".join(p for p in detail_parts if p is not None)
+
+    has_error = bool(error_message)
+    error_part = html.Span(
+        f"Error: {error_message}" if has_error else "Error: None",
+        style={
+            "fontFamily": FONT_SANS,
+            "fontSize": FONT_SIZE_XSMALL,
+            "color": COLOR_ERROR if has_error else COLOR_GRAY_MEDIUM,
+        },
+    )
+
+    # Combine prefix and error into a single line
+    detail_line = html.Span(
+        [detail_prefix + " | ", error_part] if detail_prefix else error_part,
+        style={
+            "fontFamily": FONT_SANS,
+            "fontSize": FONT_SIZE_XSMALL,
+            "color": COLOR_GRAY_MEDIUM,
+        },
+    )
 
     # Command type badge — distinguish scan, cancel, test actions
     command_type = command.get("command_type", "scan")
@@ -207,14 +228,7 @@ def render_scan_item(command: dict) -> html.Div:  # type: ignore[type-arg]
                         },
                     ),
                     type_badge,
-                    html.Span(
-                        detail_line,
-                        style={
-                            "fontFamily": FONT_SANS,
-                            "fontSize": FONT_SIZE_XSMALL,
-                            "color": COLOR_GRAY_MEDIUM,
-                        },
-                    ),
+                    detail_line,
                 ],
                 style={"display": "flex", "alignItems": "center", "flex": "1"},
             ),

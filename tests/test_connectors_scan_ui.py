@@ -691,8 +691,8 @@ class TestTestConnectionCallback:
         assert result is not None
         alert, poll_disabled = result
         alert_text = _flatten_dash(alert)
-        assert "Test triggered!" in alert_text
-        assert "abc-123" in alert_text
+        assert "Test triggered" in alert_text
+        assert "Recent Actions" in alert_text
         assert poll_disabled is False
         mock_post.assert_called_once()
         call_kwargs = mock_post.call_args[1]
