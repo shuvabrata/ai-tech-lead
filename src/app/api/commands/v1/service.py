@@ -32,7 +32,14 @@ _VALID_TRANSITIONS: dict[str, set[str]] = {
 
 
 def _validate_state_transition(current: str, new: str) -> None:
-    """Raise ``ValueError`` if the transition is not allowed."""
+    """Raise ``ValueError`` if the transition is not allowed.
+
+    Same-state transitions are always allowed (idempotent — useful when
+    multiple processes race to set ``running``).  Terminal states have no
+    outgoing transitions, including same-state.
+    """
+    if current == new:
+        return  # same state is always valid (idempotent)
     allowed = _VALID_TRANSITIONS.get(current, set())
     if new not in allowed:
         raise ValueError(

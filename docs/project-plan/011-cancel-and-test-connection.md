@@ -30,7 +30,7 @@
 | 4 | Producer test functions (github, jira, confluence) | M | ✅ DONE |
 | 5 | API layer — allow `test` and `cancel` command types | XS | ✅ DONE |
 | 6 | UI — inline cancel button on scan rows | S | ✅ DONE |
-| 7 | UI — per-item Test Connection via commands API | S | ⬜ PENDING |
+| 7 | UI — per-item Test Connection via commands API | S | ✅ DONE |
 | 8 | Full integration verification | M | ⬜ PENDING |
 
 ---
@@ -986,13 +986,12 @@ if command_type == "test":
 
 ### Phase 7 progress
 
-- [ ] `src/app/dash_app/pages/connectors/callbacks.py` — `handle_item_test_connection` updated
-- [ ] `src/app/dash_app/pages/connectors/components/scan_status.py` — `[TEST]` badge added
-- [ ] Unit tests written and passing
-- [ ] Integration tests written and passing
-- [ ] Manual verification: test connection works end-to-end in browser
-- [ ] `pylint` — no errors
-- [ ] Regression: existing UI tests still pass
+- [x] `src/app/dash_app/pages/connectors/callbacks.py` — `handle_item_test_connection` updated
+- [x] `src/app/dash_app/pages/connectors/components/scan_status.py` — `[TEST]` badge added
+- [x] Unit tests written and passing
+- [x] Manual verification: test connection works end-to-end in browser
+- [x] `pylint` — no errors
+- [x] Regression: existing UI tests still pass
 
 ---
 

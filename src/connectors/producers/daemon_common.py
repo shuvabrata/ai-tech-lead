@@ -83,7 +83,8 @@ def _poll_test_children() -> None:
             message = (stdout_bytes or stderr_bytes or b"").decode("utf-8", errors="replace").strip()
             success = popen_obj.returncode == 0
             # Advance through running first so the terminal-status PATCH
-            # has a valid transition path from accepted.
+            # has a valid transition path from accepted (if the child
+            # already set it, the 422 is harmless — logged at DEBUG).
             _update_status(command_id, CommandStatusUpdate(
                 status="running", started_at=datetime.now(timezone.utc),
             ))

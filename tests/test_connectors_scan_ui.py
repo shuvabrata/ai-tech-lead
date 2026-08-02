@@ -654,3 +654,84 @@ class TestCommandTypeBadge:
         result = render_scan_item(cmd)
         text = self._flatten_text(result)
         assert "[CANCEL]" in text
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  Test Connection button callback tests
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+class TestTestConnectionCallback:
+    """Tests for the ``handle_item_test_connection`` callback."""
+
+    def test_test_connection_button_sends_command(self):
+        """Button click POSTs to /api/v1/commands/ with command_type: test."""
+        from app.dash_app.pages.connectors.callbacks import handle_item_test_connection
+
+        with (
+            patch("app.dash_app.pages.connectors.callbacks.callback_context") as mock_ctx,
+            patch("app.dash_app.pages.connectors.callbacks.requests.post") as mock_post,
+        ):
+            mock_ctx.triggered = [
+                {
+                    "prop_id": '.{"type":"connector-item-test","connector_type":"github","item_id":1}.n_clicks',
+                    "value": 1,
+                    "type": "",
+                    "index": "",
+                }
+            ]
+            mock_ctx.triggered_id = {"type": "connector-item-test", "connector_type": "github", "item_id": 1}
+            mock_response = MagicMock()
+            mock_response.raise_for_status.return_value = None
+            mock_response.json.return_value = {"command_id": "abc-123"}
+            mock_post.return_value = mock_response
+
+            result = handle_item_test_connection([1])
+
+        assert result is not None
+        alert, poll_disabled = result
+        alert_text = _flatten_dash(alert)
+        assert "Test triggered!" in alert_text
+        assert "abc-123" in alert_text
+        assert poll_disabled is False
+        mock_post.assert_called_once()
+        call_kwargs = mock_post.call_args[1]
+        assert call_kwargs["json"]["command_type"] == "test"
+        assert call_kwargs["json"]["parameters"]["item_id"] == 1
+
+    def test_test_connection_no_producer_container(self):
+        """Non-producer connector shows warning, no API call."""
+        from app.dash_app.pages.connectors.callbacks import handle_item_test_connection
+
+        with (
+            patch("app.dash_app.pages.connectors.callbacks.callback_context") as mock_ctx,
+            patch("app.dash_app.pages.connectors.callbacks.requests.post") as mock_post,
+        ):
+            mock_ctx.triggered = [
+                {
+                    "prop_id": '.{"type":"connector-item-test","connector_type":"slack","item_id":1}.n_clicks',
+                    "value": 1,
+                    "type": "",
+                    "index": "",
+                }
+            ]
+            mock_ctx.triggered_id = {"type": "connector-item-test", "connector_type": "slack", "item_id": 1}
+
+            result = handle_item_test_connection([1])
+
+        assert result is not None
+        alert, poll_disabled = result
+        alert_text = _flatten_dash(alert)
+        assert "No producer container for slack" in alert_text
+        assert poll_disabled is no_update
+        mock_post.assert_not_called()
+
+    def test_test_connection_no_trigger(self):
+        """No trigger → returns no_update for both outputs."""
+        from app.dash_app.pages.connectors.callbacks import handle_item_test_connection
+
+        with patch("app.dash_app.pages.connectors.callbacks.callback_context") as mock_ctx:
+            mock_ctx.triggered = []
+            result = handle_item_test_connection([None])
+
+        assert result == (no_update, no_update)

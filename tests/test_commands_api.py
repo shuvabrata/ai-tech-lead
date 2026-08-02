@@ -118,6 +118,12 @@ class TestStateTransitions:
                     with pytest.raises(ValueError, match="Invalid status transition"):
                         service._validate_state_transition(terminal, new_status)
 
+    @pytest.mark.unit
+    def test_same_state_allowed(self) -> None:
+        """Same-state transitions are allowed (idempotent)."""
+        for state in ("pending", "accepted", "running"):
+            service._validate_state_transition(state, state)  # should not raise
+
 
 # ===========================================================================
 # Target validation
