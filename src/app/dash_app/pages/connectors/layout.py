@@ -106,10 +106,9 @@ def get_detail_layout(connector_type: str):
 
     return html.Div(
         [
-            create_page_header("Connectors"),
+            create_page_header(f"Connectors / {display_name}"),
             html.Div(
                 [
-                    _breadcrumb(display_name),
                     dcc.Store(id="connector-detail-store", storage_type="memory"),
                     dcc.Store(id="connector-items-store", storage_type="memory"),
                     dcc.Store(id="connector-edit-item", storage_type="memory"),
@@ -127,11 +126,6 @@ def get_detail_layout(connector_type: str):
                             "top": SPACING_SMALL,
                             "zIndex": 1000,
                             "marginBottom": SPACING_SMALL,
-                            "backgroundColor": COLOR_BACKGROUND_LIGHT,
-                            "border": f"1px solid {COLOR_BORDER}",
-                            "borderRadius": "2px",
-                            "padding": f"{SPACING_XSMALL} {SPACING_SMALL}",
-                            "boxShadow": f"0 2px 4px {COLOR_SHADOW_LIGHT}",
                         },
                     ),
                     # 1. Top Action Bar — most-used actions
@@ -652,10 +646,9 @@ def _get_manual_setup_layout(connector_type: str, connector_meta: dict) -> html.
 
     return html.Div(
         [
-            create_page_header("Connectors"),
+            create_page_header(f"Connectors / {display_name}"),
             html.Div(
                 [
-                    _breadcrumb(display_name),
                     # Required stores — callbacks still fire on all detail pages
                     dcc.Store(id="connector-detail-store", storage_type="memory"),
                     dcc.Store(id="connector-items-store", storage_type="memory"),
