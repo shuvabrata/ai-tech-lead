@@ -19,7 +19,6 @@ from .model import (
     ConfluenceConfigItemRequest,
     GoogleDocsConfigItemRequest,
     SharepointConfigItemRequest,
-    TestConnectionResponse,
 )
 
 
@@ -153,14 +152,6 @@ async def delete_config_item(
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     return {"ok": True}
-
-
-@router.post("/{connector_type}/test", response_model=TestConnectionResponse)
-async def test_connection(connector_type: str, db: AsyncSession = Depends(get_async_db)):
-    try:
-        return await service.test_connection(db, connector_type)
-    except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 @router.delete("/{connector_type}")

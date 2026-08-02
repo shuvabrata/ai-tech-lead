@@ -144,13 +144,8 @@ async def test_connectors_api_endpoints():
             assert resp.status_code == 200
             created_item_ids.remove(item_id)
 
-            print("Step 13: POST /api/v1/connectors/{connector_type}/test")
-            resp = await ac.post(f"/api/v1/connectors/{CONNECTOR_TYPE}/test")
-            assert resp.status_code == 200
-            assert "success" in resp.json()
-
             if not initial_items:
-                print("Step 14: DELETE /api/v1/connectors/{connector_type} (no pre-existing items)")
+                print("Step 13: DELETE /api/v1/connectors/{connector_type} (no pre-existing items)")
                 resp = await ac.delete(f"/api/v1/connectors/{CONNECTOR_TYPE}")
                 assert resp.status_code == 200
         finally:
