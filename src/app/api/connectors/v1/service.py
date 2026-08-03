@@ -120,6 +120,48 @@ def _mask(value: Optional[str]) -> Optional[str]:
     return "********"
 
 
+def _derive_connector_status(
+    connector_type: str,
+    connector_config: Optional[Dict[str, Any]],
+    config_rows: List[Any],
+) -> str:
+    if connector_type in {"github", "jira", "confluence"}:
+        return "configured" if config_rows else "not_configured"
+
+    if connector_type in {"atlassian_mcp", "github_mcp"}:
+        if isinstance(connector_config, dict):
+            return "configured" if any(value not in (None, "", [], {}) for value in connector_config.values()) else "not_configured"
+        return "not_configured"
+
+    return "not_configured"
+
+
+async def _refresh_connector_status(
+    db: AsyncSession,
+    connector_type: str,
+) -> None:
+    connector = await query.get_connector(db, connector_type)
+    if not connector:
+        return
+
+    config_rows = []
+    if connector_type in {"github", "jira", "confluence"}:
+        config_rows = await query.get_configs(db, connector_type)
+
+    status = _derive_connector_status(
+        connector_type,
+        connector.config,
+        config_rows,
+    )
+    await query.update_connector_status(
+        db,
+        connector_type,
+        status=status,
+        last_tested_at=None,
+        error=None,
+    )
+
+
 def _normalize_connector_config(
     connector_type: str,
     config: Optional[Dict[str, Any]],
@@ -409,6 +451,8 @@ async def save_config_item(
     if not saved:
         raise ValueError("Config item not found")
 
+    await _refresh_connector_status(db, connector_type)
+
     # Convert saved row to response shape
     response_fields = RESPONSE_FIELDS[connector_type]
     row_dict: Dict[str, Any] = {"id": saved.id}
@@ -433,6 +477,8 @@ async def update_config_item_status(
     if not saved:
         raise ValueError("Config item not found")
 
+    await _refresh_connector_status(db, connector_type)
+
     # Convert saved row back to response shape
     encrypted_map = SENSITIVE_FIELDS.get(connector_type, {})
     response_fields = RESPONSE_FIELDS[connector_type]
@@ -453,15 +499,10 @@ async def delete_config_item(db: AsyncSession, connector_type: str, item_id: int
     deleted = await query.delete_config_item(db, connector_type, item_id)
     if not deleted:
         raise ValueError("Config item not found")
+    await _refresh_connector_status(db, connector_type)
 
 
 async def delete_all_configs(db: AsyncSession, connector_type: str) -> None:
     _validate_connector_type(connector_type)
     await query.delete_all_configs(db, connector_type)
-    await query.update_connector_status(
-        db,
-        connector_type,
-        status="not_configured",
-        last_tested_at=None,
-        error=None,
-    )
+    await _refresh_connector_status(db, connector_type)
