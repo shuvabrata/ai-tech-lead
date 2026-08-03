@@ -22,6 +22,7 @@ from app.dash_app.styles import (
 
 STATUS_COLORS = {
     "connected": COLOR_SUCCESS,
+    "configured": COLOR_SUCCESS,
     "error": COLOR_ERROR,
     "not_configured": COLOR_GRAY_LIGHT,
 }
