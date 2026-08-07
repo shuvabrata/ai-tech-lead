@@ -32,12 +32,14 @@ class BulkUpdateRequest(BaseModel):
     """Request body for bulk-updating multiple settings."""
 
     updates: dict[str, Any]
+    expected_updated_at: datetime | None = None
 
 
 class SingleUpdateRequest(BaseModel):
     """Request body for updating a single setting."""
 
     value: Any
+    expected_updated_at: datetime | None = None
 
 
 class BulkUpdateResponse(BaseModel):
@@ -45,6 +47,14 @@ class BulkUpdateResponse(BaseModel):
 
     updated: dict[str, Any]
     propagation_warning: str | None = None
+
+
+class ConflictResponse(BaseModel):
+    """Response body for a 409 conflict."""
+
+    detail: str
+    conflicting_keys: list[str]
+    current_values: dict[str, Any]
 
 
 class RuntimeSnapshotResponse(BaseModel):

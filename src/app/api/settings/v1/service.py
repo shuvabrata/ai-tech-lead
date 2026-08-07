@@ -7,6 +7,7 @@ candidate updates against ``RuntimeConfig``, and refreshing the local cache.
 from __future__ import annotations
 
 import os
+from datetime import datetime
 from typing import Any
 
 from pydantic import ValidationError
@@ -31,6 +32,31 @@ def set_runtime_cache(cache: RuntimeConfigCache) -> None:
 def get_runtime_cache() -> RuntimeConfigCache:
     """Return the current runtime cache instance."""
     return _runtime_cache
+
+
+# ── Exceptions ─────────────────────────────────────────────────────────
+
+
+class ConflictError(ValueError):
+    """Raised when a write would overwrite a change made by another session.
+
+    Attributes:
+        conflicting_keys: Keys that were modified since the caller loaded them.
+        current_values: Current values of the conflicting keys.
+    """
+
+    def __init__(
+        self,
+        conflicting_keys: list[str],
+        current_values: dict[str, Any],
+    ) -> None:
+        self.conflicting_keys = conflicting_keys
+        self.current_values = current_values
+        keys_str = ", ".join(sorted(conflicting_keys))
+        super().__init__(
+            f"Settings changed by another session: {keys_str}. "
+            f"Reload and retry."
+        )
 
 
 # ── Source resolution ──────────────────────────────────────────────────
@@ -122,7 +148,9 @@ async def get_runtime_snapshot(db: AsyncSession) -> RuntimeConfig:
 
 
 async def bulk_update(
-    db: AsyncSession, updates: dict[str, Any]
+    db: AsyncSession,
+    updates: dict[str, Any],
+    expected_updated_at: datetime | None = None,
 ) -> dict[str, Any]:
     """Validate and persist a bulk update.
 
@@ -130,7 +158,8 @@ async def bulk_update(
     propagation warning.
 
     Raises ``ValueError`` for unknown keys, ``ValidationError`` for invalid
-    values.
+    values, and ``ConflictError`` if any row changed since
+    *expected_updated_at*.
     """
     # 1. Load catalog rows for requested keys.
     rows = await qry.get_all_settings(db)
@@ -140,6 +169,14 @@ async def bulk_update(
     unknown = [k for k in updates if k not in row_map]
     if unknown:
         raise ValueError(f"Unknown setting keys: {', '.join(sorted(unknown))}")
+
+    # 2b. Optimistic concurrency check.
+    conflicts = await qry.check_conflicts(
+        db, list(updates.keys()), expected_updated_at
+    )
+    if conflicts:
+        current_values = {k: v["value"] for k, v in conflicts.items()}
+        raise ConflictError(list(conflicts.keys()), current_values)
 
     # 3. Build full candidate effective RuntimeConfig.
     candidate_overrides = {r.key: r.value for r in rows if r.value is not None}
@@ -169,19 +206,29 @@ async def bulk_update(
 
 
 async def update_single(
-    db: AsyncSession, key: str, value: Any
+    db: AsyncSession,
+    key: str,
+    value: Any,
+    expected_updated_at: datetime | None = None,
 ) -> dict[str, Any]:
     """Validate and persist a single-key update.
 
     Returns the source-aware row dict.
 
     Raises ``ValueError`` for unknown keys, ``ValidationError`` for invalid
-    values.
+    values, and ``ConflictError`` if the row changed since
+    *expected_updated_at*.
     """
     # 1. Load catalog row.
     row = await qry.get_setting_by_key(db, key)
     if row is None:
         raise ValueError(f"Unknown setting key: {key}")
+
+    # 1b. Optimistic concurrency check.
+    conflicts = await qry.check_conflicts(db, [key], expected_updated_at)
+    if conflicts:
+        current_values = {k: v["value"] for k, v in conflicts.items()}
+        raise ConflictError(list(conflicts.keys()), current_values)
 
     # 2. Validate candidate value.
     all_rows = await qry.get_all_settings(db)

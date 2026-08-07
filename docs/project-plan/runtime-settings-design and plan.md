@@ -830,12 +830,12 @@ app.include_router(settings_v1_router, prefix="/api/v1")
 - ✅ `PATCH /api/v1/settings` with out-of-range value returns `422`.
 - ✅ `POST /api/v1/settings/{key}/reset` sets `value` to `NULL`.
 - ✅ `GET /api/v1/settings/runtime-snapshot` returns a valid `RuntimeConfig`.
-- ⬜ `409 Conflict` on stale `updated_at`.
+- ✅ `409 Conflict` on stale `updated_at`.
 
 **Tests:**
 - ✅ Unit: `test_settings_service.py` (`@pytest.mark.unit`) — precedence logic,
-  source resolution, candidate validation, reset behavior.
-- ⬜ Integration: `test_settings_api.py` (`@pytest.mark.integration`, `server`) —
+  source resolution, candidate validation, reset behavior, optimistic concurrency.
+- ✅ Integration: `test_settings_api.py` (`@pytest.mark.integration`, `server`) —
   full HTTP round-trips against the running app.
 
 ---

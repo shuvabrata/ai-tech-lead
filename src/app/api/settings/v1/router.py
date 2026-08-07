@@ -16,9 +16,11 @@ from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.settings.v1.models import BulkUpdateRequest, BulkUpdateResponse
+from app.api.settings.v1.models import ConflictResponse
 from app.api.settings.v1.models import RuntimeSnapshotResponse
 from app.api.settings.v1.models import SettingResponse, SingleUpdateRequest
 from app.api.settings.v1 import service as settings_service
+from app.api.settings.v1.service import ConflictError
 from app.db.session import get_async_db
 
 router = APIRouter(prefix="/settings", tags=["settings"])
@@ -49,8 +51,19 @@ async def bulk_update_settings(
 ) -> BulkUpdateResponse:
     """Bulk-update settings (primary write path)."""
     try:
-        result = await settings_service.bulk_update(db, payload.updates)
+        result = await settings_service.bulk_update(
+            db, payload.updates, expected_updated_at=payload.expected_updated_at
+        )
         return BulkUpdateResponse(**result)
+    except ConflictError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail=ConflictResponse(
+                detail=str(exc),
+                conflicting_keys=exc.conflicting_keys,
+                current_values=exc.current_values,
+            ).model_dump(),
+        ) from exc
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except ValidationError as exc:
@@ -65,8 +78,19 @@ async def update_single_setting(
 ) -> SettingResponse:
     """Update a single setting by key."""
     try:
-        result = await settings_service.update_single(db, key, payload.value)
+        result = await settings_service.update_single(
+            db, key, payload.value, expected_updated_at=payload.expected_updated_at
+        )
         return SettingResponse(**result)
+    except ConflictError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail=ConflictResponse(
+                detail=str(exc),
+                conflicting_keys=exc.conflicting_keys,
+                current_values=exc.current_values,
+            ).model_dump(),
+        ) from exc
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except ValidationError as exc:

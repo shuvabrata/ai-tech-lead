@@ -14,6 +14,7 @@ from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.settings.v1 import service, query as qry
+from app.api.settings.v1.service import ConflictError
 from app.db.models.application_settings import ApplicationSettings
 from common.runtime_settings import RuntimeConfig, RuntimeConfigCache
 
@@ -169,7 +170,8 @@ class TestBulkUpdate:
             _make_row("HTTP_REQUEST_TIMEOUT"),
             _make_row("TIMEZONE", value_type="string"),
         ]
-        with patch.object(qry, "get_all_settings", AsyncMock(return_value=rows)):
+        with patch.object(qry, "get_all_settings", AsyncMock(return_value=rows)), \
+             patch.object(qry, "check_conflicts", AsyncMock(return_value={})):
             with pytest.raises(ValueError, match="Unknown setting keys"):
                 await service.bulk_update(mock_db, {"NOT_A_KEY": 1})
 
@@ -179,7 +181,8 @@ class TestBulkUpdate:
     ) -> None:
         """Out-of-range values are rejected with ValidationError."""
         rows = [_make_row("RECENT_ACTIONS_LIMIT")]
-        with patch.object(qry, "get_all_settings", AsyncMock(return_value=rows)):
+        with patch.object(qry, "get_all_settings", AsyncMock(return_value=rows)), \
+             patch.object(qry, "check_conflicts", AsyncMock(return_value={})):
             with pytest.raises(ValidationError):
                 await service.bulk_update(mock_db, {"RECENT_ACTIONS_LIMIT": 999})
 
@@ -191,7 +194,8 @@ class TestBulkUpdate:
         row = _make_row("HTTP_REQUEST_TIMEOUT", value=None)
         updated_rows = [_make_row("HTTP_REQUEST_TIMEOUT", value=90)]
 
-        with patch.object(qry, "bulk_update_values", AsyncMock(return_value=updated_rows)), \
+        with patch.object(qry, "check_conflicts", AsyncMock(return_value={})), \
+             patch.object(qry, "bulk_update_values", AsyncMock(return_value=updated_rows)), \
              patch.object(qry, "get_all_settings", AsyncMock(return_value=updated_rows)):
             result = await service.bulk_update(mock_db, {"HTTP_REQUEST_TIMEOUT": 90})
 
@@ -199,6 +203,72 @@ class TestBulkUpdate:
         assert result["propagation_warning"] is None
         # Cache refreshed.
         assert fresh_cache.get_int("HTTP_REQUEST_TIMEOUT") == 90
+
+
+# ── optimistic concurrency ────────────────────────────────────────────
+
+
+class TestOptimisticConcurrency:
+    pytestmark = [pytest.mark.asyncio]
+
+    @pytest.mark.unit
+    async def test_bulk_update_conflict_raises(
+        self, mock_db: AsyncMock, fresh_cache: RuntimeConfigCache
+    ) -> None:
+        """A stale bulk update raises ConflictError with details."""
+        expected = datetime(2026, 8, 1, tzinfo=timezone.utc)
+        rows = [_make_row("HTTP_REQUEST_TIMEOUT")]
+        conflicts = {
+            "HTTP_REQUEST_TIMEOUT": {"value": 120, "updated_at": "2026-08-02T00:00:00Z"}
+        }
+        with patch.object(qry, "get_all_settings", AsyncMock(return_value=rows)), \
+             patch.object(qry, "check_conflicts", AsyncMock(return_value=conflicts)):
+            with pytest.raises(ConflictError) as exc_info:
+                await service.bulk_update(
+                    mock_db,
+                    {"HTTP_REQUEST_TIMEOUT": 90},
+                    expected_updated_at=expected,
+                )
+
+        assert exc_info.value.conflicting_keys == ["HTTP_REQUEST_TIMEOUT"]
+        assert exc_info.value.current_values == {"HTTP_REQUEST_TIMEOUT": 120}
+
+    @pytest.mark.unit
+    async def test_bulk_update_no_conflict_when_expected_none(
+        self, mock_db: AsyncMock, fresh_cache: RuntimeConfigCache
+    ) -> None:
+        """No conflict check is performed when expected_updated_at is None."""
+        updated_rows = [_make_row("HTTP_REQUEST_TIMEOUT", value=90)]
+        with patch.object(qry, "check_conflicts", AsyncMock(return_value={})) as mock_check, \
+             patch.object(qry, "bulk_update_values", AsyncMock(return_value=updated_rows)), \
+             patch.object(qry, "get_all_settings", AsyncMock(return_value=updated_rows)):
+            await service.bulk_update(mock_db, {"HTTP_REQUEST_TIMEOUT": 90})
+
+        # check_conflicts called with None → returns {} (query layer no-ops).
+        mock_check.assert_awaited_once_with(
+            mock_db, ["HTTP_REQUEST_TIMEOUT"], None
+        )
+
+    @pytest.mark.unit
+    async def test_update_single_conflict_raises(
+        self, mock_db: AsyncMock, fresh_cache: RuntimeConfigCache
+    ) -> None:
+        """A stale single update raises ConflictError."""
+        expected = datetime(2026, 8, 1, tzinfo=timezone.utc)
+        row = _make_row("HTTP_REQUEST_TIMEOUT")
+        conflicts = {
+            "HTTP_REQUEST_TIMEOUT": {"value": 120, "updated_at": "2026-08-02T00:00:00Z"}
+        }
+        with patch.object(qry, "get_setting_by_key", AsyncMock(return_value=row)), \
+             patch.object(qry, "get_all_settings", AsyncMock(return_value=[row])), \
+             patch.object(qry, "check_conflicts", AsyncMock(return_value=conflicts)):
+            with pytest.raises(ConflictError):
+                await service.update_single(
+                    mock_db,
+                    "HTTP_REQUEST_TIMEOUT",
+                    90,
+                    expected_updated_at=expected,
+                )
 
 
 # ── reset ─────────────────────────────────────────────────────────────

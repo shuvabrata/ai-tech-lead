@@ -1,0 +1,291 @@
+"""Integration tests for the settings API.
+
+Tests full HTTP round-trips against a running app server at
+``http://localhost:8000``.  Requires the app to be started separately::
+
+    PYTHONPATH=src uvicorn app.main:app --reload
+
+Markers: ``integration``, ``server``.
+
+**Safety:** A session-scoped fixture snapshots the initial DB state and
+restores it after all tests complete, even if tests fail midway.
+"""
+
+from __future__ import annotations
+
+from datetime import datetime, timezone
+
+import httpx
+import pytest
+
+pytestmark = [pytest.mark.integration, pytest.mark.server]
+
+BASE_URL = "http://localhost:8000"
+
+
+# ── Snapshot / restore ────────────────────────────────────────────────
+
+
+@pytest.fixture(scope="session", autouse=True)
+def settings_snapshot() -> dict[str, object | None]:
+    """Capture initial setting values before any test, restore after all.
+
+    Uses a synchronous ``httpx.Client`` to avoid event-loop issues with
+    session-scoped async fixtures.
+    """
+    # --- setup: snapshot current values ---
+    with httpx.Client(base_url=BASE_URL, timeout=10) as client:
+        resp = client.get("/api/v1/settings/")
+        resp.raise_for_status()
+        snapshot: dict[str, object | None] = {
+            s["key"]: s["value"] for s in resp.json()
+        }
+
+    yield snapshot
+
+    # --- teardown: restore original values ---
+    with httpx.Client(base_url=BASE_URL, timeout=10) as client:
+        # Reset all to clear any overrides left by tests.
+        client.post("/api/v1/settings/reset")
+        # Re-apply any original non-None values.
+        overrides = {k: v for k, v in snapshot.items() if v is not None}
+        if overrides:
+            client.patch("/api/v1/settings/", json={"updates": overrides})
+
+
+def _setting_map(settings: list[dict]) -> dict[str, dict]:
+    """Index a list of setting dicts by key for easy assertion."""
+    return {s["key"]: s for s in settings}
+
+
+# ── GET /api/v1/settings/ ─────────────────────────────────────────────
+
+
+class TestGetSettings:
+    """Verify the GET endpoint returns source-aware metadata."""
+
+    @pytest.mark.asyncio
+    async def test_returns_13_settings(self) -> None:
+        """GET returns exactly 13 settings."""
+        async with httpx.AsyncClient(base_url=BASE_URL) as client:
+            resp = await client.get("/api/v1/settings/")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert len(data) == 13
+
+    @pytest.mark.asyncio
+    async def test_response_shape(self) -> None:
+        """Each setting has the expected fields."""
+        async with httpx.AsyncClient(base_url=BASE_URL) as client:
+            resp = await client.get("/api/v1/settings/")
+        assert resp.status_code == 200
+        data = resp.json()
+        for item in data:
+            assert "key" in item
+            assert "value" in item
+            assert "effective_value" in item
+            assert "source" in item
+            assert item["source"] in ("db", "env", "default")
+            assert "value_type" in item
+            assert item["value_type"] in ("string", "integer", "boolean")
+            assert "apply_mode" in item
+            assert item["apply_mode"] == "dynamic"
+            assert "is_sensitive" in item
+            assert item["is_sensitive"] is False
+            assert "updated_at" in item
+
+    @pytest.mark.asyncio
+    async def test_source_is_default_when_no_override(self) -> None:
+        """Settings with no DB override and no env var show source=default."""
+        async with httpx.AsyncClient(base_url=BASE_URL) as client:
+            resp = await client.get("/api/v1/settings/")
+        assert resp.status_code == 200
+        by_key = _setting_map(resp.json())
+        assert by_key["RECENT_ACTIONS_LIMIT"]["source"] in ("env", "default")
+        assert by_key["RECENT_ACTIONS_LIMIT"]["effective_value"] == 5
+
+
+# ── PATCH /api/v1/settings/ (bulk) ────────────────────────────────────
+
+
+class TestBulkUpdate:
+    """Verify the bulk update endpoint."""
+
+    @pytest.mark.asyncio
+    async def test_valid_update(
+        self, settings_snapshot: dict,
+    ) -> None:
+        """A valid bulk update persists and returns the new values."""
+        async with httpx.AsyncClient(base_url=BASE_URL) as client:
+            resp = await client.patch(
+                "/api/v1/settings/",
+                json={"updates": {"HTTP_REQUEST_TIMEOUT": 90}},
+            )
+            assert resp.status_code == 200
+            data = resp.json()
+            assert data["updated"]["HTTP_REQUEST_TIMEOUT"] == 90
+            assert data["propagation_warning"] is None
+
+            # Verify it persisted — reuse the same client.
+            resp2 = await client.get("/api/v1/settings/")
+            by_key = _setting_map(resp2.json())
+            assert by_key["HTTP_REQUEST_TIMEOUT"]["value"] == 90
+            assert by_key["HTTP_REQUEST_TIMEOUT"]["source"] == "db"
+
+    @pytest.mark.asyncio
+    async def test_unknown_key_returns_422(self) -> None:
+        """Unknown keys are rejected with 422."""
+        async with httpx.AsyncClient(base_url=BASE_URL) as client:
+            resp = await client.patch(
+                "/api/v1/settings/",
+                json={"updates": {"NOT_A_REAL_KEY": 1}},
+            )
+        assert resp.status_code == 422
+
+    @pytest.mark.asyncio
+    async def test_out_of_range_value_returns_422(self) -> None:
+        """Out-of-range values are rejected with 422."""
+        async with httpx.AsyncClient(base_url=BASE_URL) as client:
+            resp = await client.patch(
+                "/api/v1/settings/",
+                json={"updates": {"RECENT_ACTIONS_LIMIT": 999}},
+            )
+        assert resp.status_code == 422
+
+    @pytest.mark.asyncio
+    async def test_conflict_returns_409(self) -> None:
+        """A stale expected_updated_at returns 409."""
+        async with httpx.AsyncClient(base_url=BASE_URL) as client:
+            resp = await client.patch(
+                "/api/v1/settings/",
+                json={
+                    "updates": {"HTTP_REQUEST_TIMEOUT": 120},
+                    "expected_updated_at": "2026-01-01T00:00:00Z",
+                },
+            )
+        assert resp.status_code == 409
+        data = resp.json()
+        assert "conflicting_keys" in data["detail"]
+        assert "HTTP_REQUEST_TIMEOUT" in data["detail"]["conflicting_keys"]
+
+
+# ── PATCH /api/v1/settings/{key} (single) ─────────────────────────────
+
+
+class TestSingleUpdate:
+    """Verify the single-key update endpoint."""
+
+    @pytest.mark.asyncio
+    async def test_valid_update(
+        self, settings_snapshot: dict,
+    ) -> None:
+        """A valid single update persists and returns source-aware data."""
+        async with httpx.AsyncClient(base_url=BASE_URL) as client:
+            resp = await client.patch(
+                "/api/v1/settings/TIMEZONE",
+                json={"value": "America/New_York"},
+            )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["key"] == "TIMEZONE"
+        assert data["value"] == "America/New_York"
+        assert data["source"] == "db"
+        assert data["effective_value"] == "America/New_York"
+
+    @pytest.mark.asyncio
+    async def test_unknown_key_returns_422(self) -> None:
+        """An unknown key returns 422."""
+        async with httpx.AsyncClient(base_url=BASE_URL) as client:
+            resp = await client.patch(
+                "/api/v1/settings/NOT_A_KEY",
+                json={"value": 1},
+            )
+        assert resp.status_code == 422
+
+    @pytest.mark.asyncio
+    async def test_conflict_returns_409(self) -> None:
+        """A stale expected_updated_at returns 409."""
+        async with httpx.AsyncClient(base_url=BASE_URL) as client:
+            resp = await client.patch(
+                "/api/v1/settings/TIMEZONE",
+                json={
+                    "value": "Asia/Kolkata",
+                    "expected_updated_at": "2026-01-01T00:00:00Z",
+                },
+            )
+        assert resp.status_code == 409
+        data = resp.json()
+        assert "conflicting_keys" in data["detail"]
+
+
+# ── POST /api/v1/settings/{key}/reset ─────────────────────────────────
+
+
+class TestResetSingle:
+    """Verify the single-key reset endpoint."""
+
+    @pytest.mark.asyncio
+    async def test_reset_clears_override(
+        self, settings_snapshot: dict,
+    ) -> None:
+        """Resetting a setting sets value to None and falls back."""
+        # First set a value to reset.
+        async with httpx.AsyncClient(base_url=BASE_URL) as client:
+            await client.patch(
+                "/api/v1/settings/TIMEZONE",
+                json={"value": "America/New_York"},
+            )
+            resp = await client.post("/api/v1/settings/TIMEZONE/reset")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["key"] == "TIMEZONE"
+        assert data["value"] is None
+        assert data["source"] in ("env", "default")
+
+    @pytest.mark.asyncio
+    async def test_unknown_key_returns_422(self) -> None:
+        """Resetting an unknown key returns 422."""
+        async with httpx.AsyncClient(base_url=BASE_URL) as client:
+            resp = await client.post("/api/v1/settings/NOT_A_KEY/reset")
+        assert resp.status_code == 422
+
+
+# ── POST /api/v1/settings/reset (bulk) ────────────────────────────────
+
+
+class TestResetAll:
+    """Verify the bulk reset endpoint."""
+
+    @pytest.mark.asyncio
+    async def test_reset_all_clears_overrides(
+        self, settings_snapshot: dict,
+    ) -> None:
+        """Resetting all sets all values to None."""
+        async with httpx.AsyncClient(base_url=BASE_URL) as client:
+            resp = await client.post("/api/v1/settings/reset")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert len(data) == 13
+        for item in data:
+            assert item["value"] is None
+
+
+# ── GET /api/v1/settings/runtime-snapshot ─────────────────────────────
+
+
+class TestRuntimeSnapshot:
+    """Verify the runtime-snapshot endpoint."""
+
+    @pytest.mark.asyncio
+    async def test_returns_valid_runtime_config(self) -> None:
+        """The snapshot returns all 13 fields with correct types."""
+        async with httpx.AsyncClient(base_url=BASE_URL) as client:
+            resp = await client.get("/api/v1/settings/runtime-snapshot")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert len(data) == 13
+        assert isinstance(data["HTTP_REQUEST_TIMEOUT"], int)
+        assert isinstance(data["TIMEZONE"], str)
+        assert isinstance(data["FF_NEO4J_USE_PROVIDER_PIPELINE"], bool)
+        assert isinstance(data["RECENT_ACTIONS_LIMIT"], int)
+        assert 1 <= data["RECENT_ACTIONS_LIMIT"] <= 50

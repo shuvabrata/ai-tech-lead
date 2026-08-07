@@ -9,10 +9,39 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any
 
-from sqlalchemy import select, update
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models.application_settings import ApplicationSettings
+
+
+async def check_conflicts(
+    db: AsyncSession,
+    keys: list[str],
+    expected_updated_at: datetime | None,
+) -> dict[str, dict[str, Any]]:
+    """Check if any of the given *keys* have been updated since *expected_updated_at*.
+
+    Returns a dict of ``{key: {"value": ..., "updated_at": ...}}`` for rows
+    whose ``updated_at`` differs from the expected timestamp.  Returns an
+    empty dict if there are no conflicts (or if *expected_updated_at* is
+    ``None``, meaning no check was requested).
+    """
+    if expected_updated_at is None:
+        return {}
+
+    stmt = select(ApplicationSettings).where(ApplicationSettings.key.in_(keys))
+    result = await db.execute(stmt)
+    rows = list(result.scalars().all())
+
+    conflicts: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        if row.updated_at and row.updated_at > expected_updated_at:
+            conflicts[row.key] = {
+                "value": row.value,
+                "updated_at": row.updated_at.isoformat(),
+            }
+    return conflicts
 
 
 async def get_all_settings(db: AsyncSession) -> list[ApplicationSettings]:
