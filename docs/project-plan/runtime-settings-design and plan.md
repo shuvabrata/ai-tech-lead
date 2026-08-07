@@ -711,3 +711,319 @@ This satisfies the original requirements while keeping v1 focused. The system
 can expose selected settings in the UI, persist changes, apply them without
 restart, preserve CLI/env behavior, and avoid putting bootstrap credentials or
 encryption keys into Postgres.
+
+---
+
+## Implementation Plan
+
+### Phase 1 — DB Model + Migration  `[phase:db-model]`
+
+**Goal:** Create the `application_settings` table and seed it with the initial
+catalog of runtime-configurable settings.
+
+**Files to create/modify:**
+- `src/app/db/models/application_settings.py` — New SQLAlchemy model
+- `src/app/db/models/__init__.py` — Register new model
+- Alembic migration revision — DDL + seed data
+
+**Model details:**
+- Use `application_settings` as `__tablename__`.
+- Mirror the schema from §Database Schema: `id`, `key` (unique, varchar),
+  `value` (JSONB, nullable), `value_type` (varchar, checked), `category`
+  (varchar, nullable), `description` (text, nullable), `apply_mode` (varchar,
+  checked), `is_sensitive` (bool, default false), `created_at`, `updated_at`.
+- Store keys as `UPPER_CASE` matching env var names.
+
+**Seed data:** Insert a row for each of the 13 settings in *Initial
+Runtime-Configurable Settings*. Use idempotent `ON CONFLICT DO UPDATE` that
+preserves existing `value` (so user overrides survive future upgrades).
+
+**Checkpoint** `[chk:db-model]`:
+- `alembic upgrade head` succeeds.
+- `alembic downgrade -1` rolls back cleanly.
+- `SELECT * FROM application_settings` returns 13 seeded rows.
+- `CommandStatus` model still works — no regressions.
+
+**Tests:** `test_application_settings_model.py` (`@pytest.mark.unit`)
+
+- Table has correct columns and constraints.
+- `key` is unique.
+- `value` can be `NULL`.
+- `value_type` and `apply_mode` accept valid values and reject invalid ones.
+
+---
+
+### Phase 2 — Shared RuntimeConfig + Cache  `[phase:shared-config]`
+
+**Goal:** Create the `RuntimeConfig` Pydantic model and the synchronous
+in-memory cache in `src/common/runtime_settings/` so both app and non-app
+processes can import it without pulling in `src.app`.
+
+**Files to create:**
+- `src/common/runtime_settings/__init__.py`
+- `src/common/runtime_settings/config.py` — `RuntimeConfig(BaseModel)` with
+  all 13 fields, validators, and defaults matching the current `Settings`.
+- `src/common/runtime_settings/cache.py` — `RuntimeConfigCache` class:
+  - `get(key)` / `get_int(key)` / `get_bool(key)` typed accessors.
+  - `refresh(config: RuntimeConfig)` — atomic snapshot replacement.
+  - `current() -> RuntimeConfig` — returns the current snapshot.
+  - Thread-safe via `threading.Lock` or `copy-on-write` pattern.
+
+**No external dependencies** — this module must not import from `src.app` or
+require a DB connection. It is pure data + Pydantic.
+
+**Checkpoint** `[chk:shared-config]`:
+- `RuntimeConfig` validates all 13 fields correctly.
+- `RuntimeConfigCache` returns defaults before any `refresh()` call.
+- `refresh()` atomically replaces the snapshot.
+- `get_int()` raises `TypeError` for bool fields, `get_bool()` for non-bool.
+- Module can be imported from both `src.app` and `src.connectors` processes.
+
+**Tests:** `test_runtime_config_model.py` (`@pytest.mark.unit`)
+
+- Default values match `Settings` defaults.
+- `RECENT_ACTIONS_LIMIT` rejects values < 1 and > 50.
+- `NEO4J_QUERY_TIMEOUT` rejects values < 1.
+- `TIMEZONE` validates via `ZoneInfo`.
+- `FF_NEO4J_USE_PROVIDER_PIPELINE` accepts only `bool`.
+- Cache getters work correctly.
+
+---
+
+### Phase 3 — REST API  `[phase:rest-api]`
+
+**Goal:** Expose settings CRUD via REST API endpoints, backed by the DB model
+and the RuntimeConfig for validation.
+
+**Files to create:**
+- `src/app/api/settings/v1/` with `__init__.py`, `router.py`, `service.py`,
+  `models.py`. Follow the existing pattern from `commands/v1/`.
+
+**Endpoints:**
+- `GET  /api/v1/settings` — List all settings with source-aware metadata.
+- `PATCH /api/v1/settings` — Bulk update (primary write path).
+- `PATCH /api/v1/settings/{key}` — Single-key update.
+- `POST /api/v1/settings/reset` — Bulk reset all overrides to `NULL`.
+- `POST /api/v1/settings/{key}/reset` — Reset one key to `NULL`.
+- `GET  /api/v1/settings/runtime-snapshot` — Returns the effective
+  `RuntimeConfig` JSON (used by non-app processes).
+
+**Service layer behavior:**
+- Bulk update: load catalog rows, reject unknown keys, build candidate
+  `RuntimeConfig`, validate through Pydantic, persist in one transaction,
+  refresh local `runtime_settings` cache, publish RabbitMQ event (Phase 5
+  adds the actual broker — phase 3 can no-op the publish or log it).
+- Source precedence: `db` if `value IS NOT NULL`, else `env`, else `default`.
+- Invalid persisted overrides: log error, fall back to env/default.
+- Optimistic concurrency: include `updated_at` in write checks → `409 Conflict`.
+
+**Router registration:** In `src/app/main.py`:
+```python
+from app.api.settings.v1.router import router as settings_v1_router
+app.include_router(settings_v1_router, prefix="/api/v1")
+```
+
+**Checkpoint** `[chk:rest-api]`:
+- `GET /api/v1/settings` returns 13 rows with correct `source` values.
+- `PATCH /api/v1/settings` with valid values updates DB and returns success.
+- `PATCH /api/v1/settings` with unknown key returns `422`.
+- `PATCH /api/v1/settings` with out-of-range value returns `422`.
+- `POST /api/v1/settings/{key}/reset` sets `value` to `NULL`.
+- `GET /api/v1/settings/runtime-snapshot` returns a valid `RuntimeConfig`.
+- `409 Conflict` on stale `updated_at`.
+
+**Tests:**
+- Unit: `test_settings_service.py` (`@pytest.mark.unit`) — precedence logic,
+  source resolution, candidate validation, reset behavior.
+- Integration: `test_settings_api.py` (`@pytest.mark.integration`, `server`) —
+  full HTTP round-trips against the running app.
+
+---
+
+### Phase 4 — Call Site Migration  `[phase:call-site-migration]`
+
+**Goal:** Replace `settings` reads with `runtime_settings` reads at all call
+sites for the 13 runtime-configurable settings.
+
+**Pattern:**
+Replace module-level constants:
+```python
+# Before
+TIMEOUT_SECONDS = settings.HTTP_REQUEST_TIMEOUT
+
+# After
+from app.runtime_settings import runtime_settings
+
+# At point of use:
+timeout = runtime_settings.get_int("HTTP_REQUEST_TIMEOUT")
+```
+
+**Files to migrate** (in order of dependency):
+
+| File | Setting(s) | Migration |
+|---|---|---|
+| `src/app/dash_app/pages/chat.py` | `HTTP_REQUEST_TIMEOUT` | Remove `TIMEOUT_SECONDS` constant, read at use |
+| `src/app/dash_app/pages/connectors/callbacks.py` | `HTTP_REQUEST_TIMEOUT` | Same |
+| `src/app/dash_app/pages/graph/callbacks/catalog.py` | `HTTP_REQUEST_TIMEOUT` | Same |
+| `src/app/dash_app/pages/graph/callbacks/context_menu.py` | `HTTP_REQUEST_TIMEOUT` | Same |
+| `src/app/dash_app/pages/graph/callbacks/expansion.py` | `HTTP_REQUEST_TIMEOUT` | Same |
+| `src/app/dash_app/pages/graph/callbacks/query.py` | `HTTP_REQUEST_TIMEOUT` | Same |
+| `src/app/dash_app/pages/search.py` | `HTTP_REQUEST_TIMEOUT` | Inline read |
+| `src/app/ai_agent/chains/neo4j_chain.py` | `NEO4J_QUERY_TIMEOUT` | Inline read |
+| `src/app/api/graph/v1/query.py` | `NEO4J_QUERY_TIMEOUT` | Inline read |
+| `src/app/api/graph/v1/service.py` | `NEO4J_QUERY_TIMEOUT` | Inline read |
+| `src/app/ai_agent/mcp_integration/tool_executor.py` | `HTTP_REQUEST_TIMEOUT` | Inline read |
+| `src/app/common/timezone.py` | `TIMEZONE` | Read from `runtime_settings` |
+
+**Create:** `src/app/runtime_settings.py` — thin module that initializes the
+cache from `settings` + DB on startup, and exports a module-level
+`runtime_settings` instance. This is the app-specific entry point that wires
+the shared `RuntimeConfigCache` to the app's `Settings` and DB.
+
+**Checkpoint** `[chk:call-site-migration]`:
+- All module-level `TIMEOUT_SECONDS` constants removed.
+- All migrated call sites use `runtime_settings.get_*()`.
+- `pylint` and `mypy` pass on all modified files.
+- Existing tests pass with same behavior.
+
+**Tests:** No new tests needed — existing coverage should validate that
+behavior is preserved. Run the full test suite to confirm.
+
+---
+
+### Phase 5 — RabbitMQ Propagation  `[phase:rabbitmq-propagation]`
+
+**Goal:** Add the `runtime_config_events` fanout exchange and wire listeners
+so that all running processes refresh their cache when settings change.
+
+**Files to create/modify:**
+
+- `src/common/runtime_settings/events.py` — RabbitMQ event publisher and
+  listener helpers:
+  - `publish_settings_changed(changed_keys, connection)`
+  - `listen_for_settings_changed(cache, connection, callback)`
+  - Exchange declaration: `runtime_config_events` (fanout, durable).
+
+- `src/app/scripts/init_rabbitmq.py` — Add `runtime_config_events` exchange
+  declaration.
+
+- `src/app/main.py` — Wire fanout listener in the `lifespan` context manager.
+
+**Event body:**
+```json
+{
+  "event_type": "settings.changed",
+  "changed_keys": ["TIMEZONE", "HTTP_REQUEST_TIMEOUT"],
+  "issued_at": "2026-08-03T00:00:00Z"
+}
+```
+
+**Receive flow:**
+1. Listener receives event.
+2. Calls `runtime_settings.refresh()` which fetches the latest effective config
+   from DB (via a new helper, not the API).
+3. If DB query fails, keeps last known good snapshot, logs warning.
+
+**Failure behavior:**
+- Listener startup failure → log warning, continue with env/default.
+- Publish failure after DB commit → log warning, settings save still succeeds.
+- Refresh failure → keep last good snapshot, log warning.
+
+**Phase 3 integration:** Update the settings API service to call
+`publish_settings_changed()` after a successful DB commit.
+
+**Checkpoint** `[chk:rabbitmq-propagation]`:
+- `init_rabbitmq.py` declares the fanout exchange.
+- Listener starts and binds without errors.
+- `PATCH /api/v1/settings` publishes a `settings.changed` event.
+- Receiving process refreshes its cache (verified via log output).
+- Duplicate events cause harmless duplicate refreshes.
+- Publish failure after DB commit does not roll back the settings change.
+
+**Tests:** `test_settings_rabbitmq.py` (`@pytest.mark.rabbitmq`)
+
+- Exchange is declared idempotently.
+- Listener queue is exclusive, auto-delete.
+- Event triggers cache refresh.
+- Publish failure does not abort DB commit.
+
+---
+
+### Phase 6 — Dash Settings UI  `[phase:dash-ui]`
+
+**Goal:** Replace the placeholder settings page with a functional UI that lets
+users view and edit runtime-configurable settings.
+
+**Files to modify:**
+- `src/app/dash_app/pages/settings.py` — Replace placeholder with a full
+  settings editor.
+
+**UI layout:**
+- Grouped by `category` (e.g. "Network", "Graph", "UI", "Search", "Feature
+  Flags").
+- Each setting row shows: key name, current effective value, description, and
+  source indicator (`db` / `env` / `default`).
+- Editable fields: text input for strings, number input for integers, toggle
+  for booleans.
+- "Reset to default" button per row.
+- "Save All" button for bulk update.
+- Success/failure feedback using Dash `dcc.Store` + `dcc.ConfirmDialog`.
+
+**Data flow:**
+1. Page loads → `GET /api/v1/settings` → populate UI.
+2. User edits → "Save All" → `PATCH /api/v1/settings` → refresh UI.
+3. User clicks "Reset" → `POST /api/v1/settings/{key}/reset` → refresh UI.
+
+**Checkpoint** `[chk:dash-ui]`:
+- Settings page loads and displays all 13 settings with correct values.
+- Editing a string value persists and reflects in the UI.
+- Editing an integer value enforces min/max bounds.
+- Toggling a boolean works.
+- Reset restores env/default value.
+- Source indicator (`db` / `env` / `default`) is accurate.
+- Error feedback shown for invalid values.
+
+**Tests:** `test_settings_ui.py` (`@pytest.mark.integration`, `server`)
+
+- Dashboard renders settings correctly.
+- Edit → save → verify flow.
+- Invalid input shows error feedback.
+- Reset restores default.
+
+---
+
+### Phase 7 — Non-App Process Integration  `[phase:non-app-integration]`
+
+**Goal:** Wire the runtime settings infrastructure into producer daemons and
+the signal consumer so they can read effective settings and refresh on changes.
+
+**Files to create:**
+- `src/common/runtime_settings/client.py` — REST snapshot client for non-app
+  processes that cannot import `src.app`:
+  - `fetch_runtime_snapshot(api_base_url) -> RuntimeConfig`
+  - Falls back to env/default if API is unreachable.
+
+**Files to modify:**
+- Producer daemon entry points (e.g. `src/connectors/producers/github/daemon.py`
+  if it exists, or the equivalent) — initialize `RuntimeConfigCache` at startup,
+  fetch initial snapshot from API, listen for fanout events.
+- Signal consumer (`src/connectors/consumers/`) — initialize cache, listen for
+  events, capture snapshot at start of each message handler.
+
+**Key constraint:** Scan/test child processes (spawned via `subprocess.Popen`)
+must fetch a fresh snapshot at startup rather than inheriting the parent's
+cache.
+
+**Checkpoint** `[chk:non-app-integration]`:
+- `RuntimeConfig` can be imported inside a connector process without triggering
+  `src.app` imports.
+- Producer daemon starts with env/default when API is unreachable.
+- Signal consumer captures a stable snapshot per message.
+- `fetch_runtime_snapshot()` returns a valid `RuntimeConfig` or falls back
+  gracefully.
+
+**Tests:** `test_settings_client.py` (`@pytest.mark.unit`)
+
+- `fetch_runtime_snapshot()` parses API response correctly.
+- Fallback to env/default when API is unreachable.
+- `RuntimeConfig` importable from `sys.path` without `src.app`.
