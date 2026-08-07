@@ -7,7 +7,7 @@ import requests
 from dash import html, Input, Output, State, callback, clientside_callback, callback_context, no_update
 from dash.exceptions import PreventUpdate
 
-from app.settings import settings
+from app.runtime_settings import runtime_settings
 from common.logger import logger
 from app.dash_app.components.common import create_alert
 from app.dash_app.styles import CONTEXT_MENU_CONTAINER_STYLE
@@ -20,7 +20,7 @@ from ..utils import (
     is_edge_element,
 )
 
-TIMEOUT_SECONDS = settings.HTTP_REQUEST_TIMEOUT
+TIMEOUT_SECONDS = runtime_settings.get_int("HTTP_REQUEST_TIMEOUT")
 
 
 @callback(
@@ -146,7 +146,7 @@ def context_menu_quick_expand(_n_clicks_incoming, _n_clicks_outgoing, rightclick
         result = execute_expansion_and_merge(
             node_id=node_id,
             direction=direction,
-            limit=settings.GRAPH_UI_MAX_NODES_TO_EXPAND,
+            limit=runtime_settings.get_int("GRAPH_UI_MAX_NODES_TO_EXPAND"),
             loaded_node_ids=loaded_node_ids,
             expanded_nodes=expanded_nodes,
             # Merge against the full unfiltered baseline, not the filtered view.

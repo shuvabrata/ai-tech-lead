@@ -8,7 +8,7 @@ import requests
 from dash import ctx, html, Input, Output, State, callback, no_update
 from dash.exceptions import MissingCallbackContextException, PreventUpdate
 
-from app.settings import settings
+from app.runtime_settings import runtime_settings
 from common.logger import logger
 from app.dash_app.components.common import create_alert
 from app.dash_app.styles import (
@@ -26,7 +26,7 @@ from ..utils import (
     get_graph_api_base_url,
 )
 
-TIMEOUT_SECONDS = settings.HTTP_REQUEST_TIMEOUT
+TIMEOUT_SECONDS = runtime_settings.get_int("HTTP_REQUEST_TIMEOUT")
 
 
 @callback(

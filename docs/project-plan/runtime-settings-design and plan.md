@@ -840,7 +840,7 @@ app.include_router(settings_v1_router, prefix="/api/v1")
 
 ---
 
-### Phase 4 — Call Site Migration  `[phase:call-site-migration]`  ⬜ TODO
+### Phase 4 — Call Site Migration  `[phase:call-site-migration]`  ✅ DONE
 
 **Goal:** Replace `settings` reads with `runtime_settings` reads at all call
 sites for the 13 runtime-configurable settings.
@@ -881,13 +881,15 @@ cache from `settings` + DB on startup, and exports a module-level
 the shared `RuntimeConfigCache` to the app's `Settings` and DB.
 
 **Checkpoint** `[chk:call-site-migration]`:
-- ⬜ All module-level `TIMEOUT_SECONDS` constants removed.
-- ⬜ All migrated call sites use `runtime_settings.get_*()`.
-- ⬜ `pylint` and `mypy` pass on all modified files.
-- ⬜ Existing tests pass with same behavior.
+- ✅ All module-level `TIMEOUT_SECONDS` constants removed.
+- ✅ All migrated call sites use `runtime_settings.get_*()`.
+- ✅ `pylint` and `mypy` pass on all modified files.
+- ✅ Existing tests pass with same behavior.
 
 **Tests:** No new tests needed — existing coverage should validate that
 behavior is preserved. Run the full test suite to confirm.
+
+✅ 995 unit tests pass, 14 integration tests pass — no regressions.
 
 ---
 

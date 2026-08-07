@@ -49,6 +49,7 @@ from app.dash_app.styles import (
     PLACEHOLDER_MESSAGE_STYLE,
     CARD_CONTAINER_STYLE,
 )
+from app.runtime_settings import runtime_settings
 from app.settings import settings
 from app.scripts.create_es_indexes import MANAGED_INDEXES
 from common.logger import logger
@@ -167,7 +168,7 @@ def _format_event_time(event_time_str: str | None) -> html.Span | str:
     try:
         dt = datetime.fromisoformat(event_time_str.replace("Z", "+00:00"))
         local_dt = to_app_timezone(dt)
-        actual_time = local_dt.strftime(settings.UI_DATETIME_FORMAT)
+        actual_time = local_dt.strftime(runtime_settings.get("UI_DATETIME_FORMAT"))
         duration_str = humanize_duration(local_dt)
         return html.Span(duration_str, title=actual_time)
     except Exception as exc:
@@ -208,7 +209,7 @@ def _build_attributes_table(attributes: dict) -> html.Table:
             try:
                 dt = datetime.fromisoformat(str_value.replace("Z", "+00:00"))
                 local_dt = to_app_timezone(dt)
-                actual_time = local_dt.strftime(settings.UI_DATETIME_FORMAT)
+                actual_time = local_dt.strftime(runtime_settings.get("UI_DATETIME_FORMAT"))
                 duration_str = humanize_duration(local_dt)
                 formatted_date = html.Span(duration_str, title=actual_time, style=DETAILS_TABLE_VALUE_STYLE)
             except Exception:
@@ -901,7 +902,7 @@ def restore_search_on_navigate(
         response = requests.get(
             f"{_get_api_base_url()}/api/v1/search",
             params=params,
-            timeout=settings.HTTP_REQUEST_TIMEOUT,
+            timeout=runtime_settings.get_int("HTTP_REQUEST_TIMEOUT"),
         )
         response.raise_for_status()
         data = response.json()
@@ -1057,7 +1058,7 @@ def execute_search(
         response = requests.get(
             f"{_get_api_base_url()}/api/v1/search",
             params=params,
-            timeout=settings.HTTP_REQUEST_TIMEOUT,
+            timeout=runtime_settings.get_int("HTTP_REQUEST_TIMEOUT"),
         )
         response.raise_for_status()
         data = response.json()
@@ -1174,7 +1175,7 @@ def paginate_search(
         response = requests.get(
             f"{_get_api_base_url()}/api/v1/search",
             params=params,
-            timeout=settings.HTTP_REQUEST_TIMEOUT,
+            timeout=runtime_settings.get_int("HTTP_REQUEST_TIMEOUT"),
         )
         response.raise_for_status()
         data = response.json()
