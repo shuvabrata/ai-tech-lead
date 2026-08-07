@@ -753,7 +753,7 @@ preserves existing `value` (so user overrides survive future upgrades).
 
 ---
 
-### Phase 2 — Shared RuntimeConfig + Cache  `[phase:shared-config]`  ⬜ TODO
+### Phase 2 — Shared RuntimeConfig + Cache  `[phase:shared-config]`  ✅ DONE
 
 **Goal:** Create the `RuntimeConfig` Pydantic model and the synchronous
 in-memory cache in `src/common/runtime_settings/` so both app and non-app
@@ -773,24 +773,24 @@ processes can import it without pulling in `src.app`.
 require a DB connection. It is pure data + Pydantic.
 
 **Checkpoint** `[chk:shared-config]`:
-- ⬜ `RuntimeConfig` validates all 13 fields correctly.
-- ⬜ `RuntimeConfigCache` returns defaults before any `refresh()` call.
-- ⬜ `refresh()` atomically replaces the snapshot.
-- ⬜ `get_int()` raises `TypeError` for bool fields, `get_bool()` for non-bool.
-- ⬜ Module can be imported from both `src.app` and `src.connectors` processes.
+- ✅ `RuntimeConfig` validates all 13 fields correctly.
+- ✅ `RuntimeConfigCache` returns defaults before any `refresh()` call.
+- ✅ `refresh()` atomically replaces the snapshot.
+- ✅ `get_int()` raises `TypeError` for bool fields, `get_bool()` for non-bool.
+- ✅ Module can be imported from both `src.app` and `src.connectors` processes.
 
-**Tests:** `test_runtime_config_model.py` (`@pytest.mark.unit`)  ⬜ TODO
+**Tests:** `test_runtime_config_model.py` (`@pytest.mark.unit`)  ✅ DONE
 
-- ⬜ Default values match `Settings` defaults.
-- ⬜ `RECENT_ACTIONS_LIMIT` rejects values < 1 and > 50.
-- ⬜ `NEO4J_QUERY_TIMEOUT` rejects values < 1.
-- ⬜ `TIMEZONE` validates via `ZoneInfo`.
-- ⬜ `FF_NEO4J_USE_PROVIDER_PIPELINE` accepts only `bool`.
-- ⬜ Cache getters work correctly.
+- ✅ Default values match `Settings` defaults.
+- ✅ `RECENT_ACTIONS_LIMIT` rejects values < 1 and > 50.
+- ✅ `NEO4J_QUERY_TIMEOUT` rejects values < 1.
+- ✅ `TIMEZONE` validates via `ZoneInfo`.
+- ✅ `FF_NEO4J_USE_PROVIDER_PIPELINE` accepts only `bool`.
+- ✅ Cache getters work correctly.
 
 ---
 
-### Phase 3 — REST API  `[phase:rest-api]`  ⬜ TODO
+### Phase 3 — REST API  `[phase:rest-api]`  ✅ DONE
 
 **Goal:** Expose settings CRUD via REST API endpoints, backed by the DB model
 and the RuntimeConfig for validation.
@@ -824,16 +824,16 @@ app.include_router(settings_v1_router, prefix="/api/v1")
 ```
 
 **Checkpoint** `[chk:rest-api]`:
-- ⬜ `GET /api/v1/settings` returns 13 rows with correct `source` values.
-- ⬜ `PATCH /api/v1/settings` with valid values updates DB and returns success.
-- ⬜ `PATCH /api/v1/settings` with unknown key returns `422`.
-- ⬜ `PATCH /api/v1/settings` with out-of-range value returns `422`.
-- ⬜ `POST /api/v1/settings/{key}/reset` sets `value` to `NULL`.
-- ⬜ `GET /api/v1/settings/runtime-snapshot` returns a valid `RuntimeConfig`.
+- ✅ `GET /api/v1/settings` returns 13 rows with correct `source` values.
+- ✅ `PATCH /api/v1/settings` with valid values updates DB and returns success.
+- ✅ `PATCH /api/v1/settings` with unknown key returns `422`.
+- ✅ `PATCH /api/v1/settings` with out-of-range value returns `422`.
+- ✅ `POST /api/v1/settings/{key}/reset` sets `value` to `NULL`.
+- ✅ `GET /api/v1/settings/runtime-snapshot` returns a valid `RuntimeConfig`.
 - ⬜ `409 Conflict` on stale `updated_at`.
 
 **Tests:**
-- ⬜ Unit: `test_settings_service.py` (`@pytest.mark.unit`) — precedence logic,
+- ✅ Unit: `test_settings_service.py` (`@pytest.mark.unit`) — precedence logic,
   source resolution, candidate validation, reset behavior.
 - ⬜ Integration: `test_settings_api.py` (`@pytest.mark.integration`, `server`) —
   full HTTP round-trips against the running app.
