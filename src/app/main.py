@@ -14,6 +14,7 @@ from app.api.queries.v1.router import router as queries_v1_router
 from app.api.search.v1.router import router as search_v1_router
 from app.api.search.v1.persons_router import router as persons_v1_router
 from app.api.commands.v1.router import router as commands_v1_router
+from app.api.settings.v1.router import router as settings_v1_router
 from app.dash_app.layout import create_dash_app
 from common.logger import logger, LogContext
 from app.settings import settings
@@ -66,6 +67,7 @@ app.include_router(queries_v1_router, prefix="/api/v1")
 app.include_router(search_v1_router, prefix="/api/v1")
 app.include_router(persons_v1_router, prefix="/api/v1")
 app.include_router(commands_v1_router, prefix="/api/v1")
+app.include_router(settings_v1_router, prefix="/api/v1")
 
 dash_app = create_dash_app()  # type: ignore[no-untyped-call]
 app.mount("/app", WSGIMiddleware(dash_app.server))  # type: ignore[arg-type]
