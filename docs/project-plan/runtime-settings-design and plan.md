@@ -716,7 +716,7 @@ encryption keys into Postgres.
 
 ## Implementation Plan
 
-### Phase 1 — DB Model + Migration  `[phase:db-model]`
+### Phase 1 — DB Model + Migration  `[phase:db-model]`  ✅ DONE
 
 **Goal:** Create the `application_settings` table and seed it with the initial
 catalog of runtime-configurable settings.
@@ -739,21 +739,21 @@ Runtime-Configurable Settings*. Use idempotent `ON CONFLICT DO UPDATE` that
 preserves existing `value` (so user overrides survive future upgrades).
 
 **Checkpoint** `[chk:db-model]`:
-- `alembic upgrade head` succeeds.
-- `alembic downgrade -1` rolls back cleanly.
-- `SELECT * FROM application_settings` returns 13 seeded rows.
-- `CommandStatus` model still works — no regressions.
+- ✅ `alembic upgrade head` succeeds.
+- ✅ `alembic downgrade -1` rolls back cleanly.
+- ✅ `SELECT * FROM application_settings` returns 13 seeded rows.
+- ✅ `CommandStatus` model still works — no regressions.
 
-**Tests:** `test_application_settings_model.py` (`@pytest.mark.unit`)
+**Tests:** `test_application_settings_model.py` (`@pytest.mark.unit`)  ✅ DONE
 
-- Table has correct columns and constraints.
-- `key` is unique.
-- `value` can be `NULL`.
-- `value_type` and `apply_mode` accept valid values and reject invalid ones.
+- ✅ Table has correct columns and constraints.
+- ✅ `key` is unique.
+- ✅ `value` can be `NULL`.
+- ✅ `value_type` and `apply_mode` accept valid values and reject invalid ones.
 
 ---
 
-### Phase 2 — Shared RuntimeConfig + Cache  `[phase:shared-config]`
+### Phase 2 — Shared RuntimeConfig + Cache  `[phase:shared-config]`  ⬜ TODO
 
 **Goal:** Create the `RuntimeConfig` Pydantic model and the synchronous
 in-memory cache in `src/common/runtime_settings/` so both app and non-app
@@ -773,24 +773,24 @@ processes can import it without pulling in `src.app`.
 require a DB connection. It is pure data + Pydantic.
 
 **Checkpoint** `[chk:shared-config]`:
-- `RuntimeConfig` validates all 13 fields correctly.
-- `RuntimeConfigCache` returns defaults before any `refresh()` call.
-- `refresh()` atomically replaces the snapshot.
-- `get_int()` raises `TypeError` for bool fields, `get_bool()` for non-bool.
-- Module can be imported from both `src.app` and `src.connectors` processes.
+- ⬜ `RuntimeConfig` validates all 13 fields correctly.
+- ⬜ `RuntimeConfigCache` returns defaults before any `refresh()` call.
+- ⬜ `refresh()` atomically replaces the snapshot.
+- ⬜ `get_int()` raises `TypeError` for bool fields, `get_bool()` for non-bool.
+- ⬜ Module can be imported from both `src.app` and `src.connectors` processes.
 
-**Tests:** `test_runtime_config_model.py` (`@pytest.mark.unit`)
+**Tests:** `test_runtime_config_model.py` (`@pytest.mark.unit`)  ⬜ TODO
 
-- Default values match `Settings` defaults.
-- `RECENT_ACTIONS_LIMIT` rejects values < 1 and > 50.
-- `NEO4J_QUERY_TIMEOUT` rejects values < 1.
-- `TIMEZONE` validates via `ZoneInfo`.
-- `FF_NEO4J_USE_PROVIDER_PIPELINE` accepts only `bool`.
-- Cache getters work correctly.
+- ⬜ Default values match `Settings` defaults.
+- ⬜ `RECENT_ACTIONS_LIMIT` rejects values < 1 and > 50.
+- ⬜ `NEO4J_QUERY_TIMEOUT` rejects values < 1.
+- ⬜ `TIMEZONE` validates via `ZoneInfo`.
+- ⬜ `FF_NEO4J_USE_PROVIDER_PIPELINE` accepts only `bool`.
+- ⬜ Cache getters work correctly.
 
 ---
 
-### Phase 3 — REST API  `[phase:rest-api]`
+### Phase 3 — REST API  `[phase:rest-api]`  ⬜ TODO
 
 **Goal:** Expose settings CRUD via REST API endpoints, backed by the DB model
 and the RuntimeConfig for validation.
@@ -824,23 +824,23 @@ app.include_router(settings_v1_router, prefix="/api/v1")
 ```
 
 **Checkpoint** `[chk:rest-api]`:
-- `GET /api/v1/settings` returns 13 rows with correct `source` values.
-- `PATCH /api/v1/settings` with valid values updates DB and returns success.
-- `PATCH /api/v1/settings` with unknown key returns `422`.
-- `PATCH /api/v1/settings` with out-of-range value returns `422`.
-- `POST /api/v1/settings/{key}/reset` sets `value` to `NULL`.
-- `GET /api/v1/settings/runtime-snapshot` returns a valid `RuntimeConfig`.
-- `409 Conflict` on stale `updated_at`.
+- ⬜ `GET /api/v1/settings` returns 13 rows with correct `source` values.
+- ⬜ `PATCH /api/v1/settings` with valid values updates DB and returns success.
+- ⬜ `PATCH /api/v1/settings` with unknown key returns `422`.
+- ⬜ `PATCH /api/v1/settings` with out-of-range value returns `422`.
+- ⬜ `POST /api/v1/settings/{key}/reset` sets `value` to `NULL`.
+- ⬜ `GET /api/v1/settings/runtime-snapshot` returns a valid `RuntimeConfig`.
+- ⬜ `409 Conflict` on stale `updated_at`.
 
 **Tests:**
-- Unit: `test_settings_service.py` (`@pytest.mark.unit`) — precedence logic,
+- ⬜ Unit: `test_settings_service.py` (`@pytest.mark.unit`) — precedence logic,
   source resolution, candidate validation, reset behavior.
-- Integration: `test_settings_api.py` (`@pytest.mark.integration`, `server`) —
+- ⬜ Integration: `test_settings_api.py` (`@pytest.mark.integration`, `server`) —
   full HTTP round-trips against the running app.
 
 ---
 
-### Phase 4 — Call Site Migration  `[phase:call-site-migration]`
+### Phase 4 — Call Site Migration  `[phase:call-site-migration]`  ⬜ TODO
 
 **Goal:** Replace `settings` reads with `runtime_settings` reads at all call
 sites for the 13 runtime-configurable settings.
@@ -881,17 +881,17 @@ cache from `settings` + DB on startup, and exports a module-level
 the shared `RuntimeConfigCache` to the app's `Settings` and DB.
 
 **Checkpoint** `[chk:call-site-migration]`:
-- All module-level `TIMEOUT_SECONDS` constants removed.
-- All migrated call sites use `runtime_settings.get_*()`.
-- `pylint` and `mypy` pass on all modified files.
-- Existing tests pass with same behavior.
+- ⬜ All module-level `TIMEOUT_SECONDS` constants removed.
+- ⬜ All migrated call sites use `runtime_settings.get_*()`.
+- ⬜ `pylint` and `mypy` pass on all modified files.
+- ⬜ Existing tests pass with same behavior.
 
 **Tests:** No new tests needed — existing coverage should validate that
 behavior is preserved. Run the full test suite to confirm.
 
 ---
 
-### Phase 5 — RabbitMQ Propagation  `[phase:rabbitmq-propagation]`
+### Phase 5 — RabbitMQ Propagation  `[phase:rabbitmq-propagation]`  ⬜ TODO
 
 **Goal:** Add the `runtime_config_events` fanout exchange and wire listeners
 so that all running processes refresh their cache when settings change.
@@ -933,23 +933,23 @@ so that all running processes refresh their cache when settings change.
 `publish_settings_changed()` after a successful DB commit.
 
 **Checkpoint** `[chk:rabbitmq-propagation]`:
-- `init_rabbitmq.py` declares the fanout exchange.
-- Listener starts and binds without errors.
-- `PATCH /api/v1/settings` publishes a `settings.changed` event.
-- Receiving process refreshes its cache (verified via log output).
-- Duplicate events cause harmless duplicate refreshes.
-- Publish failure after DB commit does not roll back the settings change.
+- ⬜ `init_rabbitmq.py` declares the fanout exchange.
+- ⬜ Listener starts and binds without errors.
+- ⬜ `PATCH /api/v1/settings` publishes a `settings.changed` event.
+- ⬜ Receiving process refreshes its cache (verified via log output).
+- ⬜ Duplicate events cause harmless duplicate refreshes.
+- ⬜ Publish failure after DB commit does not roll back the settings change.
 
-**Tests:** `test_settings_rabbitmq.py` (`@pytest.mark.rabbitmq`)
+**Tests:** `test_settings_rabbitmq.py` (`@pytest.mark.rabbitmq`)  ⬜ TODO
 
-- Exchange is declared idempotently.
-- Listener queue is exclusive, auto-delete.
-- Event triggers cache refresh.
-- Publish failure does not abort DB commit.
+- ⬜ Exchange is declared idempotently.
+- ⬜ Listener queue is exclusive, auto-delete.
+- ⬜ Event triggers cache refresh.
+- ⬜ Publish failure does not abort DB commit.
 
 ---
 
-### Phase 6 — Dash Settings UI  `[phase:dash-ui]`
+### Phase 6 — Dash Settings UI  `[phase:dash-ui]`  ⬜ TODO
 
 **Goal:** Replace the placeholder settings page with a functional UI that lets
 users view and edit runtime-configurable settings.
@@ -975,24 +975,24 @@ users view and edit runtime-configurable settings.
 3. User clicks "Reset" → `POST /api/v1/settings/{key}/reset` → refresh UI.
 
 **Checkpoint** `[chk:dash-ui]`:
-- Settings page loads and displays all 13 settings with correct values.
-- Editing a string value persists and reflects in the UI.
-- Editing an integer value enforces min/max bounds.
-- Toggling a boolean works.
-- Reset restores env/default value.
-- Source indicator (`db` / `env` / `default`) is accurate.
-- Error feedback shown for invalid values.
+- ⬜ Settings page loads and displays all 13 settings with correct values.
+- ⬜ Editing a string value persists and reflects in the UI.
+- ⬜ Editing an integer value enforces min/max bounds.
+- ⬜ Toggling a boolean works.
+- ⬜ Reset restores env/default value.
+- ⬜ Source indicator (`db` / `env` / `default`) is accurate.
+- ⬜ Error feedback shown for invalid values.
 
-**Tests:** `test_settings_ui.py` (`@pytest.mark.integration`, `server`)
+**Tests:** `test_settings_ui.py` (`@pytest.mark.integration`, `server`)  ⬜ TODO
 
-- Dashboard renders settings correctly.
-- Edit → save → verify flow.
-- Invalid input shows error feedback.
-- Reset restores default.
+- ⬜ Dashboard renders settings correctly.
+- ⬜ Edit → save → verify flow.
+- ⬜ Invalid input shows error feedback.
+- ⬜ Reset restores default.
 
 ---
 
-### Phase 7 — Non-App Process Integration  `[phase:non-app-integration]`
+### Phase 7 — Non-App Process Integration  `[phase:non-app-integration]`  ⬜ TODO
 
 **Goal:** Wire the runtime settings infrastructure into producer daemons and
 the signal consumer so they can read effective settings and refresh on changes.
@@ -1015,15 +1015,15 @@ must fetch a fresh snapshot at startup rather than inheriting the parent's
 cache.
 
 **Checkpoint** `[chk:non-app-integration]`:
-- `RuntimeConfig` can be imported inside a connector process without triggering
+- ⬜ `RuntimeConfig` can be imported inside a connector process without triggering
   `src.app` imports.
-- Producer daemon starts with env/default when API is unreachable.
-- Signal consumer captures a stable snapshot per message.
-- `fetch_runtime_snapshot()` returns a valid `RuntimeConfig` or falls back
+- ⬜ Producer daemon starts with env/default when API is unreachable.
+- ⬜ Signal consumer captures a stable snapshot per message.
+- ⬜ `fetch_runtime_snapshot()` returns a valid `RuntimeConfig` or falls back
   gracefully.
 
-**Tests:** `test_settings_client.py` (`@pytest.mark.unit`)
+**Tests:** `test_settings_client.py` (`@pytest.mark.unit`)  ⬜ TODO
 
-- `fetch_runtime_snapshot()` parses API response correctly.
-- Fallback to env/default when API is unreachable.
-- `RuntimeConfig` importable from `sys.path` without `src.app`.
+- ⬜ `fetch_runtime_snapshot()` parses API response correctly.
+- ⬜ Fallback to env/default when API is unreachable.
+- ⬜ `RuntimeConfig` importable from `sys.path` without `src.app`.
