@@ -39,7 +39,9 @@ class ApplicationSettings(Base):
     key: Mapped[str] = mapped_column(
         String(100), unique=True, nullable=False, index=True
     )
-    value: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    value: Mapped[dict[str, Any] | None] = mapped_column(
+        JSONB(none_as_null=True), nullable=True
+    )
     value_type: Mapped[str] = mapped_column(String(20), nullable=False)
     category: Mapped[str | None] = mapped_column(String(50), nullable=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
