@@ -14,7 +14,6 @@ from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.settings.v1 import query as qry
-from app.settings import settings as app_settings
 from common.logger import logger
 from common.runtime_settings import RuntimeConfig, RuntimeConfigCache
 
@@ -76,8 +75,17 @@ def _resolve_source(
 
     # 2. Environment value — check os.environ so we can distinguish
     #    "env var set to default" from "no env var, using code default".
-    if setting_key in os.environ:
-        return getattr(app_settings, setting_key), "env"
+    #    Read from os.environ directly so the value reflects the current
+    #    environment, not the import-time Settings singleton.
+    env_raw = os.environ.get(setting_key)
+    if env_raw is not None:
+        # Convert the raw string to the expected Python type.
+        field = RuntimeConfig.model_fields[setting_key]
+        if field.annotation is bool:
+            return env_raw.lower() in ("1", "true", "yes"), "env"
+        if field.annotation is int:
+            return int(env_raw), "env"
+        return env_raw, "env"
 
     # 3. Code default (from RuntimeConfig)
     default = RuntimeConfig.model_fields[setting_key].default
