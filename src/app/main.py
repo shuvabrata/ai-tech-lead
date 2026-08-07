@@ -1,8 +1,10 @@
+import asyncio
 import time
 from contextlib import asynccontextmanager
 from uuid import uuid4
 
 from typing import AsyncGenerator, Callable, Awaitable
+import aio_pika
 from fastapi import FastAPI, Request, Response
 from a2wsgi import WSGIMiddleware
 from app.api import endpoints
@@ -16,18 +18,105 @@ from app.api.search.v1.persons_router import router as persons_v1_router
 from app.api.commands.v1.router import router as commands_v1_router
 from app.api.settings.v1.router import router as settings_v1_router
 from app.dash_app.layout import create_dash_app
+from app.db.session import ASYNC_SESSION_LOCAL
+from app.runtime_settings import load_db_overrides_from_session
 from common.logger import logger, LogContext
+from common.runtime_settings.events import listen_for_settings_changed
 from app.settings import settings
 
 
+# Module-level RabbitMQ connection reference — opened in lifespan startup,
+# closed in lifespan shutdown.  Used by the settings API to publish events.
+_rabbitmq_connection: aio_pika.RobustConnection | None = None
+
+
+def get_rabbitmq_connection() -> aio_pika.RobustConnection | None:
+    """Return the current RabbitMQ connection (may be ``None``)."""
+    return _rabbitmq_connection
+
+
+async def _on_settings_changed(changed_keys: list[str]) -> None:
+    """Callback invoked when a ``settings.changed`` event is received.
+
+    Refreshes the local runtime settings cache from the DB.
+    """
+    try:
+        async with ASYNC_SESSION_LOCAL() as db:
+            await load_db_overrides_from_session(db)
+        logger.info(
+            "Runtime settings cache refreshed after settings.changed event: "
+            "keys=%s",
+            changed_keys,
+        )
+    except Exception:  # pylint: disable=broad-except
+        logger.warning(
+            "Failed to refresh runtime settings cache after event: "
+            "keeping last known good snapshot",
+            exc_info=True,
+        )
+
+
 @asynccontextmanager
-async def lifespan(_: FastAPI) -> AsyncGenerator[None, None]:
+async def lifespan(app_instance: FastAPI) -> AsyncGenerator[None, None]:
+    """Application lifespan: startup initialisation and shutdown cleanup."""
+    # ── Startup ──────────────────────────────────────────────────────────
+    global _rabbitmq_connection  # noqa: PLW0603
+
     logger.info(
         "[Startup] feature_flags "
         f"github_mcp_enabled={settings.GITHUB_MCP_ENABLED} "
         f"github_mcp_server_url={settings.GITHUB_MCP_SERVER_URL}"
     )
-    yield
+
+    # 1. Load DB overrides into the runtime settings cache.
+    try:
+        async with ASYNC_SESSION_LOCAL() as db:
+            await load_db_overrides_from_session(db)
+        logger.info("[Startup] Runtime settings loaded from DB")
+    except Exception:  # pylint: disable=broad-except
+        logger.warning(
+            "[Startup] Failed to load runtime settings from DB — "
+            "using env/default values",
+            exc_info=True,
+        )
+
+    # 2. Connect to RabbitMQ and start the runtime config listener.
+    try:
+        _rabbitmq_connection = await aio_pika.connect_robust(
+            settings.RABBITMQ_URL
+        )
+        # Start the listener as a background task.
+        listener_task = asyncio.ensure_future(
+            listen_for_settings_changed(
+                connection=_rabbitmq_connection,
+                on_event=_on_settings_changed,
+                instance_id="app",
+            )
+        )
+        logger.info("[Startup] RabbitMQ runtime config listener started")
+    except Exception:  # pylint: disable=broad-except
+        logger.warning(
+            "[Startup] Failed to start RabbitMQ runtime config listener — "
+            "settings changes will apply on next container restart",
+            exc_info=True,
+        )
+        _rabbitmq_connection = None
+        listener_task = None
+
+    yield  # ── Application runs here ────────────────────────────────────
+
+    # ── Shutdown ─────────────────────────────────────────────────────────
+    if listener_task is not None:
+        listener_task.cancel()
+        try:
+            await listener_task
+        except asyncio.CancelledError:
+            pass
+        logger.info("[Shutdown] RabbitMQ runtime config listener stopped")
+
+    if _rabbitmq_connection is not None and not _rabbitmq_connection.is_closed:
+        await _rabbitmq_connection.close()
+        logger.info("[Shutdown] RabbitMQ connection closed")
 
 
 app = FastAPI(lifespan=lifespan)

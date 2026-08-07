@@ -24,6 +24,7 @@ class SettingResponse(BaseModel):
     apply_mode: str
     is_sensitive: bool = False
     updated_at: datetime | None = None
+    propagation_warning: str | None = None
 
     model_config = ConfigDict(from_attributes=True)
 

@@ -24,6 +24,9 @@ RabbitMQ ignores re-declarations that match the existing topology exactly.
 It also declares the ``command_n_control`` topic exchange, DLX, DLQ, and
 per-producer queues for the generic command-and-control bus.  See
 ``common.command_n_control`` for the corresponding listener/publisher code.
+
+Finally, it declares the ``runtime_config_events`` fanout exchange used by
+the runtime settings propagation system (Phase 5+).
 """
 
 import asyncio
@@ -57,6 +60,11 @@ CONTROL_QUEUES: list[tuple[str, str]] = [
     ("cnc.jira-producer", "command_n_control.jira-producer"),
     ("cnc.confluence-producer", "command_n_control.confluence-producer"),
 ]
+
+# ── Runtime config events exchange (fanout) ──────────────────────────────
+# Defined locally (not imported from common) because this script runs
+# without PYTHONPATH and cannot resolve ``common.runtime_settings``.
+RUNTIME_CONFIG_EXCHANGE: str = "runtime_config_events"
 
 
 async def init_rabbitmq(url: str) -> None:
@@ -156,6 +164,19 @@ async def init_rabbitmq(url: str) -> None:
             logger.info(
                 "Queue ready: %s  ← routing key: %s", queue_name, routing_key
             )
+
+        # ── Runtime config events exchange (fanout) ─────────────────────────
+        logger.info("Declaring runtime_config_events topology...")
+
+        # 9. Runtime config fanout exchange
+        runtime_config_exchange = await channel.declare_exchange(
+            RUNTIME_CONFIG_EXCHANGE,
+            aio_pika.ExchangeType.FANOUT,
+            durable=True,
+        )
+        logger.info(
+            "Exchange ready: %s (fanout, durable)", RUNTIME_CONFIG_EXCHANGE
+        )
 
     logger.info("RabbitMQ initialization complete.")
 

@@ -893,7 +893,7 @@ behavior is preserved. Run the full test suite to confirm.
 
 ---
 
-### Phase 5 — RabbitMQ Propagation  `[phase:rabbitmq-propagation]`  ⬜ TODO
+### Phase 5 — RabbitMQ Propagation  `[phase:rabbitmq-propagation]`  ✅ DONE
 
 **Goal:** Add the `runtime_config_events` fanout exchange and wire listeners
 so that all running processes refresh their cache when settings change.
@@ -902,14 +902,27 @@ so that all running processes refresh their cache when settings change.
 
 - `src/common/runtime_settings/events.py` — RabbitMQ event publisher and
   listener helpers:
-  - `publish_settings_changed(changed_keys, connection)`
+  - `publish_settings_changed(changed_keys, connection)` — returns `bool`.
   - `listen_for_settings_changed(cache, connection, callback)`
   - Exchange declaration: `runtime_config_events` (fanout, durable).
 
 - `src/app/scripts/init_rabbitmq.py` — Add `runtime_config_events` exchange
-  declaration.
+  declaration (local constant, not imported from `common`).
 
-- `src/app/main.py` — Wire fanout listener in the `lifespan` context manager.
+- `src/app/main.py` — Wire fanout listener in the `lifespan` context manager:
+  - DB overrides loaded at startup.
+  - RabbitMQ listener started as background task.
+  - `get_rabbitmq_connection()` accessor for the settings API.
+  - Listener startup failure is non-fatal (log warning, continue).
+
+- `src/app/runtime_settings.py` — Added `load_db_overrides_from_session()`.
+
+- `src/app/api/settings/v1/service.py` — `bulk_update()` and `update_single()`
+  now call `publish_settings_changed()` after DB commit.  Returns a
+  `propagation_warning` string when publish fails.
+
+- `src/app/api/settings/v1/models.py` — Added `propagation_warning` field to
+  `SettingResponse`.
 
 **Event body:**
 ```json
@@ -922,32 +935,33 @@ so that all running processes refresh their cache when settings change.
 
 **Receive flow:**
 1. Listener receives event.
-2. Calls `runtime_settings.refresh()` which fetches the latest effective config
-   from DB (via a new helper, not the API).
+2. Calls `load_db_overrides_from_session()` which fetches the latest effective
+   config from DB and refreshes the runtime settings cache.
 3. If DB query fails, keeps last known good snapshot, logs warning.
 
 **Failure behavior:**
 - Listener startup failure → log warning, continue with env/default.
-- Publish failure after DB commit → log warning, settings save still succeeds.
+- Publish failure after DB commit → log warning, return `propagation_warning`,
+  settings save still succeeds.
 - Refresh failure → keep last good snapshot, log warning.
 
-**Phase 3 integration:** Update the settings API service to call
+**Phase 3 integration:** The settings API service calls
 `publish_settings_changed()` after a successful DB commit.
 
 **Checkpoint** `[chk:rabbitmq-propagation]`:
-- ⬜ `init_rabbitmq.py` declares the fanout exchange.
-- ⬜ Listener starts and binds without errors.
-- ⬜ `PATCH /api/v1/settings` publishes a `settings.changed` event.
-- ⬜ Receiving process refreshes its cache (verified via log output).
-- ⬜ Duplicate events cause harmless duplicate refreshes.
-- ⬜ Publish failure after DB commit does not roll back the settings change.
+- ✅ `init_rabbitmq.py` declares the fanout exchange.
+- ✅ Listener starts and binds without errors.
+- ✅ `PATCH /api/v1/settings` publishes a `settings.changed` event.
+- ✅ Receiving process refreshes its cache (verified via log output).
+- ✅ Duplicate events cause harmless duplicate refreshes.
+- ✅ Publish failure after DB commit does not roll back the settings change.
 
-**Tests:** `test_settings_rabbitmq.py` (`@pytest.mark.rabbitmq`)  ⬜ TODO
+**Tests:** `test_settings_rabbitmq.py` (`@pytest.mark.rabbitmq`)  ✅ DONE
 
-- ⬜ Exchange is declared idempotently.
-- ⬜ Listener queue is exclusive, auto-delete.
-- ⬜ Event triggers cache refresh.
-- ⬜ Publish failure does not abort DB commit.
+- ✅ Exchange is declared idempotently.
+- ✅ Listener queue is exclusive, auto-delete.
+- ✅ Event triggers cache refresh.
+- ✅ Publish failure does not abort DB commit.
 
 ---
 

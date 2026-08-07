@@ -9,16 +9,24 @@ Usage::
     from app.runtime_settings import runtime_settings
 
     timeout = runtime_settings.get_int("HTTP_REQUEST_TIMEOUT")
+
+    # On startup, also load DB overrides:
+    from app.runtime_settings import load_db_overrides_from_session
+    async with ASYNC_SESSION_LOCAL() as db:
+        await load_db_overrides_from_session(db)
 """
 
 from __future__ import annotations
 
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.settings import settings as app_settings
+from common.logger import logger
 from common.runtime_settings import RuntimeConfig, RuntimeConfigCache
 
 # Module-level cache — seeded from the Settings singleton (which reads env
 # vars) so that env-configured values are available immediately.  DB
-# overrides will be loaded on top during startup (Phase 5).
+# overrides will be loaded on top during startup.
 _runtime_settings: RuntimeConfigCache = RuntimeConfigCache()
 
 
@@ -50,8 +58,29 @@ runtime_settings = _runtime_settings
 
 
 def get_effective_config() -> RuntimeConfig:
-    """Return the current effective ``RuntimeConfig`` (defaults only for now).
-
-    In Phase 5 this will also load DB overrides at startup.
-    """
+    """Return the current effective ``RuntimeConfig``."""
     return runtime_settings.current()
+
+
+async def load_db_overrides_from_session(db: AsyncSession) -> None:
+    """Query the DB and refresh the runtime settings cache with DB overrides.
+
+    Builds an effective ``RuntimeConfig`` from DB overrides + env + defaults,
+    then atomically replaces the current snapshot.
+
+    Call this during startup, or from the RabbitMQ event listener callback.
+    """
+    # Imported here (not at module level) to avoid any circular-dependency
+    # concerns at import time.
+    # pylint: disable=import-outside-toplevel
+    from app.api.settings.v1 import query as qry
+    from app.api.settings.v1.service import _resolve_effective_config
+
+    rows = await qry.get_all_settings(db)
+    config = _resolve_effective_config(rows)
+    _runtime_settings.refresh(config)
+
+    logger.info(
+        "Runtime settings cache refreshed from DB (%d settings)",
+        len(rows),
+    )

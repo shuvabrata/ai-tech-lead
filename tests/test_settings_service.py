@@ -196,7 +196,8 @@ class TestBulkUpdate:
 
         with patch.object(qry, "check_conflicts", AsyncMock(return_value={})), \
              patch.object(qry, "bulk_update_values", AsyncMock(return_value=updated_rows)), \
-             patch.object(qry, "get_all_settings", AsyncMock(return_value=updated_rows)):
+             patch.object(qry, "get_all_settings", AsyncMock(return_value=updated_rows)), \
+             patch.object(service, "_publish_changed", AsyncMock(return_value=None)):
             result = await service.bulk_update(mock_db, {"HTTP_REQUEST_TIMEOUT": 90})
 
         assert result["updated"]["HTTP_REQUEST_TIMEOUT"] == 90
@@ -241,7 +242,8 @@ class TestOptimisticConcurrency:
         updated_rows = [_make_row("HTTP_REQUEST_TIMEOUT", value=90)]
         with patch.object(qry, "check_conflicts", AsyncMock(return_value={})) as mock_check, \
              patch.object(qry, "bulk_update_values", AsyncMock(return_value=updated_rows)), \
-             patch.object(qry, "get_all_settings", AsyncMock(return_value=updated_rows)):
+             patch.object(qry, "get_all_settings", AsyncMock(return_value=updated_rows)), \
+             patch.object(service, "_publish_changed", AsyncMock(return_value=True)):
             await service.bulk_update(mock_db, {"HTTP_REQUEST_TIMEOUT": 90})
 
         # check_conflicts called with None → returns {} (query layer no-ops).

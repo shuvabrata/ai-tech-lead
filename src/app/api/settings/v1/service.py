@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.settings.v1 import query as qry
 from common.logger import logger
 from common.runtime_settings import RuntimeConfig, RuntimeConfigCache
+from common.runtime_settings.events import publish_settings_changed
 
 # Module-level cache — initialised by ``src/app/runtime_settings.py`` on
 # startup.  Tests can replace this with a fresh instance.
@@ -31,6 +32,43 @@ def set_runtime_cache(cache: RuntimeConfigCache) -> None:
 def get_runtime_cache() -> RuntimeConfigCache:
     """Return the current runtime cache instance."""
     return _runtime_cache
+
+
+# ── RabbitMQ propagation support ────────────────────────────────────────
+
+
+async def _publish_changed(keys: list[str]) -> str | None:
+    """Publish a ``settings.changed`` event for the given keys.
+
+    Returns a propagation warning string if the event could not be published
+    (or no connection is available), or ``None`` on success.
+
+    The DB commit has already succeeded and the local cache has already been
+    refreshed by the caller before this is invoked, so a publish failure is
+    non-fatal — settings are still saved and applied locally.
+    """
+    # Lazy import to avoid a circular dependency between this service module
+    # and ``app.main`` (which imports this router's module).
+    # pylint: disable=import-outside-toplevel
+    from app.main import get_rabbitmq_connection
+
+    connection = get_rabbitmq_connection()
+    if connection is None:
+        logger.warning(
+            "No RabbitMQ connection available — settings.changed not published"
+        )
+        return (
+            "Settings saved but change could not be propagated to "
+            "other running processes."
+        )
+
+    success = await publish_settings_changed(keys, connection)
+    if not success:
+        return (
+            "Settings saved but change could not be propagated to "
+            "other running processes."
+        )
+    return None
 
 
 # ── Exceptions ─────────────────────────────────────────────────────────
@@ -206,10 +244,13 @@ async def bulk_update(
     refreshed_rows = await qry.get_all_settings(db)
     _runtime_cache.refresh(_resolve_effective_config(refreshed_rows))
 
-    # 6. Return effective values (propagation handled in Phase 5).
+    # 6. Publish RabbitMQ invalidation event (best-effort).
+    propagation_warning = await _publish_changed(list(updates.keys()))
+
+    # 7. Return effective values.
     return {
         "updated": {r.key: r.value for r in updated_rows},
-        "propagation_warning": None,
+        "propagation_warning": propagation_warning,
     }
 
 
@@ -259,7 +300,10 @@ async def update_single(
     refreshed_rows = await qry.get_all_settings(db)
     _runtime_cache.refresh(_resolve_effective_config(refreshed_rows))
 
-    # 5. Return source-aware response.
+    # 5. Publish RabbitMQ invalidation event (best-effort).
+    propagation_warning = await _publish_changed([key])
+
+    # 6. Return source-aware response.
     effective_value, source = _resolve_source(updated.value, key)
     return {
         "key": key,
@@ -272,6 +316,7 @@ async def update_single(
         "apply_mode": updated.apply_mode,
         "is_sensitive": updated.is_sensitive,
         "updated_at": updated.updated_at,
+        "propagation_warning": propagation_warning,
     }
 
 
