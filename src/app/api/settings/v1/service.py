@@ -335,6 +335,9 @@ async def reset_single(
     all_rows = await qry.get_all_settings(db)
     _runtime_cache.refresh(_resolve_effective_config(all_rows))
 
+    # Publish RabbitMQ invalidation event (best-effort).
+    propagation_warning = await _publish_changed([key])
+
     effective_value, source = _resolve_source(None, key)
     return {
         "key": key,
@@ -347,6 +350,7 @@ async def reset_single(
         "apply_mode": row.apply_mode,
         "is_sensitive": row.is_sensitive,
         "updated_at": row.updated_at,
+        "propagation_warning": propagation_warning,
     }
 
 
@@ -359,6 +363,10 @@ async def reset_all(
     """
     rows = await qry.reset_all_values(db)
     _runtime_cache.refresh(_resolve_effective_config(rows))
+
+    # Publish RabbitMQ invalidation event (best-effort).
+    reset_keys = [row.key for row in rows]
+    propagation_warning = await _publish_changed(reset_keys)
 
     result = []
     for row in rows:
@@ -374,5 +382,6 @@ async def reset_all(
             "apply_mode": row.apply_mode,
             "is_sensitive": row.is_sensitive,
             "updated_at": row.updated_at,
+            "propagation_warning": propagation_warning,
         })
     return result

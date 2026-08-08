@@ -1009,38 +1009,346 @@ users view and edit runtime-configurable settings.
 
 ---
 
-### Phase 7 — Non-App Process Integration  `[phase:non-app-integration]`  ⬜ TODO
+### Phase 7 — Non-App Process Integration  `[phase:non-app-integration]`  ✅ DONE
 
 **Goal:** Wire the runtime settings infrastructure into producer daemons and
 the signal consumer so they can read effective settings and refresh on changes.
 
-**Files to create:**
+**Files created:**
 - `src/common/runtime_settings/client.py` — REST snapshot client for non-app
   processes that cannot import `src.app`:
   - `fetch_runtime_snapshot(api_base_url) -> RuntimeConfig`
   - Falls back to env/default if API is unreachable.
+  - Logs a WARNING on connection or validation failure.
 
-**Files to modify:**
-- Producer daemon entry points (e.g. `src/connectors/producers/github/daemon.py`
-  if it exists, or the equivalent) — initialize `RuntimeConfigCache` at startup,
-  fetch initial snapshot from API, listen for fanout events.
-- Signal consumer (`src/connectors/consumers/`) — initialize cache, listen for
-  events, capture snapshot at start of each message handler.
+**Files modified:**
+- `src/connectors/producers/daemon_common.py` — module-level `RuntimeConfigCache`
+  (`runtime_cache`), refreshed at daemon startup and at each scan/test child
+  startup so child processes get a fresh snapshot without inheriting the
+  parent's cache. Additionally, a background daemon thread is started in
+  `run_daemon()` that runs `listen_for_settings_changed()` from `events.py`
+  in its own asyncio event loop using `aio_pika`, so the daemon refreshes its
+  cache on every `settings.changed` event without needing a restart. Thread
+  startup failure is non-fatal (log warning, continue with startup snapshot).
+- Signal consumer (`src/connectors/consumers/main.py`) — module-level
+  `RuntimeConfigCache` (`runtime_cache`), refreshed at consumer startup in
+  `main()`. A background asyncio task is started via `asyncio.ensure_future`
+  wrapping `listen_for_settings_changed()` to receive live invalidation events.
+  Per-message stable snapshot capture via `runtime_cache.current()` in the
+  `consume_queue()` message loop.
+- `src/common/runtime_settings/__init__.py` — exports `fetch_runtime_snapshot`.
 
 **Key constraint:** Scan/test child processes (spawned via `subprocess.Popen`)
 must fetch a fresh snapshot at startup rather than inheriting the parent's
-cache.
+cache — satisfied by `run_scan()` and `run_test()` each calling
+`runtime_cache.refresh(fetch_runtime_snapshot(...))` at the top of their body.
 
 **Checkpoint** `[chk:non-app-integration]`:
-- ⬜ `RuntimeConfig` can be imported inside a connector process without triggering
+- ✅ `RuntimeConfig` can be imported inside a connector process without triggering
   `src.app` imports.
-- ⬜ Producer daemon starts with env/default when API is unreachable.
-- ⬜ Signal consumer captures a stable snapshot per message.
-- ⬜ `fetch_runtime_snapshot()` returns a valid `RuntimeConfig` or falls back
+- ✅ Producer daemon starts with env/default when API is unreachable.
+- ✅ Signal consumer captures a stable snapshot at startup of each message.
+- ✅ `fetch_runtime_snapshot()` returns a valid `RuntimeConfig` or falls back
   gracefully.
+- ✅ RabbitMQ fanout listener is wired in both daemon (daemon thread) and consumer
+  (async background task) for live invalidation.
+- ✅ `run_scan()` and `run_test()` fetch fresh snapshots at child startup.
 
-**Tests:** `test_settings_client.py` (`@pytest.mark.unit`)  ⬜ TODO
+**Tests:** `test_settings_client.py` (`@pytest.mark.unit`)  ✅ DONE
 
-- ⬜ `fetch_runtime_snapshot()` parses API response correctly.
-- ⬜ Fallback to env/default when API is unreachable.
-- ⬜ `RuntimeConfig` importable from `sys.path` without `src.app`.
+- ✅ `fetch_runtime_snapshot()` parses API response correctly.
+- ✅ Fallback to env/default on connection error, timeout, HTTP error.
+- ✅ Fallback on invalid JSON or Pydantic validation errors.
+- ✅ Timeout parameter is passed through to `requests.get`.
+- ✅ Trailing slashes on `api_base_url` are stripped.
+- ✅ `RuntimeConfig` importable from `sys.path` without `src.app`.
+
+---
+
+## Developer Validation Checklist
+
+Use the following checklist to manually verify that the runtime settings system
+is working correctly end-to-end.
+
+### Prerequisites
+
+- Backing services are running: `docker compose up -d postgres neo4j rabbitmq`
+- App is running: `PYTHONPATH=src uvicorn app.main:app --reload`
+- Virtual environment is activated: `source .venv/bin/activate`
+
+### 1. Bootstrap / Env Defaults
+
+```bash
+# Verify the API returns all 13 settings with correct source/values.
+curl -s http://localhost:8000/api/v1/settings/ | python -m json.tool | head -20
+```
+
+Expected:
+- 13 items returned.
+- Each item has `source` set to `"env"` or `"default"` (unless previously
+  overridden via the API).
+- `effective_value` matches the code defaults from `RuntimeConfig`.
+
+### 2. Override a Setting via API
+
+```bash
+# Change a string setting.
+curl -s -X PATCH http://localhost:8000/api/v1/settings/ \
+  -H "Content-Type: application/json" \
+  -d '{"updates": {"TIMEZONE": "Asia/Kolkata", "HTTP_REQUEST_TIMEOUT": 90}}'
+```
+
+Expected:
+- Response includes `"updated": {"TIMEZONE": "Asia/Kolkata", ...}`.
+- `propagation_warning` is `null` (or a string if RabbitMQ is unavailable).
+
+```bash
+# Verify the change is reflected.
+curl -s http://localhost:8000/api/v1/settings/TIMEZONE | python -m json.tool
+```
+
+Expected: `"source": "db"`, `"effective_value": "Asia/Kolkata"`.
+
+### 3. Verify Validation
+
+```bash
+# Unknown key → 422
+curl -s -X PATCH http://localhost:8000/api/v1/settings/ \
+  -H "Content-Type: application/json" \
+  -d '{"updates": {"DATABASE_URL": "bad"}}'
+
+# Out-of-range value → 422
+curl -s -X PATCH http://localhost:8000/api/v1/settings/ \
+  -H "Content-Type: application/json" \
+  -d '{"updates": {"RECENT_ACTIONS_LIMIT": 999}}'
+```
+
+Expected: Both return a `422` status with a detail message.
+
+### 4. Reset a Setting
+
+```bash
+curl -s -X POST http://localhost:8000/api/v1/settings/TIMEZONE/reset
+curl -s http://localhost:8000/api/v1/settings/TIMEZONE | python -m json.tool
+```
+
+Expected: `"source"` is `"env"` or `"default"`, `"value"` is `null`.
+
+### 5. Runtime Snapshot Endpoint
+
+```bash
+curl -s http://localhost:8000/api/v1/settings/runtime-snapshot | python -m json.tool
+```
+
+Expected: A flat JSON object with all 13 `RuntimeConfig` keys and their current
+effective values.
+
+### 6. Dash Settings UI
+
+- Open `http://localhost:8000/app/settings` in a browser.
+- Verify all 13 settings are displayed, grouped by category.
+- Edit a string value (e.g. TIMEZONE), click "Save All Changes".
+- Verify success feedback appears and the value persists after page reload.
+- Toggle a boolean (e.g. FF_NEO4J_USE_PROVIDER_PIPELINE), save, verify.
+- Click "Reset" on a single row, verify it returns to env/default.
+- Click "Reset All to Default", verify all values reset.
+
+### 7. Client Library (Non-App Processes)
+
+```bash
+# Test fetch_runtime_snapshot from Python directly.
+cd src && python -c "
+from common.runtime_settings.client import fetch_runtime_snapshot
+config = fetch_runtime_snapshot('http://localhost:8000')
+print('HTTP_REQUEST_TIMEOUT:', config.HTTP_REQUEST_TIMEOUT)
+print('TIMEZONE:', config.TIMEZONE)
+"
+```
+
+Expected: Prints the expected values.
+
+```bash
+# Test fallback when API is unreachable.
+python -c "
+from common.runtime_settings.client import fetch_runtime_snapshot
+config = fetch_runtime_snapshot('http://localhost:9999')
+print('Got defaults:', config.HTTP_REQUEST_TIMEOUT)
+"
+```
+
+Expected: Logs a WARNING and prints default value (60).
+
+### 8. Live Propagation (requires RabbitMQ)
+
+```bash
+# Start two terminals watching the app logs:
+# Terminal 1: docker compose logs -f app
+# Terminal 2: docker compose logs -f signal-consumer  (or run locally)
+
+# Change a setting via the API.
+curl -s -X PATCH http://localhost:8000/api/v1/settings/ \
+  -H "Content-Type: application/json" \
+  -d '{"updates": {"TIMEZONE": "America/New_York"}}'
+```
+
+Expected:
+- Terminal 1: `Published settings.changed event: keys=['TIMEZONE']`.
+- Terminal 2 (if consumer is running and has RabbitMQ listener):
+  `Received settings.changed event: keys=['TIMEZONE']`.
+
+---
+
+## Adding a New Runtime Setting
+
+This guide covers all layers that must be touched when adding a new
+runtime-configurable setting — from the shared model to the Dash UI.
+
+### Step 1: Add to `Settings` (env var bootstrap)
+
+**File:** `src/app/settings.py`
+
+Add the field to the `Settings` class with a sensible default. This ensures
+Docker Compose and CLI users can still configure it via environment variables.
+
+```python
+# Example: add a search page size setting
+SEARCH_PAGE_SIZE: int = 20
+```
+
+### Step 2: Add to `RuntimeConfig` (shared Pydantic model)
+
+**File:** `src/common/runtime_settings/config.py`
+
+Add the field with matching type, default, and validation constraints. This is
+the **single source of truth** for the runtime-configurable setting list — all
+other layers derive their list from here.
+
+```python
+# Under the appropriate section comment:
+# ── Search ───────────────────────────────────────────────────────────
+SEARCH_PAGE_SIZE: int = Field(default=20, ge=1, le=100)
+```
+
+### Step 3: Add to `application_settings` seed (Alembic migration)
+
+**File:** `src/app/alembic/versions/..._add_application_settings_table.py`
+
+Add a row to the `VALUES (...)` list in the seed INSERT. Use the idempotent
+`ON CONFLICT` pattern so existing user overrides survive.
+
+```sql
+('SEARCH_PAGE_SIZE', 'integer', 'search',
+ 'Number of results per page in search views.', 'dynamic', false),
+```
+
+If the migration has already been applied in production, create a new migration
+that inserts the row idempotently:
+
+```sql
+INSERT INTO application_settings (key, value_type, category, description, apply_mode, is_sensitive)
+VALUES ('SEARCH_PAGE_SIZE', 'integer', 'search',
+        'Number of results per page in search views.', 'dynamic', false)
+ON CONFLICT (key) DO UPDATE SET
+    value_type = EXCLUDED.value_type,
+    category = EXCLUDED.category,
+    description = EXCLUDED.description,
+    apply_mode = EXCLUDED.apply_mode,
+    is_sensitive = EXCLUDED.is_sensitive,
+    updated_at = now();
+```
+
+### Step 4: Add to app wiring
+
+**File:** `src/app/runtime_settings.py`
+
+Add the mapping in `_build_initial_config()` so the app's env-variable value
+is seeded into the runtime cache at startup:
+
+```python
+return RuntimeConfig(
+    ...
+    SEARCH_PAGE_SIZE=app_settings.SEARCH_PAGE_SIZE,
+)
+```
+
+### Step 5: Add to `RuntimeSnapshotResponse`
+
+**File:** `src/app/api/settings/v1/models.py`
+
+Add the field so the snapshot API returns it for non-app processes:
+
+```python
+class RuntimeSnapshotResponse(BaseModel):
+    ...
+    SEARCH_PAGE_SIZE: int
+```
+
+### Step 6: Update DB override resolution
+
+**File:** `src/app/api/settings/v1/service.py`
+
+If the new setting needs special resolution logic (e.g., it depends on another
+setting's value), update `_resolve_effective_config()`. For simple settings
+this step is a no-op — the generic `RuntimeConfig(**overrides)` validation
+handles it.
+
+### Step 7: Add to category metadata (UI grouping)
+
+**File:** `src/app/dash_app/pages/settings.py`
+
+If the setting uses a new category (e.g. `"search"`), add it to
+`CATEGORY_META` and `CATEGORY_ORDER`:
+
+```python
+CATEGORY_META["search"] = {"label": "Search", "icon": "fa-solid fa-search"}
+CATEGORY_ORDER.insert(-1, "search")  # before feature_flags
+```
+
+If the setting belongs to an existing category (e.g. `"network"`), no change
+is needed — the UI already groups by category.
+
+### Step 8: Update tests
+
+Update these test files to account for the new setting:
+
+| Test file | Change |
+|---|---|
+| `tests/test_runtime_config_model.py` | Add default/validation tests for the new field |
+| `tests/test_settings_api.py` | Bump expected count from 13 to 14; add override/reset test for new key |
+| `tests/test_settings_ui.py` | Bump count assertions if any; add edit-save-verify test |
+
+### Step 9: Migrate call sites
+
+Find all places that currently read `settings.SEARCH_PAGE_SIZE` and convert
+them to use `runtime_settings.get_int("SEARCH_PAGE_SIZE")`. If the old read
+is a module-level constant, move it inline to benefit from dynamic updates.
+
+### Summary: Touch Points Diagram
+
+```text
+                          ┌───────────────────┐
+                          │  app/settings.py   │  ← Step 1: Env var bootstrap
+                          └────────┬──────────┘
+                                   │
+                          ┌────────▼──────────┐
+                          │ common/            │
+                          │ runtime_settings/  │  ← Step 2: Shared model
+                          │   config.py        │
+                          └────────┬──────────┘
+                                   │
+          ┌────────────────────────┼────────────────────────┐
+          │                        │                        │
+          ▼                        ▼                        ▼
+  ┌───────────────┐      ┌──────────────────┐    ┌───────────────────┐
+  │ Alembic seed  │      │ app/              │    │ app/api/settings/ │
+  │ migration     │      │ runtime_settings  │    │ v1/models.py      │
+  │ (DDL row)     │      │ .py (wiring)      │    │ (snapshot model)  │
+  └───────────────┘      └──────────────────┘    └───────────────────┘
+  Step 3                   Step 4                   Step 5
+                                                          
+                                   ┌─────────────────┐
+                                   │ app/dash_app/    │
+                                   │ pages/settings   │
+                                   │ .py (category)   │  ← Step 7 (if new cat)
+                                   └─────────────────┘
+```

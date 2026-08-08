@@ -32,21 +32,109 @@ import os
 import signal
 import subprocess
 import sys
+import threading
 import uuid
 from collections.abc import Callable, Coroutine
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
+import aio_pika
 import httpx
 import pika
 
 from common.command_n_control.models import CommandEnvelope, CommandStatusUpdate
 from common.logger import logger
+from common.runtime_settings import RuntimeConfigCache
+from common.runtime_settings.client import fetch_runtime_snapshot
+from common.runtime_settings.events import listen_for_settings_changed
+
+# ── Module-level runtime settings cache (shared across daemon functions) ──
+# Initialised with all-defaults.  Refreshed at daemon startup and at each
+# scan/test child startup so child processes get a fresh snapshot without
+# inheriting the parent's in-memory state.
+runtime_cache: RuntimeConfigCache = RuntimeConfigCache()
+
+# ── RabbitMQ fanout listener thread ──────────────────────────────────────
+# Background daemon thread that listens for ``settings.changed`` events
+# and refreshes the local runtime settings cache.  Startup failure is
+# non-fatal — the process continues with the startup snapshot.
+# Initialised lazily by ``run_daemon()``.
+_settings_listener_thread: threading.Thread | None = None
+_settings_listener_stop_event = threading.Event()
+
+
+def _start_settings_listener(rabbitmq_url: str) -> None:
+    """Start a background daemon thread listening for runtime config events.
+
+    The thread runs its own asyncio event loop with
+    ``listen_for_settings_changed()``.  If the RabbitMQ connection fails,
+    a warning is logged and the process continues with the startup snapshot.
+
+    This function is idempotent: if a listener thread is already running,
+    it does nothing.
+    """
+    global _settings_listener_thread  # noqa: PLW0603
+
+    if _settings_listener_thread is not None and _settings_listener_thread.is_alive():
+        logger.debug("Settings listener thread already running — skipping")
+        return
+
+    _settings_listener_stop_event.clear()
+
+    async def _listen() -> None:
+        connection = None
+        try:
+            connection = await aio_pika.connect_robust(rabbitmq_url)
+
+            async def _on_event(changed_keys: list[str]) -> None:
+                logger.info(
+                    "Daemon received settings.changed event: keys=%s",
+                    changed_keys,
+                )
+                runtime_cache.refresh(fetch_runtime_snapshot(_api_base()))
+
+            await listen_for_settings_changed(
+                connection=connection,
+                on_event=_on_event,
+                instance_id=f"daemon-{os.environ.get('CONTAINER_NAME', 'unknown')}",
+            )
+        except Exception:  # pylint: disable=broad-except
+            logger.warning(
+                "Failed to start daemon settings listener — "
+                "settings changes will apply on next container restart",
+                exc_info=True,
+            )
+        finally:
+            if connection is not None and not connection.is_closed:
+                await connection.close()
+
+    def _run_loop() -> None:
+        asyncio.run(_listen())
+
+    if _settings_listener_thread is None or not _settings_listener_thread.is_alive():
+        thread = threading.Thread(
+            target=_run_loop,
+            daemon=True,
+            name="settings-listener",
+        )
+        thread.start()
+        _settings_listener_thread = thread
+        logger.info("Daemon settings listener thread started")
+
+
+def _stop_settings_listener() -> None:
+    """Signal the listener thread to stop (best-effort)."""
+    _settings_listener_stop_event.set()
 
 # ── Module-level state (shared across daemon functions) ───────────────────
 _children: Dict[int, uuid.UUID] = {}  # pid → command_id
 _test_children: Dict[int, tuple[uuid.UUID, subprocess.Popen]] = {}  # pid → (command_id, Popen)
 _max_scans: int = int(os.environ.get("MAX_CONCURRENT_SCANS", "5"))
+
+
+def _api_base() -> str:
+    """Return the base URL of the app API (lazy, respects env changes)."""
+    return os.environ.get("API_SERVER", "http://localhost:8000").rstrip("/")
 
 
 def _reap_children(signum: int, frame: Any) -> None:  # pylint: disable=unused-argument
@@ -136,8 +224,7 @@ def _poll_test_children() -> None:
 
 def _update_status(command_id: uuid.UUID, update: CommandStatusUpdate) -> None:
     """PATCH a status update to the app's API (sync)."""
-    api_base = os.environ.get("API_SERVER", "http://localhost:8000").rstrip("/")
-    url = f"{api_base}/api/v1/commands/{command_id}/status"
+    url = f"{_api_base()}/api/v1/commands/{command_id}/status"
     payload = update.model_dump(mode="json", exclude_none=True)
     logger.debug("PATCH %s %s", url, payload)
     try:
@@ -289,6 +376,13 @@ def run_daemon(
     producer_main_path: str,
 ) -> None:
     """Daemon entry point — sync pika loop + subprocess children + SIGCHLD."""
+    # Fetch runtime settings snapshot at startup (best-effort).
+    runtime_cache.refresh(fetch_runtime_snapshot(_api_base()))
+
+    # Start background listener for live runtime config changes.
+    rabbitmq_url = os.environ.get("RABBITMQ_URL", "amqp://guest:guest@localhost:5672/")
+    _start_settings_listener(rabbitmq_url)
+
     signal.signal(signal.SIGCHLD, _reap_children)  # reap child processes when they exit
     signal.signal(signal.SIGTERM, lambda sig, frame: sys.exit(0))  # trigger finally block to kill children + close connection
 
@@ -382,6 +476,9 @@ def run_scan(
     scan_func: Callable[[], Coroutine[Any, Any, None]],
 ) -> None:
     """Scan mode entry point — run scan and report status."""
+    # Fetch a fresh runtime settings snapshot at child startup (best-effort).
+    runtime_cache.refresh(fetch_runtime_snapshot(_api_base()))
+
     logger.info("Scan started command_id=%s", command_id)
 
     _update_status(command_id, CommandStatusUpdate(
@@ -416,6 +513,9 @@ def run_test(
     the exit code and printed message.  This function only needs to
     print the result and exit with the appropriate code.
     """
+    # Fetch a fresh runtime settings snapshot at child startup (best-effort).
+    runtime_cache.refresh(fetch_runtime_snapshot(_api_base()))
+
     logger.info("Test started command_id=%s", command_id)
 
     # Forward item_id to the test function via environment variable
