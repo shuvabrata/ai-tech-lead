@@ -965,14 +965,15 @@ so that all running processes refresh their cache when settings change.
 
 ---
 
-### Phase 6 — Dash Settings UI  `[phase:dash-ui]`  ⬜ TODO
+### Phase 6 — Dash Settings UI  `[phase:dash-ui]`  ✅ DONE
 
 **Goal:** Replace the placeholder settings page with a functional UI that lets
 users view and edit runtime-configurable settings.
 
 **Files to modify:**
-- `src/app/dash_app/pages/settings.py` — Replace placeholder with a full
+- `src/app/dash_app/pages/settings.py` — Replaced placeholder with a full
   settings editor.
+- `tests/test_settings_ui.py` — New integration tests for the settings UI.
 
 **UI layout:**
 - Grouped by `category` (e.g. "Network", "Graph", "UI", "Search", "Feature
@@ -991,20 +992,20 @@ users view and edit runtime-configurable settings.
 3. User clicks "Reset" → `POST /api/v1/settings/{key}/reset` → refresh UI.
 
 **Checkpoint** `[chk:dash-ui]`:
-- ⬜ Settings page loads and displays all 13 settings with correct values.
-- ⬜ Editing a string value persists and reflects in the UI.
-- ⬜ Editing an integer value enforces min/max bounds.
-- ⬜ Toggling a boolean works.
-- ⬜ Reset restores env/default value.
-- ⬜ Source indicator (`db` / `env` / `default`) is accurate.
-- ⬜ Error feedback shown for invalid values.
+- ✅ Settings page loads and displays all 13 settings with correct values.
+- ✅ Editing a string value persists and reflects in the UI.
+- ✅ Editing an integer value enforces min/max bounds.
+- ✅ Toggling a boolean works.
+- ✅ Reset restores env/default value.
+- ✅ Source indicator (`db` / `env` / `default`) is accurate.
+- ✅ Error feedback shown for invalid values.
 
-**Tests:** `test_settings_ui.py` (`@pytest.mark.integration`, `server`)  ⬜ TODO
+**Tests:** `test_settings_ui.py` (`@pytest.mark.integration`, `server`)  ✅ DONE
 
-- ⬜ Dashboard renders settings correctly.
-- ⬜ Edit → save → verify flow.
-- ⬜ Invalid input shows error feedback.
-- ⬜ Reset restores default.
+- ✅ Dashboard renders settings correctly.
+- ✅ Edit → save → verify flow.
+- ✅ Invalid input shows error feedback.
+- ✅ Reset restores default.
 
 ---
 
