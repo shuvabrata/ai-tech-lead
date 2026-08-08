@@ -270,47 +270,63 @@ def get_layout() -> html.Div:
             dcc.Store(id="settings-initial-store", data=None),
             html.Div(id="settings-feedback"),
             html.Div("Runtime Settings", style=PAGE_HEADER_STYLE),
-            html.Div(
-                "Configure application behaviour without restarting containers. "
-                "Changes apply immediately.",
-                style={
-                    "fontFamily": FONT_SANS,
-                    "fontSize": FONT_SIZE_SMALL,
-                    "color": COLOR_GRAY_MEDIUM,
-                    "marginBottom": SPACING_SMALL,
-                    "lineHeight": "1.6",
-                },
-            ),
-            html.Div(id="settings-content"),
+            # Description + sticky action bar on the same row.
             html.Div(
                 [
-                    dbc.Button(
-                        "Save All Changes",
-                        id="settings-save-all",
-                        color="primary",
-                        style={
-                            **BUTTON_PRIMARY_STYLE,
-                            "marginRight": SPACING_XSMALL,
-                        },
-                    ),
-                    dbc.Button(
-                        "Reset All to Default",
-                        id="settings-reset-all",
-                        color="outline-danger",
-                        size="sm",
+                    html.Div(
+                        "Configure application behaviour without restarting "
+                        "containers. Changes apply immediately.",
                         style={
                             "fontFamily": FONT_SANS,
-                            "fontSize": FONT_SIZE_XSMALL,
+                            "fontSize": FONT_SIZE_SMALL,
+                            "color": COLOR_GRAY_MEDIUM,
+                            "lineHeight": "1.6",
+                        },
+                    ),
+                    html.Div(
+                        [
+                            dbc.Button(
+                                "Save All Changes",
+                                id="settings-save-all",
+                                color="primary",
+                                style={
+                                    **BUTTON_PRIMARY_STYLE,
+                                    "marginRight": SPACING_XSMALL,
+                                },
+                            ),
+                            dbc.Button(
+                                "Reset All to Default",
+                                id="settings-reset-all",
+                                color="outline-danger",
+                                size="sm",
+                                style={
+                                    "fontFamily": FONT_SANS,
+                                    "fontSize": FONT_SIZE_XSMALL,
+                                },
+                            ),
+                        ],
+                        style={
+                            "display": "flex",
+                            "alignItems": "center",
+                            "gap": SPACING_XSMALL,
+                            "marginLeft": "auto",
                         },
                     ),
                 ],
                 style={
-                    "padding": f"{SPACING_SMALL} 0",
+                    "position": "sticky",
+                    "top": 0,
+                    "zIndex": 10,
+                    "backgroundColor": COLOR_BACKGROUND_WHITE,
+                    "padding": f"{SPACING_XSMALL} 0",
                     "display": "flex",
                     "alignItems": "center",
-                    "gap": SPACING_XSMALL,
+                    "gap": SPACING_SMALL,
+                    "borderBottom": f"1px solid {COLOR_BORDER}",
+                    "marginBottom": SPACING_SMALL,
                 },
             ),
+            html.Div(id="settings-content"),
         ],
         style=CARD_CONTAINER_STYLE,
     )
