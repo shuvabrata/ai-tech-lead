@@ -21,13 +21,32 @@ from typing import Any
 import httpx
 import pytest
 
+from app.dash_app.pages.settings import get_layout, render_settings
+
 pytestmark = [pytest.mark.integration, pytest.mark.server]
 
 BASE_URL = "http://localhost:8000"
 APP_BASE = f"{BASE_URL}/app"
 
 
-# ── Snapshot / restore ────────────────────────────────────────────────
+# ── Helpers ────────────────────────────────────────────────────────────
+
+
+def _flatten_text(component: Any) -> str:
+    """Flatten a Dash component tree into a single text string."""
+    if isinstance(component, (str, int, float, bool)):
+        return str(component)
+    if isinstance(component, list):
+        return " ".join(_flatten_text(c) for c in component)
+    parts: list[str] = []
+    children = getattr(component, "children", None)
+    if children is None:
+        return ""
+    if not isinstance(children, list):
+        children = [children]
+    for child in children:
+        parts.append(_flatten_text(child))
+    return " ".join(parts)
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -65,7 +84,7 @@ def _setting_map(settings: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
 
 
 class TestSettingsDashboardRenders:
-    """Verify the settings page loads and shows the correct structure."""
+    """Verify the settings page layout produces the correct component tree."""
 
     def test_settings_page_returns_200(self) -> None:
         """The Dash settings page returns HTTP 200."""
@@ -73,22 +92,22 @@ class TestSettingsDashboardRenders:
         assert resp.status_code == 200
 
     def test_settings_page_contains_runtime_settings_header(self) -> None:
-        """The page contains the 'Runtime Settings' header text."""
-        resp = httpx.get(f"{APP_BASE}/settings", timeout=10)
-        assert resp.status_code == 200
-        assert "Runtime Settings" in resp.text
+        """The layout contains the 'Runtime Settings' header text."""
+        layout = get_layout()
+        text = _flatten_text(layout)
+        assert "Runtime Settings" in text
 
     def test_settings_page_contains_save_all_button(self) -> None:
-        """The page contains the 'Save All Changes' button."""
-        resp = httpx.get(f"{APP_BASE}/settings", timeout=10)
-        assert resp.status_code == 200
-        assert "Save All Changes" in resp.text
+        """The layout contains the 'Save All Changes' button."""
+        layout = get_layout()
+        text = _flatten_text(layout)
+        assert "Save All Changes" in text
 
     def test_settings_page_contains_reset_all_button(self) -> None:
-        """The page contains the 'Reset All to Default' button."""
-        resp = httpx.get(f"{APP_BASE}/settings", timeout=10)
-        assert resp.status_code == 200
-        assert "Reset All to Default" in resp.text
+        """The layout contains the 'Reset All to Default' button."""
+        layout = get_layout()
+        text = _flatten_text(layout)
+        assert "Reset All to Default" in text
 
 
 class TestSettingsDataLoaded:
@@ -111,28 +130,32 @@ class TestSettingsDataLoaded:
         assert categories == expected
 
     def test_page_renders_setting_keys_in_html(self) -> None:
-        """The settings HTML contains key names from the API."""
+        """The rendered settings content contains key names from the API."""
         resp = httpx.get(f"{BASE_URL}/api/v1/settings/", timeout=10)
         assert resp.status_code == 200
         settings = resp.json()
         key_names = [s["key"] for s in settings]
 
-        page_resp = httpx.get(f"{APP_BASE}/settings", timeout=10)
-        assert page_resp.status_code == 200
+        children, feedback, initial = render_settings(settings)
+        text = _flatten_text(children)
 
         for key in key_names:
-            assert key in page_resp.text, (
-                f"Setting key '{key}' not found in settings page HTML"
+            assert key in text, (
+                f"Setting key '{key}' not found in rendered settings content"
             )
 
     def test_page_renders_source_badges(self) -> None:
-        """The page HTML contains source indicator text (db/env/default)."""
-        page_resp = httpx.get(f"{APP_BASE}/settings", timeout=10)
-        assert page_resp.status_code == 200
-        # The API returns these as badge text in the rendered HTML.
+        """The rendered settings content contains source indicator text."""
+        resp = httpx.get(f"{BASE_URL}/api/v1/settings/", timeout=10)
+        assert resp.status_code == 200
+        settings = resp.json()
+
+        children, feedback, initial = render_settings(settings)
+        text = _flatten_text(children)
+
         for source in ("env", "default"):
-            assert source in page_resp.text, (
-                f"Source badge '{source}' not found in settings page HTML"
+            assert source in text, (
+                f"Source badge '{source}' not found in rendered settings content"
             )
 
 
