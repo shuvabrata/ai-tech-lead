@@ -43,6 +43,18 @@ class SingleUpdateRequest(BaseModel):
     expected_updated_at: datetime | None = None
 
 
+class SingleResetRequest(BaseModel):
+    """Request body for resetting a single setting."""
+
+    expected_updated_at: datetime | None = None
+
+
+class BulkResetRequest(BaseModel):
+    """Request body for resetting all settings."""
+
+    expected_updated_at: datetime | None = None
+
+
 class BulkUpdateResponse(BaseModel):
     """Response after a successful bulk update."""
 

@@ -16,9 +16,11 @@ from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.settings.v1.models import BulkUpdateRequest, BulkUpdateResponse
+from app.api.settings.v1.models import BulkResetRequest
 from app.api.settings.v1.models import ConflictResponse
 from app.api.settings.v1.models import RuntimeSnapshotResponse
 from app.api.settings.v1.models import SettingResponse, SingleUpdateRequest
+from app.api.settings.v1.models import SingleResetRequest
 from app.api.settings.v1 import service as settings_service
 from app.api.settings.v1.service import ConflictError
 from app.db.session import get_async_db
@@ -99,21 +101,46 @@ async def update_single_setting(
 
 @router.post("/reset", response_model=list[SettingResponse])
 async def reset_all_settings(
+    body: BulkResetRequest,
     db: AsyncSession = Depends(get_async_db),
 ) -> list[SettingResponse]:
     """Reset all settings to their env/default values."""
-    rows = await settings_service.reset_all(db)
-    return [SettingResponse(**row) for row in rows]
+    try:
+        rows = await settings_service.reset_all(
+            db, expected_updated_at=body.expected_updated_at
+        )
+        return [SettingResponse(**row) for row in rows]
+    except ConflictError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail=ConflictResponse(
+                detail=str(exc),
+                conflicting_keys=exc.conflicting_keys,
+                current_values=exc.current_values,
+            ).model_dump(),
+        ) from exc
 
 
 @router.post("/{key}/reset", response_model=SettingResponse)
 async def reset_single_setting(
     key: str,
+    body: SingleResetRequest,
     db: AsyncSession = Depends(get_async_db),
 ) -> SettingResponse:
     """Reset a single setting to its env/default value."""
     try:
-        result = await settings_service.reset_single(db, key)
+        result = await settings_service.reset_single(
+            db, key, expected_updated_at=body.expected_updated_at
+        )
         return SettingResponse(**result)
+    except ConflictError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail=ConflictResponse(
+                detail=str(exc),
+                conflicting_keys=exc.conflicting_keys,
+                current_values=exc.current_values,
+            ).model_dump(),
+        ) from exc
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc

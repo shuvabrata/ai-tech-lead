@@ -46,7 +46,7 @@ def settings_snapshot() -> dict[str, object | None]:
     # --- teardown: restore original values ---
     with httpx.Client(base_url=BASE_URL, timeout=10) as client:
         # Reset all to clear any overrides left by tests.
-        client.post("/api/v1/settings/reset")
+        client.post("/api/v1/settings/reset", json={})
         # Re-apply any original non-None values.
         overrides = {k: v for k, v in snapshot.items() if v is not None}
         if overrides:
@@ -239,7 +239,16 @@ class TestResetSingle:
                 "/api/v1/settings/TIMEZONE",
                 json={"value": "America/New_York"},
             )
-            resp = await client.post("/api/v1/settings/TIMEZONE/reset")
+
+            # Fetch the current timestamp — like the app does on page load.
+            get_resp = await client.get("/api/v1/settings/")
+            settings = _setting_map(get_resp.json())
+            updated_at = settings["TIMEZONE"]["updated_at"]
+
+            resp = await client.post(
+                "/api/v1/settings/TIMEZONE/reset",
+                json={"expected_updated_at": updated_at},
+            )
         assert resp.status_code == 200
         data = resp.json()
         assert data["key"] == "TIMEZONE"
@@ -266,12 +275,77 @@ class TestResetAll:
     ) -> None:
         """Resetting all sets all values to None."""
         async with httpx.AsyncClient(base_url=BASE_URL) as client:
-            resp = await client.post("/api/v1/settings/reset")
+            # Fetch current timestamps — like the app does on page load.
+            get_resp = await client.get("/api/v1/settings/")
+            settings = get_resp.json()
+            timestamps = [s["updated_at"] for s in settings if s.get("updated_at")]
+            expected_updated_at = max(timestamps) if timestamps else None
+
+            resp = await client.post(
+                "/api/v1/settings/reset",
+                json={"expected_updated_at": expected_updated_at},
+            )
         assert resp.status_code == 200
         data = resp.json()
         assert len(data) == 13
         for item in data:
             assert item["value"] is None
+
+
+# ── Reset conflict tests ──────────────────────────────────────────────
+
+
+class TestResetConflicts:
+    """Verify reset endpoints reject stale data."""
+
+    @pytest.mark.asyncio
+    async def test_reset_single_rejects_stale_data(self) -> None:
+        """POST /settings/{key}/reset with stale expected_updated_at returns 409."""
+        async with httpx.AsyncClient(base_url=BASE_URL) as client:
+            # First, get current state.
+            get_resp = await client.get("/api/v1/settings/")
+            assert get_resp.status_code == 200
+            settings = _setting_map(get_resp.json())
+            timeout_setting = settings["HTTP_REQUEST_TIMEOUT"]
+            stale_updated_at = timeout_setting["updated_at"]
+
+            # Make a concurrent change.
+            await client.patch(
+                "/api/v1/settings/",
+                json={"updates": {"HTTP_REQUEST_TIMEOUT": 99}},
+            )
+
+            # Now try to reset with the stale timestamp — should get 409.
+            resp = await client.post(
+                "/api/v1/settings/HTTP_REQUEST_TIMEOUT/reset",
+                json={"expected_updated_at": stale_updated_at},
+            )
+            assert resp.status_code == 409
+            data = resp.json()
+            assert "conflicting_keys" in data["detail"]
+            assert "HTTP_REQUEST_TIMEOUT" in data["detail"]["conflicting_keys"]
+
+    @pytest.mark.asyncio
+    async def test_reset_all_rejects_stale_data(self) -> None:
+        """POST /settings/reset with stale expected_updated_at returns 409."""
+        async with httpx.AsyncClient(base_url=BASE_URL) as client:
+            get_resp = await client.get("/api/v1/settings/")
+            assert get_resp.status_code == 200
+            settings = _setting_map(get_resp.json())
+            timeout_setting = settings["HTTP_REQUEST_TIMEOUT"]
+            stale_updated_at = timeout_setting["updated_at"]
+
+            # Make a concurrent change.
+            await client.patch(
+                "/api/v1/settings/",
+                json={"updates": {"HTTP_REQUEST_TIMEOUT": 88}},
+            )
+
+            resp = await client.post(
+                "/api/v1/settings/reset",
+                json={"expected_updated_at": stale_updated_at},
+            )
+            assert resp.status_code == 409
 
 
 # ── GET /api/v1/settings/runtime-snapshot ─────────────────────────────

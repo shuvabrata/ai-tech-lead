@@ -311,10 +311,81 @@ class TestReset:
             _make_row("HTTP_REQUEST_TIMEOUT", value=90),
             _make_row("TIMEZONE", value=None, value_type="string"),
         ]
-        with patch.object(qry, "reset_all_values", AsyncMock(return_value=rows)):
+        with patch.object(qry, "get_all_settings", AsyncMock(return_value=rows)), \
+             patch.object(qry, "check_conflicts", AsyncMock(return_value={})), \
+             patch.object(qry, "reset_all_values", AsyncMock(return_value=rows)):
             result = await service.reset_all(mock_db)
 
         assert len(result) == 2
         by_key = {r["key"]: r for r in result}
         assert by_key["HTTP_REQUEST_TIMEOUT"]["value"] is None
         assert by_key["TIMEZONE"]["value"] is None
+
+    @pytest.mark.unit
+    async def test_reset_single_conflict_raises(
+        self, mock_db: AsyncMock, fresh_cache: RuntimeConfigCache
+    ) -> None:
+        """A stale reset_single raises ConflictError."""
+        expected = datetime(2026, 8, 1, tzinfo=timezone.utc)
+        row = _make_row("HTTP_REQUEST_TIMEOUT")
+        conflicts = {
+            "HTTP_REQUEST_TIMEOUT": {"value": 120, "updated_at": "2026-08-02T00:00:00Z"}
+        }
+        with patch.object(qry, "get_setting_by_key", AsyncMock(return_value=row)), \
+             patch.object(qry, "check_conflicts", AsyncMock(return_value=conflicts)):
+            with pytest.raises(ConflictError) as exc_info:
+                await service.reset_single(
+                    mock_db, "HTTP_REQUEST_TIMEOUT", expected_updated_at=expected,
+                )
+
+        assert exc_info.value.conflicting_keys == ["HTTP_REQUEST_TIMEOUT"]
+        assert exc_info.value.current_values == {"HTTP_REQUEST_TIMEOUT": 120}
+
+    @pytest.mark.unit
+    async def test_reset_all_conflict_raises(
+        self, mock_db: AsyncMock, fresh_cache: RuntimeConfigCache
+    ) -> None:
+        """A stale reset_all raises ConflictError."""
+        expected = datetime(2026, 8, 1, tzinfo=timezone.utc)
+        rows = [_make_row("HTTP_REQUEST_TIMEOUT")]
+        conflicts = {
+            "HTTP_REQUEST_TIMEOUT": {"value": 120, "updated_at": "2026-08-02T00:00:00Z"}
+        }
+        with patch.object(qry, "get_all_settings", AsyncMock(return_value=rows)), \
+             patch.object(qry, "check_conflicts", AsyncMock(return_value=conflicts)):
+            with pytest.raises(ConflictError) as exc_info:
+                await service.reset_all(
+                    mock_db, expected_updated_at=expected,
+                )
+
+        assert exc_info.value.conflicting_keys == ["HTTP_REQUEST_TIMEOUT"]
+        assert exc_info.value.current_values == {"HTTP_REQUEST_TIMEOUT": 120}
+
+    @pytest.mark.unit
+    async def test_reset_single_no_conflict_when_expected_none(
+        self, mock_db: AsyncMock, fresh_cache: RuntimeConfigCache
+    ) -> None:
+        """reset_single skips conflict check when expected_updated_at is None."""
+        row = _make_row("HTTP_REQUEST_TIMEOUT", value=None)
+        with patch.object(qry, "get_setting_by_key", AsyncMock(return_value=row)), \
+             patch.object(qry, "reset_setting_value", AsyncMock(return_value=row)), \
+             patch.object(qry, "get_all_settings", AsyncMock(return_value=[row])), \
+             patch.object(service, "_publish_changed", AsyncMock(return_value=None)):
+            result = await service.reset_single(mock_db, "HTTP_REQUEST_TIMEOUT")
+
+        assert result["value"] is None
+
+    @pytest.mark.unit
+    async def test_reset_all_no_conflict_when_expected_none(
+        self, mock_db: AsyncMock, fresh_cache: RuntimeConfigCache
+    ) -> None:
+        """reset_all skips conflict check when expected_updated_at is None."""
+        rows = [
+            _make_row("HTTP_REQUEST_TIMEOUT", value=90),
+            _make_row("TIMEZONE", value=None, value_type="string"),
+        ]
+        with patch.object(qry, "get_all_settings", AsyncMock(return_value=rows)), \
+             patch.object(qry, "reset_all_values", AsyncMock(return_value=rows)):
+            result = await service.reset_all(mock_db)
+
+        assert len(result) == 2

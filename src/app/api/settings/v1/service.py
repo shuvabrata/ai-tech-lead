@@ -321,12 +321,27 @@ async def update_single(
 
 
 async def reset_single(
-    db: AsyncSession, key: str
+    db: AsyncSession,
+    key: str,
+    expected_updated_at: datetime | None = None,
 ) -> dict[str, Any]:
     """Reset a single setting to ``NULL`` (env/default falls through).
 
     Returns the source-aware row dict.
+
+    Raises ``ConflictError`` if the row changed since
+    *expected_updated_at*.
     """
+    row = await qry.get_setting_by_key(db, key)
+    if row is None:
+        raise ValueError(f"Unknown setting key: {key}")
+
+    # 1b. Optimistic concurrency check.
+    conflicts = await qry.check_conflicts(db, [key], expected_updated_at)
+    if conflicts:
+        current_values = {k: v["value"] for k, v in conflicts.items()}
+        raise ConflictError(list(conflicts.keys()), current_values)
+
     row = await qry.reset_setting_value(db, key)
     if row is None:
         raise ValueError(f"Unknown setting key: {key}")
@@ -356,11 +371,23 @@ async def reset_single(
 
 async def reset_all(
     db: AsyncSession,
+    expected_updated_at: datetime | None = None,
 ) -> list[dict[str, Any]]:
     """Reset all settings to ``NULL`` (env/default falls through).
 
     Returns source-aware row dicts.
+
+    Raises ``ConflictError`` if any row changed since
+    *expected_updated_at*.
     """
+    # 0. Optimistic concurrency check — check all keys.
+    rows = await qry.get_all_settings(db)
+    all_keys = [r.key for r in rows]
+    conflicts = await qry.check_conflicts(db, all_keys, expected_updated_at)
+    if conflicts:
+        current_values = {k: v["value"] for k, v in conflicts.items()}
+        raise ConflictError(list(conflicts.keys()), current_values)
+
     rows = await qry.reset_all_values(db)
     _runtime_cache.refresh(_resolve_effective_config(rows))
 

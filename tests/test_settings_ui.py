@@ -66,7 +66,7 @@ def settings_snapshot() -> Iterator[dict[str, object | None]]:
     yield snapshot
 
     with httpx.Client(base_url=BASE_URL, timeout=10) as client:
-        client.post("/api/v1/settings/reset")
+        client.post("/api/v1/settings/reset", json={})
         overrides = {k: v for k, v in snapshot.items() if v is not None}
         if overrides:
             client.patch("/api/v1/settings/", json={"updates": overrides})
@@ -243,8 +243,15 @@ class TestSettingsEditSaveReset:
             json={"updates": {"HTTP_REQUEST_TIMEOUT": 120}},
             timeout=10,
         )
+
+        # Fetch the current timestamp — like the app does on page load.
+        get_resp = httpx.get(f"{BASE_URL}/api/v1/settings/", timeout=10)
+        settings = _setting_map(get_resp.json())
+        updated_at = settings["HTTP_REQUEST_TIMEOUT"]["updated_at"]
+
         resp = httpx.post(
             f"{BASE_URL}/api/v1/settings/HTTP_REQUEST_TIMEOUT/reset",
+            json={"expected_updated_at": updated_at},
             timeout=10,
         )
         assert resp.status_code == 200
@@ -264,7 +271,17 @@ class TestSettingsEditSaveReset:
             json={"updates": {"HTTP_REQUEST_TIMEOUT": 90, "TIMEZONE": "America/New_York"}},
             timeout=10,
         )
-        resp = httpx.post(f"{BASE_URL}/api/v1/settings/reset", timeout=10)
+
+        # Fetch current timestamps — like the app does on page load.
+        get_resp = httpx.get(f"{BASE_URL}/api/v1/settings/", timeout=10)
+        timestamps = [s["updated_at"] for s in get_resp.json() if s.get("updated_at")]
+        expected_updated_at = max(timestamps) if timestamps else None
+
+        resp = httpx.post(
+            f"{BASE_URL}/api/v1/settings/reset",
+            json={"expected_updated_at": expected_updated_at},
+            timeout=10,
+        )
         assert resp.status_code == 200
 
         verify = httpx.get(f"{BASE_URL}/api/v1/settings/", timeout=10)

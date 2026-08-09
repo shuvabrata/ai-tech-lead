@@ -423,7 +423,13 @@ def render_settings(
             )
         )
 
-    initial = {s["key"]: s["effective_value"] for s in store}
+    initial = {
+        s["key"]: {
+            "value": s["effective_value"],
+            "updated_at": s.get("updated_at"),
+        }
+        for s in store
+    }
     return (sections, no_update, initial)
 
 
@@ -438,7 +444,7 @@ def render_settings(
 )
 def save_all_settings(
     n_clicks: int | None,
-    initial_data: dict[str, Any] | None,
+    initial_data: dict[str, dict[str, Any]] | None,
     input_values: list[Any],
     input_ids: list[dict[str, str]],
 ) -> tuple[Any, Any]:
@@ -447,6 +453,7 @@ def save_all_settings(
         raise PreventUpdate
 
     updates: dict[str, Any] = {}
+    timestamps: list[str] = []
     for input_id, value in zip(input_ids, input_values):
         key = input_id["key"]
         # Normalise boolean checklist values: [True] → True, [] → False.
@@ -457,8 +464,14 @@ def save_all_settings(
         else:
             normalised = value
 
-        if key in initial_data and normalised != initial_data[key]:
+        entry = initial_data.get(key)
+        if entry is None:
+            continue
+        if normalised != entry["value"]:
             updates[key] = normalised
+            ts = entry.get("updated_at")
+            if ts:
+                timestamps.append(ts)
 
     if not updates:
         return no_update, create_alert(
@@ -468,8 +481,19 @@ def save_all_settings(
             duration=3000,
         )
 
+    # Use the most recent loaded timestamp as the optimistic concurrency guard.
+    # This ensures only changes made *after* the page was loaded trigger a conflict.
+    expected_updated_at = max(timestamps) if timestamps else None
+
     try:
-        resp = requests.patch(SETTINGS_API, json={"updates": updates}, timeout=10)
+        resp = requests.patch(
+            SETTINGS_API,
+            json={
+                "updates": updates,
+                "expected_updated_at": expected_updated_at,
+            },
+            timeout=10,
+        )
         if resp.status_code == 422:
             detail = resp.json()
             msg = detail.get("detail", str(detail))
@@ -511,9 +535,13 @@ def save_all_settings(
     Output("settings-store", "data", allow_duplicate=True),
     Output("settings-feedback", "children", allow_duplicate=True),
     Input({"type": "settings-reset-btn", "key": ALL}, "n_clicks"),
+    State("settings-initial-store", "data"),
     prevent_initial_call=True,
 )
-def reset_single_setting(_n_clicks_list: list[int | None]) -> tuple[Any, Any]:
+def reset_single_setting(
+    _n_clicks_list: list[int | None],
+    initial_data: dict[str, dict[str, Any]] | None,
+) -> tuple[Any, Any]:
     """Reset a single setting when its reset button is clicked."""
     ctx = callback_context
     if not ctx.triggered:
@@ -535,12 +563,26 @@ def reset_single_setting(_n_clicks_list: list[int | None]) -> tuple[Any, Any]:
     except (json.JSONDecodeError, KeyError, IndexError) as exc:
         raise PreventUpdate from exc
 
+    # Get the timestamp loaded when the page was first rendered.
+    entry = initial_data.get(key) if initial_data else None
+    expected_updated_at = entry.get("updated_at") if entry else None
+
     try:
-        resp = requests.post(f"{SETTINGS_API}{key}/reset", timeout=10)
+        resp = requests.post(
+            f"{SETTINGS_API}{key}/reset",
+            json={"expected_updated_at": expected_updated_at},
+            timeout=10,
+        )
         if resp.status_code == 422:
             detail = resp.json().get("detail", "Unknown error")
             return no_update, create_alert(
                 f"Reset failed: {detail}", color="danger", class_name="mb-3"
+            )
+        if resp.status_code == 409:
+            detail = resp.json().get("detail", {})
+            msg = detail.get("detail", "Stale data \u2014 please reload and try again.")
+            return no_update, create_alert(
+                f"Conflict: {msg}", color="warning", class_name="mb-3"
             )
         resp.raise_for_status()
 
@@ -564,15 +606,38 @@ def reset_single_setting(_n_clicks_list: list[int | None]) -> tuple[Any, Any]:
     Output("settings-store", "data", allow_duplicate=True),
     Output("settings-feedback", "children", allow_duplicate=True),
     Input("settings-reset-all", "n_clicks"),
+    State("settings-initial-store", "data"),
     prevent_initial_call=True,
 )
-def reset_all_settings(n_clicks: int | None) -> tuple[Any, Any]:
+def reset_all_settings(
+    n_clicks: int | None,
+    initial_data: dict[str, dict[str, Any]] | None,
+) -> tuple[Any, Any]:
     """Reset all settings to their env/default values."""
     if not n_clicks:
         raise PreventUpdate
 
+    # Use the most recent loaded timestamp as the optimistic concurrency guard.
+    # This ensures only changes made *after* the page was loaded trigger a conflict.
+    timestamps = [
+        entry["updated_at"]
+        for entry in (initial_data or {}).values()
+        if entry.get("updated_at")
+    ]
+    expected_updated_at = max(timestamps) if timestamps else None
+
     try:
-        resp = requests.post(f"{SETTINGS_API}reset", timeout=10)
+        resp = requests.post(
+            f"{SETTINGS_API}reset",
+            json={"expected_updated_at": expected_updated_at},
+            timeout=10,
+        )
+        if resp.status_code == 409:
+            detail = resp.json().get("detail", {})
+            msg = detail.get("detail", "Stale data \u2014 please reload and try again.")
+            return no_update, create_alert(
+                f"Conflict: {msg}", color="warning", class_name="mb-3"
+            )
         resp.raise_for_status()
 
         reload_resp = requests.get(SETTINGS_API, timeout=10)
