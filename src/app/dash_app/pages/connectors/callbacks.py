@@ -13,7 +13,7 @@ from dash import ALL, MATCH, Input, Output, State, callback, callback_context, c
 from dash.exceptions import PreventUpdate
 
 from app.common.timezone import humanize_duration, to_app_timezone
-from app.settings import settings
+from app.runtime_settings import runtime_settings
 from app.api.connectors.v1.registry import CONNECTOR_REGISTRY
 from app.dash_app.components.common import create_alert
 from app.dash_app.styles import (
@@ -38,7 +38,8 @@ from .components.config_forms import (
 )
 from .components.scan_status import render_scan_item
 
-TIMEOUT_SECONDS = settings.HTTP_REQUEST_TIMEOUT
+
+TIMEOUT_SECONDS = runtime_settings.get_int("HTTP_REQUEST_TIMEOUT")
 
 # Fields that should be parsed from comma-separated strings to lists
 ARRAY_FIELDS = {'include_spaces', 'exclude_spaces', 'branch_name_patterns', 'extraction_sources'}
@@ -485,7 +486,7 @@ def render_items_list(store: Dict[str, Any] | None):
                 
                 # Convert to the configured app timezone and format
                 local_dt = to_app_timezone(dt)
-                fmt = getattr(settings, "UI_DATETIME_FORMAT", "%b %d, %Y %I:%M %p")
+                fmt = runtime_settings.get("UI_DATETIME_FORMAT")
                 actual_time = local_dt.strftime(fmt)
                 duration_str = humanize_duration(local_dt)
                 display_time_component = html.Span(duration_str, title=actual_time)
@@ -1339,7 +1340,7 @@ def handle_run_scan(n_clicks: List[int | None]):
         # without waiting for the next poll interval.
         scans_response = requests.get(
             f"{api_base}/api/v1/commands/",
-            params={"target": container_name, "limit": settings.RECENT_ACTIONS_LIMIT},
+            params={"target": container_name, "limit": runtime_settings.get_int("RECENT_ACTIONS_LIMIT")},
             timeout=TIMEOUT_SECONDS,
         )
         scans_response.raise_for_status()
@@ -1407,7 +1408,7 @@ def load_recent_scans(
     try:
         response = requests.get(
             f"{api_base}/api/v1/commands/",
-            params={"target": container_name, "limit": settings.RECENT_ACTIONS_LIMIT},
+            params={"target": container_name, "limit": runtime_settings.get_int("RECENT_ACTIONS_LIMIT")},
             timeout=TIMEOUT_SECONDS,
         )
         response.raise_for_status()

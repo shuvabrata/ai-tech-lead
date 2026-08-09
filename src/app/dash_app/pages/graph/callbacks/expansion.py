@@ -6,7 +6,7 @@ Callbacks for node expansion (double-click and modal-based).
 import requests
 from dash import Input, Output, State, callback, no_update
 
-from app.settings import settings
+from app.runtime_settings import runtime_settings
 from common.logger import logger
 from ..utils import (
     execute_expansion_and_merge,
@@ -17,7 +17,7 @@ from ..utils import (
     is_edge_element,
 )
 
-TIMEOUT_SECONDS = settings.HTTP_REQUEST_TIMEOUT
+TIMEOUT_SECONDS = runtime_settings.get_int("HTTP_REQUEST_TIMEOUT")
 
 
 @callback(
@@ -86,7 +86,7 @@ def execute_doubleclick_expansion(dblclick_data, current_elements, current_unfil
         result = execute_expansion_and_merge(
             node_id=node_id,
             direction="both",
-            limit=settings.GRAPH_UI_MAX_NODES_TO_EXPAND,
+            limit=runtime_settings.get_int("GRAPH_UI_MAX_NODES_TO_EXPAND"),
             loaded_node_ids=loaded_node_ids,
             expanded_nodes=expanded_nodes,
             # Merge against the full unfiltered baseline, not the filtered

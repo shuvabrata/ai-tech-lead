@@ -112,25 +112,31 @@ def _fetch_neo4j_nodes(session, source: str, entity_type: str) -> dict[str, dict
     Relationship IDs are the ``id`` property values of all directly connected
     neighbour nodes, mirroring the ``relationship_ids`` list the consumer builds
     from ``ActivitySignal.relationships``.
+
+    Stub nodes (relationship-target placeholders with only an ``id`` property)
+    are unconditionally excluded — they have no corresponding ES document.
     """
     label = _neo4j_label(entity_type)
     prefix = f"{source}::{entity_type}::"
-    # Fetch properties and all directly connected neighbour IDs in one query.
-    # OPTIONAL MATCH ensures nodes with no relationships are still returned.
+    # Use n (node reference) instead of properties(n) in the RETURN clause to
+    # avoid aggregation issues: properties(n) is a map and Neo4j groups by map
+    # *value*, which can silently drop nodes whose property maps are identical.
+    # Node references are grouped by identity, which is always correct.
     query = (
         f"MATCH (n:{label}) "
-        "WHERE n.source = $source OR n.id STARTS WITH $prefix "
+        "WHERE (n.source = $source OR n.id STARTS WITH $prefix) "
+        "AND size(keys(n)) > 1 "
         "OPTIONAL MATCH (n)--(neighbour) "
         "WHERE neighbour.id IS NOT NULL "
-        "RETURN n.id AS wba_id, properties(n) AS props, "
-        "collect(neighbour.id) AS neighbour_ids"
+        "RETURN n.id AS wba_id, n AS node_ref, "
+        "collect(DISTINCT neighbour.id) AS neighbour_ids"
     )
     result = session.run(query, source=source, prefix=prefix)
     nodes: dict[str, dict] = {}
     for record in result:
         wba_id = record["wba_id"]
         if wba_id and wba_id.startswith(prefix):
-            props = dict(record["props"])
+            props = dict(record["node_ref"])
             # Deduplicate and filter out any None values from the collect().
             neighbour_ids = list({
                 nid for nid in record["neighbour_ids"] if nid

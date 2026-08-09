@@ -6,7 +6,7 @@ from neo4j.graph import Node, Path, Relationship
 
 from common.logger import logger
 from app.query_catalog import CatalogLoadError, CatalogQuery, get_catalog_query
-from app.settings import settings
+from app.runtime_settings import runtime_settings
 from app.analytics.collaboration.algorithm import (
         build_graph,
         detect_communities,
@@ -143,7 +143,7 @@ def execute_and_format_query(
     logger.info(f"Executing query: {query[:100]}...")
     raw_results = execute_cypher_query(
         query,
-        timeout=settings.NEO4J_QUERY_TIMEOUT,
+        timeout=runtime_settings.get_int("NEO4J_QUERY_TIMEOUT"),
         parameters=parameters,
     )
 
@@ -283,7 +283,7 @@ def expand_node(
     """
     # Use configured default if limit not provided
     if limit is None:
-        limit = settings.GRAPH_UI_MAX_NODES_TO_EXPAND
+        limit = runtime_settings.get_int("GRAPH_UI_MAX_NODES_TO_EXPAND")
     
     logger.info(f"Expanding node {node_id} in direction '{direction}' with limit={limit}, offset={offset}")
     
@@ -381,7 +381,7 @@ def get_collaboration_network(
     logger.info("Running collaboration score query...")
     records = execute_cypher_query(
         query,
-        timeout=settings.NEO4J_QUERY_TIMEOUT,
+        timeout=runtime_settings.get_int("NEO4J_QUERY_TIMEOUT"),
         parameters=config.to_cypher_parameters(),
     )
     logger.info(f"Collaboration query returned {len(records)} pairs.")

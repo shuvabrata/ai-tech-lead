@@ -19,12 +19,12 @@ from app.dash_app.styles import (
     COLOR_TEXT_SECONDARY,
     COLOR_GRAY_MEDIUM,
 )
-from app.settings import settings
+from app.runtime_settings import runtime_settings
 
 from ..utils import create_error_alert, get_graph_api_base_url
 
 
-TIMEOUT_SECONDS = settings.HTTP_REQUEST_TIMEOUT
+TIMEOUT_SECONDS = runtime_settings.get_int("HTTP_REQUEST_TIMEOUT")
 ALL_NAMESPACES = "__all__"
 ALL_VIEWS = "__all__"
 

@@ -51,6 +51,14 @@ from connectors.consumers.sinks.elasticsearch_sink import (
     index_signal_with_canonical_id,
 )
 from common.logger import logger
+from common.runtime_settings import RuntimeConfigCache
+from common.runtime_settings.client import fetch_runtime_snapshot
+from common.runtime_settings.events import listen_for_settings_changed
+import aio_pika
+
+# ── Module-level runtime settings cache ──────────────────────────────────
+# Initialised with all-defaults.  Refreshed once at consumer startup.
+runtime_cache: RuntimeConfigCache = RuntimeConfigCache()
 
 
 def _signal_dump_path(queue_name: str) -> Path:
@@ -114,6 +122,10 @@ async def consume_queue(
     Each message is processed synchronously inside a Neo4j session so that
     ack/nack happens only after the write completes.  The Neo4j driver is
     opened once per queue task and reused for all messages.
+
+    The ``runtime_cache`` module-level cache is refreshed at startup and on
+    ``settings.changed`` events.  Per-message snapshots are not captured —
+    the cache is read synchronously and is safe to call from the async loop.
 
     The Elasticsearch write is non-fatal: failures are logged at WARNING level
     and do not cause the message to be nacked.
@@ -194,6 +206,39 @@ async def consume_queue(
 
 async def main() -> None:
     """Parse configuration and launch one consumer task per queue."""
+    # Fetch runtime settings snapshot at startup (best-effort).
+    api_base = os.environ.get("API_SERVER", "http://app:8000")
+    runtime_cache.refresh(fetch_runtime_snapshot(api_base))
+
+    # Start background listener for live runtime config changes.
+    rabbitmq_url = _env("RABBITMQ_URL", "amqp://guest:guest@localhost:5672/")
+    _listener_task = None
+    try:
+        connection = await aio_pika.connect_robust(rabbitmq_url)
+
+        async def _on_event(changed_keys: list[str]) -> None:
+            logger.info(
+                "Consumer received settings.changed event: keys=%s",
+                changed_keys,
+            )
+            runtime_cache.refresh(fetch_runtime_snapshot(api_base))
+
+        _listener_task = asyncio.ensure_future(
+            listen_for_settings_changed(
+                connection=connection,
+                on_event=_on_event,
+                instance_id="consumer",
+            )
+        )
+        logger.info("Consumer runtime config listener started")
+    except Exception:  # pylint: disable=broad-except
+        logger.warning(
+            "Failed to start consumer runtime config listener — "
+            "settings changes will apply on next container restart",
+            exc_info=True,
+        )
+        connection = None
+
     listen_queues_raw = _env("LISTEN_QUEUES", "")
     if not listen_queues_raw.strip():
         logger.error(
@@ -205,7 +250,6 @@ async def main() -> None:
     queues = [q.strip() for q in listen_queues_raw.split(",") if q.strip()]
     logger.info("Starting consumers for queues: %s", queues)
 
-    rabbitmq_url = _env("RABBITMQ_URL", "amqp://guest:guest@localhost:5672/")
     neo4j_uri = _env("NEO4J_URI", "bolt://localhost:7687")
     neo4j_user = _env("NEO4J_USERNAME", "neo4j")
     neo4j_password = _env("NEO4J_PASSWORD", "password")
@@ -214,7 +258,18 @@ async def main() -> None:
         consume_queue(q, rabbitmq_url, neo4j_uri, neo4j_user, neo4j_password)
         for q in queues
     ]
-    await asyncio.gather(*tasks)
+
+    try:
+        await asyncio.gather(*tasks)
+    finally:
+        if _listener_task is not None:
+            _listener_task.cancel()
+            try:
+                await _listener_task
+            except asyncio.CancelledError:
+                pass
+        if connection is not None and not connection.is_closed:
+            await connection.close()
 
 
 if __name__ == "__main__":

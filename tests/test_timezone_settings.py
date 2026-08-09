@@ -7,7 +7,9 @@ import pytest
 from app.common.timezone import to_app_timezone
 from app.dash_app.pages.chat import queue_message
 from app.dash_app.pages.connectors.callbacks import render_items_list
+from app.runtime_settings import runtime_settings
 from app.settings import Settings, settings
+from common.runtime_settings import RuntimeConfig
 
 
 pytestmark = pytest.mark.unit
@@ -19,6 +21,30 @@ def _build_settings(**kwargs) -> Settings:
         _env_file=None,
         **kwargs,
     )
+
+
+def _set_runtime_timezone(tz: str, dt_format: str | None = None) -> None:
+    """Refresh the runtime settings cache with a specific timezone.
+
+    This is the correct way to configure timezone for tests now that the
+    code reads from ``runtime_settings`` instead of ``settings`` directly.
+    """
+    overrides = {
+        "HTTP_REQUEST_TIMEOUT": settings.HTTP_REQUEST_TIMEOUT,
+        "NEO4J_QUERY_TIMEOUT": settings.NEO4J_QUERY_TIMEOUT,
+        "GRAPH_UI_MAX_NODES_TO_EXPAND": settings.GRAPH_UI_MAX_NODES_TO_EXPAND,
+        "GRAPH_UI_MAX_NODE_LABEL_CHARS": settings.GRAPH_UI_MAX_NODE_LABEL_CHARS,
+        "CONNECTOR_SCAN_POLL_INTERVAL": settings.CONNECTOR_SCAN_POLL_INTERVAL,
+        "RECENT_ACTIONS_LIMIT": settings.RECENT_ACTIONS_LIMIT,
+        "TIMEZONE": tz,
+        "UI_DATETIME_FORMAT": dt_format or settings.UI_DATETIME_FORMAT,
+        "UI_DATE_FORMAT": settings.UI_DATE_FORMAT,
+        "AUGMENTATION_HISTORY_TURNS": settings.AUGMENTATION_HISTORY_TURNS,
+        "ES_CHAIN_MAX_RESULTS": settings.ES_CHAIN_MAX_RESULTS,
+        "MAX_MCP_ITERATIONS": settings.MAX_MCP_ITERATIONS,
+        "FF_NEO4J_USE_PROVIDER_PIPELINE": settings.FF_NEO4J_USE_PROVIDER_PIPELINE,
+    }
+    runtime_settings.refresh(RuntimeConfig(**overrides))
 
 
 def test_timezone_setting_prefers_timezone_env_over_tz(monkeypatch):
@@ -57,7 +83,7 @@ def test_timezone_setting_rejects_invalid_timezone(monkeypatch):
 
 
 def test_to_app_timezone_uses_configured_timezone(monkeypatch):
-    monkeypatch.setattr(settings, "TIMEZONE", "Asia/Kolkata")
+    _set_runtime_timezone("Asia/Kolkata")
 
     converted = to_app_timezone(datetime(2026, 5, 3, 0, 0, tzinfo=timezone.utc))
 
@@ -65,8 +91,7 @@ def test_to_app_timezone_uses_configured_timezone(monkeypatch):
 
 
 def test_render_items_list_formats_connector_timestamp_in_app_timezone(monkeypatch):
-    monkeypatch.setattr(settings, "TIMEZONE", "Asia/Kolkata")
-    monkeypatch.setattr(settings, "UI_DATETIME_FORMAT", "%b %d, %Y %I:%M %p")
+    _set_runtime_timezone("Asia/Kolkata", "%b %d, %Y %I:%M %p")
 
     rendered = render_items_list(
         {
