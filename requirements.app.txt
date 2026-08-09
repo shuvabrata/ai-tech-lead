@@ -23,7 +23,7 @@ requests==2.34.2
 networkx==3.6.1
 matplotlib==3.11.1
 python-louvain==0.16
-mcp[cli]==1.28.1
+mcp[cli]==2.0.0
 neo4j==6.2.0
 influxdb-client==1.50.0
 aio-pika==10.0.1
