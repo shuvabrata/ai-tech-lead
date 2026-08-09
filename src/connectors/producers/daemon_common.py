@@ -60,7 +60,6 @@ runtime_cache: RuntimeConfigCache = RuntimeConfigCache()
 # non-fatal — the process continues with the startup snapshot.
 # Initialised lazily by ``run_daemon()``.
 _settings_listener_thread: threading.Thread | None = None
-_settings_listener_stop_event = threading.Event()
 
 
 def _start_settings_listener(rabbitmq_url: str) -> None:
@@ -78,8 +77,6 @@ def _start_settings_listener(rabbitmq_url: str) -> None:
     if _settings_listener_thread is not None and _settings_listener_thread.is_alive():
         logger.debug("Settings listener thread already running — skipping")
         return
-
-    _settings_listener_stop_event.clear()
 
     async def _listen() -> None:
         connection = None
@@ -120,11 +117,6 @@ def _start_settings_listener(rabbitmq_url: str) -> None:
         thread.start()
         _settings_listener_thread = thread
         logger.info("Daemon settings listener thread started")
-
-
-def _stop_settings_listener() -> None:
-    """Signal the listener thread to stop (best-effort)."""
-    _settings_listener_stop_event.set()
 
 # ── Module-level state (shared across daemon functions) ───────────────────
 _children: Dict[int, uuid.UUID] = {}  # pid → command_id
