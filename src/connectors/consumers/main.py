@@ -123,9 +123,9 @@ async def consume_queue(
     ack/nack happens only after the write completes.  The Neo4j driver is
     opened once per queue task and reused for all messages.
 
-    At the start of each message, a stable snapshot of the runtime settings is
-    captured so that in-flight processing is not affected by mid-stream config
-    changes.  The per-message snapshot is read from ``runtime_cache.current()``.
+    The ``runtime_cache`` module-level cache is refreshed at startup and on
+    ``settings.changed`` events.  Per-message snapshots are not captured —
+    the cache is read synchronously and is safe to call from the async loop.
 
     The Elasticsearch write is non-fatal: failures are logged at WARNING level
     and do not cause the message to be nacked.
@@ -161,8 +161,6 @@ async def consume_queue(
         person_cache = PersonCache()
         with _open_dump() as dump_file:
             async for signal, message in consumer.consume():
-                # Capture a stable snapshot of runtime settings for this message.
-                _snapshot = runtime_cache.current()
                 signal = signal.with_ingestion_time()
                 if signal_dumps_enabled:
                     _dump_signal(dump_file, signal)
