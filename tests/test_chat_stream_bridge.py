@@ -16,7 +16,7 @@ import pytest
 from dash import no_update
 
 from app.dash_app.pages.chat import get_layout, render_from_session
-from app.settings import settings
+from app.runtime_settings import runtime_settings
 
 pytestmark = pytest.mark.unit
 
@@ -69,7 +69,7 @@ def test_chat_time_config_store_exposes_app_timezone():
     layout = get_layout()
     store = _find_by_id(layout, "chat-time-config")
     assert store is not None
-    assert store.data == {"timezone": settings.TIMEZONE}
+    assert store.data == {"timezone": runtime_settings.get("TIMEZONE")}
 
 
 # ── render_from_session callback tests ────────────────────────────────────────

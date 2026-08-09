@@ -14,6 +14,7 @@ from langchain_core.prompts import PromptTemplate
 
 from app.api.graph.v1.query import execute_cypher_query, validate_read_only_query
 from common.logger import logger
+from app.runtime_settings import runtime_settings
 from app.settings import settings
 
 # Initialize Neo4j graph connection (lazy initialization)
@@ -156,7 +157,7 @@ You are a Neo4j expert. Generate one read-only Cypher query.
         logger.warning(f"Provider-generated query failed read-only validation: {cypher_query}")
         return None, None
 
-    query_results = execute_cypher_query(cypher_query, timeout=settings.NEO4J_QUERY_TIMEOUT)
+    query_results = execute_cypher_query(cypher_query, timeout=runtime_settings.get_int("NEO4J_QUERY_TIMEOUT"))
 
     result_prompt = f"""Answer the user's question using these Neo4j query results.
 
