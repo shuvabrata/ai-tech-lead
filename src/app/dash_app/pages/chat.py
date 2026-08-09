@@ -6,7 +6,7 @@ from dash import html, dcc, Input, Output, State, callback, clientside_callback,
 import requests
 
 from app.common.timezone import now_in_app_timezone, humanize_duration
-from app.settings import settings
+from app.runtime_settings import runtime_settings
 from app.dash_app.components.common import create_diamond_icon
 from app.dash_app.styles import (
     FONT_SANS,
@@ -33,7 +33,7 @@ from app.dash_app.styles import (
     SPACING_LARGE,
 )
 
-TIMEOUT_SECONDS = settings.HTTP_REQUEST_TIMEOUT
+TIMEOUT_SECONDS = runtime_settings.get_int("HTTP_REQUEST_TIMEOUT")
 
 
 def _ui_timestamp() -> str:
@@ -132,7 +132,7 @@ def get_layout():
             dcc.Store(
                 id="chat-time-config",
                 storage_type="memory",
-                data={"timezone": settings.TIMEZONE},
+                data={"timezone": runtime_settings.get("TIMEZONE")},
             ),
             html.Div(id="scroll-trigger", style={"display": "none"}),
             

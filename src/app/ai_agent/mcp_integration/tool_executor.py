@@ -6,6 +6,7 @@ from typing import Any
 
 from app.ai_agent.mcp_integration.atlassian_config_loader import load_atlassian_mcp_config
 from app.ai_agent.mcp_integration.client_manager import AtlassianMCPClientManager, GithubMCPClientManager
+from app.runtime_settings import runtime_settings
 from app.settings import settings
 
 GITHUB_TOOL_PREFIX = "github__"
@@ -18,7 +19,7 @@ def _build_github_manager() -> GithubMCPClientManager:
         github_server_url=settings.GITHUB_MCP_SERVER_URL,
         github_token=settings.GITHUB_MCP_TOKEN,
         github_enabled=settings.GITHUB_MCP_ENABLED,
-        request_timeout_seconds=settings.HTTP_REQUEST_TIMEOUT,
+        request_timeout_seconds=runtime_settings.get_int("HTTP_REQUEST_TIMEOUT"),
     )
 
 
@@ -40,14 +41,14 @@ def _build_atlassian_manager() -> AtlassianMCPClientManager:
             atlassian_server_url=db_config["server_url"],
             atlassian_token=db_config["token"],
             atlassian_enabled=db_config["enabled"],
-            request_timeout_seconds=settings.HTTP_REQUEST_TIMEOUT,
+            request_timeout_seconds=runtime_settings.get_int("HTTP_REQUEST_TIMEOUT"),
         )
     # DB config absent or unavailable — fall back to env settings.
     return AtlassianMCPClientManager(
         atlassian_server_url=settings.ATLASSIAN_MCP_SERVER_URL,
         atlassian_token=settings.ATLASSIAN_MCP_TOKEN,
         atlassian_enabled=settings.ATLASSIAN_MCP_ENABLED,
-        request_timeout_seconds=settings.HTTP_REQUEST_TIMEOUT,
+        request_timeout_seconds=runtime_settings.get_int("HTTP_REQUEST_TIMEOUT"),
     )
 
 

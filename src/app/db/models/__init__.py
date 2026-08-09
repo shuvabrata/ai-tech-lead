@@ -1,3 +1,4 @@
+from app.db.models.application_settings import ApplicationSettings
 from app.db.models.command_status import CommandStatus
 from app.db.models.project import Project
 from app.db.models.connector import Connector

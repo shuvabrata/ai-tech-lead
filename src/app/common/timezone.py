@@ -5,12 +5,12 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
-from app.settings import settings
+from app.runtime_settings import runtime_settings
 
 
 def get_app_timezone() -> ZoneInfo:
     """Return the configured app timezone."""
-    return ZoneInfo(settings.TIMEZONE)
+    return ZoneInfo(runtime_settings.get("TIMEZONE"))
 
 
 def to_app_timezone(dt: datetime) -> datetime:
