@@ -250,7 +250,6 @@ async def main() -> None:
     queues = [q.strip() for q in listen_queues_raw.split(",") if q.strip()]
     logger.info("Starting consumers for queues: %s", queues)
 
-    rabbitmq_url = _env("RABBITMQ_URL", "amqp://guest:guest@localhost:5672/")
     neo4j_uri = _env("NEO4J_URI", "bolt://localhost:7687")
     neo4j_user = _env("NEO4J_USERNAME", "neo4j")
     neo4j_password = _env("NEO4J_PASSWORD", "password")
