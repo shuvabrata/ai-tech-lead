@@ -20,8 +20,16 @@ from typing import Any
 
 import httpx
 import pytest
+from dash import no_update
 
-from app.dash_app.pages.settings import get_layout, render_settings
+from app.dash_app.pages.settings import (
+    CATEGORY_META,
+    CATEGORY_ORDER,
+    _build_category_section,
+    _build_setting_row,
+    get_layout,
+    render_settings,
+)
 
 pytestmark = [pytest.mark.integration, pytest.mark.server]
 
@@ -304,3 +312,185 @@ class TestSettingsEditSaveReset:
         assert isinstance(config["TIMEZONE"], str)
         assert isinstance(config["FF_NEO4J_USE_PROVIDER_PIPELINE"], bool)
         assert config["HTTP_REQUEST_TIMEOUT"] >= 1
+
+
+# ===========================================================================
+# Unit tests — pure logic, no server required
+# ===========================================================================
+
+
+def _make_setting(
+    key: str,
+    category: str | None = None,
+    value_type: str = "string",
+    effective_value: str = "foo",
+    source: str = "default",
+    description: str = "A test setting.",
+) -> dict[str, Any]:
+    """Build a minimal setting dict as returned by the API."""
+    return {
+        "key": key,
+        "category": category,
+        "value_type": value_type,
+        "effective_value": effective_value,
+        "source": source,
+        "description": description,
+    }
+
+
+@pytest.mark.unit
+class TestCategoryOrder:
+    """``CATEGORY_ORDER`` includes the catch-all ``"others"`` key."""
+
+    def test_includes_others(self) -> None:
+        assert "others" in CATEGORY_ORDER
+
+    def test_others_is_last(self) -> None:
+        """The catch-all category should be last in the order."""
+        assert CATEGORY_ORDER[-1] == "others"
+
+
+@pytest.mark.unit
+class TestCategoryMeta:
+    """``CATEGORY_META`` does not define ``"others"`` (uses fallback)."""
+
+    def test_others_not_in_meta(self) -> None:
+        assert "others" not in CATEGORY_META
+
+
+@pytest.mark.unit
+class TestBuildCategorySection:
+    """Unknown categories get a sensible fallback label and icon."""
+
+    def test_unknown_category_uses_fallback_label(self) -> None:
+        section = _build_category_section("others", [])
+        label_span = section.children[0].children[1]
+        assert label_span.children == "others"
+
+    def test_unknown_category_uses_gear_icon(self) -> None:
+        section = _build_category_section("others", [])
+        icon = section.children[0].children[0]
+        assert "fa-gear" in icon.className
+
+    def test_known_category_uses_meta_label(self) -> None:
+        section = _build_category_section("network", [])
+        label_span = section.children[0].children[1]
+        assert label_span.children == "Network"
+
+    def test_known_category_uses_meta_icon(self) -> None:
+        section = _build_category_section("network", [])
+        icon = section.children[0].children[0]
+        assert "fa-globe" in icon.className
+
+    def test_shows_setting_count(self) -> None:
+        settings = [_make_setting("a"), _make_setting("b")]
+        section = _build_category_section("others", settings)
+        count_span = section.children[0].children[2]
+        assert count_span.children == " (2)"
+
+
+@pytest.mark.unit
+class TestBuildSettingRow:
+    """Each setting renders a row with key, input, source badge, and reset."""
+
+    def test_row_has_correct_key(self) -> None:
+        setting = _make_setting("TEST_KEY")
+        row = _build_setting_row(setting)
+        assert row.id == {"type": "settings-row", "key": "TEST_KEY"}
+
+    def test_row_shows_key_label(self) -> None:
+        setting = _make_setting("TEST_KEY")
+        row = _build_setting_row(setting)
+        key_div = row.children[0].children[0].children[0]
+        assert key_div.children == "TEST_KEY"
+
+    def test_row_shows_description(self) -> None:
+        setting = _make_setting("TEST_KEY", description="My description")
+        row = _build_setting_row(setting)
+        desc_div = row.children[0].children[0].children[1]
+        assert desc_div.children == "My description"
+
+    def test_row_has_reset_button(self) -> None:
+        setting = _make_setting("TEST_KEY")
+        row = _build_setting_row(setting)
+        reset_col = row.children[0].children[3]
+        inner_div = reset_col.children
+        btn = inner_div.children
+        assert btn.children == "Reset"
+        assert btn.id == {"type": "settings-reset-btn", "key": "TEST_KEY"}
+
+
+@pytest.mark.unit
+class TestRenderSettings:
+    """``render_settings`` groups settings by category and renders sections."""
+
+    def test_returns_loading_when_store_is_none(self) -> None:
+        content, feedback, initial = render_settings(None)
+        assert feedback is None
+        assert initial is None
+        assert "Loading" in str(content[0].children)
+
+    def test_returns_error_alert_on_api_error(self) -> None:
+        store = {"status": "error", "message": "Connection refused"}
+        content, feedback, initial = render_settings(store)
+        assert content == []
+        assert initial is None
+        assert "Failed to load" in str(feedback)
+
+    def test_returns_error_on_unexpected_format(self) -> None:
+        store = {"unexpected": True}
+        content, feedback, initial = render_settings(store)
+        assert "Unexpected response format" in str(content[0].children)
+
+    def test_renders_known_category(self) -> None:
+        store = [_make_setting("TIMEOUT", category="network")]
+        content, feedback, initial = render_settings(store)
+        assert feedback is no_update or feedback is None
+        assert len(content) == 1
+
+    def test_renders_uncategorized_under_others(self) -> None:
+        """Settings with ``category=None`` appear under the ``"others"`` section."""
+        store = [_make_setting("MY_SETTING", category=None)]
+        content, feedback, initial = render_settings(store)
+        assert feedback is no_update or feedback is None
+        assert len(content) == 1
+        section = content[0].children
+        label_span = section.children[0].children[1]
+        assert label_span.children == "others"
+
+    def test_renders_explicit_others_category(self) -> None:
+        """Settings with ``category="others"`` appear under ``"others"`` section."""
+        store = [_make_setting("MY_SETTING", category="others")]
+        content, feedback, initial = render_settings(store)
+        assert feedback is no_update or feedback is None
+        assert len(content) == 1
+
+    def test_omits_empty_category_section(self) -> None:
+        """A category with no settings should not produce a section."""
+        store = [_make_setting("TIMEOUT", category="network")]
+        content, feedback, initial = render_settings(store)
+        section = content[0].children
+        label_span = section.children[0].children[1]
+        assert label_span.children == "Network"
+
+    def test_initial_store_contains_all_keys(self) -> None:
+        store = [
+            _make_setting("A", category="network", effective_value="x"),
+            _make_setting("B", category="graph", effective_value="y"),
+        ]
+        content, feedback, initial = render_settings(store)
+        assert initial == {
+            "A": {"value": "x", "updated_at": None},
+            "B": {"value": "y", "updated_at": None},
+        }
+
+    def test_mixed_known_and_uncategorized(self) -> None:
+        """Known categories and uncategorized settings all render."""
+        store = [
+            _make_setting("TIMEOUT", category="network"),
+            _make_setting("MY_FLAG", category=None),
+            _make_setting("MODEL", category="ai"),
+        ]
+        content, feedback, initial = render_settings(store)
+        assert feedback is no_update or feedback is None
+        assert len(content) == 3  # network, ai, others

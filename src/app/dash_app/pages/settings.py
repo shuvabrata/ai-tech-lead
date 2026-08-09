@@ -69,7 +69,9 @@ CATEGORY_META: dict[str, dict[str, str]] = {
     "ai": {"label": "AI / LLM", "icon": "fa-solid fa-brain"},
     "feature_flags": {"label": "Feature Flags", "icon": "fa-solid fa-flag"},
 }
-CATEGORY_ORDER = ["network", "graph", "connectors", "ui", "ai", "feature_flags"]
+# Must include every category value used in the application_settings seed
+# migration, plus "others" as a catch-all for uncategorized settings.
+CATEGORY_ORDER = ["network", "graph", "connectors", "ui", "ai", "feature_flags", "others"]
 
 
 # ── Helpers ────────────────────────────────────────────────────────────
@@ -407,7 +409,7 @@ def render_settings(
 
     grouped: dict[str, list[dict[str, Any]]] = {}
     for setting in store:
-        cat = setting.get("category", "other")
+        cat = setting.get("category") or "others"
         grouped.setdefault(cat, []).append(setting)
 
     sections = []
