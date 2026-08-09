@@ -270,6 +270,11 @@ def get_layout() -> html.Div:
         [
             dcc.Store(id="settings-store", data=None),
             dcc.Store(id="settings-initial-store", data=None),
+            dcc.ConfirmDialog(
+                id="settings-reset-all-confirm",
+                message="Are you sure you want to reset ALL settings to their "
+                        "default values? This cannot be undone.",
+            ),
             html.Div(id="settings-feedback"),
             html.Div("Runtime Settings", style=PAGE_HEADER_STYLE),
             # Description + sticky action bar on the same row.
@@ -605,9 +610,21 @@ def reset_single_setting(
 
 
 @callback(
+    Output("settings-reset-all-confirm", "displayed"),
+    Input("settings-reset-all", "n_clicks"),
+    prevent_initial_call=True,
+)
+def confirm_reset_all(n_clicks: int | None) -> bool:
+    """Show confirmation dialog before resetting all settings."""
+    if not n_clicks:
+        raise PreventUpdate
+    return True
+
+
+@callback(
     Output("settings-store", "data", allow_duplicate=True),
     Output("settings-feedback", "children", allow_duplicate=True),
-    Input("settings-reset-all", "n_clicks"),
+    Input("settings-reset-all-confirm", "submit_n_clicks"),
     State("settings-initial-store", "data"),
     prevent_initial_call=True,
 )
