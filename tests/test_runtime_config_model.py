@@ -34,6 +34,35 @@ class TestRuntimeConfigDefaults:
             ("ES_CHAIN_MAX_RESULTS", 5),
             ("MAX_MCP_ITERATIONS", 3),
             ("FF_NEO4J_USE_PROVIDER_PIPELINE", False),
+            # ── AI / LLM ──────────────────────────────────────────────
+            ("LLM_PROVIDER", "openai"),
+            ("LLM_MODEL", "gpt-5"),
+            ("MAX_TOKENS", 16000),
+            ("GITHUB_MCP_ENABLED", False),
+            ("ATLASSIAN_MCP_ENABLED", False),
+            # ── System ────────────────────────────────────────────────
+            ("NEO4J_ENABLED", False),
+            # ── Connectors ────────────────────────────────────────────
+            ("COMMIT_DAYS_LIMIT", 60),
+            ("PULL_REQUEST_DAYS_LIMIT", 60),
+            ("IDENTITY_REFRESH_DAYS", 7),
+            ("MAX_TEAM_SIZE", 100),
+            ("JIRA_LOOKBACK_DAYS", 90),
+            ("JIRA_MAX_RESULTS_PER_PAGE", 100),
+            ("CONFLUENCE_LOOKBACK_DAYS", 60),
+            ("JIRA_EPIC_TEAM_FIELD", "Team"),
+            ("JIRA_ISSUE_TEAM_FIELD", "Team"),
+            ("JIRA_EPIC_START_DATE_FIELD", "created"),
+            ("JIRA_EPIC_DUE_DATE_FIELD", "duedate"),
+            ("GITHUB_TOKEN_FOR_PUBLIC_REPOS", ""),
+            ("API_SERVER", "http://app:8000/"),
+            ("CONFIGURATION_SOURCE", "SERVER"),
+            # ── Logging ───────────────────────────────────────────────
+            ("LOG_LEVEL", "INFO"),
+            ("LOG_FORMAT", "JSON"),
+            ("ENABLE_FILE_LOGGING", False),
+            ("LOG_DIR", "logs"),
+            ("LOG_SIGNAL_DUMPS", False),
         ],
     )
     def test_default_value(self, field: str, expected: object) -> None:
@@ -42,9 +71,9 @@ class TestRuntimeConfigDefaults:
         assert getattr(config, field) == expected
 
     @pytest.mark.unit
-    def test_all_13_fields_present(self) -> None:
-        """The model exposes exactly the 13 runtime-configurable fields."""
-        assert len(RuntimeConfig.model_fields) == 13
+    def test_all_fields_present(self) -> None:
+        """The model exposes the expected number of runtime-configurable fields."""
+        assert len(RuntimeConfig.model_fields) == 38
 
 
 class TestRuntimeConfigValidation:
@@ -99,6 +128,69 @@ class TestRuntimeConfigValidation:
         """FF_NEO4J_USE_PROVIDER_PIPELINE rejects non-boolean values."""
         with pytest.raises(ValidationError):
             RuntimeConfig(FF_NEO4J_USE_PROVIDER_PIPELINE="yes")  # type: ignore[arg-type]
+
+    # ── New field validation tests ───────────────────────────────────────
+
+    @pytest.mark.unit
+    @pytest.mark.parametrize("bad", [0, -1, 999])
+    def test_max_tokens_rejects_out_of_range(self, bad: int) -> None:
+        """MAX_TOKENS must be >= 1000."""
+        with pytest.raises(ValidationError):
+            RuntimeConfig(MAX_TOKENS=bad)
+
+    @pytest.mark.unit
+    @pytest.mark.parametrize("good", [1000, 16000, 128000])
+    def test_max_tokens_accepts_valid(self, good: int) -> None:
+        """MAX_TOKENS accepts values >= 1000."""
+        assert RuntimeConfig(MAX_TOKENS=good).MAX_TOKENS == good
+
+    @pytest.mark.unit
+    @pytest.mark.parametrize("bad", [0, -1, 501, 1000])
+    def test_jira_max_results_rejects_out_of_range(self, bad: int) -> None:
+        """JIRA_MAX_RESULTS_PER_PAGE must be between 1 and 500."""
+        with pytest.raises(ValidationError):
+            RuntimeConfig(JIRA_MAX_RESULTS_PER_PAGE=bad)
+
+    @pytest.mark.unit
+    @pytest.mark.parametrize("good", [1, 100, 500])
+    def test_jira_max_results_accepts_valid(self, good: int) -> None:
+        """JIRA_MAX_RESULTS_PER_PAGE accepts 1..500 inclusive."""
+        assert RuntimeConfig(JIRA_MAX_RESULTS_PER_PAGE=good).JIRA_MAX_RESULTS_PER_PAGE == good
+
+    @pytest.mark.unit
+    def test_commit_days_limit_rejects_lt_one(self) -> None:
+        """COMMIT_DAYS_LIMIT must be >= 1."""
+        with pytest.raises(ValidationError):
+            RuntimeConfig(COMMIT_DAYS_LIMIT=0)
+
+    @pytest.mark.unit
+    def test_pull_request_days_limit_rejects_lt_one(self) -> None:
+        """PULL_REQUEST_DAYS_LIMIT must be >= 1."""
+        with pytest.raises(ValidationError):
+            RuntimeConfig(PULL_REQUEST_DAYS_LIMIT=0)
+
+    @pytest.mark.unit
+    def test_max_team_size_rejects_lt_one(self) -> None:
+        """MAX_TEAM_SIZE must be >= 1."""
+        with pytest.raises(ValidationError):
+            RuntimeConfig(MAX_TEAM_SIZE=0)
+
+    @pytest.mark.unit
+    def test_jira_lookback_days_rejects_lt_one(self) -> None:
+        """JIRA_LOOKBACK_DAYS must be >= 1."""
+        with pytest.raises(ValidationError):
+            RuntimeConfig(JIRA_LOOKBACK_DAYS=0)
+
+    @pytest.mark.unit
+    def test_confluence_lookback_days_rejects_lt_one(self) -> None:
+        """CONFLUENCE_LOOKBACK_DAYS must be >= 1."""
+        with pytest.raises(ValidationError):
+            RuntimeConfig(CONFLUENCE_LOOKBACK_DAYS=0)
+
+    @pytest.mark.unit
+    def test_identity_refresh_days_accepts_zero(self) -> None:
+        """IDENTITY_REFRESH_DAYS accepts 0 (disabled)."""
+        assert RuntimeConfig(IDENTITY_REFRESH_DAYS=0).IDENTITY_REFRESH_DAYS == 0
 
 
 class TestRuntimeConfigCache:

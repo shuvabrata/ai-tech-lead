@@ -37,6 +37,35 @@ def _valid_payload(**overrides: object) -> dict[str, object]:
         "ES_CHAIN_MAX_RESULTS": 5,
         "MAX_MCP_ITERATIONS": 3,
         "FF_NEO4J_USE_PROVIDER_PIPELINE": False,
+        # ── AI / LLM ──────────────────────────────────────────────
+        "LLM_PROVIDER": "openai",
+        "LLM_MODEL": "gpt-5",
+        "MAX_TOKENS": 16000,
+        "GITHUB_MCP_ENABLED": False,
+        "ATLASSIAN_MCP_ENABLED": False,
+        # ── System ────────────────────────────────────────────────
+        "NEO4J_ENABLED": False,
+        # ── Connectors ────────────────────────────────────────────
+        "COMMIT_DAYS_LIMIT": 60,
+        "PULL_REQUEST_DAYS_LIMIT": 60,
+        "IDENTITY_REFRESH_DAYS": 7,
+        "MAX_TEAM_SIZE": 100,
+        "JIRA_LOOKBACK_DAYS": 90,
+        "JIRA_MAX_RESULTS_PER_PAGE": 100,
+        "CONFLUENCE_LOOKBACK_DAYS": 60,
+        "JIRA_EPIC_TEAM_FIELD": "Team",
+        "JIRA_ISSUE_TEAM_FIELD": "Team",
+        "JIRA_EPIC_START_DATE_FIELD": "created",
+        "JIRA_EPIC_DUE_DATE_FIELD": "duedate",
+        "GITHUB_TOKEN_FOR_PUBLIC_REPOS": "",
+        "API_SERVER": "http://app:8000/",
+        "CONFIGURATION_SOURCE": "SERVER",
+        # ── Logging ───────────────────────────────────────────────
+        "LOG_LEVEL": "INFO",
+        "LOG_FORMAT": "JSON",
+        "ENABLE_FILE_LOGGING": False,
+        "LOG_DIR": "logs",
+        "LOG_SIGNAL_DUMPS": False,
     }
     payload.update(overrides)
     return payload

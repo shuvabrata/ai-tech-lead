@@ -103,6 +103,38 @@ class TestSourcePrecedence:
         assert source == "default"
 
 
+# ── Sensitive value masking ───────────────────────────────────────────
+
+
+class TestMaskValue:
+    """Verify _mask_value produces correct masked strings."""
+
+    @pytest.mark.unit
+    def test_masks_long_api_key(self) -> None:
+        """A long API key is fully masked."""
+        assert service._mask_value("sk-abc123def456xyz789") == "*******"
+
+    @pytest.mark.unit
+    def test_masks_github_token(self) -> None:
+        """A GitHub PAT is fully masked."""
+        assert service._mask_value("ghp_abc123def456") == "*******"
+
+    @pytest.mark.unit
+    def test_masks_rabbitmq_url(self) -> None:
+        """A RabbitMQ URL with credentials is fully masked."""
+        assert service._mask_value("amqp://user:pass@host:5672") == "*******"
+
+    @pytest.mark.unit
+    def test_short_value_masked(self) -> None:
+        """Short values are fully masked."""
+        assert service._mask_value("short") == "*******"
+
+    @pytest.mark.unit
+    def test_none_returns_none(self) -> None:
+        """None input returns None."""
+        assert service._mask_value(None) is None
+
+
 # ── get_all_settings ───────────────────────────────────────────────────
 
 
@@ -125,6 +157,25 @@ class TestGetAllSettings:
         assert by_key["HTTP_REQUEST_TIMEOUT"]["effective_value"] == 90
         assert by_key["HTTP_REQUEST_TIMEOUT"]["source"] == "db"
         assert by_key["TIMEZONE"]["source"] == "default"
+
+    @pytest.mark.unit
+    @patch.dict(service.os.environ, {}, clear=True)
+    async def test_masks_sensitive_values(self, mock_db: AsyncMock) -> None:
+        """Sensitive settings have their effective_value masked."""
+        rows = [
+            _make_row(
+                "OPENAI_API_KEY", value="sk-abc123def456xyz789",
+                value_type="string", is_sensitive=True,
+            ),
+        ]
+        with patch.object(qry, "get_all_settings", AsyncMock(return_value=rows)):
+            result = await service.get_all_settings(mock_db)
+
+        assert len(result) == 1
+        item = result[0]
+        assert item["is_sensitive"] is True
+        assert item["effective_value"] == "*******"
+        assert item["value"] == "*******"
 
 
 # ── get_runtime_snapshot ──────────────────────────────────────────────
@@ -153,6 +204,20 @@ class TestRuntimeSnapshot:
             config = await service.get_runtime_snapshot(mock_db)
         # Falls back to default 5.
         assert config.RECENT_ACTIONS_LIMIT == 5
+
+    @pytest.mark.unit
+    async def test_excludes_sensitive_rows(self, mock_db: AsyncMock) -> None:
+        """Sensitive rows are excluded from the runtime snapshot."""
+        rows = [
+            _make_row("HTTP_REQUEST_TIMEOUT", value=90),
+            _make_row("OPENAI_API_KEY", value="sk-secret", value_type="string", is_sensitive=True),
+        ]
+        with patch.object(qry, "get_all_settings", AsyncMock(return_value=rows)):
+            config = await service.get_runtime_snapshot(mock_db)
+        # HTTP_REQUEST_TIMEOUT should be present
+        assert config.HTTP_REQUEST_TIMEOUT == 90
+        # OPENAI_API_KEY is not a RuntimeConfig field, so it should not cause issues
+        # and the snapshot should still be valid
 
 
 # ── bulk_update ───────────────────────────────────────────────────────

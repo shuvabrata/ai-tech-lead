@@ -86,5 +86,34 @@ class RuntimeSnapshotResponse(BaseModel):
     ES_CHAIN_MAX_RESULTS: int
     MAX_MCP_ITERATIONS: int
     FF_NEO4J_USE_PROVIDER_PIPELINE: bool
+    # ── AI / LLM ──────────────────────────────────────────────────────
+    LLM_PROVIDER: str = "openai"
+    LLM_MODEL: str = "gpt-5"
+    MAX_TOKENS: int = 16000
+    GITHUB_MCP_ENABLED: bool = False
+    ATLASSIAN_MCP_ENABLED: bool = False
+    # ── System ────────────────────────────────────────────────────────
+    NEO4J_ENABLED: bool = False
+    # ── Connectors ────────────────────────────────────────────────────
+    COMMIT_DAYS_LIMIT: int = 60
+    PULL_REQUEST_DAYS_LIMIT: int = 60
+    IDENTITY_REFRESH_DAYS: int = 7
+    MAX_TEAM_SIZE: int = 100
+    JIRA_LOOKBACK_DAYS: int = 90
+    JIRA_MAX_RESULTS_PER_PAGE: int = 100
+    CONFLUENCE_LOOKBACK_DAYS: int = 60
+    JIRA_EPIC_TEAM_FIELD: str = "Team"
+    JIRA_ISSUE_TEAM_FIELD: str = "Team"
+    JIRA_EPIC_START_DATE_FIELD: str = "created"
+    JIRA_EPIC_DUE_DATE_FIELD: str = "duedate"
+    GITHUB_TOKEN_FOR_PUBLIC_REPOS: str = ""
+    API_SERVER: str = "http://app:8000/"
+    CONFIGURATION_SOURCE: str = "SERVER"
+    # ── Logging ───────────────────────────────────────────────────────
+    LOG_LEVEL: str = "INFO"
+    LOG_FORMAT: str = "JSON"
+    ENABLE_FILE_LOGGING: bool = False
+    LOG_DIR: str = "logs"
+    LOG_SIGNAL_DUMPS: bool = False
 
     model_config = ConfigDict(from_attributes=True)

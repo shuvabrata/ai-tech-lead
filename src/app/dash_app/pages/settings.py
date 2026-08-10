@@ -48,6 +48,7 @@ from app.dash_app.styles import (
     FONT_SIZE_MEDIUM,
     FONT_SIZE_SMALL,
     FONT_SIZE_XSMALL,
+    FONT_SIZE_XTINY,
     FONT_WEIGHT_SEMIBOLD,
     INPUT_STYLE,
     PAGE_HEADER_STYLE,
@@ -67,11 +68,12 @@ CATEGORY_META: dict[str, dict[str, str]] = {
     "connectors": {"label": "Connectors", "icon": "fa-solid fa-plug"},
     "ui": {"label": "UI", "icon": "fa-solid fa-palette"},
     "ai": {"label": "AI / LLM", "icon": "fa-solid fa-brain"},
+    "system": {"label": "System", "icon": "fa-solid fa-server"},
     "feature_flags": {"label": "Feature Flags", "icon": "fa-solid fa-flag"},
 }
 # Must include every category value used in the application_settings seed
 # migration, plus "others" as a catch-all for uncategorized settings.
-CATEGORY_ORDER = ["network", "graph", "connectors", "ui", "ai", "feature_flags", "others"]
+CATEGORY_ORDER = ["network", "graph", "connectors", "ui", "ai", "feature_flags", "system", "others"]
 
 
 # ── Helpers ────────────────────────────────────────────────────────────
@@ -95,6 +97,8 @@ def _build_setting_row(setting: dict[str, Any]) -> html.Div:
     effective = setting["effective_value"]
     source = setting["source"]
     description = setting.get("description", "")
+    is_sensitive = setting.get("is_sensitive", False)
+    apply_mode = setting.get("apply_mode", "dynamic")
 
     input_id = {"type": "settings-input", "key": key}
 
@@ -114,6 +118,14 @@ def _build_setting_row(setting: dict[str, Any]) -> html.Div:
             step=1,
             style={**INPUT_STYLE, "width": "140px"},
         )
+    elif is_sensitive:
+        input_component = dbc.Input(
+            id=input_id,
+            type="password",
+            value=effective if effective else "",
+            style={**INPUT_STYLE, "width": "260px"},
+            placeholder="(sensitive — enter to change)",
+        )
     else:
         input_component = dbc.Input(
             id=input_id,
@@ -124,6 +136,14 @@ def _build_setting_row(setting: dict[str, Any]) -> html.Div:
 
     reset_id = {"type": "settings-reset-btn", "key": key}
 
+    # Apply-mode badge
+    mode_badge = dbc.Badge(
+        apply_mode,
+        color="warning" if apply_mode == "restart" else "info",
+        className="ms-1",
+        style={"fontSize": FONT_SIZE_XTINY, "verticalAlign": "middle"},
+    )
+
     return html.Div(
         [
             dbc.Row(
@@ -131,7 +151,7 @@ def _build_setting_row(setting: dict[str, Any]) -> html.Div:
                     dbc.Col(
                         [
                             html.Div(
-                                key,
+                                [key, " ", mode_badge],
                                 style={
                                     "fontFamily": FONT_SANS,
                                     "fontSize": FONT_SIZE_XSMALL,

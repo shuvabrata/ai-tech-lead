@@ -36,11 +36,40 @@ class Settings(BaseSettings):
     ATLASSIAN_MCP_SERVER_URL: str = "https://mcp.atlassian.com/v1/mcp"
     
     # LLM configuration (provider-agnostic)
+    LLM_PROVIDER: str = "openai"
     LLM_MODEL: str = "gpt-5"
+    MAX_TOKENS: int = 16000
     OPENAI_API_KEY: str = ""
+    OPENAI_API_URL: str = "https://api.openai.com/v1/chat/completions"
+    CUSTOM_API_TOKEN: str = ""
+    CUSTOM_API_URL: str = ""
+    CUSTOM_LLM_MODEL: str = ""
 
     # Connector encryption
     CONNECTOR_ENCRYPTION_KEY: str = ""
+
+    # Logging configuration
+    LOG_LEVEL: str = "INFO"
+    LOG_FORMAT: str = "JSON"
+    ENABLE_FILE_LOGGING: bool = False
+    LOG_DIR: str = "logs"
+    LOG_SIGNAL_DUMPS: bool = False
+
+    # Connector / Producer configuration
+    COMMIT_DAYS_LIMIT: int = 60
+    PULL_REQUEST_DAYS_LIMIT: int = 60
+    IDENTITY_REFRESH_DAYS: int = 7
+    MAX_TEAM_SIZE: int = 100
+    JIRA_LOOKBACK_DAYS: int = 90
+    JIRA_MAX_RESULTS_PER_PAGE: int = 100
+    CONFLUENCE_LOOKBACK_DAYS: int = 60
+    JIRA_EPIC_TEAM_FIELD: str = "Team"
+    JIRA_ISSUE_TEAM_FIELD: str = "Team"
+    JIRA_EPIC_START_DATE_FIELD: str = "created"
+    JIRA_EPIC_DUE_DATE_FIELD: str = "duedate"
+    GITHUB_TOKEN_FOR_PUBLIC_REPOS: str = ""
+    API_SERVER: str = "http://app:8000/"
+    CONFIGURATION_SOURCE: str = "SERVER"
     
     # HTTP request timeout configuration (in seconds)
     HTTP_REQUEST_TIMEOUT: int = 60

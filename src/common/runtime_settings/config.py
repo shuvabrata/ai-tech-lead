@@ -47,6 +47,39 @@ class RuntimeConfig(BaseModel):
     # ── Feature Flags ────────────────────────────────────────────────────
     FF_NEO4J_USE_PROVIDER_PIPELINE: StrictBool = False
 
+    # ── AI / LLM ─────────────────────────────────────────────────────────
+    LLM_PROVIDER: str = "openai"
+    LLM_MODEL: str = "gpt-5"
+    MAX_TOKENS: int = Field(default=16000, ge=1000)
+    GITHUB_MCP_ENABLED: StrictBool = False
+    ATLASSIAN_MCP_ENABLED: StrictBool = False
+
+    # ── System ───────────────────────────────────────────────────────────
+    NEO4J_ENABLED: StrictBool = False
+
+    # ── Connectors ───────────────────────────────────────────────────────
+    COMMIT_DAYS_LIMIT: int = Field(default=60, ge=1)
+    PULL_REQUEST_DAYS_LIMIT: int = Field(default=60, ge=1)
+    IDENTITY_REFRESH_DAYS: int = Field(default=7, ge=0)
+    MAX_TEAM_SIZE: int = Field(default=100, ge=1)
+    JIRA_LOOKBACK_DAYS: int = Field(default=90, ge=1)
+    JIRA_MAX_RESULTS_PER_PAGE: int = Field(default=100, ge=1, le=500)
+    CONFLUENCE_LOOKBACK_DAYS: int = Field(default=60, ge=1)
+    JIRA_EPIC_TEAM_FIELD: str = "Team"
+    JIRA_ISSUE_TEAM_FIELD: str = "Team"
+    JIRA_EPIC_START_DATE_FIELD: str = "created"
+    JIRA_EPIC_DUE_DATE_FIELD: str = "duedate"
+    GITHUB_TOKEN_FOR_PUBLIC_REPOS: str = ""
+    API_SERVER: str = "http://app:8000/"
+    CONFIGURATION_SOURCE: str = "SERVER"
+
+    # ── Logging ──────────────────────────────────────────────────────────
+    LOG_LEVEL: str = "INFO"
+    LOG_FORMAT: str = "JSON"
+    ENABLE_FILE_LOGGING: StrictBool = False
+    LOG_DIR: str = "logs"
+    LOG_SIGNAL_DUMPS: StrictBool = False
+
     @field_validator("TIMEZONE")
     @classmethod
     def validate_timezone(cls, value: str) -> str:

@@ -106,6 +106,10 @@ def _resolve_source(
     """Determine the effective value and source for a single setting.
 
     Precedence: DB override > env value > code default.
+
+    If *setting_key* is not a field on ``RuntimeConfig`` (e.g. a sensitive
+    bootstrap secret), the function returns the raw DB value or env string
+    without type coercion, and falls back to ``None`` for the code default.
     """
     # 1. DB override
     if db_row_value is not None:
@@ -113,10 +117,12 @@ def _resolve_source(
 
     # 2. Environment value — check os.environ so we can distinguish
     #    "env var set to default" from "no env var, using code default".
-    #    Read from os.environ directly so the value reflects the current
-    #    environment, not the import-time Settings singleton.
     env_raw = os.environ.get(setting_key)
     if env_raw is not None:
+        # If the key is not in RuntimeConfig (e.g. a bootstrap secret),
+        # return the raw string without type coercion.
+        if setting_key not in RuntimeConfig.model_fields:
+            return env_raw, "env"
         # Convert the raw string to the expected Python type.
         field = RuntimeConfig.model_fields[setting_key]
         if field.annotation is bool:
@@ -125,7 +131,9 @@ def _resolve_source(
             return int(env_raw), "env"
         return env_raw, "env"
 
-    # 3. Code default (from RuntimeConfig)
+    # 3. Code default (from RuntimeConfig, or None for bootstrap-only keys)
+    if setting_key not in RuntimeConfig.model_fields:
+        return None, "default"
     default = RuntimeConfig.model_fields[setting_key].default
     return default, "default"
 
@@ -135,9 +143,15 @@ def _resolve_effective_config(db_rows: list[Any]) -> RuntimeConfig:
 
     Invalid persisted overrides are logged and ignored, falling back to
     env/default for that key.
+
+    Sensitive rows (``is_sensitive=True``) are excluded from the effective
+    config — they are bootstrap/secret values that should never be served
+    by the runtime snapshot API.
     """
     overrides = {}
     for row in db_rows:
+        if row.is_sensitive:
+            continue
         value, _ = _resolve_source(row.value, row.key)
         if value is not None:
             overrides[row.key] = value
@@ -161,6 +175,28 @@ def _resolve_effective_config(db_rows: list[Any]) -> RuntimeConfig:
         return RuntimeConfig(**valid)
 
 
+# ── Sensitive value masking ────────────────────────────────────────────
+
+
+def _mask_value(value: Any) -> str | None:
+    """Return a fully masked string for sensitive settings.
+
+    The original value is completely replaced with ``"*******"`` so no
+    information about length or content is leaked.
+
+    Examples::
+
+        "sk-abc123def456xyz789"     →  "*******"
+        "ghp_abc123def456"          →  "*******"
+        "amqp://user:pass@host:5672" →  "*******"
+        "short"                     →  "*******"
+        None                        →  None
+    """
+    if value is None:
+        return None
+    return "*******"
+
+
 # ── Public API ─────────────────────────────────────────────────────────
 
 
@@ -172,9 +208,11 @@ async def get_all_settings(
     result = []
     for row in rows:
         effective_value, source = _resolve_source(row.value, row.key)
+        if row.is_sensitive:
+            effective_value = _mask_value(effective_value)
         result.append({
             "key": row.key,
-            "value": row.value,
+            "value": _mask_value(row.value) if row.is_sensitive else row.value,
             "effective_value": effective_value,
             "source": source,
             "value_type": row.value_type,
@@ -225,7 +263,13 @@ async def bulk_update(
         raise ConflictError(list(conflicts.keys()), current_values)
 
     # 3. Build full candidate effective RuntimeConfig.
-    candidate_overrides = {r.key: r.value for r in rows if r.value is not None}
+    #    Only include keys that are actual RuntimeConfig fields (skip
+    #    sensitive bootstrap secrets like OPENAI_API_KEY).
+    candidate_overrides = {
+        r.key: r.value
+        for r in rows
+        if r.value is not None and r.key in RuntimeConfig.model_fields
+    }
     candidate_overrides.update(updates)
 
     try:
@@ -281,7 +325,11 @@ async def update_single(
 
     # 2. Validate candidate value.
     all_rows = await qry.get_all_settings(db)
-    candidate_overrides = {r.key: r.value for r in all_rows if r.value is not None}
+    candidate_overrides = {
+        r.key: r.value
+        for r in all_rows
+        if r.value is not None and r.key in RuntimeConfig.model_fields
+    }
     candidate_overrides[key] = value
     try:
         RuntimeConfig(**candidate_overrides)
@@ -305,9 +353,11 @@ async def update_single(
 
     # 6. Return source-aware response.
     effective_value, source = _resolve_source(updated.value, key)
+    if updated.is_sensitive:
+        effective_value = _mask_value(effective_value)
     return {
         "key": key,
-        "value": updated.value,
+        "value": _mask_value(updated.value) if updated.is_sensitive else updated.value,
         "effective_value": effective_value,
         "source": source,
         "value_type": updated.value_type,
@@ -354,6 +404,8 @@ async def reset_single(
     propagation_warning = await _publish_changed([key])
 
     effective_value, source = _resolve_source(None, key)
+    if row.is_sensitive:
+        effective_value = _mask_value(effective_value)
     return {
         "key": key,
         "value": None,
@@ -398,6 +450,8 @@ async def reset_all(
     result = []
     for row in rows:
         effective_value, source = _resolve_source(None, row.key)
+        if row.is_sensitive:
+            effective_value = _mask_value(effective_value)
         result.append({
             "key": row.key,
             "value": None,
