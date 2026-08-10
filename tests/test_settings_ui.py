@@ -97,7 +97,8 @@ class TestBuildSettingRow:
         setting = _make_setting("TEST_KEY")
         row = _build_setting_row(setting)
         key_div = row.children[0].children[0].children[0]
-        assert key_div.children == "TEST_KEY"
+        # Key div now contains a list: [key_text, badge]
+        assert key_div.children[0] == "TEST_KEY"
 
     def test_row_shows_description(self) -> None:
         setting = _make_setting("TEST_KEY", description="My description")
@@ -188,3 +189,47 @@ class TestRenderSettings:
         content, feedback, initial = render_settings(store)
         assert feedback is no_update or feedback is None
         assert len(content) == 3  # network, ai, others
+
+
+class TestSensitiveSettingRow:
+    """Sensitive settings render password-type inputs."""
+
+    def test_sensitive_setting_uses_password_input(self) -> None:
+        setting = _make_setting("OPENAI_API_KEY", effective_value="sk-abc…xyz")
+        setting["is_sensitive"] = True
+        row = _build_setting_row(setting)
+        input_col = row.children[0].children[1]
+        inner_div = input_col.children
+        input_component = inner_div.children
+        assert input_component.type == "password"
+
+    def test_sensitive_setting_shows_placeholder(self) -> None:
+        setting = _make_setting("OPENAI_API_KEY", effective_value="")
+        setting["is_sensitive"] = True
+        row = _build_setting_row(setting)
+        input_col = row.children[0].children[1]
+        inner_div = input_col.children
+        input_component = inner_div.children
+        assert "(sensitive" in (input_component.placeholder or "")
+
+
+class TestApplyModeBadge:
+    """Apply-mode badge renders correctly."""
+
+    def test_dynamic_mode_no_badge(self) -> None:
+        """Dynamic settings do not show an apply-mode badge."""
+        setting = _make_setting("HTTP_REQUEST_TIMEOUT")
+        setting["apply_mode"] = "dynamic"
+        row = _build_setting_row(setting)
+        key_div = row.children[0].children[0].children[0]
+        # No badge rendered for dynamic — children[2] is an empty string
+        assert key_div.children[2] == ""
+
+    def test_restart_mode_badge(self) -> None:
+        """Restart settings show a 'restart' badge."""
+        setting = _make_setting("NEO4J_ENABLED")
+        setting["apply_mode"] = "restart"
+        row = _build_setting_row(setting)
+        key_div = row.children[0].children[0].children[0]
+        badge = key_div.children[2]
+        assert badge.children == "restart"

@@ -120,7 +120,6 @@ Updated [tests/test_collaboration_query_integration.py](tests/test_collaboration
 2. Prints fully rendered Cypher text for each layer run.
 3. Uses explicit opt-in guard for live DB validation:
 - Requires `NEO4J_ENABLED=true`
-- Requires `RUN_COLLAB_DB_VALIDATION=1`
 
 ## Validation Commands
 
@@ -134,7 +133,7 @@ pytest tests/
 
 ```bash
 source .venv/bin/activate
-RUN_COLLAB_DB_VALIDATION=1 pytest tests/test_collaboration_query_integration.py -q -s
+pytest tests/test_collaboration_query_integration.py -q -s
 ```
 
 ## Key Finding During Validation
