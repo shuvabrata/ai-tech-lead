@@ -8,10 +8,10 @@ This package contains reusable UI components:
 
 from .modals import create_expansion_modal
 from .menus import create_context_menu
-from .sliders import create_time_slider
+from .sliders import create_time_slider_pair
 
 __all__ = [
     'create_expansion_modal',
     'create_context_menu',
-    'create_time_slider',
+    'create_time_slider_pair',
 ]

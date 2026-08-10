@@ -9,7 +9,7 @@ import dash_bootstrap_components as dbc
 import dash_cytoscape as cyto
 
 from .styles import CYTOSCAPE_STYLESHEET
-from .components import create_expansion_modal, create_context_menu, create_time_slider
+from .components import create_expansion_modal, create_context_menu, create_time_slider_pair
 from .utils.ui_components import create_performance_metrics
 
 from app.dash_app.components.common import create_controls_bar
@@ -173,9 +173,9 @@ def _filter_card():
                     id="time-filters-collapse",
                     is_open=False,
                     children=[
-                        create_time_slider("created", "Created At"),
-                        create_time_slider("updated", "Last Updated"),
-                        create_time_slider("seen", "Last Seen"),
+                        create_time_slider_pair("created", "Created At"),
+                        create_time_slider_pair("updated", "Last Updated"),
+                        create_time_slider_pair("seen", "Last Seen"),
                     ]
                 )
             ], className="mb-3"),
