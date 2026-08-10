@@ -136,12 +136,16 @@ def _build_setting_row(setting: dict[str, Any]) -> html.Div:
 
     reset_id = {"type": "settings-reset-btn", "key": key}
 
-    # Apply-mode badge
-    mode_badge = dbc.Badge(
-        apply_mode,
-        color="warning" if apply_mode == "restart" else "info",
-        className="ms-1",
-        style={"fontSize": FONT_SIZE_XTINY, "verticalAlign": "middle"},
+    # Apply-mode badge — only show "restart" since "dynamic" is the default
+    mode_badge = (
+        dbc.Badge(
+            "restart",
+            color="warning",
+            className="ms-1",
+            style={"fontSize": FONT_SIZE_XTINY, "verticalAlign": "middle"},
+        )
+        if apply_mode == "restart"
+        else ""
     )
 
     return html.Div(

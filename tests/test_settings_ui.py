@@ -216,16 +216,17 @@ class TestSensitiveSettingRow:
 class TestApplyModeBadge:
     """Apply-mode badge renders correctly."""
 
-    def test_dynamic_mode_badge(self) -> None:
+    def test_dynamic_mode_no_badge(self) -> None:
+        """Dynamic settings do not show an apply-mode badge."""
         setting = _make_setting("HTTP_REQUEST_TIMEOUT")
         setting["apply_mode"] = "dynamic"
         row = _build_setting_row(setting)
         key_div = row.children[0].children[0].children[0]
-        # The key div now contains a list with key text, space, badge
-        badge = key_div.children[2]
-        assert badge.children == "dynamic"
+        # No badge rendered for dynamic — children[2] is an empty string
+        assert key_div.children[2] == ""
 
     def test_restart_mode_badge(self) -> None:
+        """Restart settings show a 'restart' badge."""
         setting = _make_setting("NEO4J_ENABLED")
         setting["apply_mode"] = "restart"
         row = _build_setting_row(setting)
