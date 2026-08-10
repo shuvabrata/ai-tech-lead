@@ -65,13 +65,13 @@ class TestGetSettings:
     """Verify the GET endpoint returns source-aware metadata."""
 
     @pytest.mark.asyncio
-    async def test_returns_13_settings(self) -> None:
-        """GET returns exactly 13 settings."""
+    async def test_returns_54_settings(self) -> None:
+        """GET returns exactly 54 settings."""
         async with httpx.AsyncClient(base_url=BASE_URL) as client:
             resp = await client.get("/api/v1/settings/")
         assert resp.status_code == 200
         data = resp.json()
-        assert len(data) == 13
+        assert len(data) == 54
 
     @pytest.mark.asyncio
     async def test_response_shape(self) -> None:
@@ -89,9 +89,9 @@ class TestGetSettings:
             assert "value_type" in item
             assert item["value_type"] in ("string", "integer", "boolean")
             assert "apply_mode" in item
-            assert item["apply_mode"] == "dynamic"
+            assert item["apply_mode"] in ("dynamic", "restart")
             assert "is_sensitive" in item
-            assert item["is_sensitive"] is False
+            assert isinstance(item["is_sensitive"], bool)
             assert "updated_at" in item
 
     @pytest.mark.asyncio
@@ -287,7 +287,7 @@ class TestResetAll:
             )
         assert resp.status_code == 200
         data = resp.json()
-        assert len(data) == 13
+        assert len(data) == 54
         for item in data:
             assert item["value"] is None
 
@@ -361,9 +361,18 @@ class TestRuntimeSnapshot:
             resp = await client.get("/api/v1/settings/runtime-snapshot")
         assert resp.status_code == 200
         data = resp.json()
-        assert len(data) == 13
+        assert len(data) == 38
         assert isinstance(data["HTTP_REQUEST_TIMEOUT"], int)
         assert isinstance(data["TIMEZONE"], str)
         assert isinstance(data["FF_NEO4J_USE_PROVIDER_PIPELINE"], bool)
         assert isinstance(data["RECENT_ACTIONS_LIMIT"], int)
         assert 1 <= data["RECENT_ACTIONS_LIMIT"] <= 50
+        # New fields
+        assert isinstance(data["LLM_PROVIDER"], str)
+        assert isinstance(data["MAX_TOKENS"], int)
+        assert isinstance(data["GITHUB_MCP_ENABLED"], bool)
+        assert isinstance(data["NEO4J_ENABLED"], bool)
+        assert isinstance(data["LOG_LEVEL"], str)
+        assert isinstance(data["ENABLE_FILE_LOGGING"], bool)
+        assert isinstance(data["COMMIT_DAYS_LIMIT"], int)
+        assert isinstance(data["JIRA_LOOKBACK_DAYS"], int)

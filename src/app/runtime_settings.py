@@ -46,6 +46,35 @@ def _build_initial_config() -> RuntimeConfig:
         ES_CHAIN_MAX_RESULTS=app_settings.ES_CHAIN_MAX_RESULTS,
         MAX_MCP_ITERATIONS=app_settings.MAX_MCP_ITERATIONS,
         FF_NEO4J_USE_PROVIDER_PIPELINE=app_settings.FF_NEO4J_USE_PROVIDER_PIPELINE,
+        # ── AI / LLM ──────────────────────────────────────────────────
+        LLM_PROVIDER=app_settings.LLM_PROVIDER,
+        LLM_MODEL=app_settings.LLM_MODEL,
+        MAX_TOKENS=app_settings.MAX_TOKENS,
+        GITHUB_MCP_ENABLED=app_settings.GITHUB_MCP_ENABLED,
+        ATLASSIAN_MCP_ENABLED=app_settings.ATLASSIAN_MCP_ENABLED,
+        # ── System ────────────────────────────────────────────────────
+        NEO4J_ENABLED=app_settings.NEO4J_ENABLED,
+        # ── Connectors ────────────────────────────────────────────────
+        COMMIT_DAYS_LIMIT=app_settings.COMMIT_DAYS_LIMIT,
+        PULL_REQUEST_DAYS_LIMIT=app_settings.PULL_REQUEST_DAYS_LIMIT,
+        IDENTITY_REFRESH_DAYS=app_settings.IDENTITY_REFRESH_DAYS,
+        MAX_TEAM_SIZE=app_settings.MAX_TEAM_SIZE,
+        JIRA_LOOKBACK_DAYS=app_settings.JIRA_LOOKBACK_DAYS,
+        JIRA_MAX_RESULTS_PER_PAGE=app_settings.JIRA_MAX_RESULTS_PER_PAGE,
+        CONFLUENCE_LOOKBACK_DAYS=app_settings.CONFLUENCE_LOOKBACK_DAYS,
+        JIRA_EPIC_TEAM_FIELD=app_settings.JIRA_EPIC_TEAM_FIELD,
+        JIRA_ISSUE_TEAM_FIELD=app_settings.JIRA_ISSUE_TEAM_FIELD,
+        JIRA_EPIC_START_DATE_FIELD=app_settings.JIRA_EPIC_START_DATE_FIELD,
+        JIRA_EPIC_DUE_DATE_FIELD=app_settings.JIRA_EPIC_DUE_DATE_FIELD,
+        GITHUB_TOKEN_FOR_PUBLIC_REPOS=app_settings.GITHUB_TOKEN_FOR_PUBLIC_REPOS,
+        API_SERVER=app_settings.API_SERVER,
+        CONFIGURATION_SOURCE=app_settings.CONFIGURATION_SOURCE,
+        # ── Logging ───────────────────────────────────────────────────
+        LOG_LEVEL=app_settings.LOG_LEVEL,
+        LOG_FORMAT=app_settings.LOG_FORMAT,
+        ENABLE_FILE_LOGGING=app_settings.ENABLE_FILE_LOGGING,
+        LOG_DIR=app_settings.LOG_DIR,
+        LOG_SIGNAL_DUMPS=app_settings.LOG_SIGNAL_DUMPS,
     )
 
 
