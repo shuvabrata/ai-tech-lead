@@ -155,16 +155,16 @@ of coarse values.
 
 ### Manual verification
 
-- [ ] **M2.1** Load a graph. Drag coarse slider to a narrow window. Confirm
+- [x] **M2.1** Load a graph. Drag coarse slider to a narrow window. Confirm
       fine slider resets to match coarse extent. Confirm graph filters to
       coarse window.
-- [ ] **M2.2** Drag fine slider within the coarse window. Confirm graph
+- [x] **M2.2** Drag fine slider within the coarse window. Confirm graph
       narrows further. Confirm label updates to fine range.
-- [ ] **M2.3** Drag coarse slider again. Confirm fine resets to new coarse
+- [x] **M2.3** Drag coarse slider again. Confirm fine resets to new coarse
       extent (previous fine selection discarded).
-- [ ] **M2.4** Click "Clear All". Confirm both coarse and fine reset to full
+- [x] **M2.4** Click "Clear All". Confirm both coarse and fine reset to full
       range. Confirm label shows "All dates".
-- [ ] **M2.5** Expand a node (double-click). Confirm both sliders reset to
+- [x] **M2.5** Expand a node (double-click). Confirm both sliders reset to
       new full range.
 
 ---
