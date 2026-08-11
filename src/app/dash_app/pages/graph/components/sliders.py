@@ -45,7 +45,7 @@ def create_time_slider_pair(suffix: str, label: str) -> html.Div:
             min=0, max=1, step=1,
             value=[0, 1],
             marks=None,
-            tooltip={"placement": "bottom", "always_visible": False, "transform": "epochDayToDate"},
+            tooltip={"placement": "top", "always_visible": False, "transform": "epochDayToDate"},
             allow_direct_input=False,
         ),
         dcc.RangeSlider(
@@ -53,7 +53,7 @@ def create_time_slider_pair(suffix: str, label: str) -> html.Div:
             min=0, max=1, step=1,
             value=[0, 1],
             marks=None,
-            tooltip={"placement": "bottom", "always_visible": False, "transform": "epochDayToDate"},
+            tooltip={"placement": "top", "always_visible": False, "transform": "epochDayToDate"},
             allow_direct_input=False,
         ),
         html.Small(
