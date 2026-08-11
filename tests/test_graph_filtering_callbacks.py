@@ -210,9 +210,12 @@ def test_clear_all_filters_resets_time_sliders():
     assert result[1] == ["KNOWS"]
     assert result[2] == 0
     assert result[3] == "all"
-    assert result[4] == [20103, 20423]  # created reset
-    assert result[5] == [20240, 20423]  # updated reset
-    assert result[6] == [20000, 20500]  # seen reset
+    assert result[4] == [20103, 20423]  # created coarse reset
+    assert result[5] == [20240, 20423]  # updated coarse reset
+    assert result[6] == [20000, 20500]  # seen coarse reset
+    assert result[7] == [20103, 20423]  # created fine reset
+    assert result[8] == [20240, 20423]  # updated fine reset
+    assert result[9] == [20000, 20500]  # seen fine reset
 
 
 def test_clear_all_filters_no_clicks():
@@ -236,9 +239,12 @@ def test_clear_all_filters_empty_full_ranges():
         rel_type_options=[],
         full_ranges={},
     )
-    assert result[4] == [0, 1]
-    assert result[5] == [0, 1]
-    assert result[6] == [0, 1]
+    assert result[4] == [0, 1]  # created coarse
+    assert result[5] == [0, 1]  # updated coarse
+    assert result[6] == [0, 1]  # seen coarse
+    assert result[7] == [0, 1]  # created fine
+    assert result[8] == [0, 1]  # updated fine
+    assert result[9] == [0, 1]  # seen fine
 
 
 # ── toggle_time_filters_collapse ─────────────────────────────────────────
@@ -386,3 +392,142 @@ def test_update_time_filter_labels_no_full_ranges():
         full_ranges=None,
     )
     assert labels == ("", "", "")
+
+
+# ── update_fine_slider_bounds ────────────────────────────────────────────
+
+
+def test_update_fine_slider_bounds_matches_coarse():
+    """T2.1: Coarse [30, 75] → fine min=30, max=75, value=[30, 75]."""
+    result = filtering_callbacks.update_fine_slider_bounds(
+        created_val=[30, 75],
+        updated_val=[30, 75],
+        seen_val=[30, 75],
+    )
+    # 3 properties × 3 outputs each = 9 values
+    assert len(result) == 9
+    # Created fine
+    assert result[0] == 30
+    assert result[1] == 75
+    assert result[2] == [30, 75]
+    # Updated fine
+    assert result[3] == 30
+    assert result[4] == 75
+    assert result[5] == [30, 75]
+    # Seen fine
+    assert result[6] == 30
+    assert result[7] == 75
+    assert result[8] == [30, 75]
+
+
+def test_update_fine_slider_bounds_different_ranges():
+    """T2.2: Coarse [61, 106] → fine min=61, max=106, value=[61, 106]."""
+    result = filtering_callbacks.update_fine_slider_bounds(
+        created_val=[61, 106],
+        updated_val=[50, 200],
+        seen_val=[10, 500],
+    )
+    assert result[0] == 61
+    assert result[1] == 106
+    assert result[2] == [61, 106]
+    assert result[3] == 50
+    assert result[4] == 200
+    assert result[5] == [50, 200]
+    assert result[6] == 10
+    assert result[7] == 500
+    assert result[8] == [10, 500]
+
+
+def test_update_fine_slider_bounds_none_values():
+    """When coarse value is None, fine should default to [0, 1]."""
+    result = filtering_callbacks.update_fine_slider_bounds(
+        created_val=None,
+        updated_val=[30, 75],
+        seen_val=None,
+    )
+    assert result[0] == 0
+    assert result[1] == 1
+    assert result[2] == [0, 1]
+    assert result[3] == 30
+    assert result[4] == 75
+    assert result[5] == [30, 75]
+    assert result[6] == 0
+    assert result[7] == 1
+    assert result[8] == [0, 1]
+
+
+# ── update_time_filter_ranges (fine slider outputs) ──────────────────────
+
+
+def test_update_time_filter_ranges_includes_fine_outputs():
+    """T2.2: update_time_filter_ranges should output fine slider values matching coarse."""
+    elements = [
+        _make_node("n1", _created_at="2025-01-15T00:00:00Z"),
+        _make_node("n2", _created_at="2025-12-01T00:00:00Z"),
+    ]
+    result = filtering_callbacks.update_time_filter_ranges(
+        unfiltered_elements=elements,
+        previous_ranges={},
+    )
+    # Result structure: [ranges_dict, coarse_created_min, max, value, marks, ...,
+    #                    fine_created_min, max, value, marks, ...]
+    # Coarse outputs: 4 per property × 3 = 12 after the dict
+    # Fine outputs: 4 per property × 3 = 12 after coarse
+    coarse_start = 1
+    fine_start = coarse_start + 12
+    # Created fine should match created coarse
+    assert result[fine_start + 0] == result[coarse_start + 0]  # min
+    assert result[fine_start + 1] == result[coarse_start + 1]  # max
+    assert result[fine_start + 2] == result[coarse_start + 2]  # value
+    assert result[fine_start + 3] == result[coarse_start + 3]  # marks
+
+
+# ── update_time_filter_labels (reads fine values) ────────────────────────
+
+
+def test_update_time_filter_labels_reads_fine_values():
+    """T2.3: Labels should reflect fine slider values, not coarse."""
+    labels = filtering_callbacks.update_time_filter_labels(
+        created_val=[20103, 20200],  # fine value (narrowed)
+        updated_val=[20240, 20423],  # fine value (full range)
+        seen_val=[20000, 20500],     # fine value (full range)
+        full_ranges={
+            "_created_at": [20103, 20423],
+            "_last_updated_at": [20240, 20423],
+            "_last_seen_at": [20000, 20500],
+        },
+    )
+    assert "All dates" not in labels[0]  # narrowed via fine
+    assert "All dates" in labels[1]
+    assert "All dates" in labels[2]
+
+
+# ── apply_relationship_filters (reads fine values) ───────────────────────
+
+
+def test_apply_relationship_filters_uses_fine_values():
+    """T2.5: apply_relationship_filters should use fine slider values for time filtering."""
+    unfiltered_elements = [
+        {"data": {"id": "n1", "nodeType": "Person", "elementType": "node", "_created_at": "2025-01-15T00:00:00Z"}},
+        {"data": {"id": "n2", "nodeType": "Person", "elementType": "node", "_created_at": "2025-12-01T00:00:00Z"}},
+        {"data": {"id": "e1", "source": "n1", "target": "n2", "relType": "KNOWS", "elementType": "edge"}},
+    ]
+    # Fine slider narrowed to only include n1
+    filtered = filtering_callbacks.apply_relationship_filters(
+        selected_node_types=["Person"],
+        selected_rel_types=["KNOWS"],
+        weight_threshold=0,
+        top_n_mode="all",
+        unfiltered_elements=unfiltered_elements,
+        created_range=[20103, 20103],  # fine value — only Jan 15
+        updated_range=[0, 1],
+        seen_range=[0, 1],
+        full_ranges={
+            "_created_at": [20103, 20423],
+            "_last_updated_at": [0, 1],
+            "_last_seen_at": [0, 1],
+        },
+    )
+    # Only n1 should survive, and its edge should be excluded (n2 filtered out)
+    assert len(filtered) == 1
+    assert filtered[0]["data"]["id"] == "n1"

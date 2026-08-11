@@ -337,3 +337,84 @@ class TestBuildElementPropertiesContent:
         result = build_element_properties_content(data)
         text = self._flatten_text(result)
         assert "weight" in text
+
+
+# ---------------------------------------------------------------------------
+# create_time_slider_pair
+# ---------------------------------------------------------------------------
+
+@pytest.mark.unit
+class TestCreateTimeSliderPair:
+    """Tests for ``create_time_slider_pair`` in graph/components/sliders.py."""
+
+    def _collect_ids(self, component):
+        """Collect all component IDs recursively."""
+        ids = set()
+        component_id = getattr(component, 'id', None)
+        if component_id:
+            ids.add(component_id)
+        children = getattr(component, 'children', None)
+        if children is None:
+            return ids
+        if not isinstance(children, list):
+            children = [children]
+        for child in children:
+            ids |= self._collect_ids(child)
+        return ids
+
+    def test_returns_html_div(self):
+        """T1.1: Verify create_time_slider_pair returns a html.Div."""
+        from app.dash_app.pages.graph.components.sliders import create_time_slider_pair
+        result = create_time_slider_pair("created", "Created At")
+        assert isinstance(result, html.Div)
+
+    def test_has_four_children(self):
+        """T1.1: Verify the div has 4 children: label, coarse, fine, value label."""
+        from app.dash_app.pages.graph.components.sliders import create_time_slider_pair
+        result = create_time_slider_pair("created", "Created At")
+        assert result.children is not None
+        children = result.children
+        assert isinstance(children, list)
+        assert len(children) == 4
+
+    def test_children_types(self):
+        """T1.1: Verify the 4 children have the correct types."""
+        from app.dash_app.pages.graph.components.sliders import create_time_slider_pair
+        result = create_time_slider_pair("created", "Created At")
+        children = result.children
+        assert isinstance(children[0], html.Label)
+        # Check the slider instances via repr/type check
+        from dash import dcc
+        assert isinstance(children[1], dcc.RangeSlider)
+        assert isinstance(children[2], dcc.RangeSlider)
+        assert isinstance(children[3], html.Small)
+
+    def test_fine_slider_matches_coarse_initially(self):
+        """T1.2: Fine slider min/max/value matches coarse slider initially."""
+        from app.dash_app.pages.graph.components.sliders import create_time_slider_pair
+        result = create_time_slider_pair("created", "Created At")
+        children = result.children
+        coarse = children[1]
+        fine = children[2]
+        assert fine.min == coarse.min
+        assert fine.max == coarse.max
+        assert fine.value == coarse.value
+
+    def test_correct_ids(self):
+        """T1.1/T1.2: Verify component IDs based on suffix."""
+        from app.dash_app.pages.graph.components.sliders import create_time_slider_pair
+        result = create_time_slider_pair("seen", "Last Seen")
+        ids = self._collect_ids(result)
+        assert "time-slider-seen" in ids
+        assert "time-slider-seen-fine" in ids
+        assert "time-slider-seen-label" in ids
+
+    def test_section_style_matches_details_panel(self):
+        """T1.3: Verify the section div uses the same boxed style as the details panel."""
+        from app.dash_app.pages.graph.components.sliders import create_time_slider_pair
+        result = create_time_slider_pair("updated", "Last Updated")
+        style = result.style or {}
+        assert "var(--color-background-pale)" in str(style.get("backgroundColor", ""))
+        assert "var(--color-border-gray)" in str(style.get("border", ""))
+        assert style.get("borderRadius") == "4px"
+        assert style.get("padding") == "8px"
