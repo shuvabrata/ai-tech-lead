@@ -303,9 +303,9 @@ def _compute_filtered_graph(
      Output("relationship-type-filter", "value"),
      Output("relationship-type-available-store", "data")],
     [Input("unfiltered-elements-store", "data"),
-     Input("time-slider-created", "value"),
-     Input("time-slider-updated", "value"),
-     Input("time-slider-seen", "value")],
+     Input("time-slider-created-fine", "value"),
+     Input("time-slider-updated-fine", "value"),
+     Input("time-slider-seen-fine", "value")],
     [State("relationship-type-filter", "value"),
      State("relationship-type-available-store", "data"),
      State("time-filter-full-ranges", "data")],
@@ -400,9 +400,9 @@ def update_relationship_type_filter(unfiltered_elements, created_range, updated_
      Output("node-type-filter", "value"),
      Output("node-type-available-store", "data")],
     [Input("unfiltered-elements-store", "data"),
-     Input("time-slider-created", "value"),
-     Input("time-slider-updated", "value"),
-     Input("time-slider-seen", "value")],
+     Input("time-slider-created-fine", "value"),
+     Input("time-slider-updated-fine", "value"),
+     Input("time-slider-seen-fine", "value")],
     [State("node-type-filter", "value"),
      State("node-type-available-store", "data"),
      State("time-filter-full-ranges", "data")],
@@ -508,9 +508,9 @@ def update_weight_threshold_label(threshold):
      Input("top-n-toggle", "value"),
      Input("node-type-filter", "options"),
      Input("relationship-type-filter", "options"),
-     Input("time-slider-created", "value"),
-     Input("time-slider-updated", "value"),
-     Input("time-slider-seen", "value"),
+     Input("time-slider-created-fine", "value"),
+     Input("time-slider-updated-fine", "value"),
+     Input("time-slider-seen-fine", "value"),
      Input("time-filter-full-ranges", "data")]
 )
 def update_filter_panel_feedback(
@@ -573,7 +573,10 @@ def update_filter_panel_feedback(
      Output("top-n-toggle", "value"),
      Output("time-slider-created", "value", allow_duplicate=True),
      Output("time-slider-updated", "value", allow_duplicate=True),
-     Output("time-slider-seen", "value", allow_duplicate=True)],
+     Output("time-slider-seen", "value", allow_duplicate=True),
+     Output("time-slider-created-fine", "value", allow_duplicate=True),
+     Output("time-slider-updated-fine", "value", allow_duplicate=True),
+     Output("time-slider-seen-fine", "value", allow_duplicate=True)],
     Input("clear-filters-btn", "n_clicks"),
     [State("node-type-filter", "options"),
      State("relationship-type-filter", "options"),
@@ -597,7 +600,7 @@ def clear_all_filters(n_clicks, node_type_options, rel_type_options, full_ranges
     updated_reset = fr.get("_last_updated_at", [0, 1])
     seen_reset = fr.get("_last_seen_at", [0, 1])
 
-    return all_node_types, all_rel_types, 0, "all", created_reset, updated_reset, seen_reset
+    return all_node_types, all_rel_types, 0, "all", created_reset, updated_reset, seen_reset, created_reset, updated_reset, seen_reset
 
 
 @callback(
@@ -611,9 +614,9 @@ def clear_all_filters(n_clicks, node_type_options, rel_type_options, full_ranges
      # with the unfiltered baseline after every expansion.
      Input("unfiltered-elements-store", "data"),
      # Time filter inputs
-     Input("time-slider-created", "value"),
-     Input("time-slider-updated", "value"),
-     Input("time-slider-seen", "value")],
+     Input("time-slider-created-fine", "value"),
+     Input("time-slider-updated-fine", "value"),
+     Input("time-slider-seen-fine", "value")],
     State("time-filter-full-ranges", "data"),
     prevent_initial_call=True
 )
@@ -723,6 +726,38 @@ def toggle_time_filters_collapse(n_clicks, is_open):
 
 
 @callback(
+    [Output("time-slider-created-fine", "min"),
+     Output("time-slider-created-fine", "max"),
+     Output("time-slider-created-fine", "value"),
+     Output("time-slider-updated-fine", "min"),
+     Output("time-slider-updated-fine", "max"),
+     Output("time-slider-updated-fine", "value"),
+     Output("time-slider-seen-fine", "min"),
+     Output("time-slider-seen-fine", "max"),
+     Output("time-slider-seen-fine", "value")],
+    [Input("time-slider-created", "value"),
+     Input("time-slider-updated", "value"),
+     Input("time-slider-seen", "value")],
+    prevent_initial_call=True,
+)
+def update_fine_slider_bounds(created_val, updated_val, seen_val):
+    """Sync fine slider bounds to match coarse slider extent.
+
+    When the coarse slider moves, the fine slider resets to the full
+    coarse extent so the user can refine within that window.
+    """
+    def _fine_outputs(val):
+        if val is None:
+            return 0, 1, [0, 1]
+        return val[0], val[1], list(val)
+
+    outputs = []
+    for val in (created_val, updated_val, seen_val):
+        outputs.extend(_fine_outputs(val))
+    return outputs
+
+
+@callback(
     [Output("time-filter-full-ranges", "data"),
      Output("time-slider-created", "min"),
      Output("time-slider-created", "max"),
@@ -735,7 +770,19 @@ def toggle_time_filters_collapse(n_clicks, is_open):
      Output("time-slider-seen", "min"),
      Output("time-slider-seen", "max"),
      Output("time-slider-seen", "value"),
-     Output("time-slider-seen", "marks")],
+     Output("time-slider-seen", "marks"),
+     Output("time-slider-created-fine", "min"),
+     Output("time-slider-created-fine", "max"),
+     Output("time-slider-created-fine", "value"),
+     Output("time-slider-created-fine", "marks"),
+     Output("time-slider-updated-fine", "min"),
+     Output("time-slider-updated-fine", "max"),
+     Output("time-slider-updated-fine", "value"),
+     Output("time-slider-updated-fine", "marks"),
+     Output("time-slider-seen-fine", "min"),
+     Output("time-slider-seen-fine", "max"),
+     Output("time-slider-seen-fine", "value"),
+     Output("time-slider-seen-fine", "marks")],
     Input("unfiltered-elements-store", "data"),
     State("time-filter-full-ranges", "data"),
     prevent_initial_call=True,
@@ -780,16 +827,16 @@ def update_time_filter_ranges(unfiltered_elements, previous_ranges):
     for prop in ("_created_at", "_last_updated_at", "_last_seen_at"):
         outputs.extend(_slider_outputs(prop))
 
-    return ranges, *outputs
+    return ranges, *outputs, *outputs
 
 
 @callback(
     [Output("time-slider-created-label", "children"),
      Output("time-slider-updated-label", "children"),
      Output("time-slider-seen-label", "children")],
-    [Input("time-slider-created", "value"),
-     Input("time-slider-updated", "value"),
-     Input("time-slider-seen", "value"),
+    [Input("time-slider-created-fine", "value"),
+     Input("time-slider-updated-fine", "value"),
+     Input("time-slider-seen-fine", "value"),
      Input("time-filter-full-ranges", "data")],
 )
 def update_time_filter_labels(created_val, updated_val, seen_val, full_ranges):
