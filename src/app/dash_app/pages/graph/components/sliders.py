@@ -7,26 +7,30 @@ across the graph page layout.
 from dash import dcc, html
 from app.dash_app.styles import (
     COLOR_GRAY_DARK,
-    COLOR_TEXT_SECONDARY,
     FONT_WEIGHT_SEMIBOLD,
 )
 
 
-def create_time_slider(suffix: str, label: str) -> html.Div:
-    """Create a time-range slider with label and value display.
+def create_time_slider_pair(suffix: str, label: str) -> html.Div:
+    """Create a paired time-range filter section with coarse and fine sliders.
+
+    Returns a muted-background ``<div>`` containing the property label, a
+    coarse ``dcc.RangeSlider``, a fine ``dcc.RangeSlider`` (initialised to
+    the same range), and a value label at the bottom.
 
     Parameters
     ----------
     suffix : str
         ID suffix for the slider and label components (e.g. ``"created"``
-        produces ``id="time-slider-created"`` and ``id="time-slider-created-label"``).
+        produces ``id="time-slider-created"``, ``id="time-slider-created-fine"``,
+        and ``id="time-slider-created-label"``).
     label : str
         Human-readable label text (e.g. ``"Created At"``).
 
     Returns
     -------
     html.Div
-        A ``<div>`` containing the label, RangeSlider, and small label display.
+        A ``<div>`` with muted background containing all elements.
     """
     return html.Div([
         html.Label(label, style={
@@ -41,7 +45,15 @@ def create_time_slider(suffix: str, label: str) -> html.Div:
             min=0, max=1, step=1,
             value=[0, 1],
             marks=None,
-            tooltip={"placement": "bottom", "always_visible": False, "transform": "epochDayToDate"},
+            tooltip={"placement": "top", "always_visible": False, "transform": "epochDayToDate"},
+            allow_direct_input=False,
+        ),
+        dcc.RangeSlider(
+            id=f"time-slider-{suffix}-fine",
+            min=0, max=1, step=1,
+            value=[0, 1],
+            marks=None,
+            tooltip={"placement": "top", "always_visible": False, "transform": "epochDayToDate"},
             allow_direct_input=False,
         ),
         html.Small(
@@ -49,4 +61,9 @@ def create_time_slider(suffix: str, label: str) -> html.Div:
             className="d-block mt-1",
             style={"fontSize": "10px", "color": "var(--color-text-secondary)"},
         ),
-    ], className="mb-2")
+    ], style={
+        "backgroundColor": "var(--color-background-pale)",
+        "border": "1px solid var(--color-border-gray)",
+        "borderRadius": "4px",
+        "padding": "8px",
+    }, className="mb-2")
