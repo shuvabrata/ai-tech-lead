@@ -3,6 +3,6 @@ aio-pika==10.0.1
 asyncpg==0.31.0
 pydantic==2.13.4
 requests==2.34.2
-pika==1.4.2
+pika==1.4.4
 httpx==0.28.1
 
