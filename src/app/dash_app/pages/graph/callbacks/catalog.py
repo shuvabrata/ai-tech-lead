@@ -120,6 +120,18 @@ def determine_catalog_view(
     return None
 
 
+def _extract_param_value(value):
+    """Normalize a catalog parameter value to its raw runtime form.
+
+    Person parameters are stored as ``{"wba": "...", "display": "..."}``
+    while scalar parameters remain plain strings.  This helper unwraps
+    dicts so that downstream consumers only see the ``wba`` string.
+    """
+    if isinstance(value, dict):
+        return value.get("wba")
+    return value
+
+
 def required_parameters_missing(catalog_query: dict, parameter_values: dict | None) -> list[str]:
     """Return names of required catalog parameters that are missing."""
     parameter_values = parameter_values or {}
@@ -127,7 +139,7 @@ def required_parameters_missing(catalog_query: dict, parameter_values: dict | No
     for parameter in catalog_query.get("parameters") or []:
         if not parameter.get("required"):
             continue
-        value = parameter_values.get(parameter.get("name"))
+        value = _extract_param_value(parameter_values.get(parameter.get("name")))
         if value is None or (isinstance(value, str) and not value.strip()):
             missing.append(parameter["name"])
     return missing
@@ -205,23 +217,56 @@ def _build_parameter_help_text(parameter: dict):
     )
 
 
-def _build_person_picker(parameter: dict, current_value: str | None) -> html.Div:
+def _build_person_picker(parameter: dict, current_value: str | dict | None) -> html.Div:
     """Build a custom combobox for parameters with type='person_id'.
 
     Uses a plain ``dbc.Input`` so the user types directly without any popup
     widget.  Suggestions appear in an absolutely-positioned panel below the
     input.  After a person is selected a chip replaces the search area,
     showing the canonical ``wba_id`` and a clear button.
+
+    When ``current_value`` is a dict ``{"wba": "...", "display": "..."}``
+    (i.e. a previously-picked person whose value was preserved in the
+    parameter store), the chip is pre-rendered and the hidden
+    ``catalog-person-value`` store is seeded so that the clear button
+    correctly removes the entry from ``catalog-parameters-store``.
     """
     parameter_name = parameter.get("name")
     required = parameter.get("required", False)
     label_base = _parameter_label(parameter)
+
+    # Determine whether we have a stored person selection
+    stored_wba: str | None = None
+    stored_display: str | None = None
+    if isinstance(current_value, dict):
+        stored_wba = current_value.get("wba")
+        stored_display = current_value.get("display") or stored_wba or "Unknown"
 
     label_children: list = [label_base]
     if required:
         label_children.append(
             html.Span(" *", style={"color": "#dc3545", "fontWeight": 700})
         )
+
+    # --- Chip (rendered when a stored value exists) ---
+    chip_children: list = []
+    if stored_wba:
+        chip_children = [
+            html.Div(
+                [
+                    html.Span(stored_display, className="catalog-person-chip-name"),
+                    html.Span(stored_wba, className="catalog-person-chip-id"),
+                ],
+                className="catalog-person-chip-info",
+            ),
+            html.Button(
+                "\u00d7",
+                id={"type": "catalog-person-chip-clear", "name": parameter_name},
+                n_clicks=0,
+                className="catalog-person-chip-clear",
+                title="Clear selection",
+            ),
+        ]
 
     return html.Div(
         [
@@ -232,8 +277,8 @@ def _build_person_picker(parameter: dict, current_value: str | None) -> html.Div
             # --- Chip (visible once a person is selected) ---
             html.Div(
                 id={"type": "catalog-person-chip", "name": parameter_name},
-                children=[],
-                style={"display": "none"},
+                children=chip_children,
+                style={"display": "flex" if stored_wba else "none"},
                 className="catalog-person-chip-area",
             ),
             # --- Search area (visible while searching) ---
@@ -262,6 +307,7 @@ def _build_person_picker(parameter: dict, current_value: str | None) -> html.Div
                     ),
                 ],
                 id={"type": "catalog-person-search-area", "name": parameter_name},
+                style={"display": "none" if stored_wba else "block"},
             ),
             # --- Hidden stores (self-contained within the picker) ---
             dcc.Store(
@@ -272,7 +318,7 @@ def _build_person_picker(parameter: dict, current_value: str | None) -> html.Div
             dcc.Store(
                 id={"type": "catalog-person-value", "name": parameter_name},
                 storage_type="memory",
-                data=None,
+                data=current_value if isinstance(current_value, dict) else None,
             ),
         ],
         className="mb-3",
@@ -850,7 +896,7 @@ def handle_person_pick(all_clicks: list[int]) -> tuple:
         {"display": "flex"},   # chip visible
         {"display": "none"},   # search area hidden
         {"display": "none"},   # suggestions panel hidden
-        wba,                   # value store
+        {"wba": wba, "display": display},  # stored as dict for round-trip preservation
     )
 
 

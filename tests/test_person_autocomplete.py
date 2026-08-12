@@ -307,9 +307,9 @@ def test_render_catalog_query_detail_run_enabled_when_person_value_present():
 
 
 def test_sync_person_parameter_values_merges_selection_into_store():
-    """A selected wba_id must be written into catalog-parameters-store."""
+    """A selected person (as dict) must be written into catalog-parameters-store."""
     result = catalog_callbacks.sync_person_parameter_values(
-        values=["github::Person::alice", None],
+        values=[{"wba": "github::Person::alice", "display": "Alice Smith"}, None],
         ids=[
             {"type": "catalog-person-value", "name": "person1_id"},
             {"type": "catalog-person-value", "name": "person2_id"},
@@ -317,7 +317,7 @@ def test_sync_person_parameter_values_merges_selection_into_store():
         current_params={"other_param": "existing_value"},
     )
 
-    assert result["person1_id"] == "github::Person::alice"
+    assert result["person1_id"] == {"wba": "github::Person::alice", "display": "Alice Smith"}
     assert result["other_param"] == "existing_value"
     assert "person2_id" not in result
 
@@ -327,7 +327,7 @@ def test_sync_person_parameter_values_clears_on_deselect():
     result = catalog_callbacks.sync_person_parameter_values(
         values=[None],
         ids=[{"type": "catalog-person-value", "name": "person1_id"}],
-        current_params={"person1_id": "github::Person::alice"},
+        current_params={"person1_id": {"wba": "github::Person::alice", "display": "Alice Smith"}},
     )
 
     assert "person1_id" not in result
@@ -335,7 +335,7 @@ def test_sync_person_parameter_values_clears_on_deselect():
 
 def test_sync_person_parameter_values_handles_empty_ids():
     """Empty input lists must return the current params unchanged."""
-    current = {"person1_id": "github::Person::alice"}
+    current = {"person1_id": {"wba": "github::Person::alice", "display": "Alice Smith"}}
     result = catalog_callbacks.sync_person_parameter_values(
         values=[], ids=[], current_params=current,
     )
@@ -345,11 +345,11 @@ def test_sync_person_parameter_values_handles_empty_ids():
 def test_sync_person_parameter_values_initialises_empty_store():
     """When current_params is None, result must be a fresh dict."""
     result = catalog_callbacks.sync_person_parameter_values(
-        values=["github::Person::bob"],
+        values=[{"wba": "github::Person::bob", "display": "Bob Jones"}],
         ids=[{"type": "catalog-person-value", "name": "person1_id"}],
         current_params=None,
     )
-    assert result == {"person1_id": "github::Person::bob"}
+    assert result == {"person1_id": {"wba": "github::Person::bob", "display": "Bob Jones"}}
 
 
 # ===========================================================================

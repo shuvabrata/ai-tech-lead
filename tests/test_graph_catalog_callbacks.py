@@ -100,10 +100,29 @@ def test_required_parameters_missing_reports_only_unfilled_required_inputs():
 
     missing = catalog_callbacks.required_parameters_missing(
         catalog_query,
-        {"person1_id": "alice", "person2_id": "   "},
+        {
+            "person1_id": {"wba": "github::Person::alice", "display": "Alice Smith"},
+            "person2_id": "   ",
+        },
     )
 
     assert missing == ["person2_id"]
+
+
+def test_required_parameters_missing_handles_pure_string_store():
+    """Legacy string values (non-person params) should still work."""
+    catalog_query = {
+        "parameters": [
+            {"name": "person1_id", "required": True},
+        ]
+    }
+
+    missing = catalog_callbacks.required_parameters_missing(
+        catalog_query,
+        {"person1_id": "github::Person::alice"},
+    )
+
+    assert missing == []
 
 
 def test_build_namespace_options_includes_all_namespaces_first():
