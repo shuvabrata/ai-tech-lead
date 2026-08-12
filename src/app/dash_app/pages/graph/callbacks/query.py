@@ -29,6 +29,21 @@ from ..utils import (
 TIMEOUT_SECONDS = runtime_settings.get_int("HTTP_REQUEST_TIMEOUT")
 
 
+def _normalize_catalog_parameters(raw_params: dict | None) -> dict:
+    """Unwrap person-parameter dicts before sending to the API.
+
+    Person pickers store ``{"wba": "...", "display": "..."}`` but the API
+    only expects the raw ``wba`` string.  Scalar parameters pass through
+    unchanged.
+    """
+    if not raw_params:
+        return {}
+    normalized: dict = {}
+    for key, value in raw_params.items():
+        normalized[key] = value.get("wba") if isinstance(value, dict) else value
+    return normalized
+
+
 @callback(
     Output("query-validation-message", "children"),
     Input("graph-query-input", "value")
@@ -211,7 +226,7 @@ def execute_query(
             "source": "catalog",
             "catalog_id": catalog_id,
             "view": catalog_view or "graph",
-            "parameters": catalog_parameters or {},
+            "parameters": _normalize_catalog_parameters(catalog_parameters),
         }
         query_preview = catalog_id
         query_length = len(catalog_id)
