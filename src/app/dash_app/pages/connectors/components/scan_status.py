@@ -4,6 +4,7 @@ Renders a single scan command row with status icon, timestamp, duration,
 and result summary.
 """
 
+import json
 from datetime import datetime
 
 from dash import html
@@ -96,6 +97,7 @@ def render_scan_item(command: dict) -> html.Div:  # type: ignore[type-arg]
     started_str = _format_timestamp(command.get("started_at"))
     completed_str = _format_timestamp(command.get("completed_at"))
     error_message: str | None = command.get("error_message")  # type: ignore[type-arg]
+    result_summary = command.get("result_summary")
 
     # Duration calculation — only when the scan has finished
     start_dt = command.get("started_at")
@@ -143,9 +145,53 @@ def render_scan_item(command: dict) -> html.Div:  # type: ignore[type-arg]
         },
     )
 
+    command_id = str(command.get("command_id", ""))
+
+    # Raw result_summary hover — expose the full JSON for any scan result
+    # that carries one (completed, failed, cancelled, test, etc.).
+    raw_summary_part: list = []
+    if result_summary is not None:
+        tooltip_id = f"scan-summary-json-{command_id}"
+        try:
+            raw_json = json.dumps(result_summary, indent=2, sort_keys=True)
+        except (TypeError, ValueError):
+            raw_json = str(result_summary)
+        raw_summary_part = [
+            html.I(
+                className="fas fa-code",
+                id=tooltip_id,
+                style={
+                    "cursor": "help",
+                    "marginLeft": SPACING_XSMALL,
+                    "color": COLOR_INFO,
+                    "fontSize": FONT_SIZE_XSMALL,
+                },
+            ),
+            dbc.Popover(
+                dbc.PopoverBody(
+                    html.Pre(
+                        raw_json,
+                        style={
+                            "fontFamily": "monospace",
+                            "fontSize": "11px",
+                            "margin": "0",
+                            "whiteSpace": "pre-wrap",
+                            "wordBreak": "break-word",
+                        },
+                    )
+                ),
+                target=tooltip_id,
+                trigger="hover focus",
+                placement="auto",
+                style={"maxWidth": "560px"},
+            ),
+        ]
+
     # Combine prefix and error into a single line
     detail_line = html.Span(
-        [detail_prefix + " | ", error_part] if detail_prefix else error_part,
+        [detail_prefix + " | ", error_part] + raw_summary_part
+        if detail_prefix
+        else [error_part] + raw_summary_part,
         style={
             "fontFamily": FONT_SANS,
             "fontSize": FONT_SIZE_XSMALL,
@@ -190,7 +236,6 @@ def render_scan_item(command: dict) -> html.Div:  # type: ignore[type-arg]
             },
         )
 
-    command_id = str(command.get("command_id", ""))
     cancel_button = html.Div()
     if status in ("running", "accepted"):
         cancel_button = dbc.Button(

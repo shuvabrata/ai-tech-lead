@@ -45,11 +45,17 @@ from connectors.producers.github.process_repo_signals import (
     process_repo_signals,
 )
 from connectors.producers.sync_cursor import get_sync_cursor, set_sync_cursor
-from connectors.producers.daemon_common import producer_main
+from connectors.producers.daemon_common import ScanResult, producer_main
 
 
-async def main_async() -> None:
-    """Entry point — load config, iterate repos, publish signals."""
+async def main_async() -> ScanResult:
+    """Entry point — load config, iterate repos, publish signals.
+
+    Returns a :class:`ScanResult` describing the aggregate outcome across all
+    configured repositories.  A config that fails to resolve or has any repo
+    processing error is recorded as a failed item, but does not abort the
+    remaining configs.
+    """
     rabbitmq_url = os.environ.get("RABBITMQ_URL", "amqp://guest:guest@localhost:5672/")
     config_source = os.getenv("CONFIGURATION_SOURCE", "FILE").upper()
 
@@ -61,9 +67,10 @@ async def main_async() -> None:
         config = load_config_from_file()
 
     repos_cfg: List[Dict[str, Any]] = config.get("repos", [])
+    result = ScanResult()
     if not repos_cfg:
         logger.warning("No repositories configured — exiting.")
-        return
+        return result
 
     async with RabbitMQPublisher(rabbitmq_url) as publisher:
         for repo_cfg in repos_cfg:
@@ -71,10 +78,13 @@ async def main_async() -> None:
                 logger.info("Skipping disabled configuration for url: %s", repo_cfg.get("url", "unknown"))
                 continue
 
+            result.items_processed += 1
+
             url: str = repo_cfg.get("url", "")
             access_token: str = repo_cfg.get("access_token", "")
             if not url or not access_token:
                 logger.warning("Skipping repo entry with missing url/access_token")
+                result.add_error(url or "unknown", "missing url/access_token")
                 continue
 
             auth = Auth.Token(access_token)
@@ -92,8 +102,11 @@ async def main_async() -> None:
                     repo_list = [g.get_repo(f"{owner}/{repo_name}")]
             except Exception as exc:
                 logger.error("Failed to resolve repos for '%s': %s", url, exc)
+                result.add_error(url, str(exc))
                 continue
 
+            config_failed = False
+            first_error: str | None = None
             for repo in repo_list:
                 full_name = repo.full_name
                 try:
@@ -120,8 +133,17 @@ async def main_async() -> None:
                     )
                 except Exception as exc:
                     logger.error("Error processing repo '%s': %s", full_name, exc, exc_info=True)
+                    config_failed = True
+                    if first_error is None:
+                        first_error = str(exc)
+
+            if config_failed:
+                result.add_error(url, first_error or "unknown error")
+            else:
+                result.items_succeeded += 1
 
     logger.info("GitHub ActivitySignal Producer finished.")
+    return result
 
 
 def _get_test_item_id() -> int | None:

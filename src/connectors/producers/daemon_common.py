@@ -35,6 +35,7 @@ import sys
 import threading
 import uuid
 from collections.abc import Callable, Coroutine
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
@@ -47,6 +48,54 @@ from common.logger import logger
 from common.runtime_settings import RuntimeConfigCache
 from common.runtime_settings.client import fetch_runtime_snapshot
 from common.runtime_settings.events import listen_for_settings_changed
+
+
+@dataclass
+class ScanResult:
+    """Aggregate outcome of a one-shot scan across all configured items.
+
+    A scan iterates over multiple configured items (GitHub repo configs,
+    Jira/Confluence accounts).  Each item is processed independently and may
+    fail without aborting the remaining items.  ``ScanResult`` collects those
+    per-item errors so ``run_scan`` can report the scan as ``failed`` when any
+    item errored, instead of always reporting ``completed``.
+    """
+
+    success: bool = True
+    items_processed: int = 0
+    items_succeeded: int = 0
+    items_failed: int = 0
+    errors: list[dict[str, str]] = field(default_factory=list)
+
+    def add_error(self, item: str, error: str) -> None:
+        """Record a failed item, updating the aggregate counters."""
+        self.items_failed += 1
+        self.success = False
+        self.errors.append({"item": item, "error": error})
+
+    def summary(self) -> dict[str, Any]:
+        """Return a JSON-serialisable result summary for ``result_summary``."""
+        summary: dict[str, Any] = {
+            "items_processed": self.items_processed,
+            "items_succeeded": self.items_succeeded,
+            "items_failed": self.items_failed,
+        }
+        if self.errors:
+            summary["errors"] = self.errors
+        return summary
+
+    def error_message(self) -> str:
+        """Return a concise human-readable error message for the status PATCH."""
+        if self.items_failed == 0:
+            return ""
+        message = (
+            f"{self.items_failed} of {self.items_processed} "
+            f"configs failed"
+        )
+        if self.errors:
+            first_error = self.errors[0]["error"]
+            message += f". 1/{self.items_failed}: {first_error}"
+        return message
 
 # ── Module-level runtime settings cache (shared across daemon functions) ──
 # Initialised with all-defaults.  Refreshed at daemon startup and at each
@@ -465,9 +514,15 @@ def run_scan(
     *,
     command_id: uuid.UUID,
     parameters: dict[str, Any],
-    scan_func: Callable[[], Coroutine[Any, Any, None]],
+    scan_func: Callable[[], Coroutine[Any, Any, ScanResult]],
 ) -> None:
-    """Scan mode entry point — run scan and report status."""
+    """Scan mode entry point — run scan and report status.
+
+    ``scan_func`` must return a :class:`ScanResult`.  The scan is reported
+    ``completed`` only when every configured item succeeded; if any item
+    errored (even if others succeeded), the scan is reported ``failed`` with
+    the per-item errors carried in ``result_summary``.
+    """
     # Fetch a fresh runtime settings snapshot at child startup (best-effort).
     runtime_cache.refresh(fetch_runtime_snapshot(_api_base()))
 
@@ -478,11 +533,24 @@ def run_scan(
     ))
 
     try:
-        asyncio.run(scan_func())
-        logger.info("Scan completed command_id=%s", command_id)
-        _update_status(command_id, CommandStatusUpdate(
-            status="completed", completed_at=datetime.now(timezone.utc),
-        ))
+        result = asyncio.run(scan_func())
+        if result.success:
+            logger.info("Scan completed command_id=%s", command_id)
+            _update_status(command_id, CommandStatusUpdate(
+                status="completed", completed_at=datetime.now(timezone.utc),
+                result_summary=result.summary(),
+            ))
+        else:
+            logger.error(
+                "Scan failed command_id=%s: %s errors=%s",
+                command_id, result.error_message(), result.errors,
+            )
+            _update_status(command_id, CommandStatusUpdate(
+                status="failed", completed_at=datetime.now(timezone.utc),
+                error_message=result.error_message(),
+                result_summary=result.summary(),
+            ))
+            sys.exit(1)
     except Exception as exc:
         logger.error("Scan failed command_id=%s: %s", command_id, exc, exc_info=True)
         _update_status(command_id, CommandStatusUpdate(
@@ -538,7 +606,7 @@ def producer_main(
     description: str,
     default_container: str,
     producer_main_path: str,
-    scan_func: Callable[[], Coroutine[Any, Any, None]],
+    scan_func: Callable[[], Coroutine[Any, Any, ScanResult]],
     test_func: Callable[[], Coroutine[Any, Any, tuple[bool, str]]] | None = None,
 ) -> None:
     """Unified CLI entry point — dispatch to daemon, scan, or test mode.
@@ -549,6 +617,7 @@ def producer_main(
         producer_main_path: ``__file__`` from the caller's module — used to
             spawn child processes.
         scan_func: The producer's async scan function (e.g. ``main_async``).
+            Must return a :class:`ScanResult` describing the aggregate outcome.
         test_func: Optional async function returning ``(success, message)``
             for connectivity testing.  Required for ``--mode test``.
     """
