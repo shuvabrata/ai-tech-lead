@@ -69,7 +69,7 @@ from connectors.producers.jira.map_jira import (
     map_sprint,
 )
 from connectors.producers.sync_cursor import get_sync_cursor, set_sync_cursor
-from connectors.producers.daemon_common import producer_main
+from connectors.producers.daemon_common import ScanResult, producer_main
 
 _SOURCE = "jira"
 _VERSION = "1.0"
@@ -719,8 +719,14 @@ async def publish_signals(
     return published
 
 
-async def main_async() -> None:
-    """Entry point — load config, run producer loop."""
+async def main_async() -> ScanResult:
+    """Entry point — load config, run producer loop.
+
+    Returns a :class:`ScanResult` describing the aggregate outcome across all
+    configured Jira accounts.  An account that fails to connect or has any
+    processing error is recorded as a failed item, but does not abort the
+    remaining accounts.
+    """
     rabbitmq_url = os.environ.get("RABBITMQ_URL", "amqp://guest:guest@localhost:5672/")
     config_source = os.getenv("CONFIGURATION_SOURCE", "FILE").upper()
     lookback_days = int(os.getenv("JIRA_LOOKBACK_DAYS", "90"))
@@ -734,9 +740,10 @@ async def main_async() -> None:
         config = load_config_from_file()
 
     accounts: List[Dict[str, Any]] = config.get("account", [])
+    result = ScanResult()
     if not accounts:
         logger.warning("No Jira accounts configured — exiting.")
-        return
+        return result
 
     async with RabbitMQPublisher(rabbitmq_url) as publisher:
         for account in accounts:
@@ -747,12 +754,17 @@ async def main_async() -> None:
             jira_base_url: str = account.get("url", "").rstrip("/")
             if not jira_base_url:
                 logger.warning("Skipping account with missing url")
+                result.add_error("unknown", "missing url")
+                result.items_processed += 1
                 continue
+
+            result.items_processed += 1
 
             try:
                 jira = create_jira_connection({"account": [account]})
             except Exception as exc:
                 logger.error("Failed to connect to Jira '%s': %s", jira_base_url, exc)
+                result.add_error(jira_base_url, str(exc))
                 continue
 
             try:
@@ -777,10 +789,13 @@ async def main_async() -> None:
                     total,
                     published,
                 )
+                result.items_succeeded += 1
             except Exception as exc:
                 logger.error("Error processing Jira '%s': %s", jira_base_url, exc, exc_info=True)
+                result.add_error(jira_base_url, str(exc))
 
     logger.info("Jira ActivitySignal Producer finished.")
+    return result
 
 
 def _get_test_item_id() -> int | None:

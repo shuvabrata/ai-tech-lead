@@ -584,7 +584,7 @@ class TestRunScan:
     def test_reports_running_before_scan(self):
         """Should PATCH ``running`` status before starting the scan."""
         command_id = uuid.uuid4()
-        scan_func = AsyncMock()
+        scan_func = AsyncMock(return_value=daemon_mod.ScanResult(success=True))
 
         with patch.object(daemon_mod, "_update_status") as mock_status:
             daemon_mod.run_scan(
@@ -600,7 +600,7 @@ class TestRunScan:
     def test_reports_completed_after_successful_scan(self):
         """Should PATCH ``completed`` status after scan succeeds."""
         command_id = uuid.uuid4()
-        scan_func = AsyncMock()
+        scan_func = AsyncMock(return_value=daemon_mod.ScanResult(success=True))
 
         with patch.object(daemon_mod, "_update_status") as mock_status:
             daemon_mod.run_scan(
@@ -612,6 +612,32 @@ class TestRunScan:
         # Last PATCH should be completed
         last_call = mock_status.call_args_list[-1]
         assert last_call[0][1].status == "completed"
+
+    def test_reports_failed_when_scan_result_has_errors(self):
+        """Should PATCH ``failed`` status when the ScanResult reports errors."""
+        command_id = uuid.uuid4()
+        result = daemon_mod.ScanResult()
+        result.add_error("https://github.com/foo/bar", "401 Bad credentials")
+        scan_func = AsyncMock(return_value=result)
+
+        with patch.object(daemon_mod, "_update_status") as mock_status:
+            with pytest.raises(SystemExit):
+                daemon_mod.run_scan(
+                    command_id=command_id,
+                    parameters={},
+                    scan_func=scan_func,
+                )
+
+        # Last PATCH should be failed with error_message + result_summary
+        last_call = mock_status.call_args_list[-1]
+        assert last_call[0][1].status == "failed"
+        assert "1 of" in (last_call[0][1].error_message or "")
+        summary = last_call[0][1].result_summary
+        assert summary is not None
+        assert summary["items_failed"] == 1
+        assert summary["errors"] == [
+            {"item": "https://github.com/foo/bar", "error": "401 Bad credentials"}
+        ]
 
     def test_reports_failed_on_exception(self):
         """Should PATCH ``failed`` status when scan raises."""
@@ -634,7 +660,7 @@ class TestRunScan:
     def test_runs_scan_func(self):
         """Should call the provided ``scan_func``."""
         command_id = uuid.uuid4()
-        scan_func = AsyncMock()
+        scan_func = AsyncMock(return_value=daemon_mod.ScanResult(success=True))
 
         with patch.object(daemon_mod, "_update_status"):
             daemon_mod.run_scan(
@@ -1167,7 +1193,7 @@ class TestDaemonMessageFlow:
     def test_scan_completed_updates_status(self):
         """After a successful scan, status should be PATCHed as completed."""
         command_id = uuid.uuid4()
-        scan_func = AsyncMock(return_value=None)
+        scan_func = AsyncMock(return_value=daemon_mod.ScanResult(success=True))
 
         status_calls = []
 

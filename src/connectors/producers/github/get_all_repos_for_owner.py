@@ -44,7 +44,7 @@ def get_all_repos_for_owner(
             
         except Exception as e:
             logger.error(f"Error searching repositories for {owner} with filters: {str(e)}")
-            logger.exception(e)
+            raise
     else:
         # No filters - use standard get_repos() method
         try:
@@ -60,6 +60,6 @@ def get_all_repos_for_owner(
                 logger.info(f"Found {len(repos)} repositories for user: {owner}")
             except Exception as e:
                 logger.info(f"Error fetching repositories for {owner}: {str(e)}")
-                logger.exception(e)
+                raise
 
     return repos

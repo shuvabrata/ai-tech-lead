@@ -56,7 +56,7 @@ from connectors.producers.confluence.parse_body_for_relations import (
     parse_body_for_relations,
 )
 from connectors.producers.sync_cursor import get_sync_cursor, set_sync_cursor
-from connectors.producers.daemon_common import producer_main
+from connectors.producers.daemon_common import ScanResult, producer_main
 
 _SOURCE = "confluence"
 _VERSION = "1.0"
@@ -793,7 +793,7 @@ async def process_account(
     return total_published
 
 
-async def main_async() -> None:
+async def main_async() -> ScanResult:
     rabbitmq_url = os.environ.get("RABBITMQ_URL", "amqp://guest:guest@localhost:5672/")
     config_source = os.getenv("CONFIGURATION_SOURCE", "FILE").upper()
 
@@ -804,9 +804,10 @@ async def main_async() -> None:
         config = load_config_from_file()
 
     accounts = config.get("account", [])
+    result = ScanResult()
     if not accounts:
         logger.warning("No Confluence accounts configured - exiting.")
-        return
+        return result
 
     async with RabbitMQPublisher(rabbitmq_url) as publisher:
         for account in accounts:
@@ -819,10 +820,17 @@ async def main_async() -> None:
                     "Skipping Confluence config id=%s due to missing url/email/api_token",
                     account.get("id"),
                 )
+                result.add_error(
+                    str(account.get("id", "unknown")),
+                    "missing url/email/api_token",
+                )
+                result.items_processed += 1
                 continue
 
-            confluence = create_confluence_connection({"account": [account]})
+            result.items_processed += 1
+
             try:
+                confluence = create_confluence_connection({"account": [account]})
                 published = await process_account(publisher, confluence, account)
                 logger.info(
                     "Finished Confluence config id=%s url=%s published=%d",
@@ -830,6 +838,7 @@ async def main_async() -> None:
                     account.get("url"),
                     published,
                 )
+                result.items_succeeded += 1
             except Exception as exc:  # pragma: no cover
                 logger.error(
                     "Failed to process Confluence config id=%s url=%s: %s",
@@ -838,8 +847,10 @@ async def main_async() -> None:
                     exc,
                     exc_info=True,
                 )
+                result.add_error(str(account.get("id", "unknown")), str(exc))
 
     logger.info("Confluence ActivitySignal Producer finished.")
+    return result
 
 
 def _get_test_item_id() -> int | None:
