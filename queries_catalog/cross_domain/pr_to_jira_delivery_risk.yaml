@@ -44,7 +44,7 @@ queries:
         RETURN p1
         LIMIT 100
 tags:
-- test
+- beta
 - table
 - graph
 

@@ -29,6 +29,6 @@ queries:
         RETURN path
         LIMIT 50
 tags:
-- test
+- beta
 - table
 - graph

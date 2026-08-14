@@ -48,7 +48,7 @@ queries:
     RETURN path1, path2
     LIMIT 100
 tags:
-- test
+- beta
 - table
 - graph
 owner: graph-team

@@ -42,6 +42,6 @@ queries:
         RETURN p1, p2, p3, p4
         LIMIT 100
 tags:
-- test
+- beta
 - table
 - graph
