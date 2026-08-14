@@ -72,7 +72,7 @@ queries:
         LIMIT 100
         RETURN p1
 tags:
-- test
+- beta
 - table
 - graph
 

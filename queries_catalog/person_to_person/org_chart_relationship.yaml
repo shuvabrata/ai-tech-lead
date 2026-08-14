@@ -42,7 +42,7 @@ queries:
     RETURN path_up, path_down
     LIMIT 100
 tags:
-- test
+- beta
 - table
 - graph
 owner: graph-team

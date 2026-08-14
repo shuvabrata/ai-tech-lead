@@ -35,7 +35,7 @@ queries:
         ORDER BY age_days DESC
         LIMIT 100
 tags:
-- test
+- beta
 - table
 - graph
 
