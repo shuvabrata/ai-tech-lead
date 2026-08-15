@@ -54,7 +54,6 @@ class TestRuntimeConfigDefaults:
             ("JIRA_ISSUE_TEAM_FIELD", "Team"),
             ("JIRA_EPIC_START_DATE_FIELD", "created"),
             ("JIRA_EPIC_DUE_DATE_FIELD", "duedate"),
-            ("GITHUB_TOKEN_FOR_PUBLIC_REPOS", ""),
             ("API_SERVER", "http://app:8000/"),
             ("CONFIGURATION_SOURCE", "SERVER"),
             # ── Logging ───────────────────────────────────────────────
@@ -73,7 +72,7 @@ class TestRuntimeConfigDefaults:
     @pytest.mark.unit
     def test_all_fields_present(self) -> None:
         """The model exposes the expected number of runtime-configurable fields."""
-        assert len(RuntimeConfig.model_fields) == 38
+        assert len(RuntimeConfig.model_fields) == 37
 
 
 class TestRuntimeConfigValidation:

@@ -7,6 +7,7 @@ from dash.exceptions import PreventUpdate
 from urllib.parse import quote
 
 from app.dash_app.pages import analytics, chat, collaboration_network, connectors, graph, search, settings
+from app.dash_app.components.setup_banner import get_banner_layout
 from app.settings import settings as app_settings
 from .styles import (
     SIDEBAR_STYLE,
@@ -113,6 +114,7 @@ def create_dash_app():
         dcc.Store(id="datetime-format-store", data=app_settings.UI_DATETIME_FORMAT),
         html.Div(id="format-init-dummy", style={"display": "none"}),
         top_menu,
+        get_banner_layout(),
         dbc.Row([
             dbc.Col(
                 sidebar,

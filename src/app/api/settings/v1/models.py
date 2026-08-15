@@ -22,7 +22,9 @@ class SettingResponse(BaseModel):
     category: str | None = None
     description: str | None = None
     apply_mode: str
+    importance: str = "optional"  # "recommended" | "optional"
     is_sensitive: bool = False
+    is_configured: bool = True
     updated_at: datetime | None = None
     propagation_warning: str | None = None
 
@@ -106,7 +108,6 @@ class RuntimeSnapshotResponse(BaseModel):
     JIRA_ISSUE_TEAM_FIELD: str = "Team"
     JIRA_EPIC_START_DATE_FIELD: str = "created"
     JIRA_EPIC_DUE_DATE_FIELD: str = "duedate"
-    GITHUB_TOKEN_FOR_PUBLIC_REPOS: str = ""
     API_SERVER: str = "http://app:8000/"
     CONFIGURATION_SOURCE: str = "SERVER"
     # ── Logging ───────────────────────────────────────────────────────

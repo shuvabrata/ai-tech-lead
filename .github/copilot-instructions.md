@@ -226,7 +226,6 @@ docker compose up -d
 | `postgres` | Primary database | 5432 |
 | `neo4j` | Graph database | 7474, 7687 |
 | `rabbitmq` | Message queue for producers | 5672, 15672 (mgmt UI) |
-| `influxdb` | Time-series metrics | 8086 |
 | `elasticsearch` | Search / log analytics | 9200 |
 | `github-mcp` | GitHub MCP server | 8082 |
 | `github-producer` | Fetch GitHub → RabbitMQ (one-shot) | — |

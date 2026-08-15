@@ -1219,3 +1219,54 @@ input::placeholder {
     background-color: var(--color-background-light) !important;
     border-color: var(--color-border-light) !important;
 }
+
+/* ============================================================
+   Setup Banner (first-time experience)
+   ============================================================ */
+
+.setup-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 16px;
+    margin: 0 0 8px 0;
+    border-left: 3px solid var(--color-warning-dark, #ffc107);
+    background-color: #fff8e1;
+    font-family: var(--font-sans, 'Inter', sans-serif);
+    font-size: 12px;
+    color: var(--color-charcoal-medium, #2d3748);
+}
+
+.setup-banner a {
+    color: var(--color-navy, #2c5282);
+    text-decoration: underline;
+    white-space: nowrap;
+}
+
+.setup-banner a:hover {
+    color: var(--color-navy-hover, #234164);
+}
+
+.setup-banner-dismiss {
+    cursor: pointer;
+    opacity: 0.6;
+    font-size: 1.3em;
+    line-height: 1;
+    padding: 0 4px;
+    user-select: none;
+}
+
+.setup-banner-dismiss:hover {
+    opacity: 1;
+}
+
+/* Dark theme */
+.theme-executive-dark .setup-banner {
+    background-color: #3d3420;
+    border-left-color: var(--color-warning-dark, #ffc107);
+    color: var(--color-gray-lighter, #cbd5e0);
+}
+
+.theme-executive-dark .setup-banner a {
+    color: #90cdf4;
+}

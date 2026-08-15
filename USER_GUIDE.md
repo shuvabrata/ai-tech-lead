@@ -3,20 +3,27 @@
 ## Prerequisites
 
 1. **Docker and Docker Compose installed** on your system
-2. This project is dependant on docker images for Jira and Github connector. 
-```
-docker compose build
-```
-This will build the images locally. 
-3. This project uses databases which are dockerized images in the docker-compose.yml file.
-4. **Environment file configured**: Copy `.env.example` to `.env` and update the values:
-   ```bash
-   cp .env.example .env
-   # Edit .env with your actual configuration (database credentials, API keys, etc.)
-   ```
+2. This project uses databases which are dockerized images in the docker-compose.yml file.
+3. **Python 3** (used by the setup script to generate an encryption key)
 
 
 ## Starting the Application
+
+### First-Time Setup (recommended)
+
+Run the setup wizard — it interactively configures your database, Neo4j, and
+RabbitMQ credentials (each with a sensible default), generates the connector
+encryption key, and optionally prompts you for your GitHub token and OpenAI
+API key:
+
+```bash
+./scripts/setup.sh
+```
+
+The wizard will offer to start the application for you (`docker compose up -d`).
+
+The script is idempotent — re-running it never overwrites values you've
+already set; each prompt re-offers the current value as the default.
 
 ### Start All Services
 ```bash
@@ -191,6 +198,7 @@ docker compose restart app
 
 | Task | Command |
 |------|---------|
+| First-time setup | `./scripts/setup.sh` |
 | Start services | `docker compose up -d` |
 | Stop services | `docker compose down` |
 | View logs | `docker compose logs -f app` |

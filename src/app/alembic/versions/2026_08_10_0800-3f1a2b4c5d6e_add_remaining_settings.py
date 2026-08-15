@@ -106,8 +106,6 @@ def upgrade() -> None:
              'Jira field name for epic start date.', 'dynamic', false),
             ('JIRA_EPIC_DUE_DATE_FIELD', 'string', 'connectors',
              'Jira field name for epic due date.', 'dynamic', false),
-            ('GITHUB_TOKEN_FOR_PUBLIC_REPOS', 'string', 'connectors',
-             'GitHub token for accessing public repos.', 'dynamic', true),
             ('API_SERVER', 'string', 'connectors',
              'Base URL for the API server.', 'restart', false),
             ('CONFIGURATION_SOURCE', 'string', 'connectors',
@@ -140,7 +138,7 @@ def downgrade() -> None:
             'MAX_TEAM_SIZE', 'JIRA_LOOKBACK_DAYS', 'JIRA_MAX_RESULTS_PER_PAGE',
             'CONFLUENCE_LOOKBACK_DAYS', 'JIRA_EPIC_TEAM_FIELD', 'JIRA_ISSUE_TEAM_FIELD',
             'JIRA_EPIC_START_DATE_FIELD', 'JIRA_EPIC_DUE_DATE_FIELD',
-            'GITHUB_TOKEN_FOR_PUBLIC_REPOS', 'API_SERVER', 'CONFIGURATION_SOURCE'
+            'API_SERVER', 'CONFIGURATION_SOURCE'
         )
         """
     )

@@ -57,7 +57,6 @@ def _valid_payload(**overrides: object) -> dict[str, object]:
         "JIRA_ISSUE_TEAM_FIELD": "Team",
         "JIRA_EPIC_START_DATE_FIELD": "created",
         "JIRA_EPIC_DUE_DATE_FIELD": "duedate",
-        "GITHUB_TOKEN_FOR_PUBLIC_REPOS": "",
         "API_SERVER": "http://app:8000/",
         "CONFIGURATION_SOURCE": "SERVER",
         # ── Logging ───────────────────────────────────────────────
