@@ -15,7 +15,6 @@ from app.dash_app.styles import (
     COLOR_GRAY_DARK,
     COLOR_GRAY_MEDIUM,
     COLOR_NAVY,
-    COLOR_SHADOW_LIGHT,
     FONT_SANS,
     FONT_SIZE_SMALL,
     FONT_WEIGHT_MEDIUM,
@@ -723,40 +722,6 @@ def _get_manual_setup_layout(connector_type: str, connector_meta: dict) -> html.
                                             _env_row("GITHUB_MCP_ENABLED", "Set to true to enable the GitHub MCP integration in the AI agent."),
                                             _env_row("GITHUB_MCP_SERVER_URL", "The URL of the running GitHub MCP sidecar service (e.g., http://github-mcp:8080)."),
                                             _env_row("GITHUB_MCP_TOKEN", "A GitHub personal access token passed to the MCP client manager."),
-                                        ]
-                                    )
-                                ],
-                                style={"width": "100%", "borderCollapse": "collapse"},
-                            ),
-                        ],
-                        style={
-                            "marginBottom": SPACING_SMALL,
-                            "padding": SPACING_SMALL,
-                            "border": f"1px solid {COLOR_BORDER}",
-                            "borderRadius": "2px",
-                        },
-                    ),
-                    # github-mcp sidecar env vars
-                    html.Div(
-                        [
-                            _section_title("GitHub MCP Sidecar — Required Variables"),
-                            html.Div(
-                                "Set this in the",
-                                style={"fontFamily": FONT_SANS, "fontSize": FONT_SIZE_SMALL, "color": COLOR_GRAY_MEDIUM, "marginBottom": SPACING_XSMALL, "display": "inline"},
-                            ),
-                            html.Code(
-                                " github-mcp ",
-                                style={"fontFamily": "monospace", "fontSize": FONT_SIZE_SMALL, "color": COLOR_CHARCOAL_MEDIUM, "backgroundColor": COLOR_CODE_BACKGROUND, "padding": "2px 6px", "borderRadius": "2px"},
-                            ),
-                            html.Div(
-                                "service environment in docker-compose.yml:",
-                                style={"fontFamily": FONT_SANS, "fontSize": FONT_SIZE_SMALL, "color": COLOR_GRAY_MEDIUM, "marginBottom": SPACING_SMALL, "display": "inline"},
-                            ),
-                            html.Table(
-                                [
-                                    html.Tbody(
-                                        [
-                                            _env_row("GITHUB_PERSONAL_ACCESS_TOKEN", "A GitHub personal access token with repository read permissions for the MCP sidecar process."),
                                         ]
                                     )
                                 ],
