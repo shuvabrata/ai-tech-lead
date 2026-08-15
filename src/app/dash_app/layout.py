@@ -6,7 +6,7 @@ from dash import clientside_callback
 from dash.exceptions import PreventUpdate
 from urllib.parse import quote
 
-from app.dash_app.pages import analytics, chat, collaboration_network, connectors, graph, people, progress, search, settings
+from app.dash_app.pages import analytics, chat, collaboration_network, connectors, graph, search, settings
 from app.settings import settings as app_settings
 from .styles import (
     SIDEBAR_STYLE,
@@ -37,8 +37,6 @@ def create_dash_app():
         [
             dbc.NavLink([html.I(className="fas fa-comment-dots fa-fw me-2", title="Chat"), html.Span("Chat", className="sidebar-text")], href="/app/chat", active="exact", id="nav-genai", className="executive-nav-link d-flex align-items-center text-nowrap"),
             dbc.NavLink([html.I(className="fas fa-search fa-fw me-2", title="Search"), html.Span("Search", className="sidebar-text")], href="/app/search", active="exact", id="nav-search", className="executive-nav-link d-flex align-items-center text-nowrap"),
-            dbc.NavLink([html.I(className="fas fa-users fa-fw me-2", title="People"), html.Span("People", className="sidebar-text")], href="/app/people", active="exact", id="nav-people", className="executive-nav-link d-flex align-items-center text-nowrap"),
-            dbc.NavLink([html.I(className="fas fa-chart-line fa-fw me-2", title="Progress"), html.Span("Progress", className="sidebar-text")], href="/app/progress", active="exact", id="nav-progress", className="executive-nav-link d-flex align-items-center text-nowrap"),
             dbc.NavLink([html.I(className="fas fa-project-diagram fa-fw me-2", title="Graph"), html.Span("Graph", className="sidebar-text")], href="/app/graph", active="exact", id="nav-graph", className="executive-nav-link d-flex align-items-center text-nowrap"),
             dbc.NavLink([html.I(className="fas fa-chart-pie fa-fw me-2", title="Analytics"), html.Span("Analytics", className="sidebar-text")], href="/app/analytics", active="exact", id="nav-analytics", className="executive-nav-link d-flex align-items-center text-nowrap"),
             dbc.NavLink([html.I(className="fas fa-plug fa-fw me-2", title="Connectors"), html.Span("Connectors", className="sidebar-text")], href="/app/connectors", active="exact", id="nav-connectors", className="executive-nav-link d-flex align-items-center text-nowrap"),
@@ -137,10 +135,6 @@ def create_dash_app():
             return analytics.get_layout()
         if pathname == "/app/collaboration":
             return collaboration_network.get_layout()
-        if pathname == "/app/people":
-            return people.get_layout()
-        if pathname == "/app/progress":
-            return progress.get_layout()
         if pathname == "/app/graph":
             return graph.get_layout()
         if pathname and pathname.startswith("/app/connectors/"):
