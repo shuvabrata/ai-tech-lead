@@ -26,6 +26,39 @@ def _compact_node_label(label_value):
     return text[: max_chars - 3].rstrip() + "..."
 
 
+def _resolve_display_name(properties, wba_id, node_label):
+    """Resolve a human-readable display name for a graph node.
+
+    Priority order:
+    1. ``_display_name`` — injected by the connector pipeline (most reliable).
+    2. Common property names (case-insensitive): name, title, id, key, summary.
+    3. ``wba_id`` — always present from the API layer.
+    4. Node label — last-resort fallback.
+
+    This ensures nodes returned by raw Cypher queries (which lack
+    ``_display_name``) still show a meaningful label even when property
+    names use mixed case (e.g. ``Name``, ``Id``).
+    """
+    # 1. Connector-injected display name
+    display = properties.get("_display_name")
+    if display:
+        return str(display)
+
+    # 2. Case-insensitive lookup through common property names
+    lower_props = {k.lower(): v for k, v in properties.items() if v}
+    for attr in ("name", "title", "id", "key", "summary"):
+        value = lower_props.get(attr)
+        if value:
+            return str(value)
+
+    # 3. wba_id (always present from the API transformer)
+    if wba_id:
+        return str(wba_id)
+
+    # 4. Node label as last resort
+    return node_label
+
+
 def neo4j_to_cytoscape(graph_response):
     """Transform Neo4j graph response to Cytoscape elements format
     
@@ -42,13 +75,10 @@ def neo4j_to_cytoscape(graph_response):
     # Transform nodes
     for node in graph_response.get("nodes", []):
         node_label = node.get("labels", ["Node"])[0] if node.get("labels") else "Node"
-        display_name = node.get("properties", {}).get("_display_name") or node.get("properties", {}).get("id", "")
-        compact_label = _compact_node_label(display_name)
-
-        # Neo4j element id is used as Cytoscape node id so edges (which reference element_id) connect correctly.
-        # The wba_id is stored separately for spotlight matching and display in the properties panel.
         neo4j_element_id = node['elementId']
         wba_id = node['wba_id']
+        display_name = _resolve_display_name(node.get("properties", {}), wba_id, node_label)
+        compact_label = _compact_node_label(display_name)
 
         cyto_node_data = {
             **node.get('properties', {}),
