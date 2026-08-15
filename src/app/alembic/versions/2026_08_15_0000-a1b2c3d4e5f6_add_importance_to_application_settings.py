@@ -20,7 +20,7 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    """Add ``importance`` column and backfill recommended settings."""
+    """Add ``importance`` column and backfill recommended/mandatory settings."""
     op.add_column(
         "application_settings",
         sa.Column(
@@ -31,11 +31,25 @@ def upgrade() -> None:
         ),
     )
 
+    # Recommended: optional-but-encouraged settings flagged by the banner.
     op.execute(
         """
         UPDATE application_settings
         SET importance = 'recommended'
         WHERE key IN ('OPENAI_API_KEY', 'GITHUB_MCP_TOKEN')
+        """
+    )
+
+    # Mandatory: catalog settings the app requires to function.  Bootstrap-only
+    # keys (POSTGRES_*, DATABASE_URL, RABBITMQ_USER/PASSWORD,
+    # CONNECTOR_ENCRYPTION_KEY) are intentionally absent from the catalog and
+    # are therefore not marked here.
+    op.execute(
+        """
+        UPDATE application_settings
+        SET importance = 'mandatory'
+        WHERE key IN ('NEO4J_USERNAME', 'NEO4J_PASSWORD', 'RABBITMQ_URL',
+                      'ELASTIC_PASSWORD')
         """
     )
 
