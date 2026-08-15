@@ -46,6 +46,9 @@ class ApplicationSettings(Base):
     category: Mapped[str | None] = mapped_column(String(50), nullable=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     apply_mode: Mapped[str] = mapped_column(String(20), nullable=False)
+    importance: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="optional"
+    )
     is_sensitive: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False
     )
@@ -63,5 +66,6 @@ class ApplicationSettings(Base):
         return (
             f"ApplicationSettings(key={self.key!r}, "
             f"value_type={self.value_type!r}, "
-            f"apply_mode={self.apply_mode!r})"
+            f"apply_mode={self.apply_mode!r}, "
+            f"importance={self.importance!r})"
         )

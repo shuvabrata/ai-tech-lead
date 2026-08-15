@@ -197,6 +197,26 @@ def _mask_value(value: Any) -> str | None:
     return "*******"
 
 
+def _is_unconfigured(value: Any) -> bool:
+    """Return True when *value* is a placeholder (None, empty, FIXME).
+
+    Used to compute ``is_configured`` on the raw (unmasked) effective value
+    so the banner and other consumers can detect unset recommended settings
+    without needing access to the secret itself.
+    """
+    if value is None:
+        return True
+    if not isinstance(value, str):
+        return False
+    stripped = value.strip()
+    if stripped == "":
+        return True
+    upper = stripped.upper()
+    if upper == "FIXME" or "FIXME" in upper:
+        return True
+    return False
+
+
 # ── Public API ─────────────────────────────────────────────────────────
 
 
@@ -207,7 +227,12 @@ async def get_all_settings(
     rows = await qry.get_all_settings(db)
     result = []
     for row in rows:
-        effective_value, source = _resolve_source(row.value, row.key)
+        raw_effective, source = _resolve_source(row.value, row.key)
+        # Determine whether the setting is actually configured BEFORE masking,
+        # since the raw value is the only thing that can tell us.
+        is_configured = not _is_unconfigured(raw_effective)
+
+        effective_value = raw_effective
         if row.is_sensitive:
             effective_value = _mask_value(effective_value)
         result.append({
@@ -219,7 +244,9 @@ async def get_all_settings(
             "category": row.category,
             "description": row.description,
             "apply_mode": row.apply_mode,
+            "importance": row.importance,
             "is_sensitive": row.is_sensitive,
+            "is_configured": is_configured,
             "updated_at": row.updated_at,
         })
     return result
@@ -352,7 +379,9 @@ async def update_single(
     propagation_warning = await _publish_changed([key])
 
     # 6. Return source-aware response.
-    effective_value, source = _resolve_source(updated.value, key)
+    raw_effective, source = _resolve_source(updated.value, key)
+    is_configured = not _is_unconfigured(raw_effective)
+    effective_value = raw_effective
     if updated.is_sensitive:
         effective_value = _mask_value(effective_value)
     return {
@@ -364,7 +393,9 @@ async def update_single(
         "category": updated.category,
         "description": updated.description,
         "apply_mode": updated.apply_mode,
+        "importance": updated.importance,
         "is_sensitive": updated.is_sensitive,
+        "is_configured": is_configured,
         "updated_at": updated.updated_at,
         "propagation_warning": propagation_warning,
     }
@@ -415,7 +446,9 @@ async def reset_single(
         "category": row.category,
         "description": row.description,
         "apply_mode": row.apply_mode,
+        "importance": row.importance,
         "is_sensitive": row.is_sensitive,
+        "is_configured": False,
         "updated_at": row.updated_at,
         "propagation_warning": propagation_warning,
     }
@@ -461,7 +494,9 @@ async def reset_all(
             "category": row.category,
             "description": row.description,
             "apply_mode": row.apply_mode,
+            "importance": row.importance,
             "is_sensitive": row.is_sensitive,
+            "is_configured": False,
             "updated_at": row.updated_at,
             "propagation_warning": propagation_warning,
         })
