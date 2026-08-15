@@ -21,9 +21,9 @@ from typing import Any
 import httpx
 import pytest
 
-from app.dash_app.pages.settings import (
+from app.dash_app.pages.settings.runtime import (
     _build_setting_row,
-    get_layout,
+    get_runtime_layout,
     render_settings,
 )
 
@@ -91,25 +91,25 @@ class TestSettingsDashboardRenders:
     """Verify the settings page layout produces the correct component tree."""
 
     def test_settings_page_returns_200(self) -> None:
-        """The Dash settings page returns HTTP 200."""
-        resp = httpx.get(f"{APP_BASE}/settings", timeout=10)
+        """The Dash runtime settings page returns HTTP 200."""
+        resp = httpx.get(f"{APP_BASE}/settings/runtime", timeout=10)
         assert resp.status_code == 200
 
     def test_settings_page_contains_runtime_settings_header(self) -> None:
         """The layout contains the 'Runtime Settings' header text."""
-        layout = get_layout()
+        layout = get_runtime_layout()
         text = _flatten_text(layout)
         assert "Runtime Settings" in text
 
     def test_settings_page_contains_save_all_button(self) -> None:
         """The layout contains the 'Save All Changes' button."""
-        layout = get_layout()
+        layout = get_runtime_layout()
         text = _flatten_text(layout)
         assert "Save All Changes" in text
 
     def test_settings_page_contains_reset_all_button(self) -> None:
         """The layout contains the 'Reset All to Default' button."""
-        layout = get_layout()
+        layout = get_runtime_layout()
         text = _flatten_text(layout)
         assert "Reset All to Default" in text
 
