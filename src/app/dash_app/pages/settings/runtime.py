@@ -288,8 +288,8 @@ def _build_category_section(category: str, settings: list[dict[str, Any]]) -> ht
 # ── Layout ─────────────────────────────────────────────────────────────
 
 
-def get_layout() -> html.Div:
-    """Return the settings page layout."""
+def get_runtime_layout() -> html.Div:
+    """Return the runtime settings page layout."""
     return html.Div(
         [
             dcc.Store(id="settings-store", data=None),
@@ -300,6 +300,38 @@ def get_layout() -> html.Div:
                         "default values? This cannot be undone.",
             ),
             html.Div(id="settings-feedback"),
+            html.Div(
+                [
+                    dcc.Link(
+                        "Settings",
+                        href="/app/settings",
+                        style={
+                            "fontFamily": FONT_SANS,
+                            "fontSize": FONT_SIZE_SMALL,
+                            "color": COLOR_GRAY_MEDIUM,
+                            "textDecoration": "none",
+                        },
+                    ),
+                    html.Span(
+                        " / ",
+                        style={
+                            "fontFamily": FONT_SANS,
+                            "fontSize": FONT_SIZE_SMALL,
+                            "color": COLOR_GRAY_MEDIUM,
+                            "margin": f"0 {SPACING_XSMALL}",
+                        },
+                    ),
+                    html.Span(
+                        "Runtime Settings",
+                        style={
+                            "fontFamily": FONT_SANS,
+                            "fontSize": FONT_SIZE_SMALL,
+                            "color": COLOR_CHARCOAL_MEDIUM,
+                        },
+                    ),
+                ],
+                style={"marginBottom": SPACING_SMALL},
+            ),
             html.Div("Runtime Settings", style=PAGE_HEADER_STYLE),
             # Description + sticky action bar on the same row.
             html.Div(
@@ -372,7 +404,7 @@ def get_layout() -> html.Div:
 )
 def load_settings(pathname: str) -> Any:
     """Fetch settings from the API when the settings page is visited."""
-    if pathname not in ("/app/settings", "/app/settings/"):
+    if pathname not in ("/app/settings/runtime", "/app/settings/runtime/"):
         return no_update
 
     try:

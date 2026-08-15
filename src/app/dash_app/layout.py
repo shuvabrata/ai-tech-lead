@@ -142,8 +142,10 @@ def create_dash_app():
             return connectors.get_detail_layout(connector_type)
         if pathname in ("/app/connectors", "/app/connectors/"):
             return connectors.get_layout()
-        if pathname == "/app/settings":
+        if pathname in ("/app/settings", "/app/settings/"):
             return settings.get_layout()
+        if pathname in ("/app/settings/runtime", "/app/settings/runtime/"):
+            return settings.get_runtime_layout()
         if pathname == "/app/search":
             return search.get_layout()
         if pathname == "/app/chat":
