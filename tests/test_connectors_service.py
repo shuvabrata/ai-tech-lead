@@ -139,5 +139,52 @@ def test_validate_atlassian_mcp_config_allows_missing_new_token_with_existing_se
 
 
 # ============================================================================
+# GitHub MCP env-status derivation
+# ============================================================================
+
+
+def test_github_mcp_env_status_configured_when_all_vars_set(monkeypatch):
+    monkeypatch.setattr(settings, "GITHUB_MCP_ENABLED", True)
+    monkeypatch.setattr(settings, "GITHUB_MCP_SERVER_URL", "http://github-mcp:8082/mcp")
+    monkeypatch.setattr(settings, "GITHUB_MCP_TOKEN", "ghp_example")
+
+    assert service._github_mcp_env_status() == "configured"
+
+
+def test_github_mcp_env_status_not_configured_when_disabled(monkeypatch):
+    monkeypatch.setattr(settings, "GITHUB_MCP_ENABLED", False)
+    monkeypatch.setattr(settings, "GITHUB_MCP_SERVER_URL", "http://github-mcp:8082/mcp")
+    monkeypatch.setattr(settings, "GITHUB_MCP_TOKEN", "ghp_example")
+
+    assert service._github_mcp_env_status() == "not_configured"
+
+
+def test_github_mcp_env_status_not_configured_when_server_url_missing(monkeypatch):
+    monkeypatch.setattr(settings, "GITHUB_MCP_ENABLED", True)
+    monkeypatch.setattr(settings, "GITHUB_MCP_SERVER_URL", "")
+    monkeypatch.setattr(settings, "GITHUB_MCP_TOKEN", "ghp_example")
+
+    assert service._github_mcp_env_status() == "not_configured"
+
+
+def test_github_mcp_env_status_not_configured_when_token_missing(monkeypatch):
+    monkeypatch.setattr(settings, "GITHUB_MCP_ENABLED", True)
+    monkeypatch.setattr(settings, "GITHUB_MCP_SERVER_URL", "http://github-mcp:8082/mcp")
+    monkeypatch.setattr(settings, "GITHUB_MCP_TOKEN", "")
+
+    assert service._github_mcp_env_status() == "not_configured"
+
+
+def test_derive_connector_status_uses_env_for_github_mcp(monkeypatch):
+    monkeypatch.setattr(settings, "GITHUB_MCP_ENABLED", True)
+    monkeypatch.setattr(settings, "GITHUB_MCP_SERVER_URL", "http://github-mcp:8082/mcp")
+    monkeypatch.setattr(settings, "GITHUB_MCP_TOKEN", "ghp_example")
+
+    # connector_config is irrelevant for github_mcp — status comes from env
+    status = service._derive_connector_status("github_mcp", None, [])
+    assert status == "configured"
+
+
+# ============================================================================
 # Phase 5: (reserved for future use)
 # ============================================================================
