@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from common.logger import logger
 from app.common.encryption import decrypt, encrypt
+from app.settings import settings
 from . import query
 from .registry import CONNECTOR_REGISTRY
 
@@ -128,12 +129,62 @@ def _derive_connector_status(
     if connector_type in {"github", "jira", "confluence"}:
         return "configured" if config_rows else "not_configured"
 
-    if connector_type in {"atlassian_mcp", "github_mcp"}:
+    if connector_type == "github_mcp":
+        # GitHub MCP Server is env-configured, not DB-backed.  Derive its
+        # status from the Docker Compose environment variables.
+        return _github_mcp_env_status()
+
+    if connector_type == "atlassian_mcp":
         if isinstance(connector_config, dict):
             return "configured" if any(value not in (None, "", [], {}) for value in connector_config.values()) else "not_configured"
         return "not_configured"
 
     return "not_configured"
+
+
+def _github_mcp_env_status() -> str:
+    """Return the env-derived status for the GitHub MCP Server connector."""
+    is_configured = (
+        bool(settings.GITHUB_MCP_ENABLED)
+        and bool(settings.GITHUB_MCP_SERVER_URL)
+        and bool(settings.GITHUB_MCP_TOKEN)
+    )
+    return "configured" if is_configured else "not_configured"
+
+
+async def sync_github_mcp_env_status(db: AsyncSession) -> None:
+    """Sync the ``github_mcp`` connector status from environment variables.
+
+    GitHub MCP Server is configured via Docker Compose environment variables,
+    not through the UI.  This function checks the three required env vars
+    (``GITHUB_MCP_ENABLED``, ``GITHUB_MCP_SERVER_URL``, ``GITHUB_MCP_TOKEN``)
+    and updates the connector row in the DB accordingly.
+
+    Called once during application startup.
+    """
+    connector = await query.get_connector(db, "github_mcp")
+    if not connector:
+        logger.warning(
+            "[github_mcp] Connector row not found in DB — skipping env status sync"
+        )
+        return
+
+    new_status = _github_mcp_env_status()
+
+    if connector.status == new_status:
+        logger.debug(
+            "[github_mcp] Status already '%s' — no change needed", new_status
+        )
+        return
+
+    await query.update_connector_status(db, "github_mcp", status=new_status)
+    logger.info(
+        "[github_mcp] Status synced from env: enabled=%s server_url_set=%s token_set=%s → %s",
+        bool(settings.GITHUB_MCP_ENABLED),
+        bool(settings.GITHUB_MCP_SERVER_URL),
+        bool(settings.GITHUB_MCP_TOKEN),
+        new_status,
+    )
 
 
 async def _refresh_connector_status(

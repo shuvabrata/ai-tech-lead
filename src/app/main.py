@@ -20,6 +20,7 @@ from app.api.settings.v1.router import router as settings_v1_router
 from app.dash_app.layout import create_dash_app
 from app.db.session import ASYNC_SESSION_LOCAL
 from app.runtime_settings import load_db_overrides_from_session
+from app.api.connectors.v1.service import sync_github_mcp_env_status
 from common.logger import logger, LogContext
 from common.runtime_settings.events import listen_for_settings_changed
 from app.settings import settings
@@ -77,6 +78,16 @@ async def lifespan(app_instance: FastAPI) -> AsyncGenerator[None, None]:
         logger.warning(
             "[Startup] Failed to load runtime settings from DB — "
             "using env/default values",
+            exc_info=True,
+        )
+
+    # 1.1 Sync the env-configured GitHub MCP Server connector status.
+    try:
+        async with ASYNC_SESSION_LOCAL() as db:
+            await sync_github_mcp_env_status(db)
+    except Exception:  # pylint: disable=broad-except
+        logger.warning(
+            "[Startup] Failed to sync github_mcp connector status from env",
             exc_info=True,
         )
 
