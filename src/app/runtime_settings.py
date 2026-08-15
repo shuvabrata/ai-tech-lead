@@ -66,7 +66,6 @@ def _build_initial_config() -> RuntimeConfig:
         JIRA_ISSUE_TEAM_FIELD=app_settings.JIRA_ISSUE_TEAM_FIELD,
         JIRA_EPIC_START_DATE_FIELD=app_settings.JIRA_EPIC_START_DATE_FIELD,
         JIRA_EPIC_DUE_DATE_FIELD=app_settings.JIRA_EPIC_DUE_DATE_FIELD,
-        GITHUB_TOKEN_FOR_PUBLIC_REPOS=app_settings.GITHUB_TOKEN_FOR_PUBLIC_REPOS,
         API_SERVER=app_settings.API_SERVER,
         CONFIGURATION_SOURCE=app_settings.CONFIGURATION_SOURCE,
         # ── Logging ───────────────────────────────────────────────────

@@ -69,7 +69,6 @@ class RuntimeConfig(BaseModel):
     JIRA_ISSUE_TEAM_FIELD: str = "Team"
     JIRA_EPIC_START_DATE_FIELD: str = "created"
     JIRA_EPIC_DUE_DATE_FIELD: str = "duedate"
-    GITHUB_TOKEN_FOR_PUBLIC_REPOS: str = ""
     API_SERVER: str = "http://app:8000/"
     CONFIGURATION_SOURCE: str = "SERVER"
 
