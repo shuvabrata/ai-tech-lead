@@ -3,13 +3,8 @@
 ## Prerequisites
 
 1. **Docker and Docker Compose installed** on your system
-2. This project is dependant on docker images for Jira and Github connector. 
-```
-docker compose build
-```
-This will build the images locally. 
-3. This project uses databases which are dockerized images in the docker-compose.yml file.
-4. **Environment file configured**: Copy `.env.example` to `.env` and update the values:
+2. This project uses databases which are dockerized images in the docker-compose.yml file.
+3. **Environment file configured**: Copy `.env.example` to `.env` and update the values:
    ```bash
    cp .env.example .env
    # Edit .env with your actual configuration (database credentials, API keys, etc.)

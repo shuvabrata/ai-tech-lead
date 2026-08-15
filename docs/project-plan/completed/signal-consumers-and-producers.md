@@ -129,7 +129,7 @@ These recommendations ensure maintainability, extensibility, and schema safety a
 ---
 
 ## Phase 5: Building the ActivitySignal Consumers
-**Goal:** Build robust, scalable consumers that pull ActivitySignals from their respective queues and populate downstream databases idempotently. While Neo4j is the initial backend, the architecture must remain sink-agnostic to easily support future databases (e.g., Elasticsearch, InfluxDB).
+**Goal:** Build robust, scalable consumers that pull ActivitySignals from their respective queues and populate downstream databases idempotently. While Neo4j is the initial backend, the architecture must remain sink-agnostic to easily support future databases (e.g., Elasticsearch).
 
 *Location: `src/connectors/consumers/main.py` and `src/connectors/consumers/sinks/neo4j_sink.py`*
 
