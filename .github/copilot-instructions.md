@@ -162,6 +162,12 @@ Feature flags: `GITHUB_MCP_ENABLED`, `ATLASSIAN_MCP_ENABLED`
 - **Affordance**: Keep chevron icons as the primary interaction cue; hover should subtly adjust text color only.
 - **Consistency**: Apply the same collapse-toggle pattern across Graph, Collaboration Network, Search, and future pages unless a page has a strong UX reason to diverge.
 
+### Destructive Button Design Standards
+- **Style**: All delete/remove/destructive buttons MUST use `color="outline-danger"` (red text/border on transparent background, fills red on hover). Never use solid `color="danger"` for buttons.
+- **Confirmation**: Every destructive action MUST show a `dcc.ConfirmDialog` before executing. Use the 2-stage callback pattern: button click → show dialog; dialog `submit_n_clicks` → perform action.
+- **Dialog Message**: Include the scope of destruction and the phrase "This cannot be undone."
+- **Reference Implementation**: The "Reset All to Default" button in `src/app/dash_app/pages/settings/runtime.py` is the canonical example of both the `outline-danger` style and the `ConfirmDialog` pattern.
+
 ### Testing
 Tests are in `tests/`. Markers are defined in `pytest.ini`: `unit`, `integration`, `server`, `neo4j`, `rabbitmq`.
 

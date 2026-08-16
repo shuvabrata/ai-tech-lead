@@ -247,6 +247,72 @@ placeholder = create_placeholder_section(
 
 ---
 
+### Destructive Buttons
+
+**App Standard**: All delete/remove/destructive buttons MUST use `color="outline-danger"`.
+
+```python
+import dash_bootstrap_components as dbc
+
+# Correct — red text/border, fills red on hover
+delete_btn = dbc.Button(
+    "Delete Configuration",
+    id={"type": "connector-delete", "connector_type": connector_type},
+    color="outline-danger",
+    size="sm",
+)
+
+# Incorrect — solid red background
+delete_btn = dbc.Button("Delete", color="danger")
+```
+
+**Visual**:
+- Default: Red text and red border on a transparent/light background
+- Hover: Fills red with white text
+- Matches the "Reset All to Default" button on the Settings / Runtime page
+
+**Confirmation Requirement**: Every destructive action MUST display a `dcc.ConfirmDialog` before executing. Use the 2-stage callback pattern:
+
+1. **Stage 1** — button `n_clicks` sets `ConfirmDialog.displayed = True`
+2. **Stage 2** — dialog `submit_n_clicks` performs the actual destructive operation
+
+```python
+from dash import dcc
+
+# In layout
+dcc.ConfirmDialog(
+    id="connector-delete-confirm",
+    message="Are you sure you want to delete ALL configurations "
+            "for this connector? This cannot be undone.",
+)
+
+# Stage 1: show the dialog
+@callback(
+    Output("connector-delete-confirm", "displayed"),
+    Input({"type": "connector-delete", "connector_type": ALL}, "n_clicks"),
+    prevent_initial_call=True,
+)
+def confirm_connector_delete(_clicks):
+    if not any(n for n in _clicks if n):
+        raise PreventUpdate
+    return True
+
+# Stage 2: perform the delete on submit
+@callback(
+    Output(..., allow_duplicate=True),
+    Input("connector-delete-confirm", "submit_n_clicks"),
+    prevent_initial_call=True,
+)
+def perform_connector_delete(submit_clicks):
+    if not submit_clicks:
+        raise PreventUpdate
+    # ... perform the destructive operation
+```
+
+The dialog message must state the scope of destruction and include the phrase "This cannot be undone."
+
+---
+
 ## CSS Variables
 
 All CSS variables are defined in `app/dash_app/assets/executive-dashboard.css`:
