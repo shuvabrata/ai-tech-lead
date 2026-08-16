@@ -14,13 +14,11 @@ GITHUB_TOOL_PREFIX = "github__"
 ATLASSIAN_TOOL_PREFIX = "atlassian__"
 
 
-def _mask_token(token: str) -> str:
-    """Return a masked form of a secret for safe DEBUG logging."""
+def _mask_token_for_log(token: str) -> str:
+    """Return a redaction marker for a secret for safe DEBUG logging."""
     if not token:
         return "<empty>"
-    if len(token) <= 8:
-        return "<redacted>"
-    return f"{token[:4]}...{token[-4:]}"
+    return "<redacted>"
 
 
 def _build_github_manager() -> GithubMCPClientManager:
@@ -30,7 +28,7 @@ def _build_github_manager() -> GithubMCPClientManager:
         settings.GITHUB_MCP_ENABLED,
         settings.GITHUB_MCP_SERVER_URL,
         bool(settings.GITHUB_MCP_TOKEN),
-        _mask_token(settings.GITHUB_MCP_TOKEN),
+        _mask_token_for_log(settings.GITHUB_MCP_TOKEN),
         runtime_settings.get_int("HTTP_REQUEST_TIMEOUT"),
     )
     return GithubMCPClientManager(

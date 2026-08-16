@@ -664,18 +664,14 @@ def _get_manual_setup_layout(connector_type: str, connector_meta: dict) -> html.
     """Render a manual setup guidance page for connectors that are env/Docker-managed."""
     display_name = connector_meta.get("display_name", connector_type)
 
-    def _mask_secret(value: str) -> str:
-        """Mask a secret value for display, keeping a hint of its length."""
-        if not value:
-            return ""
-        if len(value) <= 8:
-            return "••••••••"
-        return f"{value[:4]}••••••••{value[-4:]}"
+    def _mask_secret_ui(value: str) -> str:
+        """Return a fixed redaction string for a secret; never expose any part of it."""
+        return "••••••••" if value else ""
 
     def _env_row(var: str, description: str, current: str, secret: bool = False) -> html.Tr:
         """Render an env var row with its current value and a set/not-set indicator."""
         is_set = bool(current)
-        display_value = _mask_secret(current) if secret else current
+        display_value = _mask_secret_ui(current) if secret else current
 
         # Status indicator: green dot + "Set" when present, red dot + "Not set" when absent.
         status_color = COLOR_SUCCESS if is_set else COLOR_ERROR
