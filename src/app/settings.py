@@ -32,7 +32,7 @@ class Settings(BaseSettings):
     MAX_MCP_ITERATIONS: int = 3
     GITHUB_MCP_TOKEN: str = ""
     ATLASSIAN_MCP_TOKEN: str = ""
-    GITHUB_MCP_SERVER_URL: str = "http://github-mcp:8082/mcp"
+    GITHUB_MCP_SERVER_URL: str = "http://github-mcp:8082/"
     ATLASSIAN_MCP_SERVER_URL: str = "https://mcp.atlassian.com/v1/mcp"
     
     # LLM configuration (provider-agnostic)

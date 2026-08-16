@@ -847,7 +847,7 @@ def _get_manual_setup_layout(connector_type: str, connector_meta: dict) -> html.
                                             ),
                                             _env_row(
                                                 "GITHUB_MCP_SERVER_URL",
-                                                "The URL of the running GitHub MCP sidecar service (e.g., http://github-mcp:8080).",
+                                                "The URL of the running GitHub MCP sidecar service (e.g., http://github-mcp:8082).",
                                                 settings.GITHUB_MCP_SERVER_URL,
                                             ),
                                             _env_row(
