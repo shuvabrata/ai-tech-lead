@@ -9,7 +9,7 @@ from typing import Any, Dict, List
 
 import requests
 import dash_bootstrap_components as dbc
-from dash import ALL, MATCH, Input, Output, State, callback, callback_context, clientside_callback, dcc, html, no_update
+from dash import ALL, MATCH, Input, Output, State, callback, callback_context, clientside_callback, html, no_update
 from dash.exceptions import PreventUpdate
 
 from app.common.timezone import humanize_duration, to_app_timezone
