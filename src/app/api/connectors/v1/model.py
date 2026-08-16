@@ -4,6 +4,14 @@ from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, ConfigDict, Field
 
 
+class TestConnectionResponse(BaseModel):
+    """Response for the MCP connector test-connection endpoint."""
+    success: bool
+    message: str
+    server: str
+    tool_count: Optional[int] = None
+
+
 class ConnectorConfigUpdateRequest(BaseModel):
     config: Optional[Dict[str, Any]] = None
 

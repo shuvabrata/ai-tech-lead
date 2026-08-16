@@ -138,6 +138,42 @@ def test_validate_atlassian_mcp_config_allows_missing_new_token_with_existing_se
     )
 
 
+def test_validate_connector_type_unknown_raises_unknown_connector_error():
+    with pytest.raises(service.UnknownConnectorError, match="Unknown connector_type"):
+        service._validate_connector_type("not_a_connector")
+
+
+def test_validate_connector_type_known_returns_meta():
+    meta = service._validate_connector_type("github")
+    assert isinstance(meta, dict)
+    assert meta["display_name"] == "GitHub"
+
+
+# ============================================================================
+# Config items: unsupported connectors (MCP types)
+# ============================================================================
+
+
+@pytest.mark.asyncio
+async def test_list_config_items_raises_unsupported_for_mcp_connectors():
+    """MCP connectors don't support config items — must raise, not KeyError."""
+    with pytest.raises(service.UnsupportedConnectorError, match="Config items are not supported"):
+        await service.list_config_items(None, "atlassian_mcp")
+
+    with pytest.raises(service.UnsupportedConnectorError, match="Config items are not supported"):
+        await service.list_config_items(None, "github_mcp")
+
+
+def test_status_for_connector_error_maps_unsupported_to_501():
+    """UnsupportedConnectorError must map to HTTP 501 (Not Implemented)."""
+    from app.api.connectors.v1.router import _status_for_connector_error
+
+    assert _status_for_connector_error(service.UnknownConnectorError("nope")) == 404
+    assert _status_for_connector_error(service.UnsupportedConnectorError("nope")) == 501
+    assert _status_for_connector_error(ValueError("Config item not found")) == 404
+    assert _status_for_connector_error(ValueError("bad payload")) == 400
+
+
 # ============================================================================
 # GitHub MCP env-status derivation
 # ============================================================================
@@ -145,7 +181,7 @@ def test_validate_atlassian_mcp_config_allows_missing_new_token_with_existing_se
 
 def test_github_mcp_env_status_configured_when_all_vars_set(monkeypatch):
     monkeypatch.setattr(settings, "GITHUB_MCP_ENABLED", True)
-    monkeypatch.setattr(settings, "GITHUB_MCP_SERVER_URL", "http://github-mcp:8082/mcp")
+    monkeypatch.setattr(settings, "GITHUB_MCP_SERVER_URL", "http://github-mcp:8082/")
     monkeypatch.setattr(settings, "GITHUB_MCP_TOKEN", "ghp_example")
 
     assert service._github_mcp_env_status() == "configured"
@@ -153,7 +189,7 @@ def test_github_mcp_env_status_configured_when_all_vars_set(monkeypatch):
 
 def test_github_mcp_env_status_not_configured_when_disabled(monkeypatch):
     monkeypatch.setattr(settings, "GITHUB_MCP_ENABLED", False)
-    monkeypatch.setattr(settings, "GITHUB_MCP_SERVER_URL", "http://github-mcp:8082/mcp")
+    monkeypatch.setattr(settings, "GITHUB_MCP_SERVER_URL", "http://github-mcp:8082/")
     monkeypatch.setattr(settings, "GITHUB_MCP_TOKEN", "ghp_example")
 
     assert service._github_mcp_env_status() == "not_configured"
@@ -169,7 +205,7 @@ def test_github_mcp_env_status_not_configured_when_server_url_missing(monkeypatc
 
 def test_github_mcp_env_status_not_configured_when_token_missing(monkeypatch):
     monkeypatch.setattr(settings, "GITHUB_MCP_ENABLED", True)
-    monkeypatch.setattr(settings, "GITHUB_MCP_SERVER_URL", "http://github-mcp:8082/mcp")
+    monkeypatch.setattr(settings, "GITHUB_MCP_SERVER_URL", "http://github-mcp:8082/")
     monkeypatch.setattr(settings, "GITHUB_MCP_TOKEN", "")
 
     assert service._github_mcp_env_status() == "not_configured"
@@ -177,7 +213,7 @@ def test_github_mcp_env_status_not_configured_when_token_missing(monkeypatch):
 
 def test_derive_connector_status_uses_env_for_github_mcp(monkeypatch):
     monkeypatch.setattr(settings, "GITHUB_MCP_ENABLED", True)
-    monkeypatch.setattr(settings, "GITHUB_MCP_SERVER_URL", "http://github-mcp:8082/mcp")
+    monkeypatch.setattr(settings, "GITHUB_MCP_SERVER_URL", "http://github-mcp:8082/")
     monkeypatch.setattr(settings, "GITHUB_MCP_TOKEN", "ghp_example")
 
     # connector_config is irrelevant for github_mcp — status comes from env

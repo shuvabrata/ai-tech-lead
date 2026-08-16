@@ -1,5 +1,6 @@
 from typing import Any, Dict, List, Optional
 
+import anyio
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from common.logger import logger
@@ -7,6 +8,14 @@ from app.common.encryption import decrypt, encrypt
 from app.settings import settings
 from . import query
 from .registry import CONNECTOR_REGISTRY
+
+
+class UnknownConnectorError(ValueError):
+    """Raised when a ``connector_type`` is not in the connector registry."""
+
+
+class UnsupportedConnectorError(ValueError):
+    """Raised when an operation is not supported for a ``connector_type``."""
 
 
 CONNECTOR_CONFIG_SENSITIVE_FIELDS: Dict[str, Dict[str, str]] = {
@@ -105,8 +114,22 @@ RESPONSE_FIELDS: Dict[str, List[str]] = {
 def _validate_connector_type(connector_type: str) -> Dict[str, str]:
     meta = CONNECTOR_REGISTRY.get(connector_type)
     if not meta:
-        raise ValueError("Unknown connector_type")
+        raise UnknownConnectorError("Unknown connector_type")
     return meta
+
+
+def _require_config_items_support(connector_type: str) -> None:
+    """Raise if ``connector_type`` does not support config items.
+
+    Connector types with ``supports_items=False`` (e.g. the MCP connectors)
+    store their config on the connector row itself and have no dedicated
+    ``*_configs`` table, so item CRUD operations must not be attempted.
+    """
+    meta = _validate_connector_type(connector_type)
+    if not meta.get("supports_items", False):
+        raise UnsupportedConnectorError(
+            f"Config items are not supported for connector_type '{connector_type}'"
+        )
 
 
 def _to_dict(item: Any) -> Dict[str, Any]:
@@ -444,7 +467,7 @@ async def list_config_items(
     # TODO: The 'include_secrets' flag is a temporary measure. This should be
     # replaced with a proper role-based access control check based on the
     # authenticated user's permissions. Exposing secrets via a query parameter is not secure.
-    _validate_connector_type(connector_type)
+    _require_config_items_support(connector_type)
     rows = await query.get_configs(db, connector_type)
     encrypted_map = SENSITIVE_FIELDS.get(connector_type, {})
     response_fields = RESPONSE_FIELDS[connector_type]
@@ -474,7 +497,7 @@ async def save_config_item(
     item: Any,
     item_id: Optional[int] = None,
 ) -> Dict[str, Any]:
-    _validate_connector_type(connector_type)
+    _require_config_items_support(connector_type)
     data = _to_dict(item)
     if connector_type == "github":
         _validate_github_item_payload(data, item_id)
@@ -521,7 +544,7 @@ async def save_config_item(
 async def update_config_item_status(
     db: AsyncSession, connector_type: str, item_id: int, enabled: bool
 ) -> Dict[str, Any]:
-    _validate_connector_type(connector_type)
+    _require_config_items_support(connector_type)
     
     # Perform an atomic partial update (upsert handles dict unpacking automatically)
     saved = await query.upsert_config_item(db, connector_type, item_id, {"enabled": enabled})
@@ -546,7 +569,7 @@ async def update_config_item_status(
 
 
 async def delete_config_item(db: AsyncSession, connector_type: str, item_id: int) -> None:
-    _validate_connector_type(connector_type)
+    _require_config_items_support(connector_type)
     deleted = await query.delete_config_item(db, connector_type, item_id)
     if not deleted:
         raise ValueError("Config item not found")
@@ -554,6 +577,96 @@ async def delete_config_item(db: AsyncSession, connector_type: str, item_id: int
 
 
 async def delete_all_configs(db: AsyncSession, connector_type: str) -> None:
-    _validate_connector_type(connector_type)
+    _require_config_items_support(connector_type)
     await query.delete_all_configs(db, connector_type)
     await _refresh_connector_status(db, connector_type)
+
+
+async def test_connector(
+    db: AsyncSession, connector_type: str
+) -> Dict[str, Any]:
+    """Test an MCP connector's connection and persist the result.
+
+    Only MCP connectors (``atlassian_mcp`` and ``github_mcp``) are supported.
+    The check runs synchronously inside the app container by opening an MCP
+    session and listing tools.
+
+    Raises:
+        ValueError: If ``connector_type`` is not a recognised connector, or is
+            not an MCP connector type.
+    """
+    from datetime import datetime, timezone
+
+    meta = _validate_connector_type(connector_type)
+    if connector_type not in {"atlassian_mcp", "github_mcp"}:
+        raise UnsupportedConnectorError(
+            f"Test connection is not supported for connector_type '{connector_type}'"
+        )
+
+    # Imported here to avoid a circular import at module load time.
+    # service -> tool_executor -> atlassian_config_loader -> service (lazy).
+    from app.ai_agent.mcp_integration.tool_executor import test_mcp_connection
+
+    logger.debug("[%s] Running Test Connection", connector_type)
+    result = await anyio.to_thread.run_sync(test_mcp_connection, connector_type)
+    logger.debug(
+        "[%s] Test Connection finished status=%s connected=%s tool_count=%s",
+        connector_type,
+        result.get("status"),
+        result.get("connected"),
+        result.get("tool_count"),
+    )
+
+    status = result.get("status")
+    connected = bool(result.get("connected"))
+    tool_count = result.get("tool_count")
+    error = result.get("error")
+
+    if connected:
+        await query.update_connector_status(
+            db,
+            connector_type,
+            status="connected",
+            last_tested_at=datetime.now(timezone.utc),
+            error=None,
+        )
+    else:
+        await query.update_connector_status(
+            db,
+            connector_type,
+            status="error",
+            last_tested_at=datetime.now(timezone.utc),
+            error=error,
+        )
+
+    message = _test_result_message(connector_type, status, tool_count, error)
+    return {
+        "success": connected,
+        "message": message,
+        "server": result.get("server", connector_type),
+        "tool_count": tool_count,
+    }
+
+
+def _test_result_message(
+    connector_type: str,
+    status: str,
+    tool_count: Optional[int],
+    error: Optional[str],
+) -> str:
+    """Produce a human-readable result message for a test-connection result."""
+    display = CONNECTOR_REGISTRY.get(connector_type, {}).get("display_name", connector_type)
+
+    if status == "connected":
+        return f"{display} connected — {tool_count} tools available"
+
+    if status == "empty_toolset":
+        return (
+            f"{display} reached the server but returned 0 tools. "
+            "The API token may lack the required scopes."
+        )
+
+    if status == "disabled":
+        return f"{display} is disabled."
+
+    return f"{display} connection failed: {error or 'unknown error'}"

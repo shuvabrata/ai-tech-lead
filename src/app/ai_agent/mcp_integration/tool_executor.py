@@ -8,13 +8,29 @@ from app.ai_agent.mcp_integration.atlassian_config_loader import load_atlassian_
 from app.ai_agent.mcp_integration.client_manager import AtlassianMCPClientManager, GithubMCPClientManager
 from app.runtime_settings import runtime_settings
 from app.settings import settings
+from common.logger import logger
 
 GITHUB_TOOL_PREFIX = "github__"
 ATLASSIAN_TOOL_PREFIX = "atlassian__"
 
 
+def _mask_token_for_log(token: str) -> str:
+    """Return a redaction marker for a secret for safe DEBUG logging."""
+    if not token:
+        return "<empty>"
+    return "<redacted>"
+
+
 def _build_github_manager() -> GithubMCPClientManager:
     """Create a GitHub manager instance from application settings."""
+    logger.debug(
+        "[github_mcp] Building manager: enabled=%s server_url=%r token_set=%s token=%s timeout=%ds",
+        settings.GITHUB_MCP_ENABLED,
+        settings.GITHUB_MCP_SERVER_URL,
+        bool(settings.GITHUB_MCP_TOKEN),
+        _mask_token_for_log(settings.GITHUB_MCP_TOKEN),
+        runtime_settings.get_int("HTTP_REQUEST_TIMEOUT"),
+    )
     return GithubMCPClientManager(
         github_server_url=settings.GITHUB_MCP_SERVER_URL,
         github_token=settings.GITHUB_MCP_TOKEN,
@@ -107,3 +123,39 @@ def execute_tool_call(tool_name: str, arguments: dict[str, Any] | None = None) -
         "status": "error",
         "error": "unknown_tool_namespace",
     }
+
+
+def test_mcp_connection(connector_type: str) -> dict[str, Any]:
+    """Test MCP connectivity for a connector by listing tools.
+
+    This is the public entry point for the connectors API ``/test`` endpoint.
+    It builds the appropriate MCP client manager, opens a session, and calls
+    ``list_tools()`` to verify the connection is useful to the application.
+
+    Args:
+        connector_type: One of ``"atlassian_mcp"`` or ``"github_mcp"``.
+
+    Returns:
+        A dict with keys ``server``, ``status``, ``connected``, ``tool_count``,
+        and ``error``.
+
+    Raises:
+        ValueError: If ``connector_type`` is not a recognised MCP connector.
+    """
+    if connector_type == "github_mcp":
+        result = _build_github_manager().test_connection()
+    elif connector_type == "atlassian_mcp":
+        result = _build_atlassian_manager().test_connection()
+    else:
+        raise ValueError(f"Not an MCP connector type: {connector_type}")
+
+    logger.debug(
+        "[%s] Test connection result: status=%s connected=%s tool_count=%s server=%s error=%r",
+        connector_type,
+        result.get("status"),
+        result.get("connected"),
+        result.get("tool_count"),
+        result.get("server"),
+        result.get("error"),
+    )
+    return result

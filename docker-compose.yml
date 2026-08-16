@@ -58,7 +58,7 @@ services:
       GITHUB_MCP_ENABLED: ${GITHUB_MCP_ENABLED:-false}
       GITHUB_MCP_TOKEN: ${GITHUB_MCP_TOKEN:-}
       # In Docker, use service-to-service networking, not localhost.
-      GITHUB_MCP_SERVER_URL: http://github-mcp:8082/mcp
+      GITHUB_MCP_SERVER_URL: http://github-mcp:8082/
       # RabbitMQ configuration
       RABBITMQ_URL: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASSWORD:-guest}@rabbitmq:5672/
       # Elasticsearch configuration

@@ -962,6 +962,50 @@ def handle_item_test_connection(_clicks: List[int | None]):
 
 @callback(
     Output("connector-action-feedback", "children", allow_duplicate=True),
+    Input({"type": "connector-mcp-test", "connector_type": ALL}, "n_clicks"),
+    prevent_initial_call=True,
+)
+def handle_mcp_test_connection(_clicks: List[int | None]):
+    """Test an MCP connector's connection via the synchronous /test endpoint.
+
+    Unlike the producer connectors, MCP connectors run their client inside the
+    app container, so the result is returned synchronously and rendered directly
+    in the feedback area — no RabbitMQ command or polling is involved.
+    """
+    if not callback_context.triggered:
+        return no_update
+    triggered_value = callback_context.triggered[0].get("value")
+    if not triggered_value:
+        return no_update
+    triggered = callback_context.triggered_id
+    if not isinstance(triggered, dict):
+        return no_update
+
+    connector_type = triggered.get("connector_type")
+    if not connector_type:
+        return no_update
+
+    api_base = _get_api_base_url()
+    try:
+        response = requests.post(
+            f"{api_base}/api/v1/connectors/{connector_type}/test",
+            timeout=TIMEOUT_SECONDS,
+        )
+        response.raise_for_status()
+        data = response.json()
+        message = data.get("message", "Connection test completed.")
+        color = "success" if data.get("success") else "danger"
+        return create_alert(message, color=color, class_name="mb-0")
+    except requests.exceptions.RequestException as exc:
+        return create_alert(
+            f"Test failed: {exc}",
+            color="danger",
+            class_name="mb-0",
+        )
+
+
+@callback(
+    Output("connector-action-feedback", "children", allow_duplicate=True),
     Output("connector-scans-poll", "disabled", allow_duplicate=True),
     Input({"type": "connector-cancel-scan", "command_id": ALL}, "n_clicks"),
     State("url", "pathname"),

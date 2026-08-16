@@ -67,6 +67,12 @@ class _MCPClientBase:
         if token:
             headers["Authorization"] = f"Bearer {token}"
 
+        logger.debug(
+            "[mcp] Opening HTTP session to %s (auth_token_set=%s)",
+            server_url,
+            bool(token),
+        )
+
         timeout = httpx.Timeout(self.request_timeout_seconds)
         async with httpx.AsyncClient(headers=headers, timeout=timeout) as http_client:
             async with streamable_http_client(server_url, http_client=http_client) as (
@@ -96,6 +102,67 @@ class _MCPClientBase:
         if hasattr(item, "model_dump"):
             return item.model_dump()
         return {"value": str(item)}
+
+    def _run_list_tools_test(
+        self,
+        server: str,
+        session_factory: Callable[[Callable[[ClientSession], Coroutine[Any, Any, Any]]], Coroutine[Any, Any, Any]],
+    ) -> dict[str, Any]:
+        """Open a session, list tools, and classify the result for Test Connection.
+
+        The goal is to prove the connection is useful to the app, not merely
+        reachable.  A connection is only considered successful when the server
+        returns a non-empty tool list, because an empty list usually means the
+        token has no effective scopes and the MCP chain would enrich nothing.
+
+        Returns a structured payload:
+            ``{server, status, connected, tool_count, error}``
+
+        where ``status`` is one of ``connected``, ``empty_toolset``, or
+        ``unavailable``.
+        """
+        async def _list(session: ClientSession) -> list[dict[str, Any]]:
+            result = await session.list_tools()
+            return [self._normalize_tool(tool) for tool in result.tools]
+
+        try:
+            tools = self._run_sync(session_factory, _list)
+        except Exception as exc:  # noqa: BLE001 - return structured error to caller
+            logger.debug(
+                "[mcp] Test connection FAILED for server=%s — %r", server, exc
+            )
+            return {
+                "server": server,
+                "status": "unavailable",
+                "connected": False,
+                "tool_count": None,
+                "error": str(exc),
+            }
+
+        if not tools:
+            logger.debug(
+                "[mcp] Test connection reached server=%s but returned 0 tools "
+                "(token may lack scopes)",
+                server,
+            )
+            return {
+                "server": server,
+                "status": "empty_toolset",
+                "connected": False,
+                "tool_count": 0,
+                "error": "server returned 0 tools — token may lack scopes",
+            }
+
+        logger.debug(
+            "[mcp] Test connection SUCCESS server=%s tool_count=%s", server, len(tools)
+        )
+        return {
+            "server": server,
+            "status": "connected",
+            "connected": True,
+            "tool_count": len(tools),
+            "error": None,
+        }
 
 @dataclass
 class GithubMCPClientManager(_MCPClientBase):
@@ -133,6 +200,23 @@ class GithubMCPClientManager(_MCPClientBase):
                 "connected": False,
                 "error": str(exc),
             }
+
+    def test_connection(self) -> dict[str, Any]:
+        """Test GitHub MCP connectivity by listing tools.
+
+        Returns a structured payload with ``server``, ``status``, ``connected``,
+        ``tool_count``, and ``error``.  A connection is only considered
+        successful when the server returns a non-empty tool list.
+        """
+        if not self.github_enabled:
+            return {
+                "server": "github",
+                "status": "disabled",
+                "connected": False,
+                "tool_count": None,
+                "error": "github_mcp_disabled",
+            }
+        return self._run_list_tools_test("github", self._with_github_session)
 
     def list_tools(self) -> list[dict[str, Any]]:
         """Return normalized tools from the GitHub MCP server.
@@ -260,6 +344,42 @@ class AtlassianMCPClientManager(_MCPClientBase):
                 "connected": False,
                 "error": str(exc),
             }
+
+    def test_connection(self) -> dict[str, Any]:
+        """Test Atlassian MCP connectivity by listing tools.
+
+        Returns a structured payload with ``server``, ``status``, ``connected``,
+        ``tool_count``, and ``error``.  A connection is only considered
+        successful when the server returns a non-empty tool list.
+        """
+        if not self.atlassian_enabled:
+            return {
+                "server": "atlassian",
+                "status": "disabled",
+                "connected": False,
+                "tool_count": None,
+                "error": "atlassian_mcp_disabled",
+            }
+
+        if not self.atlassian_token:
+            return {
+                "server": "atlassian",
+                "status": "unavailable",
+                "connected": False,
+                "tool_count": None,
+                "error": "atlassian_mcp_token_missing",
+            }
+
+        if not self._has_plausible_token(self.atlassian_token):
+            return {
+                "server": "atlassian",
+                "status": "unavailable",
+                "connected": False,
+                "tool_count": None,
+                "error": "atlassian_mcp_token_invalid_format",
+            }
+
+        return self._run_list_tools_test("atlassian", self._with_atlassian_session)
 
     def list_tools(self) -> list[dict[str, Any]]:
         """Return normalized tools from the Atlassian Rovo MCP server.

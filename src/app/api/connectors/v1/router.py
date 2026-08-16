@@ -11,6 +11,7 @@ from .model import (
     ConnectorConfigUpdateRequest,
     ConfigItemStatusUpdate,
     ConnectorStatus,
+    TestConnectionResponse,
     EmailConfigItemRequest,
     GithubConfigItemRequest,
     JiraConfigItemRequest,
@@ -37,8 +38,12 @@ ConfigItemRequest = Union[
 
 
 def _status_for_connector_error(exc: ValueError) -> int:
+    if isinstance(exc, service.UnknownConnectorError):
+        return 404
+    if isinstance(exc, service.UnsupportedConnectorError):
+        return 501
     message = str(exc).lower()
-    if "unknown connector_type" in message or "not found" in message:
+    if "not found" in message:
         return 404
     return 400
 
@@ -100,7 +105,7 @@ async def list_config_items(
     try:
         return await service.list_config_items(db, connector_type, include_secrets=include_secrets)
     except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+        raise HTTPException(status_code=_status_for_connector_error(exc), detail=str(exc)) from exc
 
 
 @router.post("/{connector_type}/configs", response_model=Dict[str, Any])
@@ -150,7 +155,7 @@ async def delete_config_item(
     try:
         await service.delete_config_item(db, connector_type, item_id)
     except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+        raise HTTPException(status_code=_status_for_connector_error(exc), detail=str(exc)) from exc
     return {"ok": True}
 
 
@@ -161,5 +166,26 @@ async def delete_all_configs(
     try:
         await service.delete_all_configs(db, connector_type)
     except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+        raise HTTPException(status_code=_status_for_connector_error(exc), detail=str(exc)) from exc
     return {"ok": True}
+
+
+@router.post("/{connector_type}/test", response_model=TestConnectionResponse)
+async def test_connector(
+    connector_type: str,
+    db: AsyncSession = Depends(get_async_db),
+):
+    """Test an MCP connector's connection synchronously.
+
+    This endpoint only supports MCP connectors (``atlassian_mcp`` and
+    ``github_mcp``), which run their MCP client inside the app container.
+    Non-MCP connectors use the command-and-control API instead.
+    """
+    try:
+        return await service.test_connector(db, connector_type)
+    except service.UnknownConnectorError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except service.UnsupportedConnectorError as exc:
+        raise HTTPException(status_code=501, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
