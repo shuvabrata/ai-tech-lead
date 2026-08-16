@@ -650,7 +650,7 @@ def render_items_list(store: Dict[str, Any] | None):
                                 "Delete",
                                 id={"type": "connector-item-delete", "connector_type": connector_type, "item_id": item_id},
                                 size="sm",
-                                color="danger",
+                                color="outline-danger",
                             ),
                             html.Div(
                                 dbc.Switch(
@@ -793,24 +793,47 @@ def handle_item_save(
 
 
 @callback(
+    Output("connector-item-delete-confirm", "displayed"),
+    Output("connector-item-delete-target", "data"),
+    Input({"type": "connector-item-delete", "connector_type": ALL, "item_id": ALL}, "n_clicks"),
+    prevent_initial_call=True,
+)
+def confirm_item_delete(_clicks: List[int | None]):
+    """Show confirmation dialog before deleting an item."""
+    if not any(n for n in _clicks if n):
+        raise PreventUpdate
+    triggered = callback_context.triggered_id
+    if not isinstance(triggered, dict):
+        raise PreventUpdate
+    return True, {"connector_type": triggered.get("connector_type"), "item_id": triggered.get("item_id")}
+
+
+@callback(
     [
         Output("connector-items-store", "data", allow_duplicate=True),
         Output("connector-edit-item", "data", allow_duplicate=True),
         Output("connector-action-feedback", "children", allow_duplicate=True),
+        Output("connector-item-delete-confirm", "displayed", allow_duplicate=True),
     ],
-    Input({"type": "connector-item-delete", "connector_type": ALL, "item_id": ALL}, "n_clicks"),
+    Input("connector-item-delete-confirm", "submit_n_clicks"),
+    State("connector-item-delete-target", "data"),
     prevent_initial_call=True,
 )
-def handle_item_delete(_clicks: List[int | None]):
-    triggered = callback_context.triggered_id
-    if not isinstance(triggered, dict):
-        return no_update, no_update, no_update
+def handle_item_delete(
+    submit_clicks: int | None,
+    target: Dict[str, Any] | None,
+):
+    if not submit_clicks:
+        raise PreventUpdate
 
-    if not callback_context.triggered or not callback_context.triggered[0].get("value"):
-        return no_update, no_update, no_update
+    if not target:
+        return no_update, no_update, no_update, False
 
-    connector_type = triggered.get("connector_type")
-    item_id = triggered.get("item_id")
+    connector_type = target.get("connector_type")
+    item_id = target.get("item_id")
+
+    if connector_type is None or item_id is None:
+        return no_update, no_update, no_update, False
 
     api_base = _get_api_base_url()
     try:
@@ -834,12 +857,14 @@ def handle_item_delete(_clicks: List[int | None]):
             updated_store,
             clear_state,
             create_alert("Item deleted.", color="success", class_name="mb-0"),
+            False,
         )
     except requests.exceptions.RequestException as exc:
         return (
             no_update,
             no_update,
             create_alert(f"Failed to delete item: {exc}", color="danger", class_name="mb-0"),
+            False,
         )
 
 
@@ -1049,25 +1074,48 @@ def handle_connector_save(
 
 
 @callback(
+    Output("connector-delete-confirm", "displayed"),
+    Output("connector-delete-target", "data"),
+    Input({"type": "connector-delete", "connector_type": ALL}, "n_clicks"),
+    prevent_initial_call=True,
+)
+def confirm_connector_delete(_clicks: List[int | None]):
+    """Show confirmation dialog before deleting all configs for a connector."""
+    if not any(n for n in _clicks if n):
+        raise PreventUpdate
+    triggered = callback_context.triggered_id
+    if not isinstance(triggered, dict):
+        raise PreventUpdate
+    return True, {"connector_type": triggered.get("connector_type")}
+
+
+@callback(
     [
         Output("connector-detail-store", "data", allow_duplicate=True),
         Output("connector-items-store", "data", allow_duplicate=True),
         Output("connector-action-feedback", "children", allow_duplicate=True),
         Output("url", "pathname", allow_duplicate=True),
+        Output("connector-delete-confirm", "displayed", allow_duplicate=True),
     ],
-    Input({"type": "connector-delete", "connector_type": ALL}, "n_clicks"),
+    Input("connector-delete-confirm", "submit_n_clicks"),
+    State("connector-delete-target", "data"),
     prevent_initial_call=True,
 )
-def handle_connector_delete(_clicks: List[int | None]):
-    if not callback_context.triggered:
-        return no_update, no_update, no_update, no_update
-    triggered_value = callback_context.triggered[0].get("value")
-    if not triggered_value:
-        return no_update, no_update, no_update, no_update
-    triggered = callback_context.triggered_id
-    if not isinstance(triggered, dict):
-        return no_update, no_update, no_update, no_update
-    connector_type = triggered.get("connector_type")
+def handle_connector_delete(
+    submit_clicks: int | None,
+    target: Dict[str, Any] | None,
+):
+    if not submit_clicks:
+        raise PreventUpdate
+
+    if not target:
+        return no_update, no_update, no_update, no_update, False
+
+    connector_type = target.get("connector_type")
+
+    if connector_type is None:
+        return no_update, no_update, no_update, no_update, False
+
     api_base = _get_api_base_url()
     try:
         response = requests.delete(
@@ -1079,6 +1127,7 @@ def handle_connector_delete(_clicks: List[int | None]):
             {"status": "ok", "connector_type": connector_type, "items": []},
             create_alert("Configuration deleted.", color="success", class_name="mb-0"),
             "/app/connectors",
+            False,
         )
     except requests.exceptions.RequestException as exc:
         return (
@@ -1086,6 +1135,7 @@ def handle_connector_delete(_clicks: List[int | None]):
             no_update,
             create_alert(f"Delete failed: {exc}", color="danger", class_name="mb-0"),
             no_update,
+            False,
         )
 
 

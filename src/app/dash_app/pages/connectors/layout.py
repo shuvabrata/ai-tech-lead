@@ -103,6 +103,94 @@ def get_detail_layout(connector_type: str):
             ]
         )
 
+    # Determine which sections to show
+    producer_container = connector_meta.get("producer_container")
+
+    # Build the sections list dynamically
+    sections: list = []
+
+    # 1. Top Action Bar — most-used actions
+    sections.append(_section_container(_render_top_action_bar(connector_type, connector_meta)))
+
+    # 2. Recent Actions — only for connectors with a producer
+    if producer_container:
+        sections.append(_section_container(_render_recent_scans(connector_type, connector_meta)))
+
+    # 3. Add New {item label} — only for connectors that support items
+    if supports_items:
+        sections.append(
+            _section_container(
+                html.Div(
+                    [
+                        html.Div(
+                            [
+                                html.I(className="fas fa-plus me-1", style={"fontSize": "11px"}),
+                                f"Add New {form_spec.get('item', {}).get('label', 'Item')}",
+                            ],
+                            id="add-item-collapse-toggle",
+                            className="collapse-toggle-subtle",
+                            style={
+                                "fontSize": "11px",
+                                "fontWeight": FONT_WEIGHT_SEMIBOLD,
+                                "color": COLOR_GRAY_DARK,
+                                "marginBottom": SPACING_XSMALL,
+                                "cursor": "pointer",
+                                "userSelect": "none",
+                            },
+                        ),
+                        dbc.Collapse(
+                            id="add-item-collapse",
+                            is_open=False,
+                            children=_render_item_form(form_spec, connector_type),
+                        ),
+                    ],
+                )
+            )
+        )
+
+    # 4. Repository Cards — only for connectors that support items
+    if supports_items:
+        sections.append(
+            _section_container(
+                html.Div(
+                    id="connector-items-list",
+                    children=[
+                        html.Div(
+                            "No items configured yet.",
+                            style={
+                                "fontFamily": FONT_SANS,
+                                "fontSize": FONT_SIZE_SMALL,
+                                "color": COLOR_GRAY_MEDIUM,
+                                "paddingTop": SPACING_XSMALL,
+                            },
+                        )
+                    ],
+                )
+            )
+        )
+    else:
+        # Hidden placeholder required for shared render_items_list callback
+        sections.append(html.Div(id="connector-items-list", style={"display": "none"}))
+
+    # 5. Global Configuration — connector-level settings
+    sections.append(
+        _section_container(
+            html.Div(
+                [
+                    _section_title("Connector Settings"),
+                    _render_connector_config(form_spec, connector_type),
+                    dbc.Button(
+                        "Save Configuration",
+                        id={"type": "connector-save", "connector_type": connector_type},
+                        color="primary",
+                        size="sm",
+                        className="mt-2",
+                    ),
+                ],
+            )
+        )
+    )
+
     return html.Div(
         [
             create_page_header(f"Connectors / {display_name}"),
@@ -112,11 +200,23 @@ def get_detail_layout(connector_type: str):
                     dcc.Store(id="connector-items-store", storage_type="memory"),
                     dcc.Store(id="connector-edit-item", storage_type="memory"),
                     dcc.Store(id="connector-scroll-trigger", storage_type="memory"),
+                    dcc.Store(id="connector-item-delete-target", storage_type="memory"),
+                    dcc.Store(id="connector-delete-target", storage_type="memory"),
                     dcc.Store(
                         id={"type": "connector-search-filters-store", "connector_type": connector_type},
                         storage_type="memory",
                     ),
                     dcc.Interval(id="connector-scans-poll", interval=settings.CONNECTOR_SCAN_POLL_INTERVAL, disabled=True),
+                    dcc.ConfirmDialog(
+                        id="connector-delete-confirm",
+                        message="Are you sure you want to delete ALL configurations "
+                                "for this connector? This cannot be undone.",
+                    ),
+                    dcc.ConfirmDialog(
+                        id="connector-item-delete-confirm",
+                        message="Are you sure you want to delete this item? "
+                                "This cannot be undone.",
+                    ),
                     html.Div(
                         id="connector-action-feedback",
                         key=f"connector-feedback-{connector_type}",
@@ -127,72 +227,7 @@ def get_detail_layout(connector_type: str):
                             "marginBottom": SPACING_SMALL,
                         },
                     ),
-                    # 1. Top Action Bar — most-used actions
-                    _section_container(_render_top_action_bar(connector_type, connector_meta)),
-                    # 2. Recent Actions — always visible
-                    _section_container(_render_recent_scans(connector_type, connector_meta)),
-                    # 3. Add New {item label} — collapsible form, collapsed by default
-                    _section_container(
-                        html.Div(
-                            [
-                                html.Div(
-                                    [
-                                        html.I(className="fas fa-plus me-1", style={"fontSize": "11px"}),
-                                        f"Add New {form_spec.get('item', {}).get('label', 'Item')}",
-                                    ],
-                                    id="add-item-collapse-toggle",
-                                    className="collapse-toggle-subtle",
-                                    style={
-                                        "fontSize": "11px",
-                                        "fontWeight": FONT_WEIGHT_SEMIBOLD,
-                                        "color": COLOR_GRAY_DARK,
-                                        "marginBottom": SPACING_XSMALL,
-                                        "cursor": "pointer",
-                                        "userSelect": "none",
-                                    },
-                                ),
-                                dbc.Collapse(
-                                    id="add-item-collapse",
-                                    is_open=False,
-                                    children=_render_item_form(form_spec, connector_type),
-                                ),
-                            ],
-                            style={"display": "none" if not supports_items else "block"},
-                        )
-                    ),
-                    # 4. Repository Cards — list of configured items
-                    _section_container(
-                        html.Div(
-                            id="connector-items-list",
-                            children=[
-                                html.Div(
-                                    "No items configured yet.",
-                                    style={
-                                        "fontFamily": FONT_SANS,
-                                        "fontSize": FONT_SIZE_SMALL,
-                                        "color": COLOR_GRAY_MEDIUM,
-                                        "paddingTop": SPACING_XSMALL,
-                                    },
-                                )
-                            ],
-                        )
-                    ),
-                    # 5. Global Configuration — connector-level settings
-                    _section_container(
-                        html.Div(
-                            [
-                                _section_title("Connector Settings"),
-                                _render_connector_config(form_spec, connector_type),
-                                dbc.Button(
-                                    "Save Configuration",
-                                    id={"type": "connector-save", "connector_type": connector_type},
-                                    color="primary",
-                                    size="sm",
-                                    className="mt-2",
-                                ),
-                            ],
-                        )
-                    ),
+                    *sections,
                 ],
                 style=CARD_CONTAINER_STYLE,
             ),
@@ -228,7 +263,7 @@ def _render_top_action_bar(connector_type: str, connector_meta: dict) -> html.Di
         dbc.Button(
             "Delete Configuration",
             id={"type": "connector-delete", "connector_type": connector_type},
-            color="danger",
+            color="outline-danger",
             size="sm",
         ),
     )
