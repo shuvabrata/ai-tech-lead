@@ -200,6 +200,8 @@ def get_detail_layout(connector_type: str):
                     dcc.Store(id="connector-items-store", storage_type="memory"),
                     dcc.Store(id="connector-edit-item", storage_type="memory"),
                     dcc.Store(id="connector-scroll-trigger", storage_type="memory"),
+                    dcc.Store(id="connector-item-delete-target", storage_type="memory"),
+                    dcc.Store(id="connector-delete-target", storage_type="memory"),
                     dcc.Store(
                         id={"type": "connector-search-filters-store", "connector_type": connector_type},
                         storage_type="memory",

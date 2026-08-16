@@ -794,14 +794,18 @@ def handle_item_save(
 
 @callback(
     Output("connector-item-delete-confirm", "displayed"),
+    Output("connector-item-delete-target", "data"),
     Input({"type": "connector-item-delete", "connector_type": ALL, "item_id": ALL}, "n_clicks"),
     prevent_initial_call=True,
 )
-def confirm_item_delete(_clicks: List[int | None]) -> bool:
+def confirm_item_delete(_clicks: List[int | None]):
     """Show confirmation dialog before deleting an item."""
     if not any(n for n in _clicks if n):
         raise PreventUpdate
-    return True
+    triggered = callback_context.triggered_id
+    if not isinstance(triggered, dict):
+        raise PreventUpdate
+    return True, {"connector_type": triggered.get("connector_type"), "item_id": triggered.get("item_id")}
 
 
 @callback(
@@ -812,27 +816,21 @@ def confirm_item_delete(_clicks: List[int | None]) -> bool:
         Output("connector-item-delete-confirm", "displayed", allow_duplicate=True),
     ],
     Input("connector-item-delete-confirm", "submit_n_clicks"),
-    State({"type": "connector-item-delete", "connector_type": ALL, "item_id": ALL}, "id"),
-    State({"type": "connector-item-delete", "connector_type": ALL, "item_id": ALL}, "n_clicks"),
+    State("connector-item-delete-target", "data"),
     prevent_initial_call=True,
 )
 def handle_item_delete(
     submit_clicks: int | None,
-    ids: List[Dict[str, Any]],
-    n_clicks: List[int | None],
+    target: Dict[str, Any] | None,
 ):
     if not submit_clicks:
         raise PreventUpdate
 
-    # Determine which item's Delete button was last clicked.
-    connector_type = None
-    item_id = None
-    latest_click = -1
-    for btn_id, clicks in zip(ids, n_clicks):
-        if clicks is not None and clicks > latest_click:
-            latest_click = clicks
-            connector_type = btn_id.get("connector_type")
-            item_id = btn_id.get("item_id")
+    if not target:
+        return no_update, no_update, no_update, False
+
+    connector_type = target.get("connector_type")
+    item_id = target.get("item_id")
 
     if connector_type is None or item_id is None:
         return no_update, no_update, no_update, False
@@ -1077,14 +1075,18 @@ def handle_connector_save(
 
 @callback(
     Output("connector-delete-confirm", "displayed"),
+    Output("connector-delete-target", "data"),
     Input({"type": "connector-delete", "connector_type": ALL}, "n_clicks"),
     prevent_initial_call=True,
 )
-def confirm_connector_delete(_clicks: List[int | None]) -> bool:
+def confirm_connector_delete(_clicks: List[int | None]):
     """Show confirmation dialog before deleting all configs for a connector."""
     if not any(n for n in _clicks if n):
         raise PreventUpdate
-    return True
+    triggered = callback_context.triggered_id
+    if not isinstance(triggered, dict):
+        raise PreventUpdate
+    return True, {"connector_type": triggered.get("connector_type")}
 
 
 @callback(
@@ -1096,25 +1098,20 @@ def confirm_connector_delete(_clicks: List[int | None]) -> bool:
         Output("connector-delete-confirm", "displayed", allow_duplicate=True),
     ],
     Input("connector-delete-confirm", "submit_n_clicks"),
-    State({"type": "connector-delete", "connector_type": ALL}, "id"),
-    State({"type": "connector-delete", "connector_type": ALL}, "n_clicks"),
+    State("connector-delete-target", "data"),
     prevent_initial_call=True,
 )
 def handle_connector_delete(
     submit_clicks: int | None,
-    ids: List[Dict[str, Any]],
-    n_clicks: List[int | None],
+    target: Dict[str, Any] | None,
 ):
     if not submit_clicks:
         raise PreventUpdate
 
-    # Determine which connector's Delete button was last clicked.
-    connector_type = None
-    latest_click = -1
-    for btn_id, clicks in zip(ids, n_clicks):
-        if clicks is not None and clicks > latest_click:
-            latest_click = clicks
-            connector_type = btn_id.get("connector_type")
+    if not target:
+        return no_update, no_update, no_update, no_update, False
+
+    connector_type = target.get("connector_type")
 
     if connector_type is None:
         return no_update, no_update, no_update, no_update, False
