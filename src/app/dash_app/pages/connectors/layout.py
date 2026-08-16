@@ -12,9 +12,11 @@ from app.dash_app.styles import (
     COLOR_BORDER,
     COLOR_CHARCOAL_MEDIUM,
     COLOR_CODE_BACKGROUND,
+    COLOR_ERROR,
     COLOR_GRAY_DARK,
     COLOR_GRAY_MEDIUM,
     COLOR_NAVY,
+    COLOR_SUCCESS,
     FONT_SANS,
     FONT_SIZE_SMALL,
     FONT_WEIGHT_MEDIUM,
@@ -662,7 +664,23 @@ def _get_manual_setup_layout(connector_type: str, connector_meta: dict) -> html.
     """Render a manual setup guidance page for connectors that are env/Docker-managed."""
     display_name = connector_meta.get("display_name", connector_type)
 
-    def _env_row(var: str, description: str) -> html.Tr:
+    def _mask_secret(value: str) -> str:
+        """Mask a secret value for display, keeping a hint of its length."""
+        if not value:
+            return ""
+        if len(value) <= 8:
+            return "••••••••"
+        return f"{value[:4]}••••••••{value[-4:]}"
+
+    def _env_row(var: str, description: str, current: str, secret: bool = False) -> html.Tr:
+        """Render an env var row with its current value and a set/not-set indicator."""
+        is_set = bool(current)
+        display_value = _mask_secret(current) if secret else current
+
+        # Status indicator: green dot + "Set" when present, red dot + "Not set" when absent.
+        status_color = COLOR_SUCCESS if is_set else COLOR_ERROR
+        status_label = "Set" if is_set else "Not set"
+
         return html.Tr(
             [
                 html.Td(
@@ -686,6 +704,42 @@ def _get_manual_setup_layout(connector_type: str, connector_meta: dict) -> html.
                         "fontSize": FONT_SIZE_SMALL,
                         "color": COLOR_GRAY_MEDIUM,
                         "padding": SPACING_XSMALL,
+                    },
+                ),
+                html.Td(
+                    [
+                        html.Span(
+                            "●",
+                            style={
+                                "color": status_color,
+                                "fontSize": "10px",
+                                "marginRight": "6px",
+                            },
+                        ),
+                        html.Span(
+                            status_label,
+                            style={
+                                "fontFamily": FONT_SANS,
+                                "fontSize": FONT_SIZE_SMALL,
+                                "fontWeight": FONT_WEIGHT_MEDIUM,
+                                "color": status_color,
+                                "marginRight": SPACING_SMALL,
+                            },
+                        ),
+                        html.Span(
+                            display_value if is_set else "—",
+                            style={
+                                "fontFamily": "monospace",
+                                "fontSize": FONT_SIZE_SMALL,
+                                "color": COLOR_GRAY_DARK if is_set else COLOR_GRAY_MEDIUM,
+                                "wordBreak": "break-all",
+                            },
+                        ),
+                    ],
+                    style={
+                        "padding": SPACING_XSMALL,
+                        "whiteSpace": "nowrap",
+                        "maxWidth": "320px",
                     },
                 ),
             ]
@@ -786,9 +840,22 @@ def _get_manual_setup_layout(connector_type: str, connector_meta: dict) -> html.
                                 [
                                     html.Tbody(
                                         [
-                                            _env_row("GITHUB_MCP_ENABLED", "Set to true to enable the GitHub MCP integration in the AI agent."),
-                                            _env_row("GITHUB_MCP_SERVER_URL", "The URL of the running GitHub MCP sidecar service (e.g., http://github-mcp:8080)."),
-                                            _env_row("GITHUB_MCP_TOKEN", "A GitHub personal access token passed to the MCP client manager."),
+                                            _env_row(
+                                                "GITHUB_MCP_ENABLED",
+                                                "Set to true to enable the GitHub MCP integration in the AI agent.",
+                                                str(settings.GITHUB_MCP_ENABLED),
+                                            ),
+                                            _env_row(
+                                                "GITHUB_MCP_SERVER_URL",
+                                                "The URL of the running GitHub MCP sidecar service (e.g., http://github-mcp:8080).",
+                                                settings.GITHUB_MCP_SERVER_URL,
+                                            ),
+                                            _env_row(
+                                                "GITHUB_MCP_TOKEN",
+                                                "A GitHub personal access token passed to the MCP client manager.",
+                                                settings.GITHUB_MCP_TOKEN,
+                                                secret=True,
+                                            ),
                                         ]
                                     )
                                 ],
