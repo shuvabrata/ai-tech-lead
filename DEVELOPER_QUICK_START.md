@@ -5,8 +5,11 @@ Setup python environment
 ```
 pyenv local 3.12.12 # optional
 python -m venv .venv
-source .venv/bin/activate\n
-pip install -r requirements.txt
+source .venv/bin/activate
+for i in `ls requirements*.txt`
+do
+pip install -r $i
+done
  ```
 
  Make a copy of .env.example to .env and update the values.
