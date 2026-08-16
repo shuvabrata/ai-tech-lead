@@ -266,7 +266,7 @@ def _render_top_action_bar(connector_type: str, connector_meta: dict) -> html.Di
             dbc.Button(
                 "Test Connection",
                 id={"type": "connector-mcp-test", "connector_type": connector_type},
-                color="success",
+                color="secondary",
                 size="sm",
                 className="me-2",
             ),
@@ -723,7 +723,7 @@ def _get_manual_setup_layout(connector_type: str, connector_meta: dict) -> html.
                             dbc.Button(
                                 "Test Connection",
                                 id={"type": "connector-mcp-test", "connector_type": connector_type},
-                                color="success",
+                                color="secondary",
                                 size="sm",
                             ),
                         ],
