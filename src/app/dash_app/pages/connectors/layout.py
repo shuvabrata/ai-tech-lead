@@ -205,6 +205,16 @@ def get_detail_layout(connector_type: str):
                         storage_type="memory",
                     ),
                     dcc.Interval(id="connector-scans-poll", interval=settings.CONNECTOR_SCAN_POLL_INTERVAL, disabled=True),
+                    dcc.ConfirmDialog(
+                        id="connector-delete-confirm",
+                        message="Are you sure you want to delete ALL configurations "
+                                "for this connector? This cannot be undone.",
+                    ),
+                    dcc.ConfirmDialog(
+                        id="connector-item-delete-confirm",
+                        message="Are you sure you want to delete this item? "
+                                "This cannot be undone.",
+                    ),
                     html.Div(
                         id="connector-action-feedback",
                         key=f"connector-feedback-{connector_type}",
@@ -251,7 +261,7 @@ def _render_top_action_bar(connector_type: str, connector_meta: dict) -> html.Di
         dbc.Button(
             "Delete Configuration",
             id={"type": "connector-delete", "connector_type": connector_type},
-            color="danger",
+            color="outline-danger",
             size="sm",
         ),
     )

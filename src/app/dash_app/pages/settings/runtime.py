@@ -34,7 +34,6 @@ from dash.exceptions import PreventUpdate
 
 from app.dash_app.components.common import create_alert
 from app.dash_app.styles import (
-    BUTTON_PRIMARY_STYLE,
     CARD_CONTAINER_STYLE,
     COLOR_BACKGROUND_LIGHT,
     COLOR_BACKGROUND_WHITE,
@@ -352,20 +351,14 @@ def get_runtime_layout() -> html.Div:
                                 "Save All Changes",
                                 id="settings-save-all",
                                 color="primary",
-                                style={
-                                    **BUTTON_PRIMARY_STYLE,
-                                    "marginRight": SPACING_XSMALL,
-                                },
+                                size="sm",
+                                className="me-2",
                             ),
                             dbc.Button(
                                 "Reset All to Default",
                                 id="settings-reset-all",
                                 color="outline-danger",
                                 size="sm",
-                                style={
-                                    "fontFamily": FONT_SANS,
-                                    "fontSize": FONT_SIZE_XSMALL,
-                                },
                             ),
                         ],
                         style={
