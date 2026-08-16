@@ -582,7 +582,15 @@ async def test_connector(
     # service -> tool_executor -> atlassian_config_loader -> service (lazy).
     from app.ai_agent.mcp_integration.tool_executor import test_mcp_connection
 
+    logger.debug("[%s] Running Test Connection", connector_type)
     result = test_mcp_connection(connector_type)
+    logger.debug(
+        "[%s] Test Connection finished status=%s connected=%s tool_count=%s",
+        connector_type,
+        result.get("status"),
+        result.get("connected"),
+        result.get("tool_count"),
+    )
 
     status = result.get("status")
     connected = bool(result.get("connected"))

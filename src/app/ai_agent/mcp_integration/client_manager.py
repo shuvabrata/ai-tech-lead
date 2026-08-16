@@ -67,6 +67,12 @@ class _MCPClientBase:
         if token:
             headers["Authorization"] = f"Bearer {token}"
 
+        logger.debug(
+            "[mcp] Opening HTTP session to %s (auth_token_set=%s)",
+            server_url,
+            bool(token),
+        )
+
         timeout = httpx.Timeout(self.request_timeout_seconds)
         async with httpx.AsyncClient(headers=headers, timeout=timeout) as http_client:
             async with streamable_http_client(server_url, http_client=http_client) as (
@@ -122,6 +128,9 @@ class _MCPClientBase:
         try:
             tools = self._run_sync(session_factory, _list)
         except Exception as exc:  # noqa: BLE001 - return structured error to caller
+            logger.debug(
+                "[mcp] Test connection FAILED for server=%s — %r", server, exc
+            )
             return {
                 "server": server,
                 "status": "unavailable",
@@ -131,6 +140,11 @@ class _MCPClientBase:
             }
 
         if not tools:
+            logger.debug(
+                "[mcp] Test connection reached server=%s but returned 0 tools "
+                "(token may lack scopes)",
+                server,
+            )
             return {
                 "server": server,
                 "status": "empty_toolset",
@@ -139,6 +153,9 @@ class _MCPClientBase:
                 "error": "server returned 0 tools — token may lack scopes",
             }
 
+        logger.debug(
+            "[mcp] Test connection SUCCESS server=%s tool_count=%s", server, len(tools)
+        )
         return {
             "server": server,
             "status": "connected",
