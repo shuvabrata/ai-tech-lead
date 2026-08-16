@@ -118,6 +118,20 @@ def _validate_connector_type(connector_type: str) -> Dict[str, str]:
     return meta
 
 
+def _require_config_items_support(connector_type: str) -> None:
+    """Raise if ``connector_type`` does not support config items.
+
+    Connector types with ``supports_items=False`` (e.g. the MCP connectors)
+    store their config on the connector row itself and have no dedicated
+    ``*_configs`` table, so item CRUD operations must not be attempted.
+    """
+    meta = _validate_connector_type(connector_type)
+    if not meta.get("supports_items", False):
+        raise UnsupportedConnectorError(
+            f"Config items are not supported for connector_type '{connector_type}'"
+        )
+
+
 def _to_dict(item: Any) -> Dict[str, Any]:
     if hasattr(item, "dict"):
         return item.dict(exclude_unset=True)
@@ -453,11 +467,7 @@ async def list_config_items(
     # TODO: The 'include_secrets' flag is a temporary measure. This should be
     # replaced with a proper role-based access control check based on the
     # authenticated user's permissions. Exposing secrets via a query parameter is not secure.
-    meta = _validate_connector_type(connector_type)
-    if not meta.get("supports_items", False):
-        raise UnsupportedConnectorError(
-            f"Config items are not supported for connector_type '{connector_type}'"
-        )
+    _require_config_items_support(connector_type)
     rows = await query.get_configs(db, connector_type)
     encrypted_map = SENSITIVE_FIELDS.get(connector_type, {})
     response_fields = RESPONSE_FIELDS[connector_type]
@@ -487,7 +497,7 @@ async def save_config_item(
     item: Any,
     item_id: Optional[int] = None,
 ) -> Dict[str, Any]:
-    _validate_connector_type(connector_type)
+    _require_config_items_support(connector_type)
     data = _to_dict(item)
     if connector_type == "github":
         _validate_github_item_payload(data, item_id)
@@ -534,7 +544,7 @@ async def save_config_item(
 async def update_config_item_status(
     db: AsyncSession, connector_type: str, item_id: int, enabled: bool
 ) -> Dict[str, Any]:
-    _validate_connector_type(connector_type)
+    _require_config_items_support(connector_type)
     
     # Perform an atomic partial update (upsert handles dict unpacking automatically)
     saved = await query.upsert_config_item(db, connector_type, item_id, {"enabled": enabled})
@@ -559,7 +569,7 @@ async def update_config_item_status(
 
 
 async def delete_config_item(db: AsyncSession, connector_type: str, item_id: int) -> None:
-    _validate_connector_type(connector_type)
+    _require_config_items_support(connector_type)
     deleted = await query.delete_config_item(db, connector_type, item_id)
     if not deleted:
         raise ValueError("Config item not found")
@@ -567,7 +577,7 @@ async def delete_config_item(db: AsyncSession, connector_type: str, item_id: int
 
 
 async def delete_all_configs(db: AsyncSession, connector_type: str) -> None:
-    _validate_connector_type(connector_type)
+    _require_config_items_support(connector_type)
     await query.delete_all_configs(db, connector_type)
     await _refresh_connector_status(db, connector_type)
 

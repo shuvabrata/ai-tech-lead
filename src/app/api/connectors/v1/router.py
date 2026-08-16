@@ -40,6 +40,8 @@ ConfigItemRequest = Union[
 def _status_for_connector_error(exc: ValueError) -> int:
     if isinstance(exc, service.UnknownConnectorError):
         return 404
+    if isinstance(exc, service.UnsupportedConnectorError):
+        return 501
     message = str(exc).lower()
     if "not found" in message:
         return 404
@@ -102,10 +104,8 @@ async def list_config_items(
 ):
     try:
         return await service.list_config_items(db, connector_type, include_secrets=include_secrets)
-    except service.UnsupportedConnectorError as exc:
-        raise HTTPException(status_code=501, detail=str(exc)) from exc
     except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+        raise HTTPException(status_code=_status_for_connector_error(exc), detail=str(exc)) from exc
 
 
 @router.post("/{connector_type}/configs", response_model=Dict[str, Any])
@@ -155,7 +155,7 @@ async def delete_config_item(
     try:
         await service.delete_config_item(db, connector_type, item_id)
     except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+        raise HTTPException(status_code=_status_for_connector_error(exc), detail=str(exc)) from exc
     return {"ok": True}
 
 
@@ -166,7 +166,7 @@ async def delete_all_configs(
     try:
         await service.delete_all_configs(db, connector_type)
     except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+        raise HTTPException(status_code=_status_for_connector_error(exc), detail=str(exc)) from exc
     return {"ok": True}
 
 

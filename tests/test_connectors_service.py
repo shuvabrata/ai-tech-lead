@@ -164,6 +164,16 @@ async def test_list_config_items_raises_unsupported_for_mcp_connectors():
         await service.list_config_items(None, "github_mcp")
 
 
+def test_status_for_connector_error_maps_unsupported_to_501():
+    """UnsupportedConnectorError must map to HTTP 501 (Not Implemented)."""
+    from app.api.connectors.v1.router import _status_for_connector_error
+
+    assert _status_for_connector_error(service.UnknownConnectorError("nope")) == 404
+    assert _status_for_connector_error(service.UnsupportedConnectorError("nope")) == 501
+    assert _status_for_connector_error(ValueError("Config item not found")) == 404
+    assert _status_for_connector_error(ValueError("bad payload")) == 400
+
+
 # ============================================================================
 # GitHub MCP env-status derivation
 # ============================================================================
