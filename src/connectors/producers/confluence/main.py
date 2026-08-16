@@ -877,8 +877,9 @@ async def test_connection() -> tuple[bool, str]:
             continue
         try:
             confluence = create_confluence_connection({"account": [account]})
-            user = confluence.myself()
-            name = user.get("displayName", user.get("email", "Unknown"))
+            # Confluence has no `myself()` — connection is already validated
+            # inside create_confluence_connection via get_all_spaces().
+            name = account.get("email", "Unknown")
             return (True, f"Authenticated as {name}")
         except Exception as exc:
             return (False, f"Confluence auth failed for {url}: {exc}")

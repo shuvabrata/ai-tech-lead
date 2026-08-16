@@ -245,7 +245,6 @@ class TestConfluenceTestConnection:
     async def test_confluence_test_connection_success(self) -> None:
         """Valid credentials → returns (True, "Authenticated as ...")."""
         mock_confluence = Mock()
-        mock_confluence.myself.return_value = {"displayName": "Bob Dev", "email": "bob@example.com"}
 
         with (
             patch(
@@ -270,7 +269,7 @@ class TestConfluenceTestConnection:
             success, message = await test_connection()
 
         assert success is True
-        assert "Authenticated as Bob Dev" in message
+        assert "Authenticated as a@b.com" in message
 
     @patch.dict(os.environ, {"TEST_ITEM_ID": ""}, clear=True)
     @pytest.mark.asyncio
@@ -306,7 +305,6 @@ class TestConfluenceTestConnection:
     async def test_confluence_test_connection_with_item_id(self) -> None:
         """Filters to specific item_id, tests only that one."""
         mock_confluence = Mock()
-        mock_confluence.myself.return_value = {"displayName": "Filtered User"}
 
         with (
             patch(
@@ -332,7 +330,7 @@ class TestConfluenceTestConnection:
             success, message = await test_connection()
 
         assert success is True
-        assert "Filtered User" in message
+        assert "Authenticated as a@b.com" in message
 
     @patch.dict(os.environ, {"TEST_ITEM_ID": "999"}, clear=True)
     @pytest.mark.asyncio
