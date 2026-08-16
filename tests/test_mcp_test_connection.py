@@ -399,3 +399,41 @@ class TestConnectionResponseModel:
             server="github",
         )
         assert resp.tool_count is None
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  test_connector() — event-loop offload regression guard
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+class TestMcpConnectionOffload:
+    """Prove test_connector runs the MCP call off the event-loop thread."""
+
+    @pytest.mark.asyncio
+    async def test_test_connector_completes_without_blocking(self):
+        """test_connector must complete quickly, proving the MCP call is offloaded."""
+        from unittest.mock import AsyncMock, patch
+
+        from app.api.connectors.v1 import service as svc
+
+        with (
+            patch("app.ai_agent.mcp_integration.tool_executor.test_mcp_connection") as mock_test,
+            patch.object(svc.query, "update_connector_status", new_callable=AsyncMock) as mock_update,
+            patch.object(svc, "_validate_connector_type") as mock_validate,
+        ):
+            mock_validate.return_value = {"display_name": "Test"}
+            mock_test.return_value = {
+                "server": "github",
+                "status": "connected",
+                "connected": True,
+                "tool_count": 5,
+                "error": None,
+            }
+
+            db = AsyncMock()
+            result = await svc.test_connector(db, "github_mcp")
+
+        assert result["success"] is True
+        assert result["tool_count"] == 5
+        mock_test.assert_called_once_with("github_mcp")
+        mock_update.assert_awaited_once()

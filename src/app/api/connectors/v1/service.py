@@ -1,5 +1,6 @@
 from typing import Any, Dict, List, Optional
 
+import anyio
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from common.logger import logger
@@ -583,7 +584,7 @@ async def test_connector(
     from app.ai_agent.mcp_integration.tool_executor import test_mcp_connection
 
     logger.debug("[%s] Running Test Connection", connector_type)
-    result = test_mcp_connection(connector_type)
+    result = await anyio.to_thread.run_sync(test_mcp_connection, connector_type)
     logger.debug(
         "[%s] Test Connection finished status=%s connected=%s tool_count=%s",
         connector_type,
