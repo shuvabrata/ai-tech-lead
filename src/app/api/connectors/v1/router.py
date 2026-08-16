@@ -38,8 +38,10 @@ ConfigItemRequest = Union[
 
 
 def _status_for_connector_error(exc: ValueError) -> int:
+    if isinstance(exc, service.UnknownConnectorError):
+        return 404
     message = str(exc).lower()
-    if "unknown connector_type" in message or "not found" in message:
+    if "not found" in message:
         return 404
     return 400
 
@@ -179,10 +181,9 @@ async def test_connector(
     """
     try:
         return await service.test_connector(db, connector_type)
+    except service.UnknownConnectorError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except service.UnsupportedConnectorError as exc:
+        raise HTTPException(status_code=501, detail=str(exc)) from exc
     except ValueError as exc:
-        detail = str(exc).lower()
-        if "not supported" in detail:
-            raise HTTPException(status_code=501, detail=str(exc)) from exc
-        if "unknown connector_type" in detail:
-            raise HTTPException(status_code=404, detail=str(exc)) from exc
         raise HTTPException(status_code=400, detail=str(exc)) from exc

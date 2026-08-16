@@ -10,6 +10,14 @@ from . import query
 from .registry import CONNECTOR_REGISTRY
 
 
+class UnknownConnectorError(ValueError):
+    """Raised when a ``connector_type`` is not in the connector registry."""
+
+
+class UnsupportedConnectorError(ValueError):
+    """Raised when an operation is not supported for a ``connector_type``."""
+
+
 CONNECTOR_CONFIG_SENSITIVE_FIELDS: Dict[str, Dict[str, str]] = {
     "atlassian_mcp": {"token": "encrypted_token"},
 }
@@ -106,7 +114,7 @@ RESPONSE_FIELDS: Dict[str, List[str]] = {
 def _validate_connector_type(connector_type: str) -> Dict[str, str]:
     meta = CONNECTOR_REGISTRY.get(connector_type)
     if not meta:
-        raise ValueError("Unknown connector_type")
+        raise UnknownConnectorError("Unknown connector_type")
     return meta
 
 
@@ -577,7 +585,9 @@ async def test_connector(
 
     meta = _validate_connector_type(connector_type)
     if connector_type not in {"atlassian_mcp", "github_mcp"}:
-        raise ValueError(f"Test connection is not supported for connector_type '{connector_type}'")
+        raise UnsupportedConnectorError(
+            f"Test connection is not supported for connector_type '{connector_type}'"
+        )
 
     # Imported here to avoid a circular import at module load time.
     # service -> tool_executor -> atlassian_config_loader -> service (lazy).

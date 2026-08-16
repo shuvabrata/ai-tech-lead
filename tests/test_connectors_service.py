@@ -138,6 +138,17 @@ def test_validate_atlassian_mcp_config_allows_missing_new_token_with_existing_se
     )
 
 
+def test_validate_connector_type_unknown_raises_unknown_connector_error():
+    with pytest.raises(service.UnknownConnectorError, match="Unknown connector_type"):
+        service._validate_connector_type("not_a_connector")
+
+
+def test_validate_connector_type_known_returns_meta():
+    meta = service._validate_connector_type("github")
+    assert isinstance(meta, dict)
+    assert meta["display_name"] == "GitHub"
+
+
 # ============================================================================
 # GitHub MCP env-status derivation
 # ============================================================================
