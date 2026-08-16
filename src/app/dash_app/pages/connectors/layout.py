@@ -243,9 +243,11 @@ def _render_top_action_bar(connector_type: str, connector_meta: dict) -> html.Di
     """Render the top action bar with Run Scan and Delete Configuration.
 
     Run Scan is only shown for connectors that have a ``producer_container``
-    in the registry (i.e. GitHub, Jira, Confluence).
+    in the registry (i.e. GitHub, Jira, Confluence).  MCP connectors get a
+    "Test Connection" button instead.
     """
     producer_container = connector_meta.get("producer_container")
+    section = connector_meta.get("section")
     buttons = []
 
     if producer_container:
@@ -253,6 +255,17 @@ def _render_top_action_bar(connector_type: str, connector_meta: dict) -> html.Di
             dbc.Button(
                 "Run Scan",
                 id={"type": "connector-run-scan", "connector_type": connector_type},
+                color="success",
+                size="sm",
+                className="me-2",
+            ),
+        )
+
+    if section == "mcp":
+        buttons.append(
+            dbc.Button(
+                "Test Connection",
+                id={"type": "connector-mcp-test", "connector_type": connector_type},
                 color="success",
                 size="sm",
                 className="me-2",
@@ -704,6 +717,25 @@ def _get_manual_setup_layout(connector_type: str, connector_meta: dict) -> html.
                     ),
                     # Hidden items list element — required for shared render_items_list callback
                     html.Div(id="connector-items-list", style={"display": "none"}),
+                    # Test Connection action — verifies the MCP server listed tools
+                    html.Div(
+                        [
+                            dbc.Button(
+                                "Test Connection",
+                                id={"type": "connector-mcp-test", "connector_type": connector_type},
+                                color="success",
+                                size="sm",
+                            ),
+                        ],
+                        style={
+                            "padding": SPACING_SMALL,
+                            "backgroundColor": COLOR_BACKGROUND_LIGHT,
+                            "border": f"1px solid {COLOR_BORDER}",
+                            "borderLeft": f"3px solid {COLOR_NAVY}",
+                            "borderRadius": "2px",
+                            "marginBottom": SPACING_SMALL,
+                        },
+                    ),
                     # Setup method notice
                     html.Div(
                         [

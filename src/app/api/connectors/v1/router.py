@@ -11,6 +11,7 @@ from .model import (
     ConnectorConfigUpdateRequest,
     ConfigItemStatusUpdate,
     ConnectorStatus,
+    TestConnectionResponse,
     EmailConfigItemRequest,
     GithubConfigItemRequest,
     JiraConfigItemRequest,
@@ -163,3 +164,25 @@ async def delete_all_configs(
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     return {"ok": True}
+
+
+@router.post("/{connector_type}/test", response_model=TestConnectionResponse)
+async def test_connector(
+    connector_type: str,
+    db: AsyncSession = Depends(get_async_db),
+):
+    """Test an MCP connector's connection synchronously.
+
+    This endpoint only supports MCP connectors (``atlassian_mcp`` and
+    ``github_mcp``), which run their MCP client inside the app container.
+    Non-MCP connectors use the command-and-control API instead.
+    """
+    try:
+        return await service.test_connector(db, connector_type)
+    except ValueError as exc:
+        detail = str(exc).lower()
+        if "not supported" in detail:
+            raise HTTPException(status_code=501, detail=str(exc)) from exc
+        if "unknown connector_type" in detail:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        raise HTTPException(status_code=400, detail=str(exc)) from exc

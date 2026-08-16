@@ -557,3 +557,83 @@ async def delete_all_configs(db: AsyncSession, connector_type: str) -> None:
     _validate_connector_type(connector_type)
     await query.delete_all_configs(db, connector_type)
     await _refresh_connector_status(db, connector_type)
+
+
+async def test_connector(
+    db: AsyncSession, connector_type: str
+) -> Dict[str, Any]:
+    """Test an MCP connector's connection and persist the result.
+
+    Only MCP connectors (``atlassian_mcp`` and ``github_mcp``) are supported.
+    The check runs synchronously inside the app container by opening an MCP
+    session and listing tools.
+
+    Raises:
+        ValueError: If ``connector_type`` is not a recognised connector, or is
+            not an MCP connector type.
+    """
+    from datetime import datetime, timezone
+
+    meta = _validate_connector_type(connector_type)
+    if connector_type not in {"atlassian_mcp", "github_mcp"}:
+        raise ValueError(f"Test connection is not supported for connector_type '{connector_type}'")
+
+    # Imported here to avoid a circular import at module load time.
+    # service -> tool_executor -> atlassian_config_loader -> service (lazy).
+    from app.ai_agent.mcp_integration.tool_executor import test_mcp_connection
+
+    result = test_mcp_connection(connector_type)
+
+    status = result.get("status")
+    connected = bool(result.get("connected"))
+    tool_count = result.get("tool_count")
+    error = result.get("error")
+
+    if connected:
+        await query.update_connector_status(
+            db,
+            connector_type,
+            status="connected",
+            last_tested_at=datetime.now(timezone.utc),
+            error=None,
+        )
+    else:
+        await query.update_connector_status(
+            db,
+            connector_type,
+            status="error",
+            last_tested_at=datetime.now(timezone.utc),
+            error=error,
+        )
+
+    message = _test_result_message(connector_type, status, tool_count, error)
+    return {
+        "success": connected,
+        "message": message,
+        "server": result.get("server", connector_type),
+        "tool_count": tool_count,
+    }
+
+
+def _test_result_message(
+    connector_type: str,
+    status: str,
+    tool_count: Optional[int],
+    error: Optional[str],
+) -> str:
+    """Produce a human-readable result message for a test-connection result."""
+    display = CONNECTOR_REGISTRY.get(connector_type, {}).get("display_name", connector_type)
+
+    if status == "connected":
+        return f"{display} connected — {tool_count} tools available"
+
+    if status == "empty_toolset":
+        return (
+            f"{display} reached the server but returned 0 tools. "
+            "The API token may lack the required scopes."
+        )
+
+    if status == "disabled":
+        return f"{display} is disabled."
+
+    return f"{display} connection failed: {error or 'unknown error'}"

@@ -107,3 +107,29 @@ def execute_tool_call(tool_name: str, arguments: dict[str, Any] | None = None) -
         "status": "error",
         "error": "unknown_tool_namespace",
     }
+
+
+def test_mcp_connection(connector_type: str) -> dict[str, Any]:
+    """Test MCP connectivity for a connector by listing tools.
+
+    This is the public entry point for the connectors API ``/test`` endpoint.
+    It builds the appropriate MCP client manager, opens a session, and calls
+    ``list_tools()`` to verify the connection is useful to the application.
+
+    Args:
+        connector_type: One of ``"atlassian_mcp"`` or ``"github_mcp"``.
+
+    Returns:
+        A dict with keys ``server``, ``status``, ``connected``, ``tool_count``,
+        and ``error``.
+
+    Raises:
+        ValueError: If ``connector_type`` is not a recognised MCP connector.
+    """
+    if connector_type == "github_mcp":
+        return _build_github_manager().test_connection()
+
+    if connector_type == "atlassian_mcp":
+        return _build_atlassian_manager().test_connection()
+
+    raise ValueError(f"Not an MCP connector type: {connector_type}")
