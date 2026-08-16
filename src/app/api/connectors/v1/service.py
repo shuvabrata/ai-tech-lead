@@ -453,7 +453,11 @@ async def list_config_items(
     # TODO: The 'include_secrets' flag is a temporary measure. This should be
     # replaced with a proper role-based access control check based on the
     # authenticated user's permissions. Exposing secrets via a query parameter is not secure.
-    _validate_connector_type(connector_type)
+    meta = _validate_connector_type(connector_type)
+    if not meta.get("supports_items", False):
+        raise UnsupportedConnectorError(
+            f"Config items are not supported for connector_type '{connector_type}'"
+        )
     rows = await query.get_configs(db, connector_type)
     encrypted_map = SENSITIVE_FIELDS.get(connector_type, {})
     response_fields = RESPONSE_FIELDS[connector_type]

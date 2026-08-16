@@ -150,6 +150,21 @@ def test_validate_connector_type_known_returns_meta():
 
 
 # ============================================================================
+# Config items: unsupported connectors (MCP types)
+# ============================================================================
+
+
+@pytest.mark.asyncio
+async def test_list_config_items_raises_unsupported_for_mcp_connectors():
+    """MCP connectors don't support config items — must raise, not KeyError."""
+    with pytest.raises(service.UnsupportedConnectorError, match="Config items are not supported"):
+        await service.list_config_items(None, "atlassian_mcp")
+
+    with pytest.raises(service.UnsupportedConnectorError, match="Config items are not supported"):
+        await service.list_config_items(None, "github_mcp")
+
+
+# ============================================================================
 # GitHub MCP env-status derivation
 # ============================================================================
 

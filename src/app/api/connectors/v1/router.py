@@ -102,6 +102,8 @@ async def list_config_items(
 ):
     try:
         return await service.list_config_items(db, connector_type, include_secrets=include_secrets)
+    except service.UnsupportedConnectorError as exc:
+        raise HTTPException(status_code=501, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
