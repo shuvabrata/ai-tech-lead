@@ -12,7 +12,7 @@ FIELD_TOOLTIPS: Dict[str, Dict[str, str]] = {
     "jira": {
         "url": "The base URL of your Jira instance (e.g., https://your-domain.atlassian.net).",
         "email": "The email address associated with your Jira account.",
-        "api_token": "Your Jira API token for authentication.",
+        "api_token": "Your Atlassian API token with Jira read scopes.",
     },
     "slack": {
         "channel_id": "The unique identifier of the Slack channel (e.g., C12345678).",
@@ -25,7 +25,7 @@ FIELD_TOOLTIPS: Dict[str, Dict[str, str]] = {
     "confluence": {
         "url": "The base URL of your Confluence workspace (e.g., https://your-company.atlassian.net).",
         "email": "The email address associated with your Confluence account.",
-        "api_token": "Your Atlassian API token for authentication.",
+        "api_token": "Your Atlassian API token with Confluence read scopes.",
         "include_spaces": "Optional. A comma-separated list of Confluence Space Keys to sync (e.g., ENG, HR). If left blank, all accessible spaces will be synced.",
         "exclude_spaces": "Optional. A comma-separated list of Confluence Space Keys to ignore.",
     },
@@ -48,6 +48,6 @@ FIELD_TOOLTIPS: Dict[str, Dict[str, str]] = {
     "atlassian_mcp": {
         "enabled": "Enable or disable the Atlassian MCP integration. When disabled, the AI agent will not use Atlassian tools.",
         "server_url": "The Atlassian MCP server endpoint URL (e.g., https://mcp.atlassian.com/v1/mcp).",
-        "token": "Your Atlassian API token used to authenticate with the MCP server. Leave blank when editing to preserve the existing stored token.",
+        "token": "Your Atlassian API token with Rovo MCP scopes used to authenticate with the MCP server. Go to https://github.com/atlassian/atlassian-mcp-server for more details. Leave blank when editing to preserve the existing stored token.",
     },
 }
