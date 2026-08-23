@@ -1334,9 +1334,9 @@ def merge_initiative(session: Session, initiative: Initiative, relationships: Op
 
     # Only set date fields if they are not empty strings
     if _has_value(props, 'created_at'):
-        set_clauses.append("i.created_at = date($created_at)")
+        set_clauses.append("i.created_at = datetime($created_at)")
     if _has_value(props, 'updated_at'):
-        set_clauses.append("i.updated_at = date($updated_at)")
+        set_clauses.append("i.updated_at = datetime($updated_at)")
     if _has_value(props, 'duedate'):
         set_clauses.append("i.duedate = date($duedate)")
     if _has_value(props, 'labels'):
@@ -1417,9 +1417,9 @@ def merge_epic(session: Session, epic: Epic, relationships: Optional[List[Relati
     if _has_value(props, 'due_date'):
         set_clauses.append("e.due_date = date($due_date)")
     if _has_value(props, 'created_at'):
-        set_clauses.append("e.created_at = date($created_at)")
+        set_clauses.append("e.created_at = datetime($created_at)")
     if _has_value(props, 'updated_at'):
-        set_clauses.append("e.updated_at = date($updated_at)")
+        set_clauses.append("e.updated_at = datetime($updated_at)")
     if _has_value(props, 'url'):
         set_clauses.append("e.url = $url")
 

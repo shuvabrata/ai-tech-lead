@@ -297,8 +297,8 @@ def map_initiative(
         "summary": fields.get("summary", ""),
         "priority": priority_obj.get("name", "None"),
         "status": status_obj.get("name", "Unknown"),
-        "created_at": _date(fields.get("created")),
-        "updated_at": _date(fields.get("updated")),
+        "created_at": fields.get("created", ""),
+        "updated_at": fields.get("updated", ""),
         "duedate": fields.get("duedate"),
         "labels": fields.get("labels") or None,
         "components": [c.get("name", "") for c in components_obj if c.get("name")] or None,
@@ -337,8 +337,8 @@ def map_epic(
 
     priority_obj = fields.get("priority") or {}
     status_obj = fields.get("status") or {}
-    created_at = _date(fields.get("created"))
-    updated_at = _date(fields.get("updated"))
+    created_at = fields.get("created", "")
+    updated_at = fields.get("updated", "")
 
     start_date_field = _epic_start_date_field()
     if start_date_field == "created":

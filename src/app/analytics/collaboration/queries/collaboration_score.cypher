@@ -223,7 +223,7 @@ CALL () {
     AND (entity:Epic OR entity:Initiative)
     AND entity.id STARTS WITH 'jira::'
     AND elementId(commenter) <> elementId(author)
-    AND entity.created_at >= date(datetime()) - duration({days: $lookback_days})
+    AND entity.created_at >= datetime() - duration({days: $lookback_days})
   WITH
     CASE WHEN elementId(commenter) < elementId(author) THEN commenter ELSE author END AS p1,
     CASE WHEN elementId(commenter) < elementId(author) THEN author ELSE commenter END AS p2,
@@ -239,7 +239,7 @@ CALL () {
     AND (entity:Epic OR entity:Initiative)
     AND entity.id STARTS WITH 'jira::'
     AND elementId(p1) < elementId(p2)
-    AND entity.created_at >= date(datetime()) - duration({days: $lookback_days})
+    AND entity.created_at >= datetime() - duration({days: $lookback_days})
   RETURN p1, p2, log(toFloat(count(DISTINCT entity)) + 1) * $weight_jira_epic_initiative_co_commenters AS sub_score
 
   UNION ALL
@@ -251,7 +251,7 @@ CALL () {
     AND (entity:Issue OR entity:Epic OR entity:Initiative)
     AND entity.id STARTS WITH 'jira::'
     AND elementId(author) <> elementId(mentioned)
-    AND entity.created_at >= date(datetime()) - duration({days: $lookback_days})
+    AND entity.created_at >= datetime() - duration({days: $lookback_days})
   WITH
     CASE WHEN elementId(author) < elementId(mentioned) THEN author ELSE mentioned END AS p1,
     CASE WHEN elementId(author) < elementId(mentioned) THEN mentioned ELSE author END AS p2,
