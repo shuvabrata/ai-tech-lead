@@ -1,0 +1,33 @@
+name: Jira Issue Comment Participants
+description: |-
+  **What it is:** Lists the people who commented on Jira Issues, grouped by project and ranked by the number of issues they commented on and total comments.
+  
+  **How it helps:** Surfaces who is actively engaged in Jira Issue discussions, helping Engineering Managers identify resident subject-matter experts and people who provide valuable feedback beyond their assigned work.
+  
+  **What-If Impact:** Comment activity is often an early indicator of knowledge sharing and cross-team collaboration that isn't captured by formal assignments.
+summary: "Who comments on Jira Issues, grouped by project."
+default_view: tabular
+owner: jira-analytics
+status: active
+queries:
+  tabular: |-
+    MATCH (p:Person)-[:COMMENTED_ON]->(issue:Issue)
+    WHERE issue.id STARTS WITH 'jira::Issue::'
+    OPTIONAL MATCH (project:Project)<-[:PART_OF]-(issue)
+    WITH project.key AS project_key,
+         p._display_name AS person,
+         count(DISTINCT issue) AS issues_commented_on
+    RETURN project_key,
+           person,
+           issues_commented_on AS issues_commented_on
+    ORDER BY project_key, issues_commented_on DESC
+    LIMIT 100
+  graph: |-
+    MATCH p1=(person:Person)-[:COMMENTED_ON]->(issue:Issue)
+    WHERE issue.id STARTS WITH 'jira::Issue::'
+    RETURN p1
+    LIMIT 100
+tags:
+- beta
+- table
+- graph

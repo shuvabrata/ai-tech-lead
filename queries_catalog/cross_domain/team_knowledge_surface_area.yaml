@@ -25,6 +25,12 @@ queries:
     }
     CALL {
       WITH p
+      OPTIONAL MATCH (p)-[:COMMENTED_ON]->(work)
+      WHERE work:Issue OR work:Epic OR work:Initiative
+      RETURN count(DISTINCT work) AS work_comment_count
+    }
+    CALL {
+      WITH p
       OPTIONAL MATCH (p)-[:AUTHORED_BY]-(c:Commit)
       RETURN count(DISTINCT c) AS commit_count
     }
@@ -36,6 +42,7 @@ queries:
     RETURN t.name AS team,
            count(DISTINCT p) AS members,
            sum(doc_count) AS docs_touched,
+           sum(work_comment_count) AS work_commented_on,
            sum(issue_count) AS issues_touched,
            sum(commit_count) AS commits,
            sum(pr_count) AS prs

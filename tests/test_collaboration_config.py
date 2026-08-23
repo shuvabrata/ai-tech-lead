@@ -163,3 +163,73 @@ def test_github_issue_layer_weights_have_correct_values():
     config = CollaborationNetworkConfig()
     assert config.weights["github_issue_comment_engagement"] == 3.0
     assert config.weights["github_issue_co_commenters"] == 2.0
+
+
+# ---------------------------------------------------------------------------
+# Jira Comment/Mention Layer Tests (Plan 018, Phase 4)
+# ---------------------------------------------------------------------------
+
+JIRA_LAYERS = [
+    "jira_issue_comment_engagement",
+    "jira_issue_co_commenters",
+    "jira_epic_initiative_comment_engagement",
+    "jira_epic_initiative_co_commenters",
+    "jira_mentions",
+]
+
+JIRA_WEIGHTS = {
+    "jira_issue_comment_engagement": 3.0,
+    "jira_issue_co_commenters": 2.0,
+    "jira_epic_initiative_comment_engagement": 2.0,
+    "jira_epic_initiative_co_commenters": 1.0,
+    "jira_mentions": 2.0,
+}
+
+
+def test_jira_comment_layers_registered():
+    """All 5 Jira comment/mention layers are present in LAYER_ORDER."""
+    for layer in JIRA_LAYERS:
+        assert layer in LAYER_ORDER, f"Expected '{layer}' in LAYER_ORDER"
+
+
+def test_jira_comment_layers_have_correct_weights():
+    """Jira comment layers have the expected default weights."""
+    for layer, weight in JIRA_WEIGHTS.items():
+        assert DEFAULT_LAYER_WEIGHTS[layer] == weight, f"Unexpected weight for {layer}"
+
+
+def test_jira_comment_layers_enabled_by_default():
+    """Jira comment layers are enabled by default."""
+    config = CollaborationNetworkConfig()
+    for layer in JIRA_LAYERS:
+        assert layer in config.enabled_layers, f"Expected '{layer}' enabled by default"
+
+
+def test_to_cypher_parameters_includes_jira_comment_keys():
+    """to_cypher_parameters() includes include_/weight_ keys for Jira layers."""
+    config = CollaborationNetworkConfig()
+    params = config.to_cypher_parameters()
+
+    for layer in JIRA_LAYERS:
+        assert params[f"include_{layer}"] is True
+        assert params[f"weight_{layer}"] == JIRA_WEIGHTS[layer]
+
+
+def test_jira_comment_layers_can_be_selectively_disabled():
+    """Jira comment layers are disabled when not in the selected layers list."""
+    config = CollaborationNetworkConfig.from_query_values(
+        {"layers": "reporter_assignee,pr_reviews"}
+    )
+    params = config.to_cypher_parameters()
+
+    for layer in JIRA_LAYERS:
+        assert params[f"include_{layer}"] is False
+
+
+def test_existing_layers_unchanged():
+    """Adding Jira layers should not regress existing weights."""
+    config = CollaborationNetworkConfig()
+    assert config.weights["github_issue_comment_engagement"] == 3.0
+    assert config.weights["confluence_comment_engagement"] == 2.0
+    assert config.weights["pr_reviews"] == 3.0
+    assert config.weights["reporter_assignee"] == 2.0

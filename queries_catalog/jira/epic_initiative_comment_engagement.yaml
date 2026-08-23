@@ -1,0 +1,33 @@
+name: Jira Epic/Initiative Comment Engagement
+description: |-
+  **What it is:** Ranks Jira Epics and Initiatives by the volume of comment activity they receive, showing which strategic work items generate the most discussion.
+  
+  **How it helps:** Enables Program Managers to spot Epics and Initiatives that are contentious, complex, or poorly aligned, giving early signal for process intervention before delivery stalls.
+  
+  **What-If Impact:** High comment volume on a strategic Epic often indicates ambiguity or unresolved alignment that, if left alone, directly threatens delivery confidence.
+summary: "Epics/Initiatives with the most comment activity."
+default_view: tabular
+owner: jira-analytics
+status: active
+queries:
+  tabular: |-
+    MATCH (p:Person)-[:COMMENTED_ON]->(entity)
+    WHERE (entity:Epic OR entity:Initiative)
+      AND entity.id STARTS WITH 'jira::'
+    RETURN labels(entity)[0] AS entity_type,
+           entity.key AS key,
+           entity._display_name AS name,
+           count(DISTINCT p) AS commenters,
+           count(*) AS comments
+    ORDER BY comments DESC
+    LIMIT 100
+  graph: |-
+    MATCH p1=(person:Person)-[:COMMENTED_ON]->(entity)
+    WHERE (entity:Epic OR entity:Initiative)
+      AND entity.id STARTS WITH 'jira::'
+    RETURN p1
+    LIMIT 100
+tags:
+- beta
+- table
+- graph

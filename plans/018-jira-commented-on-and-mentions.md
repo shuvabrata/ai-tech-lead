@@ -460,6 +460,17 @@ CollaborationLayerConfig(
 
 ### New Cypher sub-queries (in `collaboration_score.cypher`)
 
+> **Note (2026-08-23):** The `REPORTED_BY` edge is stored **outgoing** from the entity:
+> `(Issue/Epic/Initiative)-[:REPORTED_BY]->(Person)`. The `comment_engagement` sub-queries
+> therefore use `-[:REPORTED_BY]->` (not `<-[:REPORTED_BY]-`); the original GitHub/Confluence
+> engagement queries use the wrong direction `<-` and fail for the same reason.
+>
+> **Follow-up (2026-08-23):**  Fixed the same direction bug in the pre-existing
+> `github_issue_comment_engagement` (`<-[:REPORTED_BY]` → `-[:REPORTED_BY]->`) and
+> `github_pr_comment_engagement` (`<-[:CREATED_BY]` → `-[:CREATED_BY]->`), since `CREATED_BY`
+> is also stored outgoing from the entity. Confirmed against live Neo4j: corrected patterns
+> return 1 and 11038 matches respectively (vs 0 before).
+
 ```cypher
 -- jira_issue_comment_engagement
 MATCH (commenter:Person)-[:COMMENTED_ON]->(issue:Issue)<-[:REPORTED_BY]-(author:Person)
