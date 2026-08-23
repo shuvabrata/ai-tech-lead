@@ -1,10 +1,11 @@
 # Plan 018: Jira COMMENTED_ON and MENTIONS relationships
 
-> **Status**: Phase 1 COMPLETE — implementation in progress. Design decisions resolved via grill-me session on 2026-08-21.
+> **Status**: Phase 2 COMPLETE — implementation in progress. Design decisions resolved via grill-me session on 2026-08-21.
 
 ## Status
 
 - **Phase 1 (Fetch + Map)**: ✅ COMPLETE 2026-08-23 — 21 new unit tests pass; full Jira unit suite (28) green.
+- **Phase 2 (Producer signal building)**: ✅ COMPLETE 2026-08-23 — 14 new unit tests pass; full Jira unit suite (42) green.
 
 - **Priority**: P1 (feature parity — GitHub Issues/PRs and Confluence Pages/Blogposts already have these relationships)
 - **Effort**: L (touches fetch, map, producer, consumer, collaboration, catalog, docs, tests)
@@ -173,7 +174,7 @@ pytest -m unit tests/producers/jira/test_map_jira_mentions.py -v
 
 ---
 
-## Phase 2: Producer signal building
+## Phase 2: Producer signal building  ✅ COMPLETE (2026-08-23)
 
 **Goal**: `build_initiative_signal`, `build_epic_signal`, and `build_issue_signal` accept `comments_data` and `mention_account_ids`. Per-entity processing loop in `publish_signals` fetches comments, parses mentions, emits Person signals, then builds signals.
 
