@@ -6,7 +6,8 @@
 >
 > **Reference implementations:**
 > - `src/connectors/producers/github/` (multi-file, one builder per entity)
-> - `src/connectors/producers/jira_producer.py` (single-file producer)
+> - `src/connectors/producers/jira/` (multi-file: `fetch_jira.py`, `map_jira.py`, `main.py`)
+> - `src/connectors/producers/confluence/` (multi-file producer)
 
 ---
 
