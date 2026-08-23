@@ -1,8 +1,10 @@
 # Plan 018: Jira COMMENTED_ON and MENTIONS relationships
 
-> **Status**: READY — all design decisions resolved via grill-me session on 2026-08-21.
+> **Status**: Phase 1 COMPLETE — implementation in progress. Design decisions resolved via grill-me session on 2026-08-21.
 
 ## Status
+
+- **Phase 1 (Fetch + Map)**: ✅ COMPLETE 2026-08-23 — 21 new unit tests pass; full Jira unit suite (28) green.
 
 - **Priority**: P1 (feature parity — GitHub Issues/PRs and Confluence Pages/Blogposts already have these relationships)
 - **Effort**: L (touches fetch, map, producer, consumer, collaboration, catalog, docs, tests)
@@ -42,7 +44,7 @@ GitHub Issues, GitHub PRs, Confluence Pages, and Confluence Blogposts all have f
 
 ---
 
-## Phase 1: Fetch + Map layer
+## Phase 1: Fetch + Map layer  ✅ COMPLETE (2026-08-23)
 
 **Goal**: Add comment fetching and ADF mention extraction. Switch JQL to `updated >=` for incremental sync. No signal shape changes yet.
 

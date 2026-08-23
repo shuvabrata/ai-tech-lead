@@ -26,6 +26,85 @@ from __future__ import annotations
 import os
 from typing import Any, Dict, List, Optional, Set
 
+from common.logger import logger
+
+
+# ---------------------------------------------------------------------------
+# ADF mention extraction (shared by mapping layer — pure, no I/O)
+# ---------------------------------------------------------------------------
+
+
+def extract_mentions_from_adf(adf_doc: Optional[Dict[str, Any]]) -> List[str]:
+    """Recursively walk an Atlassian Document Format (ADF) JSON tree and
+    extract every ``@mention`` accountId.
+
+    ADF mention nodes look like::
+
+        {"type": "mention", "attrs": {"id": "accountId:abc123", ...}, ...}
+
+    Args:
+        adf_doc: ADF JSON document, or ``None``.
+
+    Returns:
+        Deduplicated list of accountId strings with any ``accountId:`` prefix
+        stripped.
+    """
+    found: List[str] = []
+
+    def _walk(node: Any) -> None:
+        if isinstance(node, dict):
+            if node.get("type") == "mention":
+                attrs = node.get("attrs") or {}
+                raw_id = attrs.get("id")
+                if raw_id:
+                    account_id = str(raw_id)
+                    if account_id.startswith("accountId:"):
+                        account_id = account_id[len("accountId:"):]
+                    if account_id and account_id not in found:
+                        found.append(account_id)
+            for value in node.values():
+                _walk(value)
+        elif isinstance(node, list):
+            for item in node:
+                _walk(item)
+
+    _walk(adf_doc)
+
+    # Duplicates are prevented during collection, so return in first-seen order.
+    return found
+
+
+def extract_mentions_from_texts(
+    description_adf: Optional[Dict[str, Any]],
+    comment_bodies: List[Dict[str, Any]],
+) -> List[str]:
+    """Extract unique ``@mentioned`` accountIds from a description ADF document
+    and a list of comment body ADF documents.
+
+    Deduplicates across all sources.  Logs extracted mentions at DEBUG level
+    for troubleshooting Person mapping.
+
+    Args:
+        description_adf: The issue ``description`` field as ADF JSON.
+        comment_bodies:  List of ADF JSON comment ``body`` documents.
+
+    Returns:
+        Deduplicated list of accountId strings.
+    """
+    combined: List[str] = []
+
+    for account_id in extract_mentions_from_adf(description_adf):
+        if account_id not in combined:
+            combined.append(account_id)
+
+    for body in comment_bodies:
+        for account_id in extract_mentions_from_adf(body):
+            if account_id not in combined:
+                combined.append(account_id)
+
+    logger.debug("Extracted mentions from text(s): %s", combined)
+    return combined
+
 
 # ---------------------------------------------------------------------------
 # Private field-name helpers (resolved at call time for testability)
