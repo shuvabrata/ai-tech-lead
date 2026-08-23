@@ -13,8 +13,8 @@ async def test_list_catalog_queries():
     response = await router.list_catalog_queries(namespace=None, tag=None, q=None, view=None)
     data = response.model_dump()
 
-    assert data["count"] == 96
-    assert len(data["items"]) == 96
+    assert data["count"] == 100
+    assert len(data["items"]) == 100
     assert data["items"][0]["id"] == "schema/view_all_node_types"
     assert set(data["items"][0]["queries"]) == {"tabular", "graph"}
     assert data["items"][0]["summary"] == "Count all nodes by type."
@@ -42,7 +42,7 @@ async def test_filter_catalog_by_view():
     response = await router.list_catalog_queries(namespace=None, tag=None, q=None, view="graph")
     data = response.model_dump()
 
-    assert data["count"] == 96
+    assert data["count"] == 100
     assert all("graph" in item["available_views"] for item in data["items"])
 
 

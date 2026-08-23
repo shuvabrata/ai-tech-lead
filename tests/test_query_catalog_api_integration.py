@@ -25,8 +25,8 @@ async def test_catalog_list_endpoint_returns_normalized_catalog():
     assert response.status_code == 200
     data = response.json()
 
-    assert data["count"] == 96
-    assert len(data["items"]) == 96
+    assert data["count"] == 100
+    assert len(data["items"]) == 100
 
     first_item = data["items"][0]
     assert first_item["id"] == "schema/view_all_node_types"
@@ -130,7 +130,7 @@ async def test_catalog_list_endpoint_filters_by_view():
     assert response.status_code == 200
     data = response.json()
 
-    assert data["count"] == 96
+    assert data["count"] == 100
     assert all("graph" in item["available_views"] for item in data["items"])
 
 
