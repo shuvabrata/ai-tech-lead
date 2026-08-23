@@ -53,6 +53,7 @@ These relationships use the **exact same name** and are **stored once** because 
 | `AUTHORED_BY` | Code authorship | Commit ↔ Person |
 | `MAPS_TO` | Identity mapping | IdentityMapping ↔ Person |
 | `RELATES_TO` | Related issues | Issue ↔ Issue (inherently symmetric) |
+| `MENTIONS` | @-mention in content | Issue/Epic/Initiative/Page ↔ Person |
 
 ### Category 2: Different Names for Directionality (Hierarchical Relationships)
 
@@ -83,6 +84,8 @@ These relationships exist in only one direction:
 |------------------|-----------|-------------|
 | `LEADS` | Person → Project | Project leadership |
 | `FROM` | PullRequest → Branch | PR head branch (source) |
+| `COMMENTED_ON` | Person → Entity | Comment authored on a work item / page (directed) |
+| `REACTED_TO` | Person → Entity | Reaction (emoji) applied to a work item / page (directed) |
 
 ## Complete Relationship List by Layer
 
@@ -263,6 +266,23 @@ When using Large Language Models (LLMs) to convert natural language to Cypher:
 - Directional pairs are still created in both directions
 - Query performance is improved for common access patterns
 - Relationship properties (if any) are stored once for undirected relationships
+
+### Snapshot Semantics for Interaction Edges
+
+`COMMENTED_ON` and `REACTED_TO` use **snapshot semantics**: the producer emits the
+authoritative full set of interactions per entity on each sync, and the consumer
+replaces the edges on re-processing rather than accumulating duplicates. The edge
+carries aggregated properties instead of one edge per interaction:
+
+| Property | Type | Meaning |
+|----------|------|---------|
+| `count` | int | Number of comments/reactions aggregated into this edge |
+| `first_interaction_at` | timestamp | Earliest interaction time |
+| `last_interaction_at` | timestamp | Latest interaction time |
+
+This is implemented via `replace_snapshot_interaction_relationships()` in
+`src/connectors/neo4j_db/models.py`, applied uniformly to Issues, PullRequests,
+Epics, and Initiatives. See `docs/design/consumer-development-guide.md`.
 
 ## Maintenance
 

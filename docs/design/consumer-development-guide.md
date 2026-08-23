@@ -94,6 +94,41 @@ def merge_<entity>(
 - [ ] Each relationship written via `merge_relationship(session, from_id, type, to_id, properties)`
 - [ ] Export the new class and function from the module
 
+### 2.3 — Interaction edges: snapshot replacement
+
+If your entity carries **interaction edges** (`COMMENTED_ON`, `REACTED_TO`), do **not**
+write them through the plain `merge_relationship()` loop above — that would accumulate
+duplicate edges across syncs. Instead, route them through
+`replace_snapshot_interaction_relationships()`, which replaces the authoritative full set
+per entity and aggregates `count`, `first_interaction_at`, and `last_interaction_at` onto a
+single edge:
+
+```python
+def merge_<entity>(
+    session: Session,
+    node: MyEntity,
+    relationships: Optional[List[Relationship]] = None,
+) -> None:
+    # ... MERGE node + props as above ...
+    interaction_rels = [r for r in (relationships or [])
+                        if r.type in ("COMMENTED_ON", "REACTED_TO")]
+    other_rels = [r for r in (relationships or [])
+                  if r.type not in ("COMMENTED_ON", "REACTED_TO")]
+    if interaction_rels:
+        replace_snapshot_interaction_relationships(
+            session, node.id, "MyEntity", interaction_rels
+        )
+    for rel in other_rels:
+        merge_relationship(session, node.id, rel.type, rel.to_id, rel.properties)
+```
+
+- [ ] `COMMENTED_ON` / `REACTED_TO` routed through `replace_snapshot_interaction_relationships`
+- [ ] All other relationship types continue through the plain `merge_relationship()` loop
+- [ ] An empty `relationships` list is a no-op (does not crash)
+
+Reference implementations: `merge_issue`, `merge_pull_request`, `merge_initiative`, and
+`merge_epic` in `src/connectors/neo4j_db/models.py`.
+
 ---
 
 ## Phase 3 — `neo4j_sink.py` Handler and Dispatch Entry

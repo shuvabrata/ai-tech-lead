@@ -87,6 +87,39 @@ Create `src/connectors/producers/map_<source>.py`.
 
 ---
 
+## Phase 4b — Comments & Mentions (optional, for work-item / page sources)
+
+If your source supports comments and @-mentions (GitHub Issues/PRs, Jira Issues/Epics/
+Initiatives, Confluence Pages/Blogposts), emit `COMMENTED_ON` and `MENTIONS` relationships
+to bring comment-based collaboration into parity with other sources.
+
+Reference: `src/connectors/producers/jira/fetch_jira.py` (`fetch_comments`) and
+`src/connectors/producers/jira/map_jira.py` (`extract_mentions_from_adf`).
+
+### Fetch comments per entity
+
+- [ ] Add a `fetch_comments(client, entity_id_or_key)` function that paginates over the
+  comment endpoint and returns a flat list of raw comment dicts
+- [ ] Gate the fetch behind an env flag (e.g. `JIRA_FETCH_COMMENTS`, default `"true"`) so it
+  can be disabled on large instances
+- [ ] Fetch comments **one entity at a time** inside the publish loop, not as a bulk pass —
+  this naturally spaces out API calls and avoids rate limits
+
+### Extract mentions
+
+- [ ] Parse mentions from the description plus all comment bodies (for Jira, walk the ADF
+  JSON recursively looking for `{"type": "mention"}` nodes and read `attrs.id` = `accountId`)
+- [ ] Deduplicate mention ids; strip any `accountId:` prefix
+- [ ] Log extracted mentions at `DEBUG` level for troubleshooting Person mapping
+
+### Emit Person signals for participants
+
+- [ ] Commenters get a **full** Person signal (user object from the API)
+- [ ] @-mentioned users with no other data get a **minimal stub** Person signal (id only)
+- [ ] Deduplicate via a `seen_persons` set so each participant is emitted once per run
+
+---
+
 ## Phase 5 — Signal Builders
 
 Create one `build_<entity>_signal()` function per entity type.
@@ -224,6 +257,24 @@ await set_sync_cursor(source=_SOURCE, resource_id=<id>, last_synced_at=datetime.
 - [ ] `last_synced_at` passed to fetch functions to request only new/updated records
 - [ ] `set_sync_cursor()` called only on success — failure leaves the cursor unchanged for retry
 - [ ] `resource_id` uniquely identifies the source instance (e.g. the Jira base URL, repo full name)
+
+### Switching the query field on incremental runs
+
+When a cursor exists, filter on the entity's **`updated`** timestamp rather than `created`
+so that entities with new comments/mentions are re-fetched (their `created` date hasn't
+changed). On the first run (no cursor), fall back to `created` with a lookback cutoff:
+
+```python
+def resolve_date_field(last_synced_at):
+    # first run → ("created", lookback_cutoff); incremental → ("updated", cursor_ts)
+    ...
+date_field, date_str = resolve_date_field(last_synced_at)
+jql = f"issuetype = Epic AND {date_field} >= {date_str} ORDER BY created DESC"
+```
+
+- [ ] First run filters on `created >= <lookback>`; incremental run filters on `updated >= <cursor>`
+- [ ] The cursor is still set **after** the full successful run, so the first incremental run
+  only catches changes since the last full run
 
 ---
 

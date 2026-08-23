@@ -1,12 +1,17 @@
 # Plan 018: Jira COMMENTED_ON and MENTIONS relationships
 
-> **Status**: Phase 2 COMPLETE — implementation in progress. Design decisions resolved via grill-me session on 2026-08-21.
+> **Status**: ✅ COMPLETE — all 6 phases done. Validated against a real Jira instance on 2026-08-23. Design decisions resolved via grill-me session on 2026-08-21.
+
+## Status
 
 ## Status
 
 - **Phase 1 (Fetch + Map)**: ✅ COMPLETE 2026-08-23 — 21 new unit tests pass; full Jira unit suite (28) green.
 - **Phase 2 (Producer signal building)**: ✅ COMPLETE 2026-08-23 — 14 new unit tests pass; full Jira unit suite (42) green.
 - **Phase 3 (Consumer snapshot pattern)**: ✅ COMPLETE 2026-08-23 — 10 new unit tests pass; existing consumer suite (8) green.
+- **Phase 4 (Collaboration + Catalog)**: ✅ COMPLETE 2026-08-23 — 21 collaboration config tests green.
+- **Phase 5 (Docs + AI prompt)**: ✅ COMPLETE 2026-08-23 — `neo4j_prompt.md` updated.
+- **Phase 6 (Integration validation)**: ✅ COMPLETE 2026-08-23 — validated against real Jira instance.
 
 - **Priority**: P1 (feature parity — GitHub Issues/PRs and Confluence Pages/Blogposts already have these relationships)
 - **Effort**: L (touches fetch, map, producer, consumer, collaboration, catalog, docs, tests)
@@ -533,7 +538,7 @@ pytest -m unit tests/test_collaboration_config.py -v -k "jira_comment or jira_me
 
 ---
 
-## Phase 5: Documentation + AI prompt
+## Phase 5: Documentation + AI prompt  ✅ COMPLETE (2026-08-23)
 
 **Goal**: Update `neo4j_prompt.md` so the AI agent knows about these relationships on Jira entities.
 
@@ -565,9 +570,11 @@ Also add a note in the **Key Constraints** section:
 
 Manual review: read `neo4j_prompt.md` and verify the relationships are documented correctly.
 
+**Verified 2026-08-23:** `COMMENTED_ON` (with `count`, `first_interaction_at`, `last_interaction_at`) and `MENTIONS` added to the Work Hierarchy line; snapshot-semantics note added to Key Constraints.
+
 ---
 
-## Phase 6: Integration validation
+## Phase 6: Integration validation  ✅ COMPLETE (2026-08-23)
 
 **Goal**: End-to-end validation with a real Jira instance.
 
