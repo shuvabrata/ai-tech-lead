@@ -30,6 +30,8 @@ from connectors.producers.jira.main import (
     publish_signals,
 )
 
+pytestmark = pytest.mark.unit
+
 _BASE_URL = "https://jira.example.com"
 
 
@@ -187,6 +189,16 @@ class TestBuildPersonSignal:
         assert sig is not None
         attrs = sig.attributes.model_dump()
         assert attrs["email"] == "alice@example.com"
+        assert attrs["account_id"] == "acc123"
+
+    def test_missing_display_name_emits_empty_full_name_not_account_id(self) -> None:
+        """A user with no display name should NOT get ``full_name == account_id``."""
+        sig = build_person_signal(
+            {"account_id": "acc123", "display_name": "", "email": ""}, _BASE_URL
+        )
+        assert sig is not None
+        attrs = sig.attributes.model_dump()
+        assert attrs["full_name"] == ""
         assert attrs["account_id"] == "acc123"
 
 

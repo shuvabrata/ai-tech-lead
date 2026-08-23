@@ -99,6 +99,13 @@ class PersonCache:
             self.cache_hits += 1
             person_id = self._provider_cache[(provider, external_id)]
             logger.debug(f"    ⚡ Cache hit (provider) {provider}:{external_id} -> {person_id}")
+            # Re-merge on cache hit so a signal carrying a RICHER display name or
+            # email can upgrade an earlier stub that only had a raw account id
+            # (previously the good name was silently discarded on a cache hit).
+            # This is safe because merge_person skips overwriting ``name`` when
+            # the incoming value is an account-id stub, while still upgrading
+            # when the incoming value is a genuine name.
+            self._try_merge_richer_person(session, person_id, name, email, url, observed_at)
             return person_id, False
 
         # ── 2. Email cache (cross-provider, same batch) ───────────────────────
@@ -109,6 +116,9 @@ class PersonCache:
             self._provider_cache[(provider, external_id)] = person_id
             if account_id:
                 self._atlassian_account_cache[account_id] = person_id
+            # Same rationale as the provider-cache hit above: re-merge so a
+            # richer name/email captured later can upgrade the cached person.
+            self._try_merge_richer_person(session, person_id, name, email, url, observed_at)
             return person_id, False
 
         self.cache_misses += 1
@@ -149,6 +159,9 @@ class PersonCache:
                 self._provider_cache[(provider, external_id)] = person_id
                 if email:
                     self._email_cache[email] = person_id
+                # Same rationale as the provider/email cache hits: re-merge so
+                # a richer name/email captured later can upgrade an earlier stub.
+                self._try_merge_richer_person(session, person_id, name, email, url, observed_at)
                 return person_id, False
 
             self.db_queries += 1
@@ -229,7 +242,40 @@ class PersonCache:
             return existing_by_person_id["id"]
 
         return None
-    
+
+    def _try_merge_richer_person(
+        self,
+        session: Any,
+        person_id: str,
+        name: str,
+        email: Optional[str],
+        url: Optional[str],
+        observed_at: Optional[str],
+    ) -> None:
+        """Best-effort re-merge of an existing Person with the incoming signal's data.
+
+        Cache-hit paths in ``get_or_create_person`` call this before returning so
+        that a signal carrying a REAL display name or email can upgrade an
+        earlier stub that only had a raw account id.  It is safe to call here
+        because ``merge_person`` skips overwriting ``name`` when the incoming
+        value is an account-id stub, while still applying richer names, emails
+        and urls.
+
+        This is best-effort: failures are logged at DEBUG and never propagate.
+        """
+        try:
+            person = Person(
+                id=person_id,
+                name=name,
+                email=email if email else None,
+                url=url,
+            )
+            if observed_at is not None:
+                person.set_last_observed_at(observed_at)
+            merge_person(session, person)
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.debug("    ! Failed to upgrade Person %s on cache hit: %s", person_id, exc)
+
     def queue_identity_mapping(
         self,
         person_id: str,

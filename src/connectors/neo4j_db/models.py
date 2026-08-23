@@ -3,6 +3,7 @@ layers and utility functions for merging into Neo4j."""
 
 from __future__ import annotations
 
+import re
 from collections import defaultdict
 from dataclasses import dataclass, asdict, field
 from typing import Optional, List, Dict, Any
@@ -1029,6 +1030,28 @@ def create_constraints(session: Session, layers: Optional[List[int]] = None) -> 
 # LAYER 1 MERGE FUNCTIONS
 # ============================================================================
 
+def _is_account_id_stub(name: Optional[str]) -> bool:
+    """Return True when ``name`` is a raw Atlassian account id, not a human name.
+
+    Some producers emit minimal Person "stub" signals for users they can only
+    identify by account_id (no display name or email is available). Those stubs
+    carry ``name`` equal to the account id (e.g. ``712020:cc7f7515-...``).  This
+    helper recognises that account-id shape so callers can avoid treating a raw
+    id as a real display name.
+
+    A ``None``/empty value is also treated as a stub, since it must never
+    overwrite an existing name.
+    """
+    if not name:
+        return True
+    name = name.strip()
+    if not name:
+        return True
+    # Atlassian account ids look like "<digits>:<uuid-ish>", e.g. "712020:cc7f....".
+    # A person's real display name never matches this pattern.
+    return bool(re.match(r"^\d+:[\w-]{8,}$", name))
+
+
 def merge_person(session: Session, person: Person, relationships: Optional[List[Relationship]] = None) -> None:
     """Merge a Person node into Neo4j.
 
@@ -1042,7 +1065,14 @@ def merge_person(session: Session, person: Person, relationships: Optional[List[
     # MERGE the Person node
     # Build SET clause dynamically for optional fields (additive updates only)
     set_clauses = []
-    if _has_value(props, 'name'):
+    # Guard p.name (and the derived _display_name/_on_hover_name) against
+    # account-id stubs: when the incoming name is just a raw account id (or
+    # empty), do NOT write the display properties. A later minimal stub for a
+    # user we only know by account id would otherwise overwrite a previously
+    # resolved real display name with the raw id (or the node id when the name
+    # is empty). Other fields (email, url, etc.) are still updated.
+    name_is_stub = _is_account_id_stub(props.get('name'))
+    if _has_value(props, 'name') and not name_is_stub:
         set_clauses.append("p.name = $name")
     if _has_value(props, 'title'):
         set_clauses.append("p.title = $title")
@@ -1064,9 +1094,9 @@ def merge_person(session: Session, person: Person, relationships: Optional[List[
         set_clauses.append("p.url = $url")
 
     # Computed display/time properties
-    if _has_value(props, '_display_name'):
+    if _has_value(props, '_display_name') and not name_is_stub:
         set_clauses.append("p._display_name = $_display_name")
-    if _has_value(props, '_on_hover_name'):
+    if _has_value(props, '_on_hover_name') and not name_is_stub:
         set_clauses.append("p._on_hover_name = $_on_hover_name")
     if _has_value(props, '_last_updated_at'):
         set_clauses.append("p._last_updated_at = datetime($_last_updated_at)")

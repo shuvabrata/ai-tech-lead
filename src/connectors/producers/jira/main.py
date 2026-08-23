@@ -143,9 +143,21 @@ def build_person_signal(
 ) -> Optional[ActivitySignal]:
     """Build an ActivitySignal for a Person (Jira user)."""
     account_id = user_data.get("account_id", "")
+    # Do NOT fall back to the account_id when Jira supplies no display name.
+    # A user we can only identify by account_id (e.g. a @mentioned user with no
+    # profile) would otherwise produce a Person signal whose ``full_name`` is the
+    # raw account id. When the consumer later merges that signal, the account-id
+    # shaped name could overwrite a previously-resolved real display name (see
+    # merge_person's account-id-stub guard). Emitting an empty ``full_name``
+    # here means:
+    #   - the Person node is still created (so MENTIONS/COMMENTED_ON edges have
+    #     a target), and
+    #   - merge_person skips clobbering an existing name when the incoming value
+    #     is empty, so a later richer signal can upgrade it.
+    full_name = user_data.get("display_name") or ""
     try:
         attrs = PersonAttributes(
-            full_name=user_data.get("display_name") or account_id,
+            full_name=full_name,
             account_id=account_id,
             email=user_data.get("email") or None,
         )
@@ -792,9 +804,16 @@ async def publish_signals(
             # Build a minimal Person signal from the accountId.
             # Full user data (displayName, email) is only available for
             # commenters; mentioned users get a stub.
+            # The stub carries an EMPTY display_name — NOT the account_id. We
+            # only know this user by their account id; claiming the account id
+            # is their name produces a Person node where name == id and (worse)
+            # could clobber a real name that a later, richer signal had
+            # resolved. With an empty name, merge_person creates the node but
+            # skips overwriting an existing name, and a later rich signal can
+            # fill it in.
             person_data: Dict[str, Any] = {
                 "account_id": account_id,
-                "display_name": account_id,
+                "display_name": "",
                 "email": "",
             }
             # Enrich with commenter data if available
