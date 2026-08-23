@@ -26,7 +26,7 @@ Translate natural language questions into Cypher queries for a graph database mo
 
 ### Relationships
 **Organizational**: MEMBER_OF, REPORTS_TO, MANAGES, MAPS_TO
-**Work Hierarchy**: PART_OF, ASSIGNED_TO, REPORTED_BY, TEAM, IN_SPRINT, BLOCKS, DEPENDS_ON, RELATES_TO
+**Work Hierarchy**: PART_OF, ASSIGNED_TO, REPORTED_BY, TEAM, IN_SPRINT, BLOCKS, DEPENDS_ON, RELATES_TO, COMMENTED_ON (has `count`, `first_interaction_at`, `last_interaction_at`), MENTIONS
 **Source Control**: COLLABORATOR (has `permission`: READ/WRITE), BRANCH_OF, AUTHORED_BY, MODIFIES (has `additions`/`deletions`), REFERENCES
 **Pull Requests**: INCLUDES, TARGETS, FROM, CREATED_BY, REVIEWED_BY (has `state`), REQUESTED_REVIEWER, MERGED_BY, COMMENTED_ON
 
@@ -34,6 +34,7 @@ Translate natural language questions into Cypher queries for a graph database mo
 - Commits tracked on default branches only
 - Only merged PRs have INCLUDES → Commit relationships
 - Feature branches named: `feature/EPIC-KEY-description`
+- COMMENTED_ON on Issues/Epics/Initiatives uses snapshot semantics: edges are replaced on each sync with aggregated `count` and timestamp properties
 
 ## Query Patterns
 
