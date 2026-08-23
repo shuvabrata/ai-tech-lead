@@ -6,6 +6,7 @@
 
 - **Phase 1 (Fetch + Map)**: ✅ COMPLETE 2026-08-23 — 21 new unit tests pass; full Jira unit suite (28) green.
 - **Phase 2 (Producer signal building)**: ✅ COMPLETE 2026-08-23 — 14 new unit tests pass; full Jira unit suite (42) green.
+- **Phase 3 (Consumer snapshot pattern)**: ✅ COMPLETE 2026-08-23 — 10 new unit tests pass; existing consumer suite (8) green.
 
 - **Priority**: P1 (feature parity — GitHub Issues/PRs and Confluence Pages/Blogposts already have these relationships)
 - **Effort**: L (touches fetch, map, producer, consumer, collaboration, catalog, docs, tests)
@@ -340,7 +341,7 @@ pytest -m unit tests/producers/jira/test_build_signals_with_comments.py -v
 
 ---
 
-## Phase 3: Consumer — snapshot pattern for merge_initiative and merge_epic
+## Phase 3: Consumer — snapshot pattern for merge_initiative and merge_epic  ✅ COMPLETE (2026-08-23)
 
 **Goal**: `merge_initiative` and `merge_epic` route `COMMENTED_ON`/`REACTED_TO` through `replace_snapshot_interaction_relationships`, matching `merge_issue` and `merge_pull_request`.
 

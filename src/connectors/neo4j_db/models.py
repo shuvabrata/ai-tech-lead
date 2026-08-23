@@ -1348,8 +1348,15 @@ def merge_initiative(session: Session, initiative: Initiative, relationships: Op
     session.run(query, **props)
 
     # Create relationships if provided
+    # Use snapshot interaction pattern for COMMENTED_ON/REACTED_TO (mirrors merge_issue)
     if relationships:
-        for rel in relationships:
+        interaction_rels = [r for r in relationships if r.type in (
+            "COMMENTED_ON", "REACTED_TO")]
+        other_rels = [r for r in relationships if r.type not in (
+            "COMMENTED_ON", "REACTED_TO")]
+        replace_snapshot_interaction_relationships(
+            session, initiative.id, "Initiative", interaction_rels)
+        for rel in other_rels:
             merge_relationship(session, rel)
 
 
@@ -1416,8 +1423,15 @@ def merge_epic(session: Session, epic: Epic, relationships: Optional[List[Relati
     session.run(query, **props)
 
     # Create relationships if provided
+    # Use snapshot interaction pattern for COMMENTED_ON/REACTED_TO (mirrors merge_issue)
     if relationships:
-        for rel in relationships:
+        interaction_rels = [r for r in relationships if r.type in (
+            "COMMENTED_ON", "REACTED_TO")]
+        other_rels = [r for r in relationships if r.type not in (
+            "COMMENTED_ON", "REACTED_TO")]
+        replace_snapshot_interaction_relationships(
+            session, epic.id, "Epic", interaction_rels)
+        for rel in other_rels:
             merge_relationship(session, rel)
 
 
