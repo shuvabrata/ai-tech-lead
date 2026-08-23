@@ -366,6 +366,28 @@ def main():
                 "to_type": "Person"
             })
             
+            # COMMENTED_ON relationships (Person → PullRequest)
+            # 80% of PRs have 1-3 commenters (distinct from the author)
+            if random.random() < 0.8:
+                potential_commenters = [p for p in engineers if p["id"] != author["id"]]
+                num_commenters = random.randint(1, 3)
+                commenters = random.sample(
+                    potential_commenters,
+                    min(num_commenters, len(potential_commenters))
+                )
+                for commenter in commenters:
+                    comment_ts = created_at + timedelta(hours=random.randint(2, 96))
+                    relationships.append({
+                        "type": "COMMENTED_ON",
+                        "from_id": commenter["id"],
+                        "to_id": pr_id,
+                        "from_type": "Person",
+                        "to_type": "PullRequest",
+                        "properties": {
+                            "timestamp": comment_ts.isoformat()
+                        }
+                    })
+            
             # INCLUDES relationships (only for merged PRs)
             if pr_state == "merged" and pr_commit_ids:
                 for commit_id in pr_commit_ids:

@@ -241,22 +241,6 @@ CALL () {
     AND elementId(p1) < elementId(p2)
     AND entity.created_at >= datetime() - duration({days: $lookback_days})
   RETURN p1, p2, log(toFloat(count(DISTINCT entity)) + 1) * $weight_jira_epic_initiative_co_commenters AS sub_score
-
-  UNION ALL
-
-// 19. Find Jira Mentions (Weight: 2)
-  // Person A @mentioned Person B in a Jira Issue, Epic, or Initiative
-  MATCH (author:Person)-[:REPORTED_BY|ASSIGNED_TO]-(entity)-[:MENTIONS]->(mentioned:Person)
-  WHERE $include_jira_mentions
-    AND (entity:Issue OR entity:Epic OR entity:Initiative)
-    AND entity.id STARTS WITH 'jira::'
-    AND elementId(author) <> elementId(mentioned)
-    AND entity.created_at >= datetime() - duration({days: $lookback_days})
-  WITH
-    CASE WHEN elementId(author) < elementId(mentioned) THEN author ELSE mentioned END AS p1,
-    CASE WHEN elementId(author) < elementId(mentioned) THEN mentioned ELSE author END AS p2,
-    entity
-  RETURN p1, p2, log(toFloat(count(DISTINCT entity)) + 1) * $weight_jira_mentions AS sub_score
 }
 // Sum the scores from all independent systems
 WITH p1, p2, sum(sub_score) AS total_collaboration_score

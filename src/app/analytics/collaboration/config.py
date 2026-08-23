@@ -24,7 +24,6 @@ LAYER_ORDER = [
     "jira_issue_co_commenters",
     "jira_epic_initiative_comment_engagement",
     "jira_epic_initiative_co_commenters",
-    "jira_mentions",
 ]
 
 LAYER_LABELS: Dict[str, str] = {
@@ -46,7 +45,6 @@ LAYER_LABELS: Dict[str, str] = {
     "jira_issue_co_commenters": "Co-commenters (Jira Issue)",
     "jira_epic_initiative_comment_engagement": "Comment Engagement (Jira Epic/Initiative)",
     "jira_epic_initiative_co_commenters": "Co-commenters (Jira Epic/Initiative)",
-    "jira_mentions": "Mentions (Jira)",
 }
 
 DEFAULT_LAYER_WEIGHTS: Dict[str, float] = {
@@ -68,7 +66,6 @@ DEFAULT_LAYER_WEIGHTS: Dict[str, float] = {
     "jira_issue_co_commenters": 2.0,
     "jira_epic_initiative_comment_engagement": 2.0,
     "jira_epic_initiative_co_commenters": 1.0,
-    "jira_mentions": 2.0,
 }
 
 DEFAULT_LOOKBACK_DAYS = 90

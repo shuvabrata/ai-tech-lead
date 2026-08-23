@@ -342,9 +342,9 @@ def map_epic(
 
     start_date_field = _epic_start_date_field()
     if start_date_field == "created":
-        start_date = created_at
+        start_date = _date(created_at)
     else:
-        start_date = _date(fields.get(start_date_field)) or created_at
+        start_date = _date(fields.get(start_date_field)) or _date(created_at)
 
     due_date_field = _epic_due_date_field()
     due_date = _date(fields.get(due_date_field))

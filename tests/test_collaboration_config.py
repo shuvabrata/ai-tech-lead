@@ -174,7 +174,6 @@ JIRA_LAYERS = [
     "jira_issue_co_commenters",
     "jira_epic_initiative_comment_engagement",
     "jira_epic_initiative_co_commenters",
-    "jira_mentions",
 ]
 
 JIRA_WEIGHTS = {
@@ -182,14 +181,25 @@ JIRA_WEIGHTS = {
     "jira_issue_co_commenters": 2.0,
     "jira_epic_initiative_comment_engagement": 2.0,
     "jira_epic_initiative_co_commenters": 1.0,
-    "jira_mentions": 2.0,
 }
 
 
 def test_jira_comment_layers_registered():
-    """All 5 Jira comment/mention layers are present in LAYER_ORDER."""
+    """All 4 Jira comment layers are present in LAYER_ORDER."""
     for layer in JIRA_LAYERS:
         assert layer in LAYER_ORDER, f"Expected '{layer}' in LAYER_ORDER"
+
+
+def test_jira_mentions_layer_removed():
+    """The fabricated-author jira_mentions layer is deliberately absent.
+
+    Plan 020 removed layer #19 because the MENTIONS edge carries no true
+    author (the producer emits it undirected with only the @mentioned
+    accountId). Re-adding it without recording mention authorship would
+    reintroduce fabricated person-to-person attribution.
+    """
+    assert "jira_mentions" not in LAYER_ORDER
+    assert "jira_mentions" not in DEFAULT_LAYER_WEIGHTS
 
 
 def test_jira_comment_layers_have_correct_weights():
