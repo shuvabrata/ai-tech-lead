@@ -11,16 +11,24 @@ defined inside ``src/connectors/modules/jira/main.py``.
 
 from __future__ import annotations
 
-import os
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Set
+from typing import Any, Dict, List, Optional, Set
 
 from common.logger import logger
+from connectors.producers.github.retry_with_backoff import retry_with_backoff
 
 
 # ---------------------------------------------------------------------------
 # Date helpers
 # ---------------------------------------------------------------------------
+
+
+# Overlap the incremental cursor by this interval so entities updated during
+# the previous run (after their ``updated`` field was read but before the cursor
+# was persisted) are not missed.  Re-fetching is harmless: the consumer's
+# snapshot pattern makes re-processing idempotent.  Matches Confluence
+# (``src/connectors/producers/confluence/main.py`` ``_SYNC_CURSOR_OVERLAP``).
+_SYNC_CURSOR_OVERLAP = timedelta(hours=1)
 
 
 def resolve_lookback_cutoff(lookback_days: int) -> str:
@@ -33,6 +41,36 @@ def resolve_lookback_cutoff(lookback_days: int) -> str:
         ISO date string, e.g. ``"2024-01-15"``.
     """
     return (datetime.now() - timedelta(days=lookback_days)).strftime("%Y-%m-%d")
+
+
+def resolve_jql_date_field(
+    lookback_days: int,
+    last_synced_at: Optional[datetime],
+) -> tuple[str, str]:
+    """Return ``(field_name, date_string)`` for JQL date filtering.
+
+    On the first run (no sync cursor) the function filters by ``created`` so we
+    backfill existing work items within the lookback window.  On incremental
+    runs it filters by ``updated`` so entities with new comments, edits, or
+    transitions are re-fetched and their snapshot relationships refreshed.
+
+    JQL accepts bare date literals (``2025-08-23``) but a date **with a time
+    component** must be quoted (``"2026-08-22 04:07"``), otherwise the parser
+    treats the time as a stray token.  The incremental value is therefore
+    returned with surrounding double quotes.
+
+    Args:
+        lookback_days:  Number of days to look back on the first run.
+        last_synced_at: Sync cursor timestamp, or ``None`` on first run.
+
+    Returns:
+        ``(field_name, date_string)`` where *date_string* is already in a
+        JQL-parseable format.
+    """
+    if last_synced_at is None:
+        return "created", resolve_lookback_cutoff(lookback_days)
+    effective = last_synced_at - _SYNC_CURSOR_OVERLAP
+    return "updated", f'"{effective.strftime("%Y-%m-%d %H:%M")}"'
 
 
 # ---------------------------------------------------------------------------
@@ -97,22 +135,26 @@ def fetch_initiatives(
     jira: Any,
     lookback_days: int = 90,
     max_results_per_page: int = 100,
+    last_synced_at: Optional[datetime] = None,
 ) -> List[Dict[str, Any]]:
-    """Fetch initiatives from Jira created in the last *lookback_days* days.
+    """Fetch initiatives from Jira created (or updated, on incremental runs)
+    since the lookback cutoff or the sync cursor.
 
     Args:
         jira: Authenticated ``atlassian.Jira`` connection object.
-        lookback_days: How far back to search.
+        lookback_days: How far back to search on the first run.
         max_results_per_page: Page size for the JQL search.
+        last_synced_at: Sync cursor timestamp; when present, ``updated >=`` is
+            used so entities with new comment activity are re-fetched.
 
     Returns:
         List of raw Jira issue dicts (issuetype = Initiative).
     """
     try:
-        cutoff_date_str = resolve_lookback_cutoff(lookback_days)
-        jql = f"issuetype = Initiative AND created >= {cutoff_date_str} ORDER BY created DESC"
+        date_field, date_str = resolve_jql_date_field(lookback_days, last_synced_at)
+        jql = f"issuetype = Initiative AND {date_field} >= {date_str} ORDER BY created DESC"
 
-        logger.info(f"Fetching initiatives created since {cutoff_date_str}...")
+        logger.info(f"Fetching initiatives {date_field} since {date_str}...")
         logger.info(f"Executing JQL: {jql}")
 
         all_initiatives: List[Dict[str, Any]] = []
@@ -157,22 +199,26 @@ def fetch_epics(
     jira: Any,
     lookback_days: int = 90,
     max_results_per_page: int = 100,
+    last_synced_at: Optional[datetime] = None,
 ) -> List[Dict[str, Any]]:
-    """Fetch epics from Jira created in the last *lookback_days* days.
+    """Fetch epics from Jira created (or updated, on incremental runs) since
+    the lookback cutoff or the sync cursor.
 
     Args:
         jira: Authenticated ``atlassian.Jira`` connection object.
-        lookback_days: How far back to search.
+        lookback_days: How far back to search on the first run.
         max_results_per_page: Page size for the JQL search.
+        last_synced_at: Sync cursor timestamp; when present, ``updated >=`` is
+            used so entities with new comment activity are re-fetched.
 
     Returns:
         List of raw Jira issue dicts (issuetype = Epic).
     """
     try:
-        cutoff_date_str = resolve_lookback_cutoff(lookback_days)
-        jql = f"issuetype = Epic AND created >= {cutoff_date_str} ORDER BY created DESC"
+        date_field, date_str = resolve_jql_date_field(lookback_days, last_synced_at)
+        jql = f"issuetype = Epic AND {date_field} >= {date_str} ORDER BY created DESC"
 
-        logger.info(f"Fetching epics created since {cutoff_date_str}...")
+        logger.info(f"Fetching epics {date_field} since {date_str}...")
         logger.info(f"Executing JQL: {jql}")
 
         all_epics: List[Dict[str, Any]] = []
@@ -276,28 +322,31 @@ def fetch_issues(
     jira: Any,
     lookback_days: int = 90,
     max_results_per_page: int = 100,
+    last_synced_at: Optional[datetime] = None,
 ) -> List[Dict[str, Any]]:
-    """Fetch all issues (excluding Initiatives and Epics) created in the last
-    *lookback_days* days using cursor-based pagination.
+    """Fetch all issues (excluding Initiatives and Epics) created, or updated
+    on incremental runs, since the lookback cutoff or the sync cursor.
 
     Args:
         jira: Authenticated ``atlassian.Jira`` connection object.
-        lookback_days: How far back to search.
+        lookback_days: How far back to search on the first run.
         max_results_per_page: Page size for the JQL search.
+        last_synced_at: Sync cursor timestamp; when present, ``updated >=`` is
+            used so entities with new comment activity are re-fetched.
 
     Returns:
         List of raw Jira issue dicts.
     """
     try:
-        cutoff_date_str = resolve_lookback_cutoff(lookback_days)
+        date_field, date_str = resolve_jql_date_field(lookback_days, last_synced_at)
         jql = (
-            f"created >= {cutoff_date_str} "
+            f"{date_field} >= {date_str} "
             "AND issuetype NOT IN (Initiative, Epic) "
             "ORDER BY created DESC"
         )
 
         logger.info(
-            f"Fetching issues (excluding Initiatives and Epics) created since {cutoff_date_str}..."
+            f"Fetching issues (excluding Initiatives and Epics) {date_field} since {date_str}..."
         )
         logger.info(f"Executing JQL: {jql}")
 
@@ -330,5 +379,75 @@ def fetch_issues(
 
     except Exception as e:
         logger.error(f"Error fetching issues: {e}")
+        logger.exception(e)
+        return []
+
+
+# ---------------------------------------------------------------------------
+# Comments
+# ---------------------------------------------------------------------------
+
+
+def fetch_comments(
+    jira: Any,
+    issue_id_or_key: str,
+    max_results: int = 100,
+) -> List[Dict[str, Any]]:
+    """Fetch all comments for a Jira issue.
+
+    Uses the cursor-based pagination provided by the ``startAt`` parameter of
+    ``GET /rest/api/3/issue/{issueIdOrKey}/comment``.  Each comment dict
+    contains the keys ``id``, ``author`` (a user object with ``accountId`` /
+    ``displayName`` / ``emailAddress``), ``body`` (ADF JSON), ``created``, and
+    ``updated``.
+
+    Args:
+        jira: Authenticated ``atlassian.Jira`` connection object.
+        issue_id_or_key: Jira issue ID or key, e.g. ``"PROJ-123"``.
+        max_results: Page size for the comment search API.
+
+    Returns:
+        List of raw comment dicts, or ``[]`` on error or when the issue has no
+        comments.
+    """
+    try:
+        all_comments: List[Dict[str, Any]] = []
+        start_at = 0
+
+        while True:
+            params = {
+                "startAt": start_at,
+                "maxResults": max_results,
+            }
+            # Retry rate-limit (HTTP 429) responses with exponential backoff so
+            # comment fetches are not silently dropped on a busy instance.
+            response = retry_with_backoff(
+                lambda: jira.get(
+                    f"rest/api/3/issue/{issue_id_or_key}/comment", params=params
+                )
+            )
+
+            if not response or "comments" not in response:
+                break
+
+            batch = response["comments"]
+            if not batch:
+                break
+
+            all_comments.extend(batch)
+
+            total = response.get("total", 0)
+            if len(all_comments) >= total:
+                break
+
+            start_at += len(batch)
+
+        logger.debug(
+            "Fetched %d comments for issue %s", len(all_comments), issue_id_or_key
+        )
+        return all_comments
+
+    except Exception as e:
+        logger.error(f"Error fetching comments for {issue_id_or_key}: {e}")
         logger.exception(e)
         return []

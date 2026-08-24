@@ -1,0 +1,36 @@
+name: Cross-Platform Comment Activity
+description: |-
+  **What it is:** A unified view of who comments across Jira Issues/Epics/Initiatives, GitHub Issues/PRs, and Confluence Pages/Blogposts.
+  
+  **How it helps:** Gives Engineering Leaders a single holistic picture of an individual's collaborative footprint across all three platforms, highlighting the "connectors" who engage broadly rather than only within their primary tool.
+  
+  **What-If Impact:** High cross-platform comment activity is a strong proxy for influence and knowledge transfer that traditional siloed metrics miss.
+summary: "Who comments across Jira + GitHub + Confluence."
+default_view: tabular
+owner: data-platform
+status: active
+queries:
+  tabular: |-
+    MATCH (p:Person)-[:COMMENTED_ON]->(entity)
+    WITH p,
+         count(*) AS total_comments,
+         count(DISTINCT CASE WHEN entity:Issue AND entity.id STARTS WITH 'jira::Issue::' THEN entity END) AS jira_issues,
+         count(DISTINCT CASE WHEN (entity:Epic OR entity:Initiative) AND entity.id STARTS WITH 'jira::' THEN entity END) AS jira_epics_initiatives,
+         count(DISTINCT CASE WHEN (entity:Issue AND entity.id STARTS WITH 'github::Issue::') OR entity:PullRequest THEN entity END) AS github_items,
+         count(DISTINCT CASE WHEN entity:Page OR entity:Blogpost THEN entity END) AS confluence_docs
+    RETURN p._display_name AS person,
+           total_comments AS total_comments,
+           jira_issues AS jira_issues,
+           jira_epics_initiatives AS jira_epics_initiatives,
+           github_items AS github_items,
+           confluence_docs AS confluence_docs
+    ORDER BY total_comments DESC
+    LIMIT 100
+  graph: |-
+    MATCH p1=(person:Person)-[:COMMENTED_ON]->(entity)
+    RETURN p1
+    LIMIT 100
+tags:
+- beta
+- table
+- graph
