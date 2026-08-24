@@ -204,11 +204,23 @@ class TestResolveJqlDateField:
         assert date_str == fetch_jira.resolve_lookback_cutoff(90)
 
     def test_resolve_jql_date_field_incremental(self):
-        """Cursor present → uses 'updated' with a quoted cursor timestamp."""
+        """Cursor present → uses 'updated' with a quoted cursor timestamp.
+
+        The timestamp is the cursor minus the sync-cursor overlap
+        (``_SYNC_CURSOR_OVERLAP``), matching Confluence, so entities updated
+        during the previous run are not missed.
+        """
         cursor = datetime(2026, 8, 1, 10, 30, tzinfo=timezone.utc)
         field, date_str = resolve_jql_date_field(90, cursor)
         assert field == "updated"
-        assert date_str == '"2026-08-01 10:30"'
+        assert date_str == '"2026-08-01 09:30"'
+
+    def test_resolve_jql_date_field_incremental_overlap(self):
+        """A sync cursor is pushed one hour earlier to cover the overlap."""
+        cursor = datetime(2026, 8, 22, 4, 7, tzinfo=timezone.utc)
+        field, date_str = resolve_jql_date_field(90, cursor)
+        assert field == "updated"
+        assert date_str == '"2026-08-22 03:07"'
 
 
 # ---------------------------------------------------------------------------
@@ -226,7 +238,7 @@ class TestFetchJqlWithLastSyncedAt:
         cursor = datetime(2026, 8, 1, 9, 0, tzinfo=timezone.utc)
         fetch_initiatives(mock_jira, lookback_days=90, last_synced_at=cursor)
         jql = mock_jira.enhanced_jql.call_args.kwargs["jql"]
-        assert "updated >= \"2026-08-01 09:00\"" in jql
+        assert "updated >= \"2026-08-01 08:00\"" in jql
 
     def test_fetch_epics_uses_updated_on_incremental(self):
         mock_jira = Mock()
@@ -234,7 +246,7 @@ class TestFetchJqlWithLastSyncedAt:
         cursor = datetime(2026, 8, 1, 9, 0, tzinfo=timezone.utc)
         fetch_epics(mock_jira, lookback_days=30, last_synced_at=cursor)
         jql = mock_jira.enhanced_jql.call_args.kwargs["jql"]
-        assert "updated >= \"2026-08-01 09:00\"" in jql
+        assert "updated >= \"2026-08-01 08:00\"" in jql
 
     def test_fetch_issues_uses_created_on_first_run(self):
         mock_jira = Mock()
