@@ -482,7 +482,12 @@ def _handle_person(
 
         elif signal.source == "jira":
             account_id = attrs.get("account_id", "")
-            name = attrs.get("full_name", "")
+            # Populate stub names at the consumer by design: a mention-only
+            # user (no display name) falls back to the account_id so the Person
+            # node is never left with a blank name/label. Mirrors the
+            # Confluence handler below. merge_person still prevents the raw id
+            # from being written to ``name``.
+            name = attrs.get("full_name", "") or account_id
             raw_email = attrs.get("email")
             email = raw_email.lower() if raw_email else None
 

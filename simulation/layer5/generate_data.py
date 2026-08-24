@@ -11,8 +11,6 @@ from typing import List, Dict, Any
 # Seed for reproducibility
 random.seed(42)
 
-# Fixed sync timestamp for deterministic simulation metadata
-SIMULATION_SYNCED_AT = "2026-01-15T12:00:00+00:00"
 # Repository definitions
 REPOSITORIES = [
     {
@@ -26,7 +24,6 @@ REPOSITORIES = [
         "topics": ["kubernetes", "infrastructure", "devops", "k8s"],
         "created_at": "2024-01-15",
         "owning_team": "team_platform_team",
-        "_last_seen_at": SIMULATION_SYNCED_AT
     },
     {
         "id": "repo_service_mesh",
@@ -39,7 +36,6 @@ REPOSITORIES = [
         "topics": ["istio", "service-mesh", "microservices", "go"],
         "created_at": "2024-02-01",
         "owning_team": "team_platform_team",
-        "_last_seen_at": SIMULATION_SYNCED_AT
     },
     {
         "id": "repo_api_gateway",
@@ -52,7 +48,6 @@ REPOSITORIES = [
         "topics": ["api", "gateway", "python", "microservices"],
         "created_at": "2023-11-10",
         "owning_team": "team_api_team",
-        "_last_seen_at": SIMULATION_SYNCED_AT
     },
     {
         "id": "repo_user_service",
@@ -65,7 +60,6 @@ REPOSITORIES = [
         "topics": ["microservices", "api", "python", "authentication"],
         "created_at": "2023-10-05",
         "owning_team": "team_api_team",
-        "_last_seen_at": SIMULATION_SYNCED_AT
     },
     {
         "id": "repo_order_service",
@@ -78,7 +72,6 @@ REPOSITORIES = [
         "topics": ["microservices", "api", "python", "orders"],
         "created_at": "2023-09-20",
         "owning_team": "team_api_team",
-        "_last_seen_at": SIMULATION_SYNCED_AT
     },
     {
         "id": "repo_web_app",
@@ -91,7 +84,6 @@ REPOSITORIES = [
         "topics": ["react", "typescript", "frontend", "web"],
         "created_at": "2023-08-01",
         "owning_team": "team_frontend_team",
-        "_last_seen_at": SIMULATION_SYNCED_AT
     },
     {
         "id": "repo_ios_app",
@@ -104,7 +96,6 @@ REPOSITORIES = [
         "topics": ["ios", "swift", "mobile", "app"],
         "created_at": "2023-07-15",
         "owning_team": "team_mobile_team",
-        "_last_seen_at": SIMULATION_SYNCED_AT
     },
     {
         "id": "repo_streaming_pipeline",
@@ -117,7 +108,6 @@ REPOSITORIES = [
         "topics": ["data", "streaming", "kafka", "flink", "python"],
         "created_at": "2024-03-01",
         "owning_team": "team_data_team",
-        "_last_seen_at": SIMULATION_SYNCED_AT
     }
 ]
 

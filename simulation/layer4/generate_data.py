@@ -11,32 +11,56 @@ from typing import List, Dict, Any, Tuple
 # Seed for reproducibility
 random.seed(42)
 
-# Fixed sync timestamp for deterministic simulation metadata
-SIMULATION_SYNCED_AT = "2026-01-15T12:00:00+00:00"
-# Sprint definitions (4 sprints, 2 weeks each, covering last 2 months)
+
+def _sprint_dates(index: int) -> tuple[str, str]:
+    """Compute sprint start/end dates anchored to the current date.
+
+    Four 2-week sprints ending today. Sprint 4 (index 3) is the current/active
+    sprint; earlier sprints are completed. Returns ``(start_date, end_date)``.
+    """
+    now = datetime.now()
+    # Sprint 4 ends today; each sprint is 14 days, with a 3-day gap between.
+    sprint4_end = now
+    sprint4_start = sprint4_end - timedelta(days=14)
+    sprint3_end = sprint4_start - timedelta(days=3)
+    sprint3_start = sprint3_end - timedelta(days=14)
+    sprint2_end = sprint3_start - timedelta(days=3)
+    sprint2_start = sprint2_end - timedelta(days=14)
+    sprint1_end = sprint2_start - timedelta(days=3)
+    sprint1_start = sprint1_end - timedelta(days=14)
+
+    starts = [sprint1_start, sprint2_start, sprint3_start, sprint4_start]
+    ends = [sprint1_end, sprint2_end, sprint3_end, sprint4_end]
+    return (
+        starts[index].strftime("%Y-%m-%d"),
+        ends[index].strftime("%Y-%m-%d"),
+    )
+
+
+# Sprint definitions (4 sprints, 2 weeks each, ending today)
 SPRINTS = [
     {
         "name": "Sprint 1",
-        "start_date": "2025-12-09",
-        "end_date": "2025-12-20",
+        "start_date": _sprint_dates(0)[0],
+        "end_date": _sprint_dates(0)[1],
         "goal": "Platform infrastructure foundations"
     },
     {
         "name": "Sprint 2",
-        "start_date": "2025-12-23",
-        "end_date": "2026-01-03",
+        "start_date": _sprint_dates(1)[0],
+        "end_date": _sprint_dates(1)[1],
         "goal": "Customer portal authentication"
     },
     {
         "name": "Sprint 3",
-        "start_date": "2026-01-06",
-        "end_date": "2026-01-17",
+        "start_date": _sprint_dates(2)[0],
+        "end_date": _sprint_dates(2)[1],
         "goal": "Data pipeline streaming components"
     },
     {
         "name": "Sprint 4",
-        "start_date": "2026-01-20",
-        "end_date": "2026-01-31",
+        "start_date": _sprint_dates(3)[0],
+        "end_date": _sprint_dates(3)[1],
         "goal": "UI components and API integration"
     }
 ]
@@ -168,9 +192,8 @@ def generate_story_for_epic(epic: Dict, epic_index: int, story_num: int,
                 (p['role'] == 'Engineer' and p['seniority'] == 'Staff')]
     reporter = random.choice(reporters)
     
-    # Generate creation date within epic timeframe
-    epic_start = datetime.strptime(epic['start_date'], "%Y-%m-%d")
-    created_at = epic_start - timedelta(days=random.randint(7, 21))
+    # Generate creation date within the lookback window (relative to now)
+    created_at = datetime.now() - timedelta(days=random.randint(5, 60))
     
     story = {
         "id": f"issue_{story_key.lower().replace('-', '_')}",
@@ -186,7 +209,6 @@ def generate_story_for_epic(epic: Dict, epic_index: int, story_num: int,
         "assignee_id": assignee['id'],
         "reporter_id": reporter['id'],
         "url": f"https://yoursite.atlassian.net/browse/{story_key}",
-        "_last_seen_at": SIMULATION_SYNCED_AT
     }
     
     return story
@@ -232,8 +254,7 @@ def generate_bugs(stories: List[Dict], people: List[Dict]) -> List[Dict[str, Any
     for idx, story in enumerate(story_bugs, start=1):
         epic_prefix = story['key'].split('-')[0]
         bug_key = f"BUG-{idx}"
-        created_at_str = (datetime.fromisoformat(story['created_at']) +
-                          timedelta(days=random.randint(10, 30))).isoformat()
+        created_at_str = (datetime.now() - timedelta(days=random.randint(3, 40))).isoformat()
         
         bug = {
             "id": f"issue_{bug_key.lower().replace('-', '_')}",
@@ -250,7 +271,6 @@ def generate_bugs(stories: List[Dict], people: List[Dict]) -> List[Dict[str, Any
             "reporter_id": story['reporter_id'],
             "related_story_id": story['id'],  # Link to story
             "url": f"https://yoursite.atlassian.net/browse/{bug_key}",
-            "_last_seen_at": SIMULATION_SYNCED_AT
         }
         bugs.append(bug)
     
@@ -285,7 +305,6 @@ def generate_bugs(stories: List[Dict], people: List[Dict]) -> List[Dict[str, Any
             "assignee_id": assignee['id'],
             "reporter_id": reporter['id'],
             "url": f"https://yoursite.atlassian.net/browse/{bug_key}",
-            "_last_seen_at": SIMULATION_SYNCED_AT
         }
         bugs.append(bug)
     
@@ -334,7 +353,6 @@ def generate_tasks(epics: List[Dict], people: List[Dict]) -> List[Dict[str, Any]
             "assignee_id": assignee['id'],
             "reporter_id": reporter['id'],
             "url": f"https://yoursite.atlassian.net/browse/{task_key}",
-            "_last_seen_at": SIMULATION_SYNCED_AT
         }
         tasks.append(task)
     

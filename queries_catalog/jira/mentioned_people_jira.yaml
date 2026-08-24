@@ -1,0 +1,31 @@
+name: People Mentioned in Jira
+description: |-
+  **What it is:** Ranks people by how frequently they are @mentioned across Jira Issues, Epics, and Initiatives.
+  
+  **How it helps:** @mentions reflect who is being pulled into conversations, either as an owner, a reviewer, or a subject-matter expert. High mention counts can reveal informal knowledge hubs who may be overloaded with ad-hoc requests.
+  
+  **What-If Impact:** Systematically over-mentioned individuals become single points of failure whose attention is fragmented across discussions unrelated to their core delivery.
+summary: "People most frequently @mentioned in Jira."
+default_view: tabular
+owner: jira-analytics
+status: active
+queries:
+  tabular: |-
+    MATCH (entity)-[:MENTIONS]->(mentioned:Person)
+    WHERE (entity:Issue OR entity:Epic OR entity:Initiative)
+      AND entity.id STARTS WITH 'jira::'
+    RETURN coalesce(mentioned._display_name, mentioned.name, mentioned.id) AS person,
+           count(DISTINCT entity) AS entities_mentioning,
+           count(*) AS mention_count
+    ORDER BY mention_count DESC
+    LIMIT 100
+  graph: |-
+    MATCH p1=(entity)-[:MENTIONS]->(mentioned:Person)
+    WHERE (entity:Issue OR entity:Epic OR entity:Initiative)
+      AND entity.id STARTS WITH 'jira::'
+    RETURN p1
+    LIMIT 100
+tags:
+- beta
+- table
+- graph

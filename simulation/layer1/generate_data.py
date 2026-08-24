@@ -77,7 +77,7 @@ def generate_person_id(name: str) -> str:
 
 def generate_hire_date(seniority: str) -> str:
     """Generate realistic hire date based on seniority."""
-    today = datetime(2026, 1, 8)
+    today = datetime.now()
     
     # More senior = hired longer ago
     if "Junior" in seniority:

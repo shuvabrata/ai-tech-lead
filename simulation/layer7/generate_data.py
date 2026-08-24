@@ -15,8 +15,10 @@ from pathlib import Path
 
 # Constants
 TOTAL_COMMITS = 500
-START_DATE = datetime(2025, 10, 11)
-END_DATE = datetime(2026, 1, 10)
+# Commit window anchored to now so activity falls within the collaboration
+# layers' lookback window (default 90 days).
+END_DATE = datetime.now()
+START_DATE = END_DATE - timedelta(days=90)
 
 def load_dependencies():
     """Load data from layers 1, 4, 5, 6"""
@@ -65,18 +67,30 @@ def generate_commit_sha():
 
 
 def generate_timestamp_weighted():
-    """Generate timestamp weighted by sprints"""
+    """Generate timestamp weighted by sprints (anchored to the current date)."""
+    now = datetime.now()
+    # Four 2-week windows ending today, matching the Layer 4 sprint timeline.
+    sprint4_end = now
+    sprint4_start = sprint4_end - timedelta(days=14)
+    sprint3_end = sprint4_start - timedelta(days=3)
+    sprint3_start = sprint3_end - timedelta(days=14)
+    sprint2_end = sprint3_start - timedelta(days=3)
+    sprint2_start = sprint2_end - timedelta(days=14)
+    sprint1_end = sprint2_start - timedelta(days=3)
+    sprint1_start = sprint1_end - timedelta(days=14)
+    pre_sprint_start = sprint1_start - timedelta(days=30)
+
     sprints = [
-        ("2025-12-09", "2025-12-20", 100),  # Sprint 1
-        ("2025-12-23", "2026-01-03", 80),   # Sprint 2 (holidays)
-        ("2026-01-06", "2026-01-17", 130),  # Sprint 3
-        ("2025-10-11", "2025-12-08", 190),  # Pre-sprint period
+        (sprint1_start, sprint1_end, 100),   # Sprint 1
+        (sprint2_start, sprint2_end, 80),    # Sprint 2 (holidays)
+        (sprint3_start, sprint3_end, 130),   # Sprint 3
+        (pre_sprint_start, sprint1_start, 190),  # Pre-sprint period
     ]
     
     # Pick a sprint based on weights
     sprint = random.choices(sprints, weights=[s[2] for s in sprints])[0]
-    start = datetime.fromisoformat(sprint[0])
-    end = datetime.fromisoformat(sprint[1])
+    start = sprint[0]
+    end = sprint[1]
     
     # Random time within sprint
     delta = (end - start).total_seconds()
