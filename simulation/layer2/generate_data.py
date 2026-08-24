@@ -5,14 +5,12 @@ Generates high-level business initiatives and links them to people from Layer 1.
 
 import json
 import random
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List, Dict, Any
 
 # Seed for reproducibility
 random.seed(42)
 
-# Fixed sync timestamp for deterministic simulation metadata
-SIMULATION_SYNCED_AT = "2026-01-15T12:00:00+00:00"
 # Initiative definitions
 INITIATIVES = [
     {
@@ -66,6 +64,24 @@ def quarter_to_date(year: int, quarter: str, is_start: bool) -> str:
         month, day = quarter_ends[quarter]
     
     return datetime(year, month, day).strftime("%Y-%m-%d")
+
+
+def initiative_dates(start_quarter: str, end_quarter: str) -> tuple[str, str, str]:
+    """Compute initiative created/updated/duedate anchored to the current date.
+
+    Anchors the initiative timeline to ``datetime.now()`` so the created date
+    falls within the collaboration layers' lookback window (default 90 days).
+    The created date is ``now - 60..80 days``; the due date is ``now + 10..30
+    days``. Returns ``(created_at, updated_at, duedate)`` as ``YYYY-MM-DD``.
+    """
+    now = datetime.now()
+    created = now - timedelta(days=random.randint(60, 80))
+    due = now + timedelta(days=random.randint(10, 30))
+    return (
+        created.strftime("%Y-%m-%d"),
+        created.strftime("%Y-%m-%d"),
+        due.strftime("%Y-%m-%d"),
+    )
 
 def load_layer1_people() -> tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
     """Load people and teams data from Layer 1."""
@@ -122,19 +138,23 @@ def generate_initiatives(assignees: List[Dict[str, Any]],
         # Assign assignee and reporter (cycle through if we have fewer than initiatives)
         assignee = available_assignees[i % len(available_assignees)]
         reporter = available_reporters[i % len(available_reporters)]
-        
+
+        # Anchor initiative dates to now so they fall within the collaboration
+        # layers' lookback window.
+        created_at, updated_at, duedate = initiative_dates(
+            init_def['start_quarter'], init_def['end_quarter']
+        )
         initiative = {
             "id": f"initiative_{init_def['key'].lower().replace('-', '_')}",
             "key": init_def['key'],
             "summary": init_def['summary'],
             "priority": init_def['priority'],
             "status": init_def['status'],
-            "created_at": quarter_to_date(2026, init_def['start_quarter'], True),
-            "updated_at": quarter_to_date(2026, init_def['start_quarter'], True),
-            "duedate": quarter_to_date(2026, init_def['end_quarter'], False),
+            "created_at": created_at,
+            "updated_at": updated_at,
+            "duedate": duedate,
             "assignee_id": assignee['id'],
             "reporter_id": reporter['id'],
-            "_last_seen_at": SIMULATION_SYNCED_AT
         }
         initiatives.append(initiative)
     

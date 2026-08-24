@@ -11,8 +11,6 @@ from typing import List, Dict, Any
 # Seed for reproducibility
 random.seed(42)
 
-# Fixed sync timestamp for deterministic simulation metadata
-SIMULATION_SYNCED_AT = "2026-01-15T12:00:00+00:00"
 # Epic definitions aligned with initiatives
 EPICS = {
     "initiative_init_1": [  # Platform Modernization
@@ -202,7 +200,10 @@ def generate_epics(initiatives: List[Dict[str, Any]],
                 owner = random.choice(fallback_owners)
             
             start_date, due_date = calculate_epic_dates(initiative, idx, len(epic_defs))
-            
+
+            # Anchor epic created/updated to now so they fall within the
+            # collaboration layers' lookback window.
+            epic_created = datetime.now() - timedelta(days=random.randint(5, 60))
             epic = {
                 "id": f"epic_{epic_def['key'].lower().replace('-', '_')}",
                 "key": epic_def['key'],
@@ -211,13 +212,12 @@ def generate_epics(initiatives: List[Dict[str, Any]],
                 "status": epic_def['status'],
                 "start_date": start_date,
                 "due_date": due_date,
-                "created_at": "2025-11-15",
-                "updated_at": "2025-11-15",
+                "created_at": epic_created.strftime("%Y-%m-%d"),
+                "updated_at": epic_created.strftime("%Y-%m-%d"),
                 "initiative_id": initiative['id'],
                 "assignee_id": owner['id'],
                 "team_id": team_id,
                 "url": f"https://yoursite.atlassian.net/browse/{epic_def['key']}",
-                "_last_seen_at": SIMULATION_SYNCED_AT
             }
             all_epics.append(epic)
     

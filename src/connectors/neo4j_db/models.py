@@ -3,6 +3,7 @@ layers and utility functions for merging into Neo4j."""
 
 from __future__ import annotations
 
+import re
 from collections import defaultdict
 from dataclasses import dataclass, asdict, field
 from typing import Optional, List, Dict, Any
@@ -1029,6 +1030,28 @@ def create_constraints(session: Session, layers: Optional[List[int]] = None) -> 
 # LAYER 1 MERGE FUNCTIONS
 # ============================================================================
 
+def _is_account_id_stub(name: Optional[str]) -> bool:
+    """Return True when ``name`` is a raw Atlassian account id, not a human name.
+
+    Some producers emit minimal Person "stub" signals for users they can only
+    identify by account_id (no display name or email is available). Those stubs
+    carry ``name`` equal to the account id (e.g. ``712020:cc7f7515-...``).  This
+    helper recognises that account-id shape so callers can avoid treating a raw
+    id as a real display name.
+
+    A ``None``/empty value is also treated as a stub, since it must never
+    overwrite an existing name.
+    """
+    if not name:
+        return True
+    name = name.strip()
+    if not name:
+        return True
+    # Atlassian account ids look like "<digits>:<uuid-ish>", e.g. "712020:cc7f....".
+    # A person's real display name never matches this pattern.
+    return bool(re.match(r"^\d+:[\w-]{8,}$", name))
+
+
 def merge_person(session: Session, person: Person, relationships: Optional[List[Relationship]] = None) -> None:
     """Merge a Person node into Neo4j.
 
@@ -1042,7 +1065,21 @@ def merge_person(session: Session, person: Person, relationships: Optional[List[
     # MERGE the Person node
     # Build SET clause dynamically for optional fields (additive updates only)
     set_clauses = []
-    if _has_value(props, 'name'):
+    # name_is_stub means the incoming ``name`` is a raw account id (or empty).
+    #
+    # - ``p.name`` is NEVER written to a stub value: it stays the authoritative
+    #   "real name" slot, so a stub (mention-only user, no profile) cannot
+    #   clobber a previously-resolved real name. A later richer signal can still
+    #   upgrade it.
+    # - ``p._display_name`` / ``p._on_hover_name`` are FILLED even for stubs so
+    #   no Person node is ever left with a blank display label. ``_display_name``
+    #   is pre-computed by ``Person.display_name()``, which for a stub falls back
+    #   to the node ``id`` (itself the raw account id, e.g.
+    #   ``jira::Person::712020:...`` -> ``712020:...``). They use coalesce-style
+    #   guards below so a populated display name is never overwritten by a
+    #   stub-shaped value, while real names (non-stub) may still upgrade it.
+    name_is_stub = _is_account_id_stub(props.get('name'))
+    if _has_value(props, 'name') and not name_is_stub:
         set_clauses.append("p.name = $name")
     if _has_value(props, 'title'):
         set_clauses.append("p.title = $title")
@@ -1063,11 +1100,19 @@ def merge_person(session: Session, person: Person, relationships: Optional[List[
     if _has_value(props, 'url'):
         set_clauses.append("p.url = $url")
 
-    # Computed display/time properties
-    if _has_value(props, '_display_name'):
+    # Computed display/time properties. When the incoming name is a stub, use
+    # confluence-style merged display props so existing values win (fill-only);
+    # when it is a real name, a richer signal may upgrade the display name.
+    if _has_value(props, '_display_name') and not name_is_stub:
         set_clauses.append("p._display_name = $_display_name")
-    if _has_value(props, '_on_hover_name'):
+    elif _has_value(props, '_display_name') and name_is_stub:
+        set_clauses.append(
+            "p._display_name = coalesce(p._display_name, $_display_name)")
+    if _has_value(props, '_on_hover_name') and not name_is_stub:
         set_clauses.append("p._on_hover_name = $_on_hover_name")
+    elif _has_value(props, '_on_hover_name') and name_is_stub:
+        set_clauses.append(
+            "p._on_hover_name = coalesce(p._on_hover_name, $_on_hover_name)")
     if _has_value(props, '_last_updated_at'):
         set_clauses.append("p._last_updated_at = datetime($_last_updated_at)")
     # Creation timestamp: when the underlying entity was created
@@ -1304,9 +1349,9 @@ def merge_initiative(session: Session, initiative: Initiative, relationships: Op
 
     # Only set date fields if they are not empty strings
     if _has_value(props, 'created_at'):
-        set_clauses.append("i.created_at = date($created_at)")
+        set_clauses.append("i.created_at = datetime($created_at)")
     if _has_value(props, 'updated_at'):
-        set_clauses.append("i.updated_at = date($updated_at)")
+        set_clauses.append("i.updated_at = datetime($updated_at)")
     if _has_value(props, 'duedate'):
         set_clauses.append("i.duedate = date($duedate)")
     if _has_value(props, 'labels'):
@@ -1348,8 +1393,15 @@ def merge_initiative(session: Session, initiative: Initiative, relationships: Op
     session.run(query, **props)
 
     # Create relationships if provided
+    # Use snapshot interaction pattern for COMMENTED_ON/REACTED_TO (mirrors merge_issue)
     if relationships:
-        for rel in relationships:
+        interaction_rels = [r for r in relationships if r.type in (
+            "COMMENTED_ON", "REACTED_TO")]
+        other_rels = [r for r in relationships if r.type not in (
+            "COMMENTED_ON", "REACTED_TO")]
+        replace_snapshot_interaction_relationships(
+            session, initiative.id, "Initiative", interaction_rels)
+        for rel in other_rels:
             merge_relationship(session, rel)
 
 
@@ -1380,9 +1432,9 @@ def merge_epic(session: Session, epic: Epic, relationships: Optional[List[Relati
     if _has_value(props, 'due_date'):
         set_clauses.append("e.due_date = date($due_date)")
     if _has_value(props, 'created_at'):
-        set_clauses.append("e.created_at = date($created_at)")
+        set_clauses.append("e.created_at = datetime($created_at)")
     if _has_value(props, 'updated_at'):
-        set_clauses.append("e.updated_at = date($updated_at)")
+        set_clauses.append("e.updated_at = datetime($updated_at)")
     if _has_value(props, 'url'):
         set_clauses.append("e.url = $url")
 
@@ -1416,8 +1468,15 @@ def merge_epic(session: Session, epic: Epic, relationships: Optional[List[Relati
     session.run(query, **props)
 
     # Create relationships if provided
+    # Use snapshot interaction pattern for COMMENTED_ON/REACTED_TO (mirrors merge_issue)
     if relationships:
-        for rel in relationships:
+        interaction_rels = [r for r in relationships if r.type in (
+            "COMMENTED_ON", "REACTED_TO")]
+        other_rels = [r for r in relationships if r.type not in (
+            "COMMENTED_ON", "REACTED_TO")]
+        replace_snapshot_interaction_relationships(
+            session, epic.id, "Epic", interaction_rels)
+        for rel in other_rels:
             merge_relationship(session, rel)
 
 

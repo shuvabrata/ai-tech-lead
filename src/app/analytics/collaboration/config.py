@@ -20,6 +20,10 @@ LAYER_ORDER = [
     "github_pr_co_commenters",
     "github_issue_comment_engagement",
     "github_issue_co_commenters",
+    "jira_issue_comment_engagement",
+    "jira_issue_co_commenters",
+    "jira_epic_initiative_comment_engagement",
+    "jira_epic_initiative_co_commenters",
 ]
 
 LAYER_LABELS: Dict[str, str] = {
@@ -37,6 +41,10 @@ LAYER_LABELS: Dict[str, str] = {
     "github_pr_co_commenters": "Co-commenters (GitHub PR)",
     "github_issue_comment_engagement": "Comment Engagement (GitHub Issue)",
     "github_issue_co_commenters": "Co-commenters (GitHub Issue)",
+    "jira_issue_comment_engagement": "Comment Engagement (Jira Issue)",
+    "jira_issue_co_commenters": "Co-commenters (Jira Issue)",
+    "jira_epic_initiative_comment_engagement": "Comment Engagement (Jira Epic/Initiative)",
+    "jira_epic_initiative_co_commenters": "Co-commenters (Jira Epic/Initiative)",
 }
 
 DEFAULT_LAYER_WEIGHTS: Dict[str, float] = {
@@ -54,6 +62,10 @@ DEFAULT_LAYER_WEIGHTS: Dict[str, float] = {
     "github_pr_co_commenters": 2.0,
     "github_issue_comment_engagement": 3.0,
     "github_issue_co_commenters": 2.0,
+    "jira_issue_comment_engagement": 3.0,
+    "jira_issue_co_commenters": 2.0,
+    "jira_epic_initiative_comment_engagement": 2.0,
+    "jira_epic_initiative_co_commenters": 1.0,
 }
 
 DEFAULT_LOOKBACK_DAYS = 90

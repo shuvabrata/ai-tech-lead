@@ -144,7 +144,7 @@ CALL () {
 
   // 11. Find GitHub PR Comment Engagement (Weight: 3)
   // Person A commented on a PullRequest that Person B created
-  MATCH (commenter:Person)-[:COMMENTED_ON]->(pr:PullRequest)<-[:CREATED_BY]-(author:Person)
+  MATCH (commenter:Person)-[:COMMENTED_ON]->(pr:PullRequest)-[:CREATED_BY]->(author:Person)
   WHERE $include_github_pr_comment_engagement
     AND elementId(commenter) <> elementId(author)
     AND pr.created_at >= datetime() - duration({days: $lookback_days})
@@ -167,7 +167,7 @@ CALL () {
   UNION ALL
 
   // 13. Find GitHub Issue Comment Engagement (Weight: 3)
-  MATCH (commenter:Person)-[:COMMENTED_ON]->(issue:Issue)<-[:REPORTED_BY]-(author:Person)
+  MATCH (commenter:Person)-[:COMMENTED_ON]->(issue:Issue)-[:REPORTED_BY]->(author:Person)
   WHERE $include_github_issue_comment_engagement
     AND issue.id STARTS WITH 'github::Issue::'
     AND elementId(commenter) <> elementId(author)
@@ -187,6 +187,60 @@ CALL () {
     AND elementId(p1) < elementId(p2)
     AND issue.created_at >= datetime() - duration({days: $lookback_days})
   RETURN p1, p2, log(toFloat(count(DISTINCT issue)) + 1) * $weight_github_issue_co_commenters AS sub_score
+
+  UNION ALL
+
+  // 15. Find Jira Issue Comment Engagement (Weight: 3)
+  // Person A commented on a Jira Issue that Person B reported
+  MATCH (commenter:Person)-[:COMMENTED_ON]->(issue:Issue)-[:REPORTED_BY]->(author:Person)
+  WHERE $include_jira_issue_comment_engagement
+    AND issue.id STARTS WITH 'jira::Issue::'
+    AND elementId(commenter) <> elementId(author)
+    AND issue.created_at >= datetime() - duration({days: $lookback_days})
+  WITH
+    CASE WHEN elementId(commenter) < elementId(author) THEN commenter ELSE author END AS p1,
+    CASE WHEN elementId(commenter) < elementId(author) THEN author ELSE commenter END AS p2,
+    issue
+  RETURN p1, p2, log(toFloat(count(DISTINCT issue)) + 1) * $weight_jira_issue_comment_engagement AS sub_score
+
+  UNION ALL
+
+  // 16. Find Jira Issue Co-commenters (Weight: 2)
+  // Both people commented on the same Jira Issue
+  MATCH (p1:Person)-[:COMMENTED_ON]->(issue:Issue)<-[:COMMENTED_ON]-(p2:Person)
+  WHERE $include_jira_issue_co_commenters
+    AND issue.id STARTS WITH 'jira::Issue::'
+    AND elementId(p1) < elementId(p2)
+    AND issue.created_at >= datetime() - duration({days: $lookback_days})
+  RETURN p1, p2, log(toFloat(count(DISTINCT issue)) + 1) * $weight_jira_issue_co_commenters AS sub_score
+
+  UNION ALL
+
+  // 17. Find Jira Epic/Initiative Comment Engagement (Weight: 2)
+  // Person A commented on a Jira Epic or Initiative that Person B reported
+  MATCH (commenter:Person)-[:COMMENTED_ON]->(entity)-[:REPORTED_BY]->(author:Person)
+  WHERE $include_jira_epic_initiative_comment_engagement
+    AND (entity:Epic OR entity:Initiative)
+    AND entity.id STARTS WITH 'jira::'
+    AND elementId(commenter) <> elementId(author)
+    AND entity.created_at >= datetime() - duration({days: $lookback_days})
+  WITH
+    CASE WHEN elementId(commenter) < elementId(author) THEN commenter ELSE author END AS p1,
+    CASE WHEN elementId(commenter) < elementId(author) THEN author ELSE commenter END AS p2,
+    entity
+  RETURN p1, p2, log(toFloat(count(DISTINCT entity)) + 1) * $weight_jira_epic_initiative_comment_engagement AS sub_score
+
+  UNION ALL
+
+  // 18. Find Jira Epic/Initiative Co-commenters (Weight: 1)
+  // Both people commented on the same Jira Epic or Initiative
+  MATCH (p1:Person)-[:COMMENTED_ON]->(entity)<-[:COMMENTED_ON]-(p2:Person)
+  WHERE $include_jira_epic_initiative_co_commenters
+    AND (entity:Epic OR entity:Initiative)
+    AND entity.id STARTS WITH 'jira::'
+    AND elementId(p1) < elementId(p2)
+    AND entity.created_at >= datetime() - duration({days: $lookback_days})
+  RETURN p1, p2, log(toFloat(count(DISTINCT entity)) + 1) * $weight_jira_epic_initiative_co_commenters AS sub_score
 }
 // Sum the scores from all independent systems
 WITH p1, p2, sum(sub_score) AS total_collaboration_score

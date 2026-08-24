@@ -138,8 +138,8 @@ class TestMapInitiative:
             updated="2024-04-01T09:00:00.000+0000",
         )
         result = map_initiative(data)
-        assert result["created_at"] == "2024-03-10"
-        assert result["updated_at"] == "2024-04-01"
+        assert result["created_at"] == "2024-03-10T08:00:00.000+0000"
+        assert result["updated_at"] == "2024-04-01T09:00:00.000+0000"
 
     def test_labels_none_when_absent(self):
         data = _make_issue("20001", "INI-1", "Initiative")
