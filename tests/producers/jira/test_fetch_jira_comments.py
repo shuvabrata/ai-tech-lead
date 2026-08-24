@@ -10,6 +10,7 @@ Tests ``src/connectors/producers/jira/fetch_jira.py``:
 """
 
 from datetime import datetime, timedelta, timezone
+from unittest import mock
 from unittest.mock import Mock
 
 import pytest
@@ -108,6 +109,83 @@ class TestFetchComments:
 
         assert len(result) == 3
         assert [c["id"] for c in result] == ["1", "2", "3"]
+
+    def test_fetch_comments_retries_on_429(self):
+        """A 429 response is retried with backoff, recovering the comments.
+
+        The atlassian ``HTTPError`` carries its response on the instance; the
+        retry helper detects ``status_code == 429`` even when the body does
+        NOT contain the words "rate limit" (common for Jira). After the
+        retries succeed, the comments must not be dropped.
+        """
+        mock_jira = Mock()
+        ok_response = {
+            "comments": [
+                {"id": "1", "author": {"accountId": "alice"}},
+            ],
+            "total": 1,
+        }
+        # Explicit calls: 2 failures then success (gradually succeed).
+        calls = [_http_429(), _http_429(), ok_response]
+        mock_jira.get.side_effect = calls
+
+        with mock.patch("time.sleep"):
+            result = fetch_comments(mock_jira, "PROJ-5")
+
+        assert len(result) == 1
+        assert result[0]["id"] == "1"
+        # The success path finalised after retrying the two 429s.
+        assert mock_jira.get.call_count == 3
+
+    def test_fetch_comments_gives_up_after_max_retries(self):
+        """A persistent 429 exhausts retries and yields [] (not an exception).
+
+        Even after backoff is exhausted, the existing error contract (return
+        ``[]``) is preserved so a single rate-limited issue does not abort the
+        whole scan.
+        """
+        mock_jira = Mock()
+        # A callable side_effect raises every time (persistent 429).
+        def _always_429(*a, **k):  # noqa: ANN001
+            raise _http_429()
+        mock_jira.get.side_effect = _always_429
+
+        with mock.patch("time.sleep"):
+            result = fetch_comments(mock_jira, "PROJ-6")
+
+        # retry_with_backoff default max_retries=5 → 5 attempts then [].
+        assert mock_jira.get.call_count == 5
+        assert result == []
+
+    def test_fetch_comments_non_rate_limit_rethrows_to_empty(self):
+        """A 404 (non-rate-limit) is NOT retried — falls through to []."""
+        mock_jira = Mock()
+        import requests
+        mock_jira.get.side_effect = requests.HTTPError("not found")
+
+        with mock.patch("time.sleep"):
+            result = fetch_comments(mock_jira, "PROJ-7")
+
+        assert mock_jira.get.call_count == 1
+        assert result == []
+
+
+def _http_429(*args, **kwargs):
+    """Return an atlassian-style HTTPError whose response carries 429.
+
+    Mirrors ``raise HTTPError(error_msg, response=response)`` in the
+    atlassian client: the status code is available on the instance via
+    ``e.response.status_code``, and the body text is intentionally generic
+    (no "rate limit" wording) — exactly the Jira case the fix targets.
+    Args/kwargs are accepted so the same factory can serve as a
+    ``side_effect`` (called with path + params).
+    """
+    import requests
+    response = Mock()
+    response.status_code = 429
+    # Generic error body — must still be detected as rate limiting.
+    response.json.return_value = {"errorMessages": ["Too many requests"]}
+    return requests.HTTPError("Too many requests", response=response)
 
 
 # ---------------------------------------------------------------------------

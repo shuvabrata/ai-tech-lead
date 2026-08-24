@@ -14,6 +14,8 @@ Environment variables:
     RABBITMQ_URL           (default: "amqp://guest:guest@localhost:5672/")
     API_SERVER             (default: "http://localhost:8000")
     MAX_CONCURRENT_SCANS   (default: 5)
+    JIRA_FETCH_COMMENTS    (default: "true") — skip per-entity comment fetching when "false"
+    JIRA_COMMENT_FETCH_CONCURRENCY (default: 5) — parallel comment fetches per entity batch
 
 Run via::
 
@@ -78,6 +80,14 @@ _TEXT_MAX = 2000
 # Useful for large Jira instances where comment API calls would be too slow.
 _JIRA_FETCH_COMMENTS = os.getenv("JIRA_FETCH_COMMENTS", "true").lower() in (
     "true", "1", "yes",
+)
+
+# Concurrency knob for per-entity comment fetching. Defaults to 5. Parallelizes
+# the otherwise serial per-entity comment API round-trips, with retry-with-backoff
+# (retry_with_backoff) absorbing rate-limit 429s so comments are not dropped.
+# Lower to 1-3 on instances with stricter rate limits.
+_JIRA_COMMENT_FETCH_CONCURRENCY = int(
+    os.getenv("JIRA_COMMENT_FETCH_CONCURRENCY", "5")
 )
 
 
@@ -726,6 +736,69 @@ async def publish_signals(
             _inc(sig.entity_type)
 
     # ------------------------------------------------------------------
+    # Concurrency helpers
+    # ------------------------------------------------------------------
+
+    # Guard for the shared ``seen_persons`` set under concurrent processing.
+    # All per-entity processing (which reads/writes ``seen_persons``) runs
+    # through this lock so the check-then-add is atomic at concurrency > 1.
+    _seen_lock = asyncio.Lock()
+
+    async def _process_entities(
+        entity_items: List[Dict[str, Any]],
+        map_fn: Any,
+        build_fn: Any,
+        entity_label: str,
+        runner: Any = None,
+    ) -> None:
+        """Process a batch of entities with per-entity comment fetching.
+
+        ``entity_items`` is a list of ``{"raw": <entity_raw>, "kwargs": {...}}``
+        dicts, where ``kwargs`` holds the per-entity ``build_kwargs`` for
+        ``_process_entity_with_comments`` (e.g. ``project_id``,
+        ``reporter_person_id``, ``epic_id``).
+
+        ``runner`` is an optional ``async callable(item) -> None`` invoked for
+        each item in place of the default ``_process_entity_with_comments``
+        call — used by the Issues batch to add per-entity error isolation and
+        progress logging without changing Initiative/Epic behaviour.
+
+        At the default ``JIRA_COMMENT_FETCH_CONCURRENCY=1`` this behaves
+        exactly like a plain sequential loop. At higher concurrency, the
+        per-entity coroutines are gathered behind an ``asyncio.Semaphore`` of
+        ``_JIRA_COMMENT_FETCH_CONCURRENCY`` permits, bounding the number of
+        in-flight comment API calls.
+        """
+        async def _run(item: Dict[str, Any]) -> None:
+            if runner is not None:
+                await runner(item)
+            else:
+                await _process_entity_with_comments(
+                    item["raw"],
+                    map_fn,
+                    build_fn,
+                    entity_label,
+                    **item["kwargs"],
+                )
+
+        if _JIRA_COMMENT_FETCH_CONCURRENCY <= 1:
+            for item in entity_items:
+                await _run(item)
+            return
+
+        semaphore = asyncio.Semaphore(_JIRA_COMMENT_FETCH_CONCURRENCY)
+
+        async def _process_with_semaphore(item: Dict[str, Any]) -> None:
+            async with semaphore:
+                await _run(item)
+
+        tasks = [
+            asyncio.create_task(_process_with_semaphore(item))
+            for item in entity_items
+        ]
+        await asyncio.gather(*tasks)
+
+    # ------------------------------------------------------------------
     # Per-entity comment + mention helper
     # ------------------------------------------------------------------
 
@@ -794,9 +867,10 @@ async def publish_signals(
             all_account_ids.add(m)
 
         for account_id in all_account_ids:
-            if account_id in seen_persons:
-                continue
-            seen_persons.add(account_id)
+            async with _seen_lock:
+                if account_id in seen_persons:
+                    continue
+                seen_persons.add(account_id)
             # Build a minimal Person signal from the accountId.
             # Full user data (displayName, email) is only available for
             # commenters; mentioned users get a stub. The stub carries the
@@ -863,6 +937,7 @@ async def publish_signals(
     # issue_id (Jira) → internal id for Epic → Initiative wiring
     initiative_jira_id_to_id: Dict[str, str] = {}
 
+    initiative_items: List[Dict[str, Any]] = []
     for i_raw in initiatives_raw:
         i_data = map_initiative(i_raw, jira_base_url)
         initiative_jira_id_to_id[i_raw.get("id", "")] = i_data["key"]
@@ -870,28 +945,32 @@ async def publish_signals(
         project_id = project_key_to_id.get(project_key) if project_key else None
 
         # Person: reporter
-        reporter_raw = i_raw.get("fields", {}).get("reporter")
         reporter_person_id: Optional[str] = None
+        reporter_raw = i_raw.get("fields", {}).get("reporter")
         if reporter_raw and isinstance(reporter_raw, dict):
             user_data = map_jira_user(reporter_raw)
-            account_id = user_data.get("account_id", "")
-            reporter_person_id = account_id
-            if account_id and account_id not in seen_persons:
-                seen_persons.add(account_id)
-                await _pub(build_person_signal(user_data, jira_base_url))
+            reporter_person_id = user_data.get("account_id", "")
+            if reporter_person_id:
+                async with _seen_lock:
+                    if reporter_person_id not in seen_persons:
+                        seen_persons.add(reporter_person_id)
+                        await _pub(build_person_signal(user_data, jira_base_url))
 
         logger.debug(
             "Processing initiative '%s': '%s'",
             i_data.get("key"), str(i_data.get("summary", ""))[:60],
         )
-        await _process_entity_with_comments(
-            i_raw,
-            map_initiative,
-            build_initiative_signal,
-            "Initiative",
-            project_id=project_id,
-            reporter_person_id=reporter_person_id,
-        )
+        initiative_items.append({
+            "raw": i_raw,
+            "kwargs": {
+                "project_id": project_id,
+                "reporter_person_id": reporter_person_id,
+            },
+        })
+
+    await _process_entities(
+        initiative_items, map_initiative, build_initiative_signal, "Initiative",
+    )
 
     logger.info("Initiatives done (%d)", published.get("Initiative", 0))
 
@@ -906,6 +985,7 @@ async def publish_signals(
     # jira issue id → internal epic id for Issue → Epic wiring
     epic_jira_id_to_id: Dict[str, str] = {}
 
+    epic_items: List[Dict[str, Any]] = []
     for e_raw in epics_raw:
         e_data = map_epic(e_raw, jira_base_url)
         epic_jira_id_to_id[e_raw.get("id", "")] = e_data["key"]
@@ -923,11 +1003,12 @@ async def publish_signals(
         reporter_person_id: Optional[str] = None
         if reporter_raw and isinstance(reporter_raw, dict):
             user_data = map_jira_user(reporter_raw)
-            account_id = user_data.get("account_id", "")
-            reporter_person_id = account_id
-            if account_id and account_id not in seen_persons:
-                seen_persons.add(account_id)
-                await _pub(build_person_signal(user_data, jira_base_url))
+            reporter_person_id = user_data.get("account_id", "")
+            if reporter_person_id:
+                async with _seen_lock:
+                    if reporter_person_id not in seen_persons:
+                        seen_persons.add(reporter_person_id)
+                        await _pub(build_person_signal(user_data, jira_base_url))
 
         team_id = f"jira_team_{e_data['team_value']}" if e_data.get("team_value") else None
 
@@ -935,16 +1016,19 @@ async def publish_signals(
             "Processing epic '%s': '%s'",
             e_data.get("key"), str(e_data.get("summary", ""))[:60],
         )
-        await _process_entity_with_comments(
-            e_raw,
-            map_epic,
-            build_epic_signal,
-            "Epic",
-            initiative_id=initiative_id,
-            project_id=project_id,
-            reporter_person_id=reporter_person_id,
-            team_id=team_id,
-        )
+        epic_items.append({
+            "raw": e_raw,
+            "kwargs": {
+                "initiative_id": initiative_id,
+                "project_id": project_id,
+                "reporter_person_id": reporter_person_id,
+                "team_id": team_id,
+            },
+        })
+
+    await _process_entities(
+        epic_items, map_epic, build_epic_signal, "Epic",
+    )
 
     logger.info("Epics done (%d)", published.get("Epic", 0))
 
@@ -978,43 +1062,35 @@ async def publish_signals(
     # ------------------------------------------------------------------
     # Issues
     # ------------------------------------------------------------------
-    issue_count = 0
-
+    issue_items: List[Dict[str, Any]] = []
     for raw in issues_raw:
         try:
             i_data = map_issue(raw, jira_base_url)
             fields = raw.get("fields", {})
-            issue_count += 1
-
-            logger.debug(
-                "Processing issue '%s' (%s) [%d/%d]",
-                i_data.get("key"),
-                i_data.get("type", "?"),
-                issue_count,
-                len(issues_raw),
-            )
 
             # Person: assignee
-            assignee_raw = fields.get("assignee")
             assignee_person_id: Optional[str] = None
+            assignee_raw = fields.get("assignee")
             if assignee_raw and isinstance(assignee_raw, dict):
                 user_data = map_jira_user(assignee_raw)
-                account_id = user_data.get("account_id", "")
-                assignee_person_id = account_id
-                if account_id and account_id not in seen_persons:
-                    seen_persons.add(account_id)
-                    await _pub(build_person_signal(user_data, jira_base_url))
+                assignee_person_id = user_data.get("account_id", "")
+                if assignee_person_id:
+                    async with _seen_lock:
+                        if assignee_person_id not in seen_persons:
+                            seen_persons.add(assignee_person_id)
+                            await _pub(build_person_signal(user_data, jira_base_url))
 
             # Person: reporter
-            reporter_raw = fields.get("reporter")
             reporter_person_id: Optional[str] = None
+            reporter_raw = fields.get("reporter")
             if reporter_raw and isinstance(reporter_raw, dict):
                 user_data = map_jira_user(reporter_raw)
-                account_id = user_data.get("account_id", "")
-                reporter_person_id = account_id
-                if account_id and account_id not in seen_persons:
-                    seen_persons.add(account_id)
-                    await _pub(build_person_signal(user_data, jira_base_url))
+                reporter_person_id = user_data.get("account_id", "")
+                if reporter_person_id:
+                    async with _seen_lock:
+                        if reporter_person_id not in seen_persons:
+                            seen_persons.add(reporter_person_id)
+                            await _pub(build_person_signal(user_data, jira_base_url))
 
             # Resolve parent epic
             parent_jira_id = i_data.get("parent_jira_id")
@@ -1029,22 +1105,52 @@ async def publish_signals(
 
             team_id = f"jira_team_{i_data['team_value']}" if i_data.get("team_value") else None
 
-            await _process_entity_with_comments(
-                raw,
-                map_issue,
-                build_issue_signal,
-                "Issue",
-                epic_id=epic_id,
-                sprint_ids=sprint_ref_ids,
-                assignee_person_id=assignee_person_id,
-                reporter_person_id=reporter_person_id,
-                team_id=team_id,
-            )
-
-            if issue_count % 25 == 0:
-                logger.info("  ... %d/%d issues processed", issue_count, len(issues_raw))
+            issue_items.append({
+                "raw": raw,
+                "kwargs": {
+                    "epic_id": epic_id,
+                    "sprint_ids": sprint_ref_ids,
+                    "assignee_person_id": assignee_person_id,
+                    "reporter_person_id": reporter_person_id,
+                    "team_id": team_id,
+                },
+            })
         except Exception as exc:
             logger.warning("Issue skipped: %s", exc)
+
+    def _issue_runner_factory() -> Any:
+        """Return an async runner that processes a single issue with isolation.
+
+        A closure is used so the per-issue try/except (which logs "Issue
+        skipped") is applied at runtime inside ``_process_entities`` — either
+        sequentially or concurrently — rather than at item-build time.
+        """
+        processed = 0
+
+        async def _run_issue(item: Dict[str, Any]) -> None:
+            nonlocal processed
+            processed += 1
+            try:
+                await _process_entity_with_comments(
+                    item["raw"],
+                    map_issue,
+                    build_issue_signal,
+                    "Issue",
+                    **item["kwargs"],
+                )
+            except Exception as exc:
+                logger.warning("Issue skipped: %s", exc)
+            if processed % 25 == 0:
+                logger.info(
+                    "  ... %d/%d issues processed", processed, len(issue_items)
+                )
+
+        return _run_issue
+
+    await _process_entities(
+        issue_items, map_issue, build_issue_signal, "Issue",
+        runner=_issue_runner_factory(),
+    )
 
     logger.info("Issues done (%d)", published.get("Issue", 0))
     logger.info("Persons done (%d)", published.get("Person", 0))

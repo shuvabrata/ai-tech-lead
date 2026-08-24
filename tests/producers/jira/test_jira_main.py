@@ -2,6 +2,7 @@ import pytest
 from unittest.mock import patch, Mock
 import os
 import requests
+import time
 
 from connectors.producers.jira.main import load_config_from_server
 
@@ -198,5 +199,139 @@ class TestJiraGetTestItemId:
         with patch.dict(os.environ, {}, clear=True):
             from connectors.producers.jira.main import _get_test_item_id
             assert _get_test_item_id() is None
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  _process_entities — bounded concurrency for per-entity comment fetching
+#  (plan 022)
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+def _issue_raw(account_id: str) -> dict:
+    """A single Jira issue entity with an assignee and no comments."""
+    return {
+        "id": account_id,
+        "key": f"PROJ-{account_id}",
+        "fields": {
+            "description": None,
+            "assignee": {
+                "accountId": f"a-{account_id}",
+                "displayName": f"Assignee {account_id}",
+            },
+            "reporter": {
+                "accountId": f"r-{account_id}",
+                "displayName": f"Reporter {account_id}",
+            },
+            "project": {"key": "PROJ"},
+        },
+    }
+
+
+_FETCH_LATENCY = 0.3  # seconds per mocked comment fetch
+
+
+def _slow_fetch_comments(jira, jira_issue_id):
+    """Stand-in for ``fetch_comments`` with a fixed latency.
+
+    Returns a single comment authored by ``jira_issue_id``. The sleep makes
+    concurrent processing observable in wall-clock time, mirroring a real
+    Jira API round-trip.
+    """
+    time.sleep(_FETCH_LATENCY)
+    return [
+        {
+            "author": {
+                "accountId": jira_issue_id,
+                "displayName": f"User {jira_issue_id}",
+            },
+            "created": "2024-06-01T10:00:00.000+0000",
+            "body": {"type": "doc", "content": []},
+        }
+    ]
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_issue_comment_fetch_sequential_by_default(monkeypatch):
+    """Default (concurrency=1) fetches comments sequentially.
+
+    Three entities each sleeping ``_FETCH_LATENCY`` must take at least
+    ``2 * _FETCH_LATENCY`` (i.e. they did NOT overlap). A broken
+    implementation that always parallelized would complete in ~1× latency and
+    fail this assertion.
+    """
+    elapsed = await _run_comment_fetch_scenario(monkeypatch, concurrency=1)
+    assert elapsed >= 2 * _FETCH_LATENCY, (
+        f"expected sequential fetch (>= {2 * _FETCH_LATENCY}s) but comment "
+        f"fetches overlapped ({elapsed:.2f}s)"
+    )
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_issue_comment_fetch_parallel_with_concurrency(monkeypatch):
+    """With ``JIRA_COMMENT_FETCH_CONCURRENCY=3``, fetches overlap.
+
+    Three entities each sleeping ``_FETCH_LATENCY`` must complete in well
+    under ``2 * _FETCH_LATENCY`` — impossible if fetches ran sequentially.
+    """
+    elapsed = await _run_comment_fetch_scenario(monkeypatch, concurrency=3)
+    assert elapsed < 2 * _FETCH_LATENCY, (
+        f"expected parallel fetch ({elapsed:.2f}s < "
+        f"{2 * _FETCH_LATENCY}s) but comment fetches did not overlap"
+    )
+
+
+async def _run_comment_fetch_scenario(monkeypatch, concurrency: int) -> float:
+    """Run ``publish_signals`` over 3 issues and return elapsed wall-clock time."""
+    monkeypatch.setattr(
+        "connectors.producers.jira.main._JIRA_COMMENT_FETCH_CONCURRENCY", concurrency
+    )
+    monkeypatch.setattr(
+        "connectors.producers.jira.main._JIRA_FETCH_COMMENTS", True
+    )
+    monkeypatch.setattr(
+        "connectors.producers.jira.main.fetch_comments", _slow_fetch_comments
+    )
+    monkeypatch.setattr(
+        "connectors.producers.jira.main.fetch_projects", lambda *a, **k: []
+    )
+    monkeypatch.setattr(
+        "connectors.producers.jira.main.fetch_initiatives", lambda *a, **k: []
+    )
+    monkeypatch.setattr(
+        "connectors.producers.jira.main.fetch_epics", lambda *a, **k: []
+    )
+    monkeypatch.setattr(
+        "connectors.producers.jira.main.fetch_issues", lambda *a, **k: [
+            _issue_raw(acct) for acct in ("u1", "u2", "u3")
+        ]
+    )
+    monkeypatch.setattr(
+        "connectors.producers.jira.main.fetch_sprints_by_ids", lambda *a, **k: []
+    )
+
+    from connectors.producers.jira.main import publish_signals
+
+    published: list = []
+    class _FakePublisher:
+        async def publish(self, sig):
+            published.append(sig)
+
+    start = time.monotonic()
+    await publish_signals(
+        _FakePublisher(),   # type: ignore[arg-type]
+        jira=object(),
+        jira_base_url="https://jira.example.com",
+        lookback_days=30,
+        max_results_per_page=100,
+    )
+    elapsed = time.monotonic() - start
+
+    # Each of the 3 issues is still published regardless of concurrency.
+    issue_signals = [s for s in published if s.entity_type == "Issue"]
+    assert len(issue_signals) == 3
+
+    return elapsed
 
 

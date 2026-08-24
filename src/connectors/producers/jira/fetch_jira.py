@@ -15,6 +15,7 @@ from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, Set
 
 from common.logger import logger
+from connectors.producers.github.retry_with_backoff import retry_with_backoff
 
 
 # ---------------------------------------------------------------------------
@@ -409,8 +410,12 @@ def fetch_comments(
                 "startAt": start_at,
                 "maxResults": max_results,
             }
-            response = jira.get(
-                f"rest/api/3/issue/{issue_id_or_key}/comment", params=params
+            # Retry rate-limit (HTTP 429) responses with exponential backoff so
+            # comment fetches are not silently dropped on a busy instance.
+            response = retry_with_backoff(
+                lambda: jira.get(
+                    f"rest/api/3/issue/{issue_id_or_key}/comment", params=params
+                )
             )
 
             if not response or "comments" not in response:
