@@ -1,6 +1,6 @@
 beautifulsoup4==4.15.0
 lxml==6.1.1
-atlassian-python-api==4.0.7
+atlassian-python-api==5.0.3
 pydantic==2.13.4
 aio-pika==10.0.1
 asyncpg==0.31.0
