@@ -1,4 +1,4 @@
-PyGithub==2.9.1
+PyGithub==2.10.0
 aio-pika==10.0.1
 asyncpg==0.31.0
 pydantic==2.13.4
