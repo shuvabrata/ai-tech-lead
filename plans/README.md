@@ -16,12 +16,7 @@ at commit `33c242b`, executed, and their plan files removed.
 | 009  | [Branch node — model, display properties, and backfill](009-branch-node-model-and-display-properties.md) | P2 | S-M | — | DRAFT 🚧 |
 | 016  | [Add remaining runtime settings](016-add-remaining-runtime-settings.md) | P1 | L | 010–015 | READY |
 | 017  | [First-time experience — setup script + guided banner](017-first-time-experience-setup-script-and-banner.md) | P1 | M | 016 | READY |
-| 018  | [Jira COMMENTED_ON and MENTIONS relationships](018-jira-commented-on-and-mentions.md) | P1 | L | — | READY |
-| 019  | [Standardize Jira Initiative/Epic created_at to datetime + fix layer #19 type mismatch](019-standardize-jira-created-at-datetime.md) | P1 | M | — | DONE |
-| 020  | [Review and correct the Jira MENTIONS collaboration layer](020-review-jira-mentions-layer.md) | P2 | M | 019 | DONE ✓ |
-| 021  | [Re-review empty-full_name Person stub + add display-name fallback](021-review-person-display-name-fallback.md) | P2 | M | — | DONE ✓ |
-| 022  | [Review and add concurrency for per-entity Jira comment fetching](022-concurrent-comment-fetch.md) | P3 | M | — | TODO |
-| 023  | [Add sync-cursor overlap to the Jira producer](023-jira-sync-cursor-overlap.md) | P3 | S | — | TODO |
+
 
 
 
