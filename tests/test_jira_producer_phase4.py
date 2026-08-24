@@ -191,14 +191,21 @@ class TestBuildPersonSignal:
         assert attrs["email"] == "alice@example.com"
         assert attrs["account_id"] == "acc123"
 
-    def test_missing_display_name_emits_empty_full_name_not_account_id(self) -> None:
-        """A user with no display name should NOT get ``full_name == account_id``."""
+    def test_missing_display_name_falls_back_to_account_id(self) -> None:
+        """A user with no display name gets ``full_name == account_id``.
+
+        A mention-only user (known only by accountId, no profile) must still
+        produce a populated (non-blank) ``full_name`` so the Person node is
+        never left with an empty label. Clobber protection for real names is
+        enforced later in ``merge_person`` (``name`` is never written to a raw
+        account id; ``_display_name`` is only filled when empty).
+        """
         sig = build_person_signal(
             {"account_id": "acc123", "display_name": "", "email": ""}, _BASE_URL
         )
         assert sig is not None
         attrs = sig.attributes.model_dump()
-        assert attrs["full_name"] == ""
+        assert attrs["full_name"] == "acc123"
         assert attrs["account_id"] == "acc123"
 
 

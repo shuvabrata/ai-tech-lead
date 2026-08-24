@@ -17,8 +17,28 @@ at commit `33c242b`, executed, and their plan files removed.
 | 016  | [Add remaining runtime settings](016-add-remaining-runtime-settings.md) | P1 | L | 010–015 | READY |
 | 017  | [First-time experience — setup script + guided banner](017-first-time-experience-setup-script-and-banner.md) | P1 | M | 016 | READY |
 | 018  | [Jira COMMENTED_ON and MENTIONS relationships](018-jira-commented-on-and-mentions.md) | P1 | L | — | READY |
+| 019  | [Standardize Jira Initiative/Epic created_at to datetime + fix layer #19 type mismatch](019-standardize-jira-created-at-datetime.md) | P1 | M | — | DONE |
+| 020  | [Review and correct the Jira MENTIONS collaboration layer](020-review-jira-mentions-layer.md) | P2 | M | 019 | DONE ✓ |
+| 021  | [Re-review empty-full_name Person stub + add display-name fallback](021-review-person-display-name-fallback.md) | P2 | M | — | DONE ✓ |
+| 022  | [Review and add concurrency for per-entity Jira comment fetching](022-concurrent-comment-fetch.md) | P3 | M | — | TODO |
+| 023  | [Add sync-cursor overlap to the Jira producer](023-jira-sync-cursor-overlap.md) | P3 | S | — | TODO |
 
 
+
+## Reconciliation notes (2026-08-23)
+
+- Plans 019–023 written from a `branch` audit of `feature/jira-comments-mentions`
+  at commit `4035510` (10 commits ahead of `origin/main`). They follow up on the
+  Jira COMMENTED_ON/MENTIONS feature (plan 018).
+- **019** is a P1 bug: layer #19 of `collaboration_score.cypher` compares
+  `datetime` (Issue) against `date` (Epic/Initiative) and throws. Fix by
+  standardizing Initiative/Epic `created_at`/`updated_at` to `datetime`.
+- **020** depends on 019 (the type fix must land first before re-reviewing layer
+  #19's attribution). Default recommendation: remove layer #19 as a
+  person-to-person signal because `MENTIONS` has no true author.
+- **021** reverses part of plan 018's empty-`full_name` decision; add a
+  `_display_name` fallback so mention-only Persons are not blank.
+- **022** and **023** are independent perf/robustness follow-ups.
 
 ## Reconciliation notes (2026-06-27)
 

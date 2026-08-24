@@ -1065,12 +1065,19 @@ def merge_person(session: Session, person: Person, relationships: Optional[List[
     # MERGE the Person node
     # Build SET clause dynamically for optional fields (additive updates only)
     set_clauses = []
-    # Guard p.name (and the derived _display_name/_on_hover_name) against
-    # account-id stubs: when the incoming name is just a raw account id (or
-    # empty), do NOT write the display properties. A later minimal stub for a
-    # user we only know by account id would otherwise overwrite a previously
-    # resolved real display name with the raw id (or the node id when the name
-    # is empty). Other fields (email, url, etc.) are still updated.
+    # name_is_stub means the incoming ``name`` is a raw account id (or empty).
+    #
+    # - ``p.name`` is NEVER written to a stub value: it stays the authoritative
+    #   "real name" slot, so a stub (mention-only user, no profile) cannot
+    #   clobber a previously-resolved real name. A later richer signal can still
+    #   upgrade it.
+    # - ``p._display_name`` / ``p._on_hover_name`` are FILLED even for stubs so
+    #   no Person node is ever left with a blank display label. ``_display_name``
+    #   is pre-computed by ``Person.display_name()``, which for a stub falls back
+    #   to the node ``id`` (itself the raw account id, e.g.
+    #   ``jira::Person::712020:...`` -> ``712020:...``). They use coalesce-style
+    #   guards below so a populated display name is never overwritten by a
+    #   stub-shaped value, while real names (non-stub) may still upgrade it.
     name_is_stub = _is_account_id_stub(props.get('name'))
     if _has_value(props, 'name') and not name_is_stub:
         set_clauses.append("p.name = $name")
@@ -1093,11 +1100,19 @@ def merge_person(session: Session, person: Person, relationships: Optional[List[
     if _has_value(props, 'url'):
         set_clauses.append("p.url = $url")
 
-    # Computed display/time properties
+    # Computed display/time properties. When the incoming name is a stub, use
+    # confluence-style merged display props so existing values win (fill-only);
+    # when it is a real name, a richer signal may upgrade the display name.
     if _has_value(props, '_display_name') and not name_is_stub:
         set_clauses.append("p._display_name = $_display_name")
+    elif _has_value(props, '_display_name') and name_is_stub:
+        set_clauses.append(
+            "p._display_name = coalesce(p._display_name, $_display_name)")
     if _has_value(props, '_on_hover_name') and not name_is_stub:
         set_clauses.append("p._on_hover_name = $_on_hover_name")
+    elif _has_value(props, '_on_hover_name') and name_is_stub:
+        set_clauses.append(
+            "p._on_hover_name = coalesce(p._on_hover_name, $_on_hover_name)")
     if _has_value(props, '_last_updated_at'):
         set_clauses.append("p._last_updated_at = datetime($_last_updated_at)")
     # Creation timestamp: when the underlying entity was created

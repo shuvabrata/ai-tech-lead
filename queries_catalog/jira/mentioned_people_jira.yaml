@@ -14,7 +14,7 @@ queries:
     MATCH (entity)-[:MENTIONS]->(mentioned:Person)
     WHERE (entity:Issue OR entity:Epic OR entity:Initiative)
       AND entity.id STARTS WITH 'jira::'
-    RETURN mentioned._display_name AS person,
+    RETURN coalesce(mentioned._display_name, mentioned.name, mentioned.id) AS person,
            count(DISTINCT entity) AS entities_mentioning,
            count(*) AS mention_count
     ORDER BY mention_count DESC

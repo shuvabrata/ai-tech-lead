@@ -110,17 +110,20 @@ def test_merge_person_skips_name_when_incoming_is_account_id_stub() -> None:
         url=None,
     )
     merge_person(session, person)
-    # The SET query should NOT contain "p.name =" nor the derived display
-    # properties — the account-id stub must be skipped entirely so it cannot
-    # clobber a previously-resolved real name (or its display form).
+    # ``name`` must never be written to a raw account id, so it cannot clobber
+    # a previously-resolved real name. The display props ARE coalesce-filled so
+    # the node is never left blank, but a plain overwrite is forbidden.
     all_queries = " ".join(call.args[0] for call in session.run.call_args_list)
     assert "p.name = $name" not in all_queries
     assert "p._display_name = $_display_name" not in all_queries
     assert "p._on_hover_name = $_on_hover_name" not in all_queries
+    # fill-only guards are present for the display props
+    assert "coalesce(p._display_name, $_display_name)" in all_queries
+    assert "coalesce(p._on_hover_name, $_on_hover_name)" in all_queries
 
 
-def test_merge_person_skips_display_name_when_name_empty() -> None:
-    """An empty name must not write _display_name (which would fall back to id)."""
+def test_merge_person_fills_display_name_when_name_empty() -> None:
+    """An empty name still coalesce-fills _display_name so the node is not blank."""
     session = MagicMock()
     person = Person(
         id="jira::Person::712020:23da340e-0000-0000-0000-000000000000",
@@ -129,10 +132,13 @@ def test_merge_person_skips_display_name_when_name_empty() -> None:
         url=None,
     )
     merge_person(session, person)
+    # ``name`` is not written (empty), but _display_name is coalesce-filled so
+    # the node renders a label (the account id, derived from the node id).
     all_queries = " ".join(call.args[0] for call in session.run.call_args_list)
     assert "p.name = $name" not in all_queries
     assert "p._display_name = $_display_name" not in all_queries
-    assert "p._on_hover_name = $_on_hover_name" not in all_queries
+    assert "coalesce(p._display_name, $_display_name)" in all_queries
+    assert "coalesce(p._on_hover_name, $_on_hover_name)" in all_queries
 
 
 def test_merge_person_sets_display_name_when_real_name() -> None:
