@@ -153,7 +153,8 @@ def fetch_pull_requests_direct(repo_obj: Any) -> Iterable[Any]:
         repo_obj: PyGithub Repository object.
 
     Returns:
-        Iterable of PyGithub PullRequest objects.
+        Iterable of PyGithub PullRequest objects, globally sorted by
+        ``updated_at`` descending (open and closed merged together).
     """
     # The call repo_obj.get_pulls (from PyGithub) does NOT support a date filter directly.
     # The get_pulls method only supports filtering by state, sort, direction, base branch, and head branch.
@@ -175,22 +176,33 @@ def fetch_pull_requests_direct(repo_obj: Any) -> Iterable[Any]:
     # its processing loop as soon as it hits a PR older than the sync cutoff
     # (an optimization that avoids paginating through the entire history).
     #
-    # If we made a single state="all" call, the list would be:
+    # If we merely concatenated the two calls, the list would be:
     #   [open PRs sorted by updated desc] + [closed PRs sorted by updated desc]
     # The loop would encounter an OLD open PR (e.g. a long-lived PR last updated
     # months ago) and `break` early — silently skipping ALL newer closed PRs
     # that appear later in the list. That would be silent data loss.
     #
-    # By issuing two separate calls — one for open, one for closed — each group
-    # is independently sorted by updated desc, so the caller's early-break stays
-    # correct within each group and no PRs are skipped.
+    # So we issue two separate calls — one for open, one for closed — each
+    # independently sorted by updated desc, and then MERGE-SORT the combined
+    # list globally by `updated_at` descending. This final global sort is what
+    # guarantees the caller's early-break stays correct across both state
+    # groups and no PRs are skipped.
     open_prs = retry_with_backoff(
         lambda: repo_obj.get_pulls(state="open", sort="updated", direction="desc")
     )
     closed_prs = retry_with_backoff(
         lambda: repo_obj.get_pulls(state="closed", sort="updated", direction="desc")
     )
-    return list(open_prs) + list(closed_prs)
+    combined = list(open_prs) + list(closed_prs)
+
+    def _updated_key(pr: Any) -> datetime:
+        updated: Optional[datetime] = getattr(pr, "updated_at", None)
+        if updated is not None:
+            return updated
+        return datetime(1, 1, 1, tzinfo=timezone.utc)
+
+    combined.sort(key=_updated_key, reverse=True)
+    return combined
 
 
 def fetch_pr_reviews(pr: Any) -> List[Any]:
