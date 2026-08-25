@@ -102,10 +102,10 @@ def fetch_pull_requests_search(
     repo_full_name: str,
     since_date: datetime,
 ) -> List[Any]:
-    """Fetch closed PRs via the GitHub Search API and convert to PR objects.
+    """Fetch all PRs (open + closed) via the GitHub Search API and convert to PR objects.
 
     Uses the Search API which is more efficient for incremental syncs but is
-    subject to a separate rate limit (30 requests/min for authenticated users).
+    subject to a separate rate limit (30 req/min for authenticated users).
 
     Args:
         github_obj: Authenticated PyGithub ``Github`` client instance.
@@ -116,8 +116,12 @@ def fetch_pull_requests_search(
         List of PyGithub PullRequest objects (issues converted via
         ``as_pull_request()``).
     """
+    # Unlike the direct endpoint, the Search API DOES support an ``updated:>=``
+    # filter, so we can fetch open and closed PRs in a single query. The Search
+    # API sorts by ``updated`` regardless of state, so the caller's early-break
+    # on the ``updated_at`` cutoff remains correct across both state groups.
     query = (
-        f"repo:{repo_full_name} is:pr is:closed"
+        f"repo:{repo_full_name} is:pr"
         f" updated:>={since_date.date()}"
     )
 
@@ -143,7 +147,7 @@ def fetch_pull_requests_search(
 
 
 def fetch_pull_requests_direct(repo_obj: Any) -> Iterable[Any]:
-    """Fetch closed PRs directly from the repository endpoint.
+    """Fetch all PRs (open + closed) directly from the repository endpoint.
 
     Args:
         repo_obj: PyGithub Repository object.
@@ -152,13 +156,41 @@ def fetch_pull_requests_direct(repo_obj: Any) -> Iterable[Any]:
         Iterable of PyGithub PullRequest objects.
     """
     # The call repo_obj.get_pulls (from PyGithub) does NOT support a date filter directly.
-    # The get_pulls method only supports filtering by state, sort, direction, base branch, and head branch. 
+    # The get_pulls method only supports filtering by state, sort, direction, base branch, and head branch.
     # It does NOT accept updated_at or created_at filters.
     # See: https://pygithub.readthedocs.io/en/latest/github_objects/Repository.html#github.Repository.Repository.get_pulls
-
-    return retry_with_backoff(
+    #
+    # WHY WE FETCH OPEN AND CLOSED PRs AS TWO SEPARATE CALLS (CRITICAL):
+    #
+    # We want to capture ALL pull requests — both open (mutable, still receiving
+    # commits/reviews/labels) and closed/merged (terminal, immutable). However,
+    # GitHub's /pulls endpoint does NOT return a single, globally
+    # updated_at-sorted list when you pass state="all". Instead, it always
+    # returns OPEN PRs FIRST, followed by CLOSED PRs, IRRESPECTIVE of the
+    # `sort`/`direction` parameters. The sort only applies WITHIN each state
+    # group.
+    #
+    # This matters because the caller (process_prs.py) relies on the returned
+    # PRs being ordered newest-first by `updated_at` so it can `break` out of
+    # its processing loop as soon as it hits a PR older than the sync cutoff
+    # (an optimization that avoids paginating through the entire history).
+    #
+    # If we made a single state="all" call, the list would be:
+    #   [open PRs sorted by updated desc] + [closed PRs sorted by updated desc]
+    # The loop would encounter an OLD open PR (e.g. a long-lived PR last updated
+    # months ago) and `break` early — silently skipping ALL newer closed PRs
+    # that appear later in the list. That would be silent data loss.
+    #
+    # By issuing two separate calls — one for open, one for closed — each group
+    # is independently sorted by updated desc, so the caller's early-break stays
+    # correct within each group and no PRs are skipped.
+    open_prs = retry_with_backoff(
+        lambda: repo_obj.get_pulls(state="open", sort="updated", direction="desc")
+    )
+    closed_prs = retry_with_backoff(
         lambda: repo_obj.get_pulls(state="closed", sort="updated", direction="desc")
     )
+    return list(open_prs) + list(closed_prs)
 
 
 def fetch_pr_reviews(pr: Any) -> List[Any]:
