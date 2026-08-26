@@ -273,6 +273,7 @@ class TestBuildElementPropertiesContent:
             "elementType": "node",
             "displayLabel": "Alice D",
         }
+        
         result = build_element_properties_content(data)
         text = self._flatten_text(result)
         assert "elementType" not in text
