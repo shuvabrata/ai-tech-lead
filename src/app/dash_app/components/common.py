@@ -752,8 +752,12 @@ def build_element_properties_content(
 ) -> html.Div:
     """Build the properties panel content for a selected node or edge.
 
-    Detects element type from the data dict (edges have a ``source`` key).
-    Used by both the graph page and future visualization pages.  Pages that
+    Detects element type from the ``elementType`` discriminator that every
+    Cytoscape element carries (``'node'`` vs ``'edge'``).  Detecting via a
+    ``source`` key is ambiguous because a legitimate Neo4j node property may
+    be named ``source`` (e.g. Jira ``Issue``/``Team`` nodes store it), which
+    would misclassify those nodes as edges.  Used by both the graph page and
+    future visualization pages.  Pages that
     do not support node expansion should pass ``expand_node_enabled=False``
     — the button is rendered disabled (grayed out) rather than omitted.
 
@@ -765,7 +769,7 @@ def build_element_properties_content(
     Returns:
         An ``html.Div`` containing the formatted properties panel content.
     """
-    is_edge = "source" in data
+    is_edge = data.get("elementType") == "edge"
 
     if not is_edge:
         # --- Node ---

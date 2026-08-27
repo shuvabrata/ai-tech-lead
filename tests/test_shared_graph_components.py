@@ -273,6 +273,7 @@ class TestBuildElementPropertiesContent:
             "elementType": "node",
             "displayLabel": "Alice D",
         }
+        
         result = build_element_properties_content(data)
         text = self._flatten_text(result)
         assert "elementType" not in text
@@ -280,13 +281,14 @@ class TestBuildElementPropertiesContent:
 
     # --- Edge cases ---
 
-    def test_edge_detected_by_source_key(self):
+    def test_edge_detected_by_element_type(self):
         data = {
             "id": "e1",
             "source": "n1",
             "target": "n2",
             "label": "WORKED_WITH",
             "relType": "WORKED_WITH",
+            "elementType": "edge",
         }
         result = build_element_properties_content(data)
         assert isinstance(result, html.Div)
@@ -297,13 +299,20 @@ class TestBuildElementPropertiesContent:
             "source": "n1",
             "target": "n2",
             "relType": "COLLABORATED",
+            "elementType": "edge",
         }
         result = build_element_properties_content(data)
         text = self._flatten_text(result)
         assert "COLLABORATED" in text
 
     def test_edge_shows_relationship_subtype(self):
-        data = {"id": "e1", "source": "n1", "target": "n2", "relType": "WORKED_WITH"}
+        data = {
+            "id": "e1",
+            "source": "n1",
+            "target": "n2",
+            "relType": "WORKED_WITH",
+            "elementType": "edge",
+        }
         result = build_element_properties_content(data)
         text = self._flatten_text(result)
         assert "Relationship" in text
@@ -314,6 +323,7 @@ class TestBuildElementPropertiesContent:
             "source": "alice",
             "target": "bob",
             "relType": "WORKED_WITH",
+            "elementType": "edge",
         }
         result = build_element_properties_content(data)
         text = self._flatten_text(result)
@@ -321,7 +331,13 @@ class TestBuildElementPropertiesContent:
         assert "to" in text
 
     def test_edge_no_expand_button(self):
-        data = {"id": "e1", "source": "n1", "target": "n2", "relType": "X"}
+        data = {
+            "id": "e1",
+            "source": "n1",
+            "target": "n2",
+            "relType": "X",
+            "elementType": "edge",
+        }
         result = build_element_properties_content(data)
         ids = self._collect_ids(result)
         assert "expand-node-btn" not in ids
@@ -333,10 +349,34 @@ class TestBuildElementPropertiesContent:
             "target": "n2",
             "relType": "WORKED_WITH",
             "weight": 5,
+            "elementType": "edge",
         }
         result = build_element_properties_content(data)
         text = self._flatten_text(result)
         assert "weight" in text
+
+    # --- Node with a `source` property (regression) ---
+
+    def test_node_with_source_property_is_not_misclassified_as_edge(self):
+        """A node carrying a legitimate ``source`` Neo4j property (e.g. a Jira
+        Issue) must not be treated as an edge.  Regression guard for the
+        ``"source" in data`` heuristic that previously leaked ``wba_id`` as
+        ``WBA_ID`` and dropped the synthetic ``ID`` row."""
+        data = {
+            "id": "neo4j-internal-id",
+            "wba_id": "jira::Issue::PROJ-123",
+            "label": "PROJ-123",
+            "nodeType": "Issue",
+            "elementType": "node",
+            "source": "jira",
+            "summary": "Fix the login bug",
+        }
+        result = build_element_properties_content(data)
+        text = self._flatten_text(result)
+        assert "Relationship" not in text
+        assert "from" not in text
+        assert "jira::Issue::PROJ-123" in text
+        assert "neo4j-internal-id" not in text
 
 
 # ---------------------------------------------------------------------------
