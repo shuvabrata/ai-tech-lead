@@ -248,92 +248,6 @@ def _build_node_cypher(wba_id: str) -> str:
     )
 
 
-# ---------------------------------------------------------------------------
-# Person "activity" time-window deep-links
-#
-# Each Person result exposes three extra actions (24 hrs / 7 days / 30 days)
-# that deep-link into the Graph page with a time-windowed Cypher query. The
-# window is a rolling duration applied to the neighbour node's
-# ``_last_updated_at`` / ``_created_at`` and, for interaction edges
-# (COMMENTED_ON / REACTED_TO), to ``r.last_interaction_at``. This surfaces the
-# Person's "hot neighbourhood" — the things they're connected to that changed
-# recently — without manually working the graph page's Time Filters.
-# ---------------------------------------------------------------------------
-
-#: Ordered (label, duration) pairs rendered as buttons under "View in Graph".
-_PERSON_ACTIVITY_WINDOWS: tuple[tuple[str, str], ...] = (
-    ("24 hrs", "PT24H"),
-    ("7 days", "P7D"),
-    ("30 days", "P30D"),
-)
-
-
-def _build_person_activity_cypher(wba_id: str, duration: str) -> str:
-    """Build a time-windowed Cypher query for a Person's recent neighbourhood.
-
-    Parameters
-    ----------
-    wba_id : str
-        Canonical WBA identifier (e.g. ``github::Person::shuvabrata``).
-    duration : str
-        ISO 8601 duration literal (e.g. ``"P7D"``, ``"PT24H"``).
-
-    Returns
-    -------
-    str
-        Cypher query keeping the Person anchor even when no neighbour falls
-        within the window (``OPTIONAL MATCH`` emits the ``(n, null, null)``
-        row, so the anchor node is always returned).
-    """
-    return (
-        f"MATCH (n {{id: '{wba_id}'}}) "
-        f"OPTIONAL MATCH (n)-[r]-(m) "
-        f"WHERE m._last_updated_at >= datetime() - duration('{duration}') "
-        f"OR m._created_at >= datetime() - duration('{duration}') "
-        f"OR r.last_interaction_at >= datetime() - duration('{duration}') "
-        f"RETURN n, r, m LIMIT 50"
-    )
-
-
-def _build_person_activity_buttons(wba_id: str) -> list:
-    """Build the three time-window deep-link buttons for a Person result.
-
-    Parameters
-    ----------
-    wba_id : str
-        Canonical WBA identifier for the Person.
-
-    Returns
-    -------
-    list
-        A list of ``dbc.Button`` ("24 hrs", "7 days", "30 days") linking to the
-        Graph page with a time-windowed Cypher query. Inline buttons — the
-        caller places them alongside the primary "View in Graph" action.
-    """
-    buttons = []
-    for label, duration in _PERSON_ACTIVITY_WINDOWS:
-        buttons.append(
-            dbc.Button(
-                [label, html.I(className="fas fa-project-diagram ms-1")],
-                href=f"/app/graph?cypher={quote(_build_person_activity_cypher(wba_id, duration))}",
-                color="secondary",
-                outline=True,
-                size="sm",
-                style={
-                    "fontFamily": FONT_SANS,
-                    "fontSize": FONT_SIZE_TINY,
-                    "color": COLOR_GRAY_MEDIUM,
-                    "borderColor": COLOR_BORDER,
-                    "padding": "2px 8px",
-                    "borderRadius": "2px",
-                    "letterSpacing": "0.3px",
-                    "marginRight": SPACING_XXSMALL,
-                },
-            )
-        )
-    return buttons
-
-
 def _parse_highlight(highlight: str) -> list:
     """Split a highlight string with <em> tags into a list of Dash components.
 
@@ -420,29 +334,21 @@ def _build_result_card(result: dict, full: bool) -> html.Div:
                 ],
                 style={"display": "flex", "alignItems": "center"},
             ),
-            html.Div(
-                [
-                    # Person-only: time-window "activity" shortcuts preceding
-                    # the primary "View in Graph" action, in the same row.
-                    *(_build_person_activity_buttons(wba_id) if entity_type == "Person" else []),
-                    dbc.Button(
-                        ["View in Graph ", html.I(className="fas fa-project-diagram ms-1")],
-                        href=f"/app/graph?cypher={quote(_build_node_cypher(wba_id))}",
-                        color="primary",
-                        outline=True,
-                        size="sm",
-                        style={
-                            "fontFamily": FONT_SANS,
-                            "fontSize": FONT_SIZE_TINY,
-                            "borderColor": COLOR_NAVY,
-                            "color": COLOR_NAVY,
-                            "padding": "2px 10px",
-                            "borderRadius": "2px",
-                            "letterSpacing": "0.3px",
-                        },
-                    ),
-                ],
-                style={"display": "flex", "alignItems": "center"},
+            dbc.Button(
+                ["View in Graph ", html.I(className="fas fa-project-diagram ms-1")],
+                href=f"/app/graph?cypher={quote(_build_node_cypher(wba_id))}",
+                color="primary",
+                outline=True,
+                size="sm",
+                style={
+                    "fontFamily": FONT_SANS,
+                    "fontSize": FONT_SIZE_TINY,
+                    "borderColor": COLOR_NAVY,
+                    "color": COLOR_NAVY,
+                    "padding": "2px 10px",
+                    "borderRadius": "2px",
+                    "letterSpacing": "0.3px",
+                },
             ),
         ],
         style={
