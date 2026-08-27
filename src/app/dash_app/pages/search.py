@@ -316,16 +316,14 @@ def _build_person_activity_buttons(wba_id: str) -> list:
             dbc.Button(
                 [label, html.I(className="fas fa-project-diagram ms-1")],
                 href=f"/app/graph?cypher={quote(_build_person_activity_cypher(wba_id, duration))}",
-                color="secondary",
+                color="primary",
                 outline=True,
                 size="sm",
                 style={
                     "fontFamily": FONT_SANS,
                     "fontSize": FONT_SIZE_TINY,
-                    "color": COLOR_GRAY_MEDIUM,
-                    "borderColor": COLOR_BORDER,
-                    "padding": "2px 8px",
                     "borderRadius": "2px",
+                    "padding": "2px 8px",
                     "letterSpacing": "0.3px",
                     "marginRight": SPACING_XXSMALL,
                 },
@@ -434,8 +432,6 @@ def _build_result_card(result: dict, full: bool) -> html.Div:
                         style={
                             "fontFamily": FONT_SANS,
                             "fontSize": FONT_SIZE_TINY,
-                            "borderColor": COLOR_NAVY,
-                            "color": COLOR_NAVY,
                             "padding": "2px 10px",
                             "borderRadius": "2px",
                             "letterSpacing": "0.3px",
