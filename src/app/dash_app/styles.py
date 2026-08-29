@@ -228,6 +228,41 @@ THEME_TOKENS = {
 }
 
 
+# Structural (non-colour) node geometry for each nodeType. Identical across
+# base modes; kept here as the single source of truth for the base shape/size
+# that graph-theme overrides merge over (see
+# ``app.common.graph_theme._base_node_properties``).
+NODE_TYPE_BASE_STYLES: dict[str, tuple[str, str, str]] = {
+    "default": ("ellipse", "60px", "50px"),
+    "project": ("round-rectangle", "70px", "35px"),
+    "person": ("octagon", "66px", "56px"),
+    "branch": ("diamond", "58px", "50px"),
+    "epic": ("hexagon", "66px", "56px"),
+    "issue": ("triangle", "58px", "50px"),
+    "repository": ("rectangle", "68px", "34px"),
+    "team": ("pentagon", "64px", "54px"),
+    "identity_mapping": ("tag", "62px", "50px"),
+    "initiative": ("round-hexagon", "66px", "54px"),
+    "sprint": ("vee", "60px", "48px"),
+    "commit": ("rhomboid", "62px", "30px"),
+    "file": ("barrel", "64px", "32px"),
+    "pull_request": ("ellipse", "66px", "33px"),
+    "space": ("cut-rectangle", "70px", "40px"),
+    "page": ("bottom-round-rectangle", "64px", "38px"),
+    "blogpost": ("round-diamond", "60px", "60px"),
+}
+
+# Inject shape/size tokens into each base mode so graph-theme overrides can
+# merge over the full node geometry (colour + shape + size) without changing
+# the hardcoded visual output when no overrides are present.
+for _mode_tokens in THEME_TOKENS.values():
+    for _suffix, (_shape, _width, _height) in NODE_TYPE_BASE_STYLES.items():
+        _key = f"graph.node.{_suffix}"
+        _mode_tokens[f"{_key}.shape"] = _shape
+        _mode_tokens[f"{_key}.width"] = _width
+        _mode_tokens[f"{_key}.height"] = _height
+
+
 def get_theme_tokens(theme_name: str = ACTIVE_THEME) -> dict:
     """Return semantic tokens for the requested theme."""
     if theme_name not in THEME_TOKENS:

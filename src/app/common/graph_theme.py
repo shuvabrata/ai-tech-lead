@@ -260,9 +260,12 @@ def _base_node_properties(
     """Extract the base-rule properties for ``node_type`` from token dict.
 
     Provides defaults for every configurable node property so that partial
-    overrides compose cleanly even when a base rule omits a key.
+    overrides compose cleanly even when a base rule omits a key. Shape and
+    size come from the ``graph.node.<key>.shape/.width/.height`` tokens so
+    the effective base matches the hardcoded stylesheet exactly (no drift).
     """
     if node_type == "default":
+        token_key = "default"
         color = base_tokens.get("graph.node.default", "#B8B8B8")
         border = base_tokens.get("graph.node.default.border", "#9E9E9E")
     else:
@@ -275,12 +278,14 @@ def _base_node_properties(
             base_tokens.get("graph.node.default.border", "#9E9E9E"),
         )
 
-    # Default dimensions mirror the fallback rule in
-    # ``build_cytoscape_stylesheet`` for untyped nodes.
+    shape = base_tokens.get(f"graph.node.{token_key}.shape", "ellipse")
+    width = base_tokens.get(f"graph.node.{token_key}.width", "60px")
+    height = base_tokens.get(f"graph.node.{token_key}.height", "50px")
+
     return {
-        "width": "60px",
-        "height": "50px",
-        "shape": "ellipse",
+        "width": width,
+        "height": height,
+        "shape": shape,
         "background-color": color,
         "border-color": border,
     }

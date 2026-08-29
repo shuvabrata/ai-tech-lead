@@ -209,7 +209,7 @@ automated **and** manual tests pass. Each sub-phase is independently shippable a
 
 > **Exit criteria**: `build_cytoscape_stylesheet()` drives shape/size from merged tokens (not inline literals); no visual change with empty overrides.
 
-- [ ] Refactor `build_cytoscape_stylesheet()` in `pages/graph/styles.py` to
+- [x] Refactor `build_cytoscape_stylesheet()` in `pages/graph/styles.py` to
   consume merged tokens (drive shape/size from token output rather than
   inline literals).
 
@@ -336,7 +336,7 @@ automated tests and manual tests pass.**
 
 - [x] Phase 1 complete (shared core + DB)
 - [x] Phase 2 complete (API)
-- [ ] Phase 3.1 complete (`build_cytoscape_stylesheet` consumes merged tokens)
+- [x] Phase 3.1 complete (`build_cytoscape_stylesheet` consumes merged tokens)
 - [ ] Phase 3.2 complete (Graph page stylesheet callback)
 - [ ] Phase 3.3 complete (Collab page stylesheet callback)
 - [ ] Phase 3.4 complete (Search page dynamic badge colors)

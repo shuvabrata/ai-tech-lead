@@ -75,9 +75,10 @@ class TestGetEffectiveTheme:
         ):
             merged = await service.get_effective_theme(mock_db, "executive-light")
         assert merged["base_theme"] == "executive-light"
-        # Merge output uses Cytoscape keys.
+        # Merge output uses Cytoscape keys; base geometry matches the hardcoded
+        # stylesheet (Person → octagon), with no overrides applied.
         assert merged["nodes"]["Person"]["background-color"] == "#3B82F6"
-        assert merged["nodes"]["Person"]["shape"] == "ellipse"
+        assert merged["nodes"]["Person"]["shape"] == "octagon"
         assert merged["global"]["node_label_color"] == "#f4f7fb"
 
     @pytest.mark.asyncio
