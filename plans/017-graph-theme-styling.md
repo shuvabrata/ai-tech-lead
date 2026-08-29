@@ -236,7 +236,7 @@ automated **and** manual tests pass. Each sub-phase is independently shippable a
 
 > **Exit criteria**: Collab page renders the merged theme via a stylesheet callback (mirroring Graph); no longer uses the hardcoded `CYTOSCAPE_STYLESHEET` constant.
 
-- [ ] Collab page: add a `stylesheet` callback (mirror Graph); convert
+- [x] Collab page: add a `stylesheet` callback (mirror Graph); convert
   `stylesheet=CYTOSCAPE_STYLESHEET` in `collaboration_network/layout.py` to
   callback-driven.
 
@@ -244,7 +244,7 @@ automated **and** manual tests pass. Each sub-phase is independently shippable a
 - `pytest -m unit tests/test_collab_network_controls.py -q` — Collab stylesheet callback returns merged rules.
 
 **Manual tests**:
-- Navigate Collab; confirm a `Person`-color override is reflected.
+- Navigate Collab; confirm a `Person` **shape/size** override is reflected (color is masked by community coloring on Collab, so use shape — e.g. `diamond` — or size to verify propagation).
 
 ### Sub-phase 3.4 — Search page dynamic badge colors
 
@@ -338,7 +338,7 @@ automated tests and manual tests pass.**
 - [x] Phase 2 complete (API)
 - [x] Phase 3.1 complete (`build_cytoscape_stylesheet` consumes merged tokens)
 - [x] Phase 3.2 complete (Graph page stylesheet callback)
-- [ ] Phase 3.3 complete (Collab page stylesheet callback)
+- [x] Phase 3.3 complete (Collab page stylesheet callback)
 - [ ] Phase 3.4 complete (Search page dynamic badge colors)
 - [ ] Phase 3.5 complete (consistency test updated)
 - [ ] Phase 3 complete (all consumers wired)
