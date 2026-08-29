@@ -192,11 +192,29 @@ def update_node_glyph(
         {"type": "gs-node-reset", "base_theme": MATCH, "node_type": MATCH},
         "n_clicks",
     ),
+    State({"type": "gs-loaded-values", "base_theme": MATCH}, "data"),
     prevent_initial_call=True,
 )
-def reset_node_row(_n_clicks: int) -> tuple:
-    """Clear a row's six fields back to \"inherit base\" (unset)."""
-    return None, None, None, None, None, None
+def reset_node_row(
+    _n_clicks: int, loaded_values: dict[str, Any] | None
+) -> tuple:
+    """Restore a row's six fields to their loaded (effective) values.
+
+    Reads the effective node values cached in ``gs-loaded-values`` when the
+    theme was selected and returns the original values for this node type,
+    undoing any unsaved edits to the row.
+    """
+    node_type = callback_context.triggered_id["node_type"]
+    row = (loaded_values or {}).get(node_type) or {}
+
+    return (
+        row.get("color"),
+        row.get("border"),
+        row.get("border_width"),
+        row.get("shape"),
+        row.get("width"),
+        row.get("height"),
+    )
 
 
 # ── Edge preview ───────────────────────────────────────────────────────
@@ -348,17 +366,20 @@ def load_themes(pathname: str, select_id: dict[str, str]) -> tuple:
     Output({"type": "gs-editor-body", "base_theme": MATCH}, "children"),
     Output({"type": "gs-theme-name-input", "base_theme": MATCH}, "value"),
     Output({"type": "gs-theme-name", "base_theme": MATCH}, "children"),
+    Output({"type": "gs-loaded-values", "base_theme": MATCH}, "data"),
     Input({"type": "gs-theme-select", "base_theme": MATCH}, "value"),
     State({"type": "gs-theme-store", "base_theme": MATCH}, "data"),
     prevent_initial_call=True,
 )
 def select_theme(
     theme_id: Any, store: dict[str, Any]
-) -> tuple[Any, str | None, str]:
+) -> tuple[Any, str | None, str, dict[str, Any]]:
     """Render the editor body for the selected theme.
 
     Populates every field with its **effective** (concrete) value, so a theme
     with sparse/no overrides still shows the base values it actually renders.
+    The effective node values are also cached in ``gs-loaded-values`` so the
+    per-row reset button can restore a row to its loaded values.
     """
     base_theme = callback_context.triggered_id["base_theme"]
     if theme_id is None or not store:
@@ -377,7 +398,8 @@ def select_theme(
         + (" (builtin \u2014 duplicate to edit)" if theme.get("source") == "builtin" else "")
         + (" \u2605 default" if theme.get("is_default") else "")
     )
-    return body, name, name_label
+    loaded_values = effective.get("nodes") or {}
+    return body, name, name_label, loaded_values
 
 
 # Collect a theme's current field values into an overrides document.

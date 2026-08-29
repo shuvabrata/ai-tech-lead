@@ -245,13 +245,42 @@ def test_each_row_has_reset_button() -> None:
 
 
 @pytest.mark.unit
-def test_reset_clears_all_fields() -> None:
-    """The reset callback returns None (unset) for all six fields."""
-    from app.dash_app.pages.settings.graph_styling.callbacks import (
-        reset_node_row,
-    )
+def test_reset_restores_loaded_values() -> None:
+    """The reset callback restores a row's loaded (effective) values."""
+    from unittest import mock
 
-    result = reset_node_row(1)
+    from app.dash_app.pages.settings.graph_styling import callbacks as cb
+
+    loaded = {
+        "Person": {
+            "color": "#3B82F6",
+            "border": "#2563EB",
+            "border_width": 0,
+            "shape": "octagon",
+            "width": 66,
+            "height": 56,
+        }
+    }
+    fake_ctx = mock.Mock()
+    fake_ctx.triggered_id = {"type": "gs-node-reset", "node_type": "Person"}
+    with mock.patch.object(cb, "callback_context", fake_ctx):
+        result = cb.reset_node_row(1, loaded)
+
+    assert result == ("#3B82F6", "#2563EB", 0, "octagon", 66, 56)
+
+
+@pytest.mark.unit
+def test_reset_missing_node_returns_none() -> None:
+    """A reset for an unknown node type yields None fields (no crash)."""
+    from unittest import mock
+
+    from app.dash_app.pages.settings.graph_styling import callbacks as cb
+
+    fake_ctx = mock.Mock()
+    fake_ctx.triggered_id = {"type": "gs-node-reset", "node_type": "Nope"}
+    with mock.patch.object(cb, "callback_context", fake_ctx):
+        result = cb.reset_node_row(1, {})
+
     assert result == (None, None, None, None, None, None)
 
 

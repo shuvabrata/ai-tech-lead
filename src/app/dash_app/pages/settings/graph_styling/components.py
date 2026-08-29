@@ -570,6 +570,10 @@ def build_base_mode_section(base_theme: str) -> html.Div:
                 id={"type": "gs-theme-store", "base_theme": base_theme},
                 data={},
             ),
+            dcc.Store(
+                id={"type": "gs-loaded-values", "base_theme": base_theme},
+                data={},
+            ),
             html.Div(
                 id={"type": "gs-editor-body", "base_theme": base_theme},
             ),
