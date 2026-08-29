@@ -64,8 +64,12 @@ def test_reject_zero_height():
 
 
 def test_reject_non_int_width():
-    """Non-integer dimensions are rejected."""
-    with pytest.raises(TypeError):
+    """Non-integer dimensions are rejected.
+
+    Pydantic raises ``ValidationError`` (a ``ValueError`` subclass) for a
+    non-integer width.
+    """
+    with pytest.raises(ValueError):
         parse_overrides({"nodes": {"Person": {"width": "big"}}})
 
 

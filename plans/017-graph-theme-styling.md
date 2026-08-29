@@ -171,15 +171,15 @@ into rules.
 
 > **Exit criteria**: all 8 endpoints functional; validation enforced; builtin immutability enforced; partial index blocks duplicate default.
 
-- [ ] **2.1** Create `src/app/api/graph_themes/v1/models.py` — Pydantic
+- [x] **2.1** Create `src/app/api/graph_themes/v1/models.py` — Pydantic
   request/response + nested `NodeOverride`/`EdgeOverride`/`GlobalOverride`
   (HexColor regex, shape `Literal` from `ALLOWED_SHAPES`, numeric `gt`/`le`).
-- [ ] **2.2** Create `query.py` (CRUD + `get_default_for_base_theme`).
-- [ ] **2.3** Create `service.py` — create/update/delete/clone/set-default
+- [x] **2.2** Create `query.py` (CRUD + `get_default_for_base_theme`).
+- [x] **2.3** Create `service.py` — create/update/delete/clone/set-default
   with builtin guards and transactional default swap.
-- [ ] **2.4** Create `router.py` — wire endpoints; builtin PATCH/DELETE → 409;
+- [x] **2.4** Create `router.py` — wire endpoints; builtin PATCH/DELETE → 409;
   `/effective` calls `merge_theme_overrides`.
-- [ ] **2.5** Register router in `src/app/main.py`.
+- [x] **2.5** Register router in `src/app/main.py`.
 
 ### Automated tests (Phase 2)
 - `pytest -m unit tests/test_graph_themes_service.py -q` (new file):

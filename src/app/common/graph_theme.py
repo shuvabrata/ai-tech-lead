@@ -23,8 +23,12 @@ Key concepts:
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Literal
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+# Hex colour: #RGB or #RRGGBB.
+HEX_COLOR = r"^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$"
 
 # The override-aware nodeType keys mirror the existing nodeType values used by
 # the graph page (see ``build_cytoscape_stylesheet`` in
@@ -79,6 +83,35 @@ ALLOWED_SHAPES: tuple[str, ...] = (
     "vee",
 )
 
+# Pydantic ``Literal`` of the full shape set. Kept in sync with
+# ``ALLOWED_SHAPES`` (mypy cannot unpack a runtime tuple inside ``Literal``).
+ShapeLiteral = Literal[
+    "ellipse",
+    "triangle",
+    "round-triangle",
+    "rectangle",
+    "round-rectangle",
+    "bottom-round-rectangle",
+    "cut-rectangle",
+    "barrel",
+    "rhomboid",
+    "diamond",
+    "round-diamond",
+    "pentagon",
+    "round-pentagon",
+    "hexagon",
+    "round-hexagon",
+    "concave-hexagon",
+    "heptagon",
+    "round-heptagon",
+    "octagon",
+    "round-octagon",
+    "star",
+    "tag",
+    "round-tag",
+    "vee",
+]
+
 # Semantic → Cytoscape property mapping for node overrides.
 # ``color`` is the semantic name; the mapped value is the Cytoscape style key.
 NODE_SEMANTIC_TO_CYTO: dict[str, str] = {
@@ -108,43 +141,39 @@ GLOBAL_SEMANTIC_TO_CYTO: dict[str, str] = {
 }
 
 
-@dataclass(frozen=True)
-class NodeOverride:
-    """Per-nodeType visual override.
+class NodeOverride(BaseModel):
+    """Per-nodeType visual override (semantic keys, optional fields).
 
     All fields are optional; only present fields are merged over the base.
-    ``width`` and ``height`` are plain numeric pixels.
+    ``width`` / ``height`` / ``border_width`` are plain numeric pixels.
     """
 
-    color: str | None = None
-    border: str | None = None
-    border_width: int | None = None
-    shape: str | None = None
-    width: int | None = None
-    height: int | None = None
+    color: str | None = Field(default=None, pattern=HEX_COLOR)
+    border: str | None = Field(default=None, pattern=HEX_COLOR)
+    border_width: int | None = Field(default=None, gt=0)
+    shape: ShapeLiteral | None = None
+    width: int | None = Field(default=None, gt=0, le=400)
+    height: int | None = Field(default=None, gt=0, le=400)
 
 
-@dataclass(frozen=True)
-class EdgeOverride:
+class EdgeOverride(BaseModel):
     """Edge-level visual override (applies to all edges)."""
 
-    line_color: str | None = None
-    width: int | None = None
+    line_color: str | None = Field(default=None, pattern=HEX_COLOR)
+    width: int | None = Field(default=None, gt=0, le=20)
     arrow_shape: str | None = None
-    label_color: str | None = None
+    label_color: str | None = Field(default=None, pattern=HEX_COLOR)
 
 
-@dataclass(frozen=True)
-class GlobalOverride:
+class GlobalOverride(BaseModel):
     """Global (across node/edge) visual overrides."""
 
-    node_label_color: str | None = None
-    selection_color: str | None = None
-    edge_label_background: str | None = None
+    node_label_color: str | None = Field(default=None, pattern=HEX_COLOR)
+    selection_color: str | None = Field(default=None, pattern=HEX_COLOR)
+    edge_label_background: str | None = Field(default=None, pattern=HEX_COLOR)
 
 
-@dataclass(frozen=True)
-class ThemeOverrides:
+class ThemeOverrides(BaseModel):
     """Parsed, validated override document for a single theme.
 
     Mirrors the JSONB ``overrides`` column contract:
@@ -158,29 +187,27 @@ class ThemeOverrides:
         }
     """
 
-    nodes: dict[str, NodeOverride] = field(default_factory=dict)
-    edges: EdgeOverride = field(default_factory=EdgeOverride)
-    global_: GlobalOverride = field(default_factory=GlobalOverride)
+    nodes: dict[str, NodeOverride] = Field(default_factory=dict)
+    edges: EdgeOverride = Field(default_factory=EdgeOverride)
+    global_: GlobalOverride = Field(
+        default_factory=GlobalOverride, alias="global"
+    )
 
+    @field_validator("nodes")
+    @classmethod
+    def _validate_node_keys(
+        cls, nodes: dict[str, NodeOverride]
+    ) -> dict[str, NodeOverride]:
+        """Reject unknown node-type keys."""
+        unknown = sorted(set(nodes) - set(NODE_TYPES))
+        if unknown:
+            raise ValueError(
+                f"Unknown node type(s): {', '.join(unknown)}. "
+                f"Allowed: {', '.join(NODE_TYPES)}"
+            )
+        return nodes
 
-def _is_valid_hex(color: str) -> bool:
-    """Return True if ``color`` is ``#RGB`` or ``#RRGGBB`` hexadecimal."""
-    text = color[1:] if color.startswith("#") else color
-    if len(text) not in (3, 6):
-        return False
-    try:
-        int(text, 16)
-    except ValueError:
-        return False
-    return True
-
-
-def validate_hex_color(color: str) -> None:
-    """Raise ``ValueError`` if ``color`` is not a valid hex colour."""
-    if not _is_valid_hex(color):
-        raise ValueError(
-            f"Invalid hex color {color!r}: expected #RGB or #RRGGBB."
-        )
+    model_config = ConfigDict(populate_by_name=True)
 
 
 def _node_type_key(node_type: str) -> str:
@@ -418,81 +445,8 @@ def parse_overrides(data: dict[str, Any] | None) -> ThemeOverrides:
 
         {"nodes": {...}, "edges": {...}, "global": {...}}
 
-    Unknown keys are ignored; known keys are validated (hex colours and shape
-    names are range-checked against the allowed sets).
+    Validation (hex colours, shape names, numeric bounds, node-type keys) is
+    enforced by the Pydantic models themselves. Raises ``ValueError`` /
+    ``TypeError`` on invalid input.
     """
-    data = data or {}
-
-    node_overrides: dict[str, NodeOverride] = {}
-    raw_nodes = data.get("nodes") or {}
-    for node_type, raw in raw_nodes.items():
-        if node_type not in NODE_TYPES:
-            raise ValueError(
-                f"Unknown node type {node_type!r}. "
-                f"Allowed: {', '.join(NODE_TYPES)}"
-            )
-        raw = raw or {}
-        _validate_node_override(raw, node_type)
-        node_overrides[node_type] = _build_node_override(raw)
-
-    raw_edges = data.get("edges") or {}
-    edges = EdgeOverride(
-        **{k: v for k, v in {
-            "line_color": raw_edges.get("line_color"),
-            "width": raw_edges.get("width"),
-            "arrow_shape": raw_edges.get("arrow_shape"),
-            "label_color": raw_edges.get("label_color"),
-        }.items() if v is not None}
-    )
-    if edges.line_color is not None:
-        validate_hex_color(edges.line_color)
-    if edges.label_color is not None:
-        validate_hex_color(edges.label_color)
-
-    raw_global = data.get("global") or {}
-    global_ = GlobalOverride(
-        **{k: v for k, v in {
-            "node_label_color": raw_global.get("node_label_color"),
-            "selection_color": raw_global.get("selection_color"),
-            "edge_label_background": raw_global.get("edge_label_background"),
-        }.items() if v is not None}
-    )
-    for key in ("node_label_color", "selection_color", "edge_label_background"):
-        value = getattr(global_, key)
-        if value is not None:
-            validate_hex_color(value)
-
-    return ThemeOverrides(nodes=node_overrides, edges=edges, global_=global_)
-
-
-def _validate_node_override(raw: dict[str, Any], node_type: str) -> None:
-    """Validate a single node's raw override dict."""
-    if "color" in raw and raw["color"] is not None:
-        validate_hex_color(raw["color"])
-    if "border" in raw and raw["border"] is not None:
-        validate_hex_color(raw["border"])
-    if "shape" in raw and raw["shape"] is not None:
-        if raw["shape"] not in ALLOWED_SHAPES:
-            raise ValueError(
-                f"Unknown shape {raw['shape']!r} for node {node_type!r}. "
-                f"Allowed: {', '.join(ALLOWED_SHAPES)}"
-            )
-    for key in ("width", "height", "border_width"):
-        if key in raw and raw[key] is not None:
-            value = raw[key]
-            if not isinstance(value, int) or isinstance(value, bool):
-                raise TypeError(f"{key} for node {node_type!r} must be an integer.")
-            if value <= 0:
-                raise ValueError(f"{key} for node {node_type!r} must be positive.")
-
-
-def _build_node_override(raw: dict[str, Any]) -> NodeOverride:
-    """Construct a validated :class:`NodeOverride` from a raw dict."""
-    return NodeOverride(
-        color=raw.get("color"),
-        border=raw.get("border"),
-        border_width=raw.get("border_width"),
-        shape=raw.get("shape"),
-        width=raw.get("width"),
-        height=raw.get("height"),
-    )
+    return ThemeOverrides.model_validate(data or {})
