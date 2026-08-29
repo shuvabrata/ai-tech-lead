@@ -288,7 +288,7 @@ Phases are strictly sequential: **do not start Phase N+1 until all Phase N
 automated tests and manual tests pass.**
 
 - [x] Phase 1 complete (shared core + DB)
-- [ ] Phase 2 complete (API)
+- [x] Phase 2 complete (API)
 - [ ] Phase 3 complete (consumers wired)
 - [ ] Phase 4 complete (editor UI)
 - [ ] All automated suites green (`pytest -m unit tests -q`)
