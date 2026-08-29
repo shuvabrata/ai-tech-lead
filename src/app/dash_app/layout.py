@@ -110,6 +110,7 @@ def create_dash_app():
         dcc.Location(id="url", refresh=False),
         dcc.Store(id="sidebar-collapsed", storage_type="local", data=False),
         dcc.Store(id="theme-store", storage_type="local", data="executive-light"),
+        dcc.Store(id="search-theme-store", storage_type="memory", data=None),
         dcc.Store(id="date-format-store", data=app_settings.UI_DATE_FORMAT),
         dcc.Store(id="datetime-format-store", data=app_settings.UI_DATETIME_FORMAT),
         html.Div(id="format-init-dummy", style={"display": "none"}),

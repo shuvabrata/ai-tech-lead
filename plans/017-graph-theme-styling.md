@@ -250,7 +250,7 @@ automated **and** manual tests pass. Each sub-phase is independently shippable a
 
 > **Exit criteria**: Search page resolves `_badge_color()` dynamically from `/effective` (no import-time `TOKENS` snapshot).
 
-- [ ] Search page: fetch `/effective` into a `dcc.Store`; resolve
+- [x] Search page: fetch `/effective` into a `dcc.Store`; resolve
   `_badge_color()` dynamically (replace import-time `TOKENS` snapshot).
 
 **Automated tests**:
@@ -263,7 +263,7 @@ automated **and** manual tests pass. Each sub-phase is independently shippable a
 
 > **Exit criteria**: `test_search_node_color_consistency.py` updated for dynamic resolution and green.
 
-- [ ] Update `tests/test_search_node_color_consistency.py` for the new dynamic resolution.
+- [x] Update `tests/test_search_node_color_consistency.py` for the new dynamic resolution.
 
 **Automated tests**:
 - `pytest -m unit tests/test_search_node_color_consistency.py -q` — invariant still holds (badge colors == effective node colors).
@@ -339,8 +339,8 @@ automated tests and manual tests pass.**
 - [x] Phase 3.1 complete (`build_cytoscape_stylesheet` consumes merged tokens)
 - [x] Phase 3.2 complete (Graph page stylesheet callback)
 - [x] Phase 3.3 complete (Collab page stylesheet callback)
-- [ ] Phase 3.4 complete (Search page dynamic badge colors)
-- [ ] Phase 3.5 complete (consistency test updated)
+- [x] Phase 3.4 complete (Search page dynamic badge colors)
+- [x] Phase 3.5 complete (consistency test updated)
 - [ ] Phase 3 complete (all consumers wired)
 - [ ] Phase 4 complete (editor UI)
 - [ ] All automated suites green (`pytest -m unit tests -q`)
