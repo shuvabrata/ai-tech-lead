@@ -71,6 +71,26 @@ def test_allowed_shapes_full_cyto_set():
     assert set(ALLOWED_SHAPES) == expected
 
 
+def test_legend_glyph_parity_all_shapes():
+    """Every non-ellipse ALLOWED_SHAPES entry has a distinct glyph.
+
+    ``get_shape_css`` falls back to a plain ellipse (``borderRadius: 50%``) for
+    unknown shapes. ``ellipse`` and ``circle`` intentionally share that
+    fallback, so they are excluded; every other shape must produce a glyph
+    with a ``clip-path`` (or a non-ellipse ``borderRadius``), guarding against
+    silently regressing when a shape is added without a legend glyph.
+    """
+    from app.dash_app.pages.graph.utils.ui_components import get_shape_css
+
+    for shape in ALLOWED_SHAPES:
+        if shape in ("ellipse", "circle"):
+            continue
+        glyph = get_shape_css(shape)
+        has_clip = "clipPath" in glyph
+        has_rounding = glyph.get("borderRadius") not in (None, "50%")
+        assert has_clip or has_rounding, f"Missing legend glyph for shape '{shape}'"
+
+
 def test_merge_empty_overrides_returns_base():
     """Empty overrides must leave the effective theme equal to the base."""
     merged = merge_theme_overrides(BASE_LIGHT, ThemeOverrides())

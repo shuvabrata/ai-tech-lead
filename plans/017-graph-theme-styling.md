@@ -363,7 +363,7 @@ automated **and** manual tests pass. Each sub-phase is independently shippable a
 
 > **Exit criteria**: every `ALLOWED_SHAPES` entry has a `get_shape_css()` mapping.
 
-- [ ] Add missing legend glyphs to `get_shape_css()` in
+- [x] Add missing legend glyphs to `get_shape_css()` in
   `graph/utils/ui_components.py` for the full `ALLOWED_SHAPES` set.
 
 **Automated tests**:
@@ -412,7 +412,7 @@ automated tests and manual tests pass.**
 - [x] Phase 4.2 complete (editor layout — sections + cards)
 - [x] Phase 4.3 complete (single-node live preview)
 - [x] Phase 4.4 complete (actions — clone/set-default/save/delete)
-- [ ] Phase 4.5 complete (legend glyph parity)
-- [ ] Phase 4 complete (editor UI)
-- [ ] All automated suites green (`pytest -m unit tests -q`)
-- [ ] Manual smoke test full pass (create → edit → set-default → verify on all 3 pages)
+- [x] Phase 4.5 complete (legend glyph parity)
+- [x] Phase 4 complete (editor UI)
+- [x] All automated suites green (`pytest -m unit tests -q`)
+- [x] Manual smoke test full pass (create → edit → set-default → verify on all 3 pages)
