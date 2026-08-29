@@ -638,7 +638,11 @@ def execute_set_default(
         )
         resp.raise_for_status()
     except requests.RequestException as exc:
-        return _feedback_alert(f"Set default failed: {exc}", "danger"), no_update, no_update
+        return (
+            _feedback_alert(f"Set default failed: {exc}", "danger"),
+            [no_update, no_update],
+            [no_update, no_update],
+        )
 
     # Re-fetch themes for both base modes.
     all_options: list = []
@@ -709,10 +713,18 @@ def execute_delete(
         resp = requests.delete(f"{THEMES_API}{theme_id}", timeout=10)
         if resp.status_code == 409:
             detail = resp.json().get("detail", "Builtin themes cannot be deleted.")
-            return _feedback_alert(f"Delete failed: {detail}", "danger"), no_update, no_update
+            return (
+                _feedback_alert(f"Delete failed: {detail}", "danger"),
+                [no_update, no_update],
+                [no_update, no_update],
+            )
         resp.raise_for_status()
     except requests.RequestException as exc:
-        return _feedback_alert(f"Delete failed: {exc}", "danger"), no_update, no_update
+        return (
+            _feedback_alert(f"Delete failed: {exc}", "danger"),
+            [no_update, no_update],
+            [no_update, no_update],
+        )
 
     all_options: list = []
     all_data: list = []

@@ -346,10 +346,10 @@ automated **and** manual tests pass. Each sub-phase is independently shippable a
 
 > **Exit criteria**: full create/edit/clone/set-default/delete flow works end-to-end against the API.
 
-- [ ] "Duplicate to edit" (builtin → clone) affordance on builtin cards.
-- [ ] "Set as default" (ConfirmDialog) action.
-- [ ] "Save" (full-document PATCH) action.
-- [ ] "Delete" (ConfirmDialog) action; builtin delete disabled.
+- [x] "Duplicate to edit" (builtin → clone) affordance on builtin cards.
+- [x] "Set as default" (ConfirmDialog) action.
+- [x] "Save" (full-document PATCH) action.
+- [x] "Delete" (ConfirmDialog) action; builtin delete disabled.
 
 **Automated tests**:
 - `pytest -m unit tests/test_graph_styling_page.py -q` — builtin card renders "Duplicate" affordance, not plain Edit.
