@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.graph_themes.v1 import query as qry
@@ -44,6 +45,13 @@ class InvalidBaseThemeError(ValueError):
     """Raised when an unknown ``base_theme`` is requested."""
 
 
+class DuplicateNameError(ValueError):
+    """Raised when a theme name already exists for the same base mode.
+
+    Backed by the ``uq_graph_themes_name_base_theme`` unique constraint.
+    """
+
+
 def _require_user_theme(theme: GraphTheme) -> None:
     """Raise if ``theme`` is an immutable builtin row."""
     if theme.source == SOURCE_BUILTIN:
@@ -56,6 +64,21 @@ def _require_user_theme(theme: GraphTheme) -> None:
 def _overrides_to_dict(overrides: ThemeOverrides) -> dict[str, Any]:
     """Convert a validated Pydantic override doc to the JSONB dict shape."""
     return overrides.model_dump(by_alias=True, exclude_none=True)
+
+
+def _raise_on_duplicate_name(exc: IntegrityError) -> None:
+    """Translate a name-uniqueness IntegrityError into :class:`DuplicateNameError`.
+
+    The ``uq_graph_themes_name_base_theme`` constraint enforces that ``name``
+    is unique within a ``base_theme``. Other integrity errors are re-raised
+    unchanged.
+    """
+    message = str(exc.orig) if exc.orig is not None else str(exc)
+    if "uq_graph_themes_name_base_theme" in message:
+        raise DuplicateNameError(
+            "A theme with this name already exists for this base mode."
+        ) from exc
+    raise exc
 
 
 # ── Read ───────────────────────────────────────────────────────────────
@@ -88,9 +111,13 @@ async def create_theme(
         overrides=_overrides_to_dict(payload.overrides),
         source=SOURCE_USER,
     )
-    theme = await qry.add_theme(db, theme)
-    await db.commit()
-    await db.refresh(theme)
+    try:
+        theme = await qry.add_theme(db, theme)
+        await db.commit()
+        await db.refresh(theme)
+    except IntegrityError as exc:
+        await db.rollback()
+        _raise_on_duplicate_name(exc)
     logger.info(
         "Created graph theme '%s' (base=%s)", theme.name, theme.base_theme
     )
@@ -111,9 +138,13 @@ async def update_theme(
     if payload.overrides is not None:
         theme.overrides = _overrides_to_dict(payload.overrides)
 
-    theme = await qry.touch_theme(db, theme)
-    await db.commit()
-    await db.refresh(theme)
+    try:
+        theme = await qry.touch_theme(db, theme)
+        await db.commit()
+        await db.refresh(theme)
+    except IntegrityError as exc:
+        await db.rollback()
+        _raise_on_duplicate_name(exc)
     logger.info("Updated graph theme '%s' (id=%s)", theme.name, theme.id)
     return theme
 
@@ -142,9 +173,13 @@ async def clone_theme(db: AsyncSession, theme_id: int) -> GraphTheme:
         overrides=dict(source.overrides or {}),
         source=SOURCE_USER,
     )
-    clone = await qry.add_theme(db, clone)
-    await db.commit()
-    await db.refresh(clone)
+    try:
+        clone = await qry.add_theme(db, clone)
+        await db.commit()
+        await db.refresh(clone)
+    except IntegrityError as exc:
+        await db.rollback()
+        _raise_on_duplicate_name(exc)
     logger.info(
         "Cloned graph theme '%s' → '%s' (id=%s)",
         source.name,

@@ -28,6 +28,7 @@ from app.api.graph_themes.v1.models import (
 )
 from app.api.graph_themes.v1.service import (
     BuiltinImmutableError,
+    DuplicateNameError,
     InvalidBaseThemeError,
     ThemeNotFoundError,
 )
@@ -63,6 +64,8 @@ async def create_graph_theme(
     """Create a user theme (never a default)."""
     try:
         theme = await themes_service.create_theme(db, payload)
+    except DuplicateNameError as exc:
+        raise _conflict(str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     return GraphThemeResponse.model_validate(theme)
@@ -106,6 +109,8 @@ async def update_graph_theme(
     except ThemeNotFoundError as exc:
         raise _not_found(exc) from exc
     except BuiltinImmutableError as exc:
+        raise _conflict(str(exc)) from exc
+    except DuplicateNameError as exc:
         raise _conflict(str(exc)) from exc
     except ValidationError as exc:
         raise HTTPException(status_code=422, detail=exc.errors()) from exc
@@ -151,6 +156,8 @@ async def clone_graph_theme(
         theme = await themes_service.clone_theme(db, theme_id)
     except ThemeNotFoundError as exc:
         raise _not_found(exc) from exc
+    except DuplicateNameError as exc:
+        raise _conflict(str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     return CloneResponse.model_validate(theme)

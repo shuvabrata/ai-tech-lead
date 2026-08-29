@@ -328,3 +328,46 @@ class TestCreateAndNotFound:
         ):
             with pytest.raises(ThemeNotFoundError):
                 await service.get_theme(mock_db, 999)
+
+
+# ── Duplicate name → DuplicateNameError (not raw IntegrityError) ───────
+
+
+def _integrity_error(constraint: str) -> Exception:
+    """Build an IntegrityError whose ``orig`` message references ``constraint``."""
+    orig = Exception(
+        f'duplicate key value violates unique constraint "{constraint}"'
+    )
+    return service.IntegrityError("(IntegrityError)", {}, orig)
+
+
+class TestDuplicateName:
+    @pytest.mark.unit
+    def test_translates_name_constraint_to_duplicate_name(self) -> None:
+        """The name-base constraint maps to DuplicateNameError."""
+        exc = _integrity_error("uq_graph_themes_name_base_theme")
+        with pytest.raises(service.DuplicateNameError):
+            service._raise_on_duplicate_name(exc)
+
+    @pytest.mark.unit
+    def test_other_constraint_reraised(self) -> None:
+        """Unrelated integrity errors are re-raised unchanged."""
+        exc = _integrity_error("uq_some_other_constraint")
+        with pytest.raises(type(exc)):
+            service._raise_on_duplicate_name(exc)
+
+    @pytest.mark.asyncio
+    @pytest.mark.unit
+    async def test_create_duplicate_name_rolls_back_and_raises(
+        self, mock_db: AsyncMock
+    ) -> None:
+        """create_theme rolls back and raises DuplicateNameError on collision."""
+        payload = GraphThemeCreate(name="Dup", base_theme="executive-light")
+        exc = _integrity_error("uq_graph_themes_name_base_theme")
+        with patch(
+            "app.api.graph_themes.v1.service.qry.add_theme",
+            side_effect=exc,
+        ):
+            with pytest.raises(service.DuplicateNameError):
+                await service.create_theme(mock_db, payload)
+        mock_db.rollback.assert_awaited_once()
