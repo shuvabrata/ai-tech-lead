@@ -141,15 +141,15 @@ into rules.
 
 > **Exit criteria**: pure merge/translation functions unit-tested; model + migration applied; seed rows present. No behavior change yet.
 
-- [ ] **1.1** Create `src/app/common/graph_theme.py`:
+- [x] **1.1** Create `src/app/common/graph_theme.py`:
   - `ALLOWED_SHAPES` (full Cytoscape set)
   - override schema types (dataclasses or TypedDicts)
   - `merge_theme_overrides(base_tokens, overrides) -> dict`
   - `overrides_to_cytoscape_rules(merged_tokens) -> list[dict]`
   - Kept **pure** — base tokens passed as arguments (never imports `dash_app`).
-- [ ] **1.2** Create `src/app/db/models/graph_theme.py` (`GraphTheme` model).
-- [ ] **1.3** Register `GraphTheme` in `src/app/db/models/__init__.py`.
-- [ ] **1.4** Alembic migration: create `graph_themes` + partial unique index;
+- [x] **1.2** Create `src/app/db/models/graph_theme.py` (`GraphTheme` model).
+- [x] **1.3** Register `GraphTheme` in `src/app/db/models/__init__.py`.
+- [x] **1.4** Alembic migration: create `graph_themes` + partial unique index;
   seed 2 empty "Default" anchors + 2 illustrative example themes.
 
 ### Automated tests (Phase 1)
@@ -287,7 +287,7 @@ Track completion by ticking the `- [ ]` checkboxes in each phase above.
 Phases are strictly sequential: **do not start Phase N+1 until all Phase N
 automated tests and manual tests pass.**
 
-- [ ] Phase 1 complete (shared core + DB)
+- [x] Phase 1 complete (shared core + DB)
 - [ ] Phase 2 complete (API)
 - [ ] Phase 3 complete (consumers wired)
 - [ ] Phase 4 complete (editor UI)
