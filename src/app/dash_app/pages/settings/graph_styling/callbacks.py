@@ -531,12 +531,12 @@ def duplicate_theme(n_clicks: int | None, theme_id: Any) -> tuple:
     Input({"type": "gs-theme-save", "base_theme": MATCH}, "n_clicks"),
     State({"type": "gs-theme-select", "base_theme": MATCH}, "value"),
     State({"type": "gs-theme-name-input", "base_theme": MATCH}, "value"),
-    State({"type": "gs-node-field", "base_theme": MATCH}, "value"),
-    State({"type": "gs-node-field", "base_theme": MATCH}, "id"),
-    State({"type": "gs-edge-field", "base_theme": MATCH}, "value"),
-    State({"type": "gs-edge-field", "base_theme": MATCH}, "id"),
-    State({"type": "gs-global-field", "base_theme": MATCH}, "value"),
-    State({"type": "gs-global-field", "base_theme": MATCH}, "id"),
+    State({"type": "gs-node-field", "base_theme": MATCH, "node_type": ALL, "field": ALL}, "value"),
+    State({"type": "gs-node-field", "base_theme": MATCH, "node_type": ALL, "field": ALL}, "id"),
+    State({"type": "gs-edge-field", "base_theme": MATCH, "field": ALL}, "value"),
+    State({"type": "gs-edge-field", "base_theme": MATCH, "field": ALL}, "id"),
+    State({"type": "gs-global-field", "base_theme": MATCH, "field": ALL}, "value"),
+    State({"type": "gs-global-field", "base_theme": MATCH, "field": ALL}, "id"),
     prevent_initial_call=True,
 )
 def save_theme(
