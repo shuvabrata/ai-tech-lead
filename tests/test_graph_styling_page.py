@@ -152,52 +152,59 @@ def test_node_row_has_all_six_fields() -> None:
     }
 
 
-# ── Phase 4.3 — single-node live preview ───────────────────────────────
+# ── Phase 4.3 — per-row live preview glyph ─────────────────────────────
 
 
 @pytest.mark.unit
-def test_preview_is_rendered() -> None:
-    """The layout includes a Cytoscape preview and its working stores."""
+def test_each_row_has_glyph() -> None:
+    """Each node-type row carries an inline preview glyph."""
+    from app.common.graph_theme import NODE_TYPES
+
+    expected = {nt for nt in NODE_TYPES if nt != "default"}
     layout = get_layout()
-    ids = [
-        getattr(n, "id", None)
-        for n in _collect(layout)
-        if isinstance(getattr(n, "id", None), str)
+    glyphs = [
+        n for n in _collect(layout)
+        if isinstance(getattr(n, "id", None), dict)
+        and n.id.get("type") == "gs-node-glyph"
     ]
-    assert "gs-preview-cytoscape" in ids
-    assert "gs-preview-node-type" in ids
+    for base_theme in ("executive-light", "executive-dark"):
+        per_theme = {
+            n.id["node_type"] for n in glyphs if n.id["base_theme"] == base_theme
+        }
+        assert per_theme == expected
 
 
 @pytest.mark.unit
-def test_preview_stylesheet_reflects_override() -> None:
-    """The preview stylesheet reflects the edited node's shape/color/size."""
+def test_glyph_style_reflects_override() -> None:
+    """The glyph style reflects fill/border/shape/size."""
     from app.dash_app.pages.settings.graph_styling.callbacks import (
-        build_preview_stylesheet,
+        build_glyph_style,
     )
 
-    overrides = {"shape": "diamond", "color": "#00FF00", "width": 80, "height": 60}
-    rules = build_preview_stylesheet("executive-light", "Person", overrides)
-
-    # The per-nodeType rule for Person should exist and reflect the override.
-    person_rule = next(
-        (r for r in rules if r.get("selector") == 'node[nodeType = "Person"]'),
-        None,
+    style = build_glyph_style(
+        fill="#00FF00",
+        border="#008800",
+        border_width=3,
+        shape="diamond",
+        width=80,
+        height=60,
     )
-    assert person_rule is not None
-    style = person_rule["style"]
-    assert style["shape"] == "diamond"
-    assert style["background-color"] == "#00FF00"
-    assert style["width"] == "80px"
-    assert style["height"] == "60px"
+    assert style["backgroundColor"] == "#00FF00"
+    assert "3px solid #008800" in style["border"]
+    assert "clipPath" in style  # diamond uses clip-path
+
+    # Larger width scales up to the max glyph box.
+    big = build_glyph_style("#000000", None, 0, "ellipse", 120, 60)
+    assert big["width"] == "28px"  # clamped to max
 
 
 @pytest.mark.unit
-def test_preview_stylesheet_has_node_rule() -> None:
-    """The preview stylesheet always includes a generic node rule."""
+def test_glyph_style_uses_defaults_when_unset() -> None:
+    """Unset fields fall back to defaults and never error."""
     from app.dash_app.pages.settings.graph_styling.callbacks import (
-        build_preview_stylesheet,
+        build_glyph_style,
     )
 
-    rules = build_preview_stylesheet("executive-dark", "Person", {})
-    selectors = [r.get("selector") for r in rules]
-    assert "node" in selectors
+    style = build_glyph_style(None, None, None, None, None, None)
+    assert style["backgroundColor"] == "#B8B8B8"
+    assert style["width"]  # non-empty string

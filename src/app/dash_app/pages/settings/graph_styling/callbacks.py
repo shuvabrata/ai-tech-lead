@@ -1,92 +1,111 @@
 """Callbacks for the Graph Styling settings page.
 
-Phase 4.3 — single-node live preview. A single Cytoscape node reflects the
-currently edited node type's shape/color/size in real time. The preview is
-driven by the node-field inputs via ``overrides_to_cytoscape_rules()``.
+Phase 4.3 — per-row live preview. Each node-type row carries an inline CSS
+glyph that reflects the row's current fill/border/border-width/shape/width/
+height in real time. The glyph reuses the legend's shape mapping so it matches
+the graph's node shapes without spinning up a Cytoscape engine per row.
 """
 
 from __future__ import annotations
 
 from typing import Any
 
-from dash import ALL, Input, Output, State, callback, callback_context
-from dash.exceptions import PreventUpdate
+from dash import MATCH, Input, Output, callback, html
 
-from app.common.graph_theme import merge_theme_overrides, overrides_to_cytoscape_rules
-from app.dash_app.styles import get_theme_tokens
+from app.dash_app.pages.graph.utils.ui_components import get_shape_css
 
-# Semantic field keys emitted by the node-field inputs (see components.py
-# ``_NODE_FIELDS``). These map 1:1 onto ``NodeOverride`` model fields.
-_NODE_FIELD_KEYS = ("color", "border", "border_width", "shape", "width", "height")
+# Reference node dimensions (px) used to scale the preview glyph into the
+# fixed-size preview box. Matches the default node width/height in the base
+# theme tokens (60px x 50px).
+_REF_WIDTH = 60.0
+_REF_HEIGHT = 50.0
+_MAX_GLYPH = 28.0
+_MIN_GLYPH = 10.0
+
+# Default fill/border when a field is unset (matches base "default" node).
+_DEFAULT_FILL = "#B8B8B8"
+_DEFAULT_BORDER = "#9E9E9E"
 
 
-def build_preview_stylesheet(
-    base_theme: str, node_type: str, node_overrides: dict[str, Any]
-) -> list[dict[str, Any]]:
-    """Build a Cytoscape stylesheet for the single-node preview.
+def build_glyph_style(
+    fill: Any,
+    border: Any,
+    border_width: Any,
+    shape: Any,
+    width: Any,
+    height: Any,
+) -> dict[str, Any]:
+    """Compute the inline glyph style from a row's current field values.
 
-    Merges ``node_overrides`` (semantic keys) over the base tokens for
-    ``base_theme`` and translates the result via
-    :func:`overrides_to_cytoscape_rules`. Falls back to the base tokens on any
-    validation error so the preview always renders.
-
-    Args:
-        base_theme: Base mode (``executive-light`` / ``executive-dark``).
-        node_type: The node type being previewed (e.g. ``Person``).
-        node_overrides: Semantic override dict for that node type (subset of
-            ``color``/``border``/``border_width``/``shape``/``width``/``height``).
-
-    Returns:
-        A list of Cytoscape rule dicts.
+    Scales the node width/height into the fixed preview box, applies the
+    fill/border, and layers the shape's clip-path/border-radius/transform via
+    :func:`get_shape_css`.
     """
-    base_tokens = get_theme_tokens(base_theme)
-    try:
-        merged = merge_theme_overrides(
-            base_tokens, {"nodes": {node_type: node_overrides}}
-        )
-    except (ValueError, TypeError):
-        merged = merge_theme_overrides(base_tokens, {})
-    return overrides_to_cytoscape_rules(merged)
+    shape_css = get_shape_css(shape or "ellipse")
+
+    def _num(value: Any, fallback: float) -> float:
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return fallback
+
+    w = _num(width, _REF_WIDTH)
+    h = _num(height, _REF_HEIGHT)
+    scale = _MAX_GLYPH / _REF_WIDTH
+    glyph_w = max(_MIN_GLYPH, min(_MAX_GLYPH, w * scale))
+    glyph_h = max(_MIN_GLYPH, min(_MAX_GLYPH, h * scale))
+
+    style: dict[str, Any] = {
+        "width": f"{glyph_w:.0f}px",
+        "height": f"{glyph_h:.0f}px",
+        "backgroundColor": fill or _DEFAULT_FILL,
+        "border": f"{_num(border_width, 0):.0f}px solid {border or _DEFAULT_BORDER}",
+    }
+    for key in ("clipPath", "borderRadius", "transform"):
+        if key in shape_css:
+            style[key] = shape_css[key]
+    return style
 
 
 @callback(
-    Output("gs-preview-node-type", "data"),
-    Output("gs-preview-cytoscape", "elements"),
-    Output("gs-preview-cytoscape", "stylesheet"),
-    Input({"type": "gs-node-field", "base_theme": ALL, "node_type": ALL, "field": ALL}, "value"),
-    State({"type": "gs-node-field", "base_theme": ALL, "node_type": ALL, "field": ALL}, "id"),
-    prevent_initial_call=True,
+    Output(
+        {"type": "gs-node-glyph", "base_theme": MATCH, "node_type": MATCH},
+        "children",
+    ),
+    Input(
+        {"type": "gs-node-field", "base_theme": MATCH, "node_type": MATCH, "field": "color"},
+        "value",
+    ),
+    Input(
+        {"type": "gs-node-field", "base_theme": MATCH, "node_type": MATCH, "field": "border"},
+        "value",
+    ),
+    Input(
+        {"type": "gs-node-field", "base_theme": MATCH, "node_type": MATCH, "field": "border_width"},
+        "value",
+    ),
+    Input(
+        {"type": "gs-node-field", "base_theme": MATCH, "node_type": MATCH, "field": "shape"},
+        "value",
+    ),
+    Input(
+        {"type": "gs-node-field", "base_theme": MATCH, "node_type": MATCH, "field": "width"},
+        "value",
+    ),
+    Input(
+        {"type": "gs-node-field", "base_theme": MATCH, "node_type": MATCH, "field": "height"},
+        "value",
+    ),
 )
-def update_preview(values: list[Any], ids: list[dict[str, str]]) -> tuple:
-    """Update the single-node preview when any node field changes.
-
-    Determines the most-recently edited node type, gathers the current values
-    of all six fields for that node type (from the matching inputs), and
-    rebuilds the preview node's ``nodeType`` and stylesheet.
-    """
-    triggered = callback_context.triggered_id
-    if not isinstance(triggered, dict) or triggered.get("type") != "gs-node-field":
-        raise PreventUpdate
-
-    node_type = triggered["node_type"]
-    base_theme = triggered["base_theme"]
-
-    # Gather current values for the edited node type / base mode.
-    node_overrides: dict[str, Any] = {}
-    for value, input_id in zip(values, ids):
-        if not isinstance(input_id, dict):
-            continue
-        if input_id.get("base_theme") != base_theme:
-            continue
-        if input_id.get("node_type") != node_type:
-            continue
-        field = input_id.get("field")
-        if field in _NODE_FIELD_KEYS and value not in (None, ""):
-            node_overrides[field] = value
-
-    stylesheet = build_preview_stylesheet(base_theme, node_type, node_overrides)
-    elements = [
-        {"data": {"id": "preview-node", "label": node_type, "nodeType": node_type}},
-    ]
-    return node_type, elements, stylesheet
+def update_node_glyph(
+    fill: Any,
+    border: Any,
+    border_width: Any,
+    shape: Any,
+    width: Any,
+    height: Any,
+) -> list[Any]:
+    """Update a row's inline preview glyph from its six field values."""
+    style = build_glyph_style(fill, border, border_width, shape, width, height)
+    return [html.Div(style=style)]
 

@@ -25,7 +25,7 @@ from app.dash_app.styles import (
     SPACING_XSMALL,
 )
 
-from .components import build_base_mode_tabs, build_preview
+from .components import build_base_mode_tabs
 
 
 def _breadcrumb() -> html.Div:
@@ -80,7 +80,6 @@ def get_layout() -> html.Div:
                     "marginBottom": SPACING_SMALL,
                 },
             ),
-            build_preview(),
             build_base_mode_tabs(),
         ],
         style=CARD_CONTAINER_STYLE,

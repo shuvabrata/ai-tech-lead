@@ -11,7 +11,6 @@ from __future__ import annotations
 from typing import Any
 
 import dash_bootstrap_components as dbc
-import dash_cytoscape as cyto
 from dash import dcc, html
 
 from app.common.graph_theme import ALLOWED_SHAPES, NODE_TYPES
@@ -59,8 +58,8 @@ _NODE_FIELDS: tuple[tuple[str, str, str], ...] = (
 )
 
 # Grid template shared by the node-type header row and each node-type row:
-# a fixed name column followed by one column per configurable field.
-_NODE_GRID_TEMPLATE = "140px repeat(6, minmax(0, 1fr))"
+# a fixed name column, one column per configurable field, then a preview glyph.
+_NODE_GRID_TEMPLATE = "140px repeat(6, minmax(0, 1fr)) 48px"
 
 # Column labels for the node-type header row (aligned with _NODE_FIELDS).
 _NODE_HEADER_LABELS: tuple[str, ...] = (
@@ -71,6 +70,7 @@ _NODE_HEADER_LABELS: tuple[str, ...] = (
     "Shape",
     "Width",
     "Height",
+    "Preview",
 )
 
 
@@ -191,8 +191,9 @@ def _card_title(text: str) -> html.Div:
 def build_node_type_row(base_theme: str, node_type: str) -> html.Div:
     """Build a single editor row for one node type.
 
-    Renders the node type name followed by six inline inputs: fill, border,
-    border-width, shape, width, height.
+    Renders the node type name, six inline inputs (fill, border, border-width,
+    shape, width, height), and an inline live-preview glyph that reflects the
+    current values of those inputs.
     """
     name = html.Div(
         node_type,
@@ -209,8 +210,10 @@ def build_node_type_row(base_theme: str, node_type: str) -> html.Div:
         for field, _label, kind in _NODE_FIELDS
     ]
 
+    glyph = build_node_glyph(base_theme, node_type)
+
     return html.Div(
-        [name, *inputs],
+        [name, *inputs, glyph],
         id={
             "type": "gs-node-row",
             "base_theme": base_theme,
@@ -377,52 +380,28 @@ def build_base_mode_tabs() -> dbc.Tabs:
     )
 
 
-# ── Single-node live preview ───────────────────────────────────────────
+# ── Inline per-row live preview glyph ──────────────────────────────────
 
 
-def build_preview() -> html.Div:
-    """Build the single-node Cytoscape live preview.
+def build_node_glyph(base_theme: str, node_type: str) -> html.Div:
+    """Build the inline live-preview glyph for a single node-type row.
 
-    Renders one node (with ``nodeType`` matching the currently edited node
-    type) plus a ``dcc.Store`` that holds the working override document. The
-    preview stylesheet is rebuilt by a callback whenever a node field changes.
+    A lightweight CSS glyph (no Cytoscape engine) that reflects the row's
+    current fill/border/border-width/shape/width/height via a callback. The
+    shape is rendered with the same ``clip-path`` mapping used by the node
+    legend, so the glyph matches the graph's node shapes.
     """
-    elements = [
-        {"data": {"id": "preview-node", "label": "Preview", "nodeType": "Person"}},
-    ]
-
     return html.Div(
-        [
-            html.Div(
-                "Live Preview",
-                style={
-                    "fontFamily": FONT_SANS,
-                    "fontSize": FONT_SIZE_SMALL,
-                    "fontWeight": FONT_WEIGHT_SEMIBOLD,
-                    "color": COLOR_CHARCOAL_MEDIUM,
-                    "textTransform": "uppercase",
-                    "letterSpacing": "0.5px",
-                    "marginBottom": SPACING_XSMALL,
-                },
-            ),
-            dcc.Store(id="gs-preview-working", data={}),
-            dcc.Store(id="gs-preview-node-type", data="Person"),
-            cyto.Cytoscape(
-                id="gs-preview-cytoscape",
-                elements=elements,
-                layout={"name": "preset"},
-                style={
-                    "width": "100%",
-                    "height": "180px",
-                    "backgroundColor": "var(--color-graph-canvas)",
-                    "borderRadius": "2px",
-                    "border": f"1px solid {COLOR_BORDER}",
-                },
-                stylesheet=[],
-                userZoomingEnabled=False,
-                userPanningEnabled=False,
-            ),
-        ],
-        id="gs-preview",
-        style={"marginBottom": SPACING_SMALL},
+        id={
+            "type": "gs-node-glyph",
+            "base_theme": base_theme,
+            "node_type": node_type,
+        },
+        style={
+            "width": "28px",
+            "height": "28px",
+            "display": "flex",
+            "alignItems": "center",
+            "justifyContent": "center",
+        },
     )
