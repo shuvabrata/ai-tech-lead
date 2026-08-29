@@ -277,34 +277,84 @@ automated **and** manual tests pass. Each sub-phase is independently shippable a
 
 > **Exit criteria**: full create/edit/clone/set-default/delete flow; single-node live preview; card un-gated and route registered.
 
-- [ ] **4.1** New page module under `src/app/dash_app/pages/settings/graph_styling/`
-  (layout + callbacks).
-- [ ] **4.2** Two base-mode sections (light/dark), non-collapsible grid of
-  node-type cards (color/border/border-width/shape/width/height) + Edges card +
-  Global card.
-- [ ] **4.3** Single-node Cytoscape live preview driven by a `dcc.Store`
-  working dict via `overrides_to_cytoscape_rules()`.
-- [ ] **4.4** Actions: "Duplicate to edit" (builtin → clone), "Set as default"
-  (ConfirmDialog), "Save" (full-document PATCH), "Delete" (ConfirmDialog).
-- [ ] **4.5** Add missing legend glyphs to `get_shape_css()` for the full
-  `ALLOWED_SHAPES` set.
-- [ ] **4.6** Un-gate the `graph-styling` card in `settings/layout.py`
-  (`coming_soon=False`); register the page route.
+Sub-phases are **strictly sequential**: do not start sub-phase N+1 until sub-phase N's
+automated **and** manual tests pass. Each sub-phase is independently shippable and testable.
 
-### Automated tests (Phase 4)
-- `pytest -m unit tests/test_graph_styling_page.py -q` (new file):
-  - layout renders two sections + node-type cards.
-  - preview callback emits a stylesheet with the edited node's shape/color/size.
-  - builtin card renders "Duplicate" affordance, not plain Edit.
-- `pytest -m unit tests/test_graph_theme.py -q` — legend glyph parity: every
-  `ALLOWED_SHAPES` entry has a `get_shape_css` mapping.
+### Sub-phase 4.1 — Scaffolding, route, and card un-gate
 
-### Manual tests (Phase 4)
-- Open Settings → Graph Styling; verify both base-mode sections and seeded themes listed with default starred.
-- Edit a node type; confirm the single-node preview updates live (shape/size/color).
+> **Exit criteria**: the Graph Styling page is reachable at `/app/settings/graph-styling` and renders an empty-but-valid shell (no editor controls yet).
+
+- [ ] Create `src/app/dash_app/pages/settings/graph_styling/` package with a
+  `layout.py` exposing `get_layout()` (minimal placeholder) and a `callbacks.py`
+  (registered via the package `__init__.py`).
+- [ ] Register the page route in `dash_app/layout.py` (`/app/settings/graph-styling`).
+- [ ] Un-gate the `graph-styling` card in `settings/layout.py`
+  (`coming_soon=False`, add `href="/app/settings/graph-styling"`).
+- [ ] Add a `graph-styling` branch in `settings/callbacks.py` `handle_card_click()`.
+- [ ] Export `get_layout` from `settings/__init__.py` and register callbacks.
+
+**Automated tests**:
+- `pytest -m unit tests/test_graph_styling_page.py -q` (new) — layout returns a `html.Div` shell; package import registers callbacks without error.
+
+**Manual tests**:
+- Rebuild app; navigate Settings → click the "Graph Styling" card → page loads (empty shell, no errors).
+
+### Sub-phase 4.2 — Editor layout (base-mode sections + node-type cards)
+
+> **Exit criteria**: page renders two base-mode sections (light/dark), each with a non-collapsible grid of node-type cards (color/border/border-width/shape/width/height) plus an Edges card and a Global card.
+
+- [ ] Build the two base-mode sections (light/dark).
+- [ ] Build the node-type card grid (one card per `NODE_TYPES` entry, excluding `default`), with inputs for color/border/border-width/shape/width/height.
+- [ ] Add the Edges card (line_color/width/arrow_shape/label_color).
+- [ ] Add the Global card (node_label_color/selection_color/edge_label_background).
+
+**Automated tests**:
+- `pytest -m unit tests/test_graph_styling_page.py -q` — layout renders two base-mode sections + node-type cards; Edges/Global cards present.
+
+**Manual tests**:
+- Open Settings → Graph Styling; confirm both base-mode sections and all node-type/Edges/Global cards render.
+
+### Sub-phase 4.3 — Single-node live preview
+
+> **Exit criteria**: a single-node Cytoscape preview reflects the currently edited node's shape/color/size in real time.
+
+- [ ] Add a single-node Cytoscape preview component driven by a `dcc.Store` working dict via `overrides_to_cytoscape_rules()`.
+
+**Automated tests**:
+- `pytest -m unit tests/test_graph_styling_page.py -q` — preview callback emits a stylesheet with the edited node's shape/color/size.
+
+**Manual tests**:
+- Edit a node type's shape/color/size; confirm the preview updates live.
+
+### Sub-phase 4.4 — Actions (clone / set-default / save / delete)
+
+> **Exit criteria**: full create/edit/clone/set-default/delete flow works end-to-end against the API.
+
+- [ ] "Duplicate to edit" (builtin → clone) affordance on builtin cards.
+- [ ] "Set as default" (ConfirmDialog) action.
+- [ ] "Save" (full-document PATCH) action.
+- [ ] "Delete" (ConfirmDialog) action; builtin delete disabled.
+
+**Automated tests**:
+- `pytest -m unit tests/test_graph_styling_page.py -q` — builtin card renders "Duplicate" affordance, not plain Edit.
+
+**Manual tests**:
 - "Duplicate to edit" a builtin → new user row appears; edit → Save → persists.
 - "Set as default" on the new theme; navigate Graph; confirm it applies.
 - "Delete" a user theme → confirm dialog → removed (builtin delete disabled).
+
+### Sub-phase 4.5 — Legend glyph parity
+
+> **Exit criteria**: every `ALLOWED_SHAPES` entry has a `get_shape_css()` mapping.
+
+- [ ] Add missing legend glyphs to `get_shape_css()` in
+  `graph/utils/ui_components.py` for the full `ALLOWED_SHAPES` set.
+
+**Automated tests**:
+- `pytest -m unit tests/test_graph_theme.py -q` — legend glyph parity: every `ALLOWED_SHAPES` entry has a `get_shape_css` mapping.
+
+**Manual tests**:
+- Open the shape dropdown in the editor; confirm every shape renders a sensible legend glyph (no broken/empty swatches).
 
 ---
 
@@ -342,6 +392,11 @@ automated tests and manual tests pass.**
 - [x] Phase 3.4 complete (Search page dynamic badge colors)
 - [x] Phase 3.5 complete (consistency test updated)
 - [x] Phase 3 complete (all consumers wired)
+- [ ] Phase 4.1 complete (scaffolding + route + card un-gate)
+- [ ] Phase 4.2 complete (editor layout — sections + cards)
+- [ ] Phase 4.3 complete (single-node live preview)
+- [ ] Phase 4.4 complete (actions — clone/set-default/save/delete)
+- [ ] Phase 4.5 complete (legend glyph parity)
 - [ ] Phase 4 complete (editor UI)
 - [ ] All automated suites green (`pytest -m unit tests -q`)
 - [ ] Manual smoke test full pass (create → edit → set-default → verify on all 3 pages)
