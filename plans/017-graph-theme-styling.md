@@ -202,27 +202,74 @@ into rules.
 
 > **Exit criteria**: Graph + Collab + Search all render the merged theme; consistency test updated and green.
 
-- [ ] **3.1** Refactor `build_cytoscape_stylesheet()` in
-  `pages/graph/styles.py` to consume merged tokens (drive shape/size from
-  token output rather than inline literals).
-- [ ] **3.2** Graph page: `update_graph_stylesheet` callback fetches
-  `/effective` for the current `theme-store`.
-- [ ] **3.3** Collab page: add a `stylesheet` callback (mirror Graph); convert
+Sub-phases are **strictly sequential**: do not start sub-phase N+1 until sub-phase N's
+automated **and** manual tests pass. Each sub-phase is independently shippable and testable.
+
+### Sub-phase 3.1 — Refactor `build_cytoscape_stylesheet()` to consume merged tokens
+
+> **Exit criteria**: `build_cytoscape_stylesheet()` drives shape/size from merged tokens (not inline literals); no visual change with empty overrides.
+
+- [ ] Refactor `build_cytoscape_stylesheet()` in `pages/graph/styles.py` to
+  consume merged tokens (drive shape/size from token output rather than
+  inline literals).
+
+**Automated tests**:
+- `pytest -m unit tests/test_graph_theme.py -q` — regression on merge/rules.
+
+**Manual tests**:
+- With no overrides, navigate Graph; confirm appearance is identical to current hardcoded output.
+
+### Sub-phase 3.2 — Graph page stylesheet callback
+
+> **Exit criteria**: Graph page fetches `/effective` for the current `theme-store` mode.
+
+- [ ] Graph page: `update_graph_stylesheet` callback fetches `/effective` for
+  the current `theme-store`.
+
+**Automated tests**:
+- `pytest -m unit tests/test_graph_theme.py -q` — regression on merge/rules.
+
+**Manual tests**:
+- Create a theme overriding `Person` fill to a distinctive color; navigate Graph; confirm the node reflects the override.
+
+### Sub-phase 3.3 — Collab page stylesheet callback
+
+> **Exit criteria**: Collab page renders the merged theme via a stylesheet callback (mirroring Graph); no longer uses the hardcoded `CYTOSCAPE_STYLESHEET` constant.
+
+- [ ] Collab page: add a `stylesheet` callback (mirror Graph); convert
   `stylesheet=CYTOSCAPE_STYLESHEET` in `collaboration_network/layout.py` to
   callback-driven.
-- [ ] **3.4** Search page: fetch `/effective` into a `dcc.Store`; resolve
-  `_badge_color()` dynamically (replace import-time `TOKENS` snapshot).
-- [ ] **3.5** Update `tests/test_search_node_color_consistency.py` for the new
-  dynamic resolution.
 
-### Automated tests (Phase 3)
-- `pytest -m unit tests/test_graph_theme.py -q` — regression on merge/rules.
-- `pytest -m unit tests/test_search_node_color_consistency.py -q` — invariant still holds (badge colors == effective node colors).
+**Automated tests**:
 - `pytest -m unit tests/test_collab_network_controls.py -q` — Collab stylesheet callback returns merged rules.
 
-### Manual tests (Phase 3)
-- Run app; navigate Graph → Collab → Search with no overrides; confirm appearance unchanged (parity with current hardcoded output).
-- Create a theme overriding `Person` fill to a distinctive color; navigate Graph/Collab/Search; all three reflect the color.
+**Manual tests**:
+- Navigate Collab; confirm a `Person`-color override is reflected.
+
+### Sub-phase 3.4 — Search page dynamic badge colors
+
+> **Exit criteria**: Search page resolves `_badge_color()` dynamically from `/effective` (no import-time `TOKENS` snapshot).
+
+- [ ] Search page: fetch `/effective` into a `dcc.Store`; resolve
+  `_badge_color()` dynamically (replace import-time `TOKENS` snapshot).
+
+**Automated tests**:
+- `pytest -m unit tests/test_search_node_color_consistency.py -q` — badge colors == effective node colors.
+
+**Manual tests**:
+- Navigate Search; confirm a `Person`-color override is reflected in badge colors.
+
+### Sub-phase 3.5 — Update consistency test for dynamic resolution
+
+> **Exit criteria**: `test_search_node_color_consistency.py` updated for dynamic resolution and green.
+
+- [ ] Update `tests/test_search_node_color_consistency.py` for the new dynamic resolution.
+
+**Automated tests**:
+- `pytest -m unit tests/test_search_node_color_consistency.py -q` — invariant still holds (badge colors == effective node colors).
+
+**Manual tests**:
+- Full smoke test: create → edit a theme; verify all three pages (Graph / Collab / Search) reflect the override.
 
 ---
 
@@ -289,7 +336,12 @@ automated tests and manual tests pass.**
 
 - [x] Phase 1 complete (shared core + DB)
 - [x] Phase 2 complete (API)
-- [ ] Phase 3 complete (consumers wired)
+- [ ] Phase 3.1 complete (`build_cytoscape_stylesheet` consumes merged tokens)
+- [ ] Phase 3.2 complete (Graph page stylesheet callback)
+- [ ] Phase 3.3 complete (Collab page stylesheet callback)
+- [ ] Phase 3.4 complete (Search page dynamic badge colors)
+- [ ] Phase 3.5 complete (consistency test updated)
+- [ ] Phase 3 complete (all consumers wired)
 - [ ] Phase 4 complete (editor UI)
 - [ ] All automated suites green (`pytest -m unit tests -q`)
 - [ ] Manual smoke test full pass (create → edit → set-default → verify on all 3 pages)
