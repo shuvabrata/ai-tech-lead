@@ -132,18 +132,28 @@ def _number_input(input_id: dict[str, Any], value: Any = None) -> dbc.Input:
     )
 
 
-def _shape_input(input_id: dict[str, Any], value: Any = None) -> dcc.Dropdown:
+def _shape_input(input_id: dict[str, Any], value: Any = None) -> dbc.Select:
     """Shape dropdown populated with the full Cytoscape shape set.
 
-    Clearable so an empty value means "inherit the base shape".
+    Native ``<select>`` (consistent with the rest of the app). An explicit
+    "Inherit (default)" option (empty value) means "inherit the base shape".
     """
-    return dcc.Dropdown(
+    options = [{"label": "Inherit (default)", "value": ""}] + [
+        {"label": shape, "value": shape} for shape in ALLOWED_SHAPES
+    ]
+    return dbc.Select(
         id=input_id,
-        options=[{"label": shape, "value": shape} for shape in ALLOWED_SHAPES],
-        clearable=True,
-        placeholder="Inherit",
-        value=value,
-        style={"fontFamily": FONT_SANS, "fontSize": FONT_SIZE_XSMALL},
+        options=options,
+        value=value if value is not None else "",
+        style={
+            "fontFamily": FONT_SANS,
+            "fontSize": FONT_SIZE_SMALL,
+            "height": "34px",
+            "padding": f"0 {SPACING_XSMALL}",
+            "border": f"1px solid {COLOR_BORDER}",
+            "borderRadius": "2px",
+            "width": "100%",
+        },
     )
 
 
@@ -283,14 +293,21 @@ def build_edges_card(base_theme: str, overrides: dict[str, Any] | None = None) -
         html.Div(
             [
                 _field_label("Arrow Shape"),
-                dcc.Dropdown(
+                dbc.Select(
                     id=arrow_id,
                     options=[
                         {"label": shape, "value": shape} for shape in ARROW_SHAPES
                     ],
-                    clearable=False,
-                    value=overrides.get("arrow_shape"),
-                    style={"fontFamily": FONT_SANS, "fontSize": FONT_SIZE_XSMALL},
+                    value=overrides.get("arrow_shape") or ARROW_SHAPES[0],
+                    style={
+                        "fontFamily": FONT_SANS,
+                        "fontSize": FONT_SIZE_SMALL,
+                        "height": "34px",
+                        "padding": f"0 {SPACING_XSMALL}",
+                        "border": f"1px solid {COLOR_BORDER}",
+                        "borderRadius": "2px",
+                        "width": "100%",
+                    },
                 ),
             ]
         )
@@ -361,15 +378,21 @@ def build_theme_toolbar(base_theme: str) -> html.Div:
             dbc.Row(
                 [
                     dbc.Col(
-                        dcc.Dropdown(
+                        dbc.Select(
                             id={
                                 "type": "gs-theme-select",
                                 "base_theme": base_theme,
                             },
                             options=[],
                             placeholder="Select a theme\u2026",
-                            clearable=False,
-                            style={"fontFamily": FONT_SANS, "fontSize": FONT_SIZE_SMALL},
+                            style={
+                                "fontFamily": FONT_SANS,
+                                "fontSize": FONT_SIZE_SMALL,
+                                "height": "34px",
+                                "padding": f"0 {SPACING_XSMALL}",
+                                "border": f"1px solid {COLOR_BORDER}",
+                                "borderRadius": "2px",
+                            },
                         ),
                         width=3,
                     ),

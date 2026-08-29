@@ -284,6 +284,44 @@ input::placeholder {
 }
 
 /* ============================================================================= */
+/* react-select Dropdown Styling (dcc.Dropdown) — light theme defaults          */
+/* ============================================================================= */
+
+.Select-control {
+    background-color: var(--color-background-white) !important;
+    border-color: var(--color-border) !important;
+    color: var(--color-charcoal) !important;
+}
+
+.Select-control:hover {
+    border-color: var(--color-border-light) !important;
+}
+
+.Select-input {
+    color: var(--color-charcoal) !important;
+}
+
+.Select-menu-outer {
+    background-color: var(--color-background-white) !important;
+    border-color: var(--color-border) !important;
+}
+
+.Select-option {
+    background-color: var(--color-background-white) !important;
+    color: var(--color-charcoal) !important;
+}
+
+.Select-option.is-focused {
+    background-color: var(--color-surface-active) !important;
+    color: var(--color-charcoal) !important;
+}
+
+.Select-option.is-selected {
+    background-color: var(--color-navy) !important;
+    color: var(--color-background-white) !important;
+}
+
+/* ============================================================================= */
 /* Dark Theme Form Styling */
 /* ============================================================================= */
 
@@ -347,6 +385,36 @@ input::placeholder {
 
 .theme-executive-dark .Select-placeholder {
     color: var(--color-gray-dark) !important;
+}
+
+.theme-executive-dark .Select-control {
+    background-color: var(--color-background-light) !important;
+    border-color: var(--color-border-light) !important;
+    color: var(--color-text-dark) !important;
+}
+
+.theme-executive-dark .Select-input {
+    color: var(--color-text-dark) !important;
+}
+
+.theme-executive-dark .Select-menu-outer {
+    background-color: var(--color-background-light) !important;
+    border-color: var(--color-border-light) !important;
+}
+
+.theme-executive-dark .Select-option {
+    background-color: var(--color-background-light) !important;
+    color: var(--color-text-dark) !important;
+}
+
+.theme-executive-dark .Select-option.is-focused {
+    background-color: var(--color-surface-active) !important;
+    color: var(--color-text-dark) !important;
+}
+
+.theme-executive-dark .Select-option.is-selected {
+    background-color: var(--color-navy) !important;
+    color: var(--color-background-white) !important;
 }
 
 .theme-executive-dark .form-control:focus {

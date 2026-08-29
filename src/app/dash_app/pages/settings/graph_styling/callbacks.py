@@ -251,7 +251,7 @@ def load_themes(pathname: str, select_id: dict[str, str]) -> tuple:
     except requests.RequestException:
         return [], {}
 
-    options = [
+    options = [{"label": "Select a theme\u2026", "value": ""}] + [
         {"label": _theme_label(t), "value": t["id"]} for t in themes
     ]
     by_id = {str(t["id"]): t for t in themes}

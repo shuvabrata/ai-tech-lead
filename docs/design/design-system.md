@@ -313,7 +313,43 @@ The dialog message must state the scope of destruction and include the phrase "T
 
 ---
 
-## CSS Variables
+### Form Inputs & Dropdowns
+
+**App Standard**: Use `dbc.Select` (native `<select>`, styled via Bootstrap's `.form-select`) for all dropdowns, **not** `dcc.Dropdown` (react-select). `dcc.Dropdown` renders a custom DOM structure that bypasses the theme-aware `.form-select` / `.theme-executive-dark .form-select` CSS rules, causing white backgrounds and poor contrast in dark mode.
+
+```python
+import dash_bootstrap_components as dbc
+
+# Correct — native <select>, theme-aware in both light and dark mode
+picker = dbc.Select(
+    id="catalog-namespace-filter",
+    options=[{"label": "All namespaces", "value": "__all__"}],
+    value="__all__",
+    size="sm",
+)
+
+# Incorrect — react-select; inconsistent styling across themes
+from dash import dcc
+picker = dcc.Dropdown(
+    id="my-dropdown",
+    options=[{"label": "A", "value": "a"}],
+)
+```
+
+**Native `<select>` cannot hold a null value** (unlike `dcc.Dropdown`'s clearable mode). To express an "inherit default / no selection" state, add an explicit first option with an empty value and treat `""` as unset in callbacks:
+
+```python
+options = [{"label": "Inherit (default)", "value": ""}] + [
+    {"label": shape, "value": shape} for shape in ALLOWED_SHAPES
+]
+```
+
+**Visual**:
+- Light theme: white background, charcoal text, navy focus ring
+- Dark theme: dark surface (`--color-background-light`), light text — no white backgrounds
+- Reference implementation: Graph page → Right panel → Catalog tab → Namespace picker (`dbc.Select`)
+
+---
 
 All CSS variables are defined in `app/dash_app/assets/executive-dashboard.css`:
 
