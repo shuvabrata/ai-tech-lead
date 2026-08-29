@@ -1,9 +1,13 @@
 """Graph Styling settings page layout.
 
 Provides a user-configurable editor for graph themes (colors, shapes, sizes,
-and edge/global styling). This module currently renders a placeholder shell;
-the full editor (base-mode sections, node-type cards, live preview, and
-actions) is implemented in later phases of Plan 017.
+and edge/global styling). The layout renders two base-mode sections
+(executive-light / executive-dark), each containing a grid of node-type cards
+plus an Edges card and a Global card.
+
+The live preview and actions (save/clone/set-default/delete) are implemented
+in later phases of Plan 017; this module currently builds the static editor
+layout only.
 """
 
 from __future__ import annotations
@@ -21,54 +25,62 @@ from app.dash_app.styles import (
     SPACING_XSMALL,
 )
 
+from .components import build_base_mode_tabs
 
-def get_layout() -> html.Div:
-    """Return the Graph Styling settings page layout (placeholder shell)."""
+
+def _breadcrumb() -> html.Div:
+    """Breadcrumb trail (Settings / Graph Styling)."""
     return html.Div(
         [
-            html.Div(
-                [
-                    dcc.Link(
-                        "Settings",
-                        href="/app/settings",
-                        style={
-                            "fontFamily": FONT_SANS,
-                            "fontSize": FONT_SIZE_SMALL,
-                            "color": COLOR_GRAY_MEDIUM,
-                            "textDecoration": "none",
-                        },
-                    ),
-                    html.Span(
-                        " / ",
-                        style={
-                            "fontFamily": FONT_SANS,
-                            "fontSize": FONT_SIZE_SMALL,
-                            "color": COLOR_GRAY_MEDIUM,
-                            "margin": f"0 {SPACING_XSMALL}",
-                        },
-                    ),
-                    html.Span(
-                        "Graph Styling",
-                        style={
-                            "fontFamily": FONT_SANS,
-                            "fontSize": FONT_SIZE_SMALL,
-                            "color": COLOR_CHARCOAL_MEDIUM,
-                        },
-                    ),
-                ],
-                style={"marginBottom": SPACING_SMALL},
+            dcc.Link(
+                "Settings",
+                href="/app/settings",
+                style={
+                    "fontFamily": FONT_SANS,
+                    "fontSize": FONT_SIZE_SMALL,
+                    "color": COLOR_GRAY_MEDIUM,
+                    "textDecoration": "none",
+                },
             ),
+            html.Span(
+                " / ",
+                style={
+                    "fontFamily": FONT_SANS,
+                    "fontSize": FONT_SIZE_SMALL,
+                    "color": COLOR_GRAY_MEDIUM,
+                    "margin": f"0 {SPACING_XSMALL}",
+                },
+            ),
+            html.Span(
+                "Graph Styling",
+                style={
+                    "fontFamily": FONT_SANS,
+                    "fontSize": FONT_SIZE_SMALL,
+                    "color": COLOR_CHARCOAL_MEDIUM,
+                },
+            ),
+        ],
+        style={"marginBottom": SPACING_SMALL},
+    )
+
+
+def get_layout() -> html.Div:
+    """Return the Graph Styling settings page layout."""
+    return html.Div(
+        [
+            _breadcrumb(),
             create_page_header("Graph Styling"),
             html.Div(
-                "Customize graph colors, shapes, sizes, and node appearance. "
-                "The editor will appear here in a future update.",
+                "Customize graph colors, shapes, sizes, and node appearance.",
                 style={
                     "fontFamily": FONT_SANS,
                     "fontSize": FONT_SIZE_SMALL,
                     "color": COLOR_GRAY_MEDIUM,
                     "lineHeight": "1.6",
+                    "marginBottom": SPACING_SMALL,
                 },
             ),
+            build_base_mode_tabs(),
         ],
         style=CARD_CONTAINER_STYLE,
     )

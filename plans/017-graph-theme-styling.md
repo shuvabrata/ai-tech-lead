@@ -303,10 +303,10 @@ automated **and** manual tests pass. Each sub-phase is independently shippable a
 
 > **Exit criteria**: page renders two base-mode sections (light/dark), each with a non-collapsible grid of node-type cards (color/border/border-width/shape/width/height) plus an Edges card and a Global card.
 
-- [ ] Build the two base-mode sections (light/dark).
-- [ ] Build the node-type card grid (one card per `NODE_TYPES` entry, excluding `default`), with inputs for color/border/border-width/shape/width/height.
-- [ ] Add the Edges card (line_color/width/arrow_shape/label_color).
-- [ ] Add the Global card (node_label_color/selection_color/edge_label_background).
+- [x] Build the two base-mode sections (light/dark).
+- [x] Build the node-type card grid (one card per `NODE_TYPES` entry, excluding `default`), with inputs for color/border/border-width/shape/width/height.
+- [x] Add the Edges card (line_color/width/arrow_shape/label_color).
+- [x] Add the Global card (node_label_color/selection_color/edge_label_background).
 
 **Automated tests**:
 - `pytest -m unit tests/test_graph_styling_page.py -q` — layout renders two base-mode sections + node-type cards; Edges/Global cards present.
@@ -393,7 +393,7 @@ automated tests and manual tests pass.**
 - [x] Phase 3.5 complete (consistency test updated)
 - [x] Phase 3 complete (all consumers wired)
 - [x] Phase 4.1 complete (scaffolding + route + card un-gate)
-- [ ] Phase 4.2 complete (editor layout — sections + cards)
+- [x] Phase 4.2 complete (editor layout — sections + cards)
 - [ ] Phase 4.3 complete (single-node live preview)
 - [ ] Phase 4.4 complete (actions — clone/set-default/save/delete)
 - [ ] Phase 4.5 complete (legend glyph parity)

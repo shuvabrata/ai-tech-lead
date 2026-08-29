@@ -59,3 +59,94 @@ def test_package_import_registers_callbacks_without_error() -> None:
 
     assert callable(graph_styling.get_layout)
     assert callable(callbacks) or callbacks is not None
+
+
+# ── Phase 4.2 — editor layout ──────────────────────────────────────────
+
+
+def _collect(node):
+    """Flatten a Dash component tree into a list of all nested components."""
+    results = [node]
+    children = getattr(node, "children", None)
+    if children is None:
+        return results
+    if isinstance(children, (list, tuple)):
+        for child in children:
+            if hasattr(child, "children") or hasattr(child, "id"):
+                results.extend(_collect(child))
+    elif hasattr(children, "children") or hasattr(children, "id"):
+        results.extend(_collect(children))
+    return results
+
+
+@pytest.mark.unit
+def test_layout_has_two_base_mode_tabs() -> None:
+    """The editor renders base modes as tabs (Light + Dark)."""
+    layout = get_layout()
+    sections = [
+        n for n in _collect(layout)
+        if isinstance(getattr(n, "id", None), dict)
+        and n.id.get("type") == "gs-base-section"
+    ]
+    themes = {n.id["base_theme"] for n in sections}
+    assert themes == {"executive-light", "executive-dark"}
+
+
+@pytest.mark.unit
+def test_layout_has_node_type_rows_per_section() -> None:
+    """Each base-mode section renders a node-type row per type (excluding default)."""
+    from app.common.graph_theme import NODE_TYPES
+
+    expected = {nt for nt in NODE_TYPES if nt != "default"}
+    layout = get_layout()
+    rows = [
+        n for n in _collect(layout)
+        if isinstance(getattr(n, "id", None), dict)
+        and n.id.get("type") == "gs-node-row"
+    ]
+    for base_theme in ("executive-light", "executive-dark"):
+        per_theme = {
+            n.id["node_type"] for n in rows if n.id["base_theme"] == base_theme
+        }
+        assert per_theme == expected
+
+
+@pytest.mark.unit
+def test_layout_has_edges_and_global_cards() -> None:
+    """Each base-mode section includes an Edges card and a Global card."""
+    layout = get_layout()
+    cards = [
+        n for n in _collect(layout)
+        if isinstance(getattr(n, "id", None), dict)
+        and n.id.get("type") in ("gs-edges-card", "gs-global-card")
+    ]
+    for base_theme in ("executive-light", "executive-dark"):
+        kinds = {
+            n.id["type"]
+            for n in cards
+            if n.id["base_theme"] == base_theme
+        }
+        assert kinds == {"gs-edges-card", "gs-global-card"}
+
+
+@pytest.mark.unit
+def test_node_row_has_all_six_fields() -> None:
+    """Each node-type row exposes fill/border/border-width/shape/width/height."""
+    from app.dash_app.pages.settings.graph_styling.components import (
+        build_node_type_row,
+    )
+
+    row = build_node_type_row("executive-light", "Person")
+    fields = [
+        n for n in _collect(row)
+        if isinstance(getattr(n, "id", None), dict)
+        and n.id.get("type") == "gs-node-field"
+    ]
+    assert {n.id["field"] for n in fields} == {
+        "color",
+        "border",
+        "border_width",
+        "shape",
+        "width",
+        "height",
+    }

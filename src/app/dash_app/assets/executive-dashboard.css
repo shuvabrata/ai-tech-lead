@@ -1270,3 +1270,38 @@ input::placeholder {
 .theme-executive-dark .setup-banner a {
     color: #90cdf4;
 }
+
+/* ============================================================
+   Bootstrap Nav Tabs (theme-aware)
+   ============================================================ */
+
+/* Default (light) theme: keep Bootstrap's standard tab look. */
+
+.nav-tabs .nav-link,
+.nav-tabs .nav-link:focus,
+.nav-tabs .nav-link:hover {
+    color: var(--color-gray-dark);
+    border-color: var(--color-border);
+    background-color: transparent;
+}
+
+.nav-tabs .nav-link.active {
+    color: var(--color-navy);
+    background-color: var(--color-background-white);
+    border-color: var(--color-border) var(--color-border) transparent;
+}
+
+/* Dark theme: never render tabs with a white background. */
+.theme-executive-dark .nav-tabs .nav-link,
+.theme-executive-dark .nav-tabs .nav-link:focus,
+.theme-executive-dark .nav-tabs .nav-link:hover {
+    color: var(--color-gray-dark);
+    border-color: var(--color-border-light);
+    background-color: transparent;
+}
+
+.theme-executive-dark .nav-tabs .nav-link.active {
+    color: var(--color-text-dark);
+    background-color: var(--color-background-light);
+    border-color: var(--color-border-light) var(--color-border-light) transparent;
+}
