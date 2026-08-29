@@ -58,9 +58,9 @@ _NODE_FIELDS: tuple[tuple[str, str, str], ...] = (
 )
 
 # Grid template shared by the node-type header row and each node-type row:
-# a fixed name column, one column per configurable field, a preview glyph,
-# then a reset button.
-_NODE_GRID_TEMPLATE = "140px repeat(6, minmax(0, 1fr)) 56px 36px"
+# a fixed name column, one column per configurable field, a preview glyph
+# (shape + numeric size label), then a reset button.
+_NODE_GRID_TEMPLATE = "140px repeat(6, minmax(0, 1fr)) 96px 36px"
 
 # Column labels for the node-type header row (aligned with _NODE_FIELDS).
 _NODE_HEADER_LABELS: tuple[str, ...] = (
@@ -405,7 +405,7 @@ def build_node_glyph(base_theme: str, node_type: str) -> html.Div:
             "node_type": node_type,
         },
         style={
-            "width": "56px",
+            "width": "96px",
             "minHeight": "44px",
             "display": "flex",
             "flexDirection": "row",

@@ -133,6 +133,7 @@ def update_node_glyph(
             "fontSize": FONT_SIZE_XTINY,
             "color": COLOR_GRAY_MEDIUM,
             "lineHeight": "1",
+            "whiteSpace": "nowrap",
         },
     )
     return [shape_div, label]
