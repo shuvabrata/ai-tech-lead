@@ -411,7 +411,7 @@ automated tests and manual tests pass.**
 - [x] Phase 4.1 complete (scaffolding + route + card un-gate)
 - [x] Phase 4.2 complete (editor layout — sections + cards)
 - [x] Phase 4.3 complete (single-node live preview)
-- [ ] Phase 4.4 complete (actions — clone/set-default/save/delete)
+- [x] Phase 4.4 complete (actions — clone/set-default/save/delete)
 - [ ] Phase 4.5 complete (legend glyph parity)
 - [ ] Phase 4 complete (editor UI)
 - [ ] All automated suites green (`pytest -m unit tests -q`)

@@ -312,6 +312,15 @@ def _list_themes(base_theme: str) -> list[dict[str, Any]]:
     return [t for t in themes if t.get("base_theme") == base_theme]
 
 
+def _theme_options(themes: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Build selector options with the default theme first, then by name."""
+    ordered = sorted(
+        themes,
+        key=lambda t: (0 if t.get("is_default") else 1, t.get("name", "").lower()),
+    )
+    return [{"label": _theme_label(t), "value": t["id"]} for t in ordered]
+
+
 def _theme_label(theme: dict[str, Any]) -> str:
     """Dropdown label for a theme (marks builtin and default)."""
     label = theme.get("name", "Unnamed")
@@ -355,9 +364,7 @@ def load_themes(pathname: str, select_id: dict[str, str]) -> tuple:
     except requests.RequestException:
         return [], {}
 
-    options = [{"label": "Select a theme\u2026", "value": ""}] + [
-        {"label": _theme_label(t), "value": t["id"]} for t in themes
-    ]
+    options = [{"label": "Select a theme\u2026", "value": ""}] + _theme_options(themes)
     by_id = {str(t["id"]): t for t in themes}
     return options, by_id
 
@@ -457,7 +464,7 @@ def _collect_overrides(
 def _refresh_after_action(base_theme: str) -> tuple[Any, Any, Any, Any]:
     """Re-fetch themes and rebuild the selector options/store after a mutation."""
     themes = _list_themes(base_theme)
-    options = [{"label": _theme_label(t), "value": t["id"]} for t in themes]
+    options = _theme_options(themes)
     by_id = {str(t["id"]): t for t in themes}
     return options, by_id, no_update, no_update
 
@@ -649,7 +656,7 @@ def execute_set_default(
     all_data: list = []
     for bt in ("executive-dark", "executive-light"):
         themes = _list_themes(bt)
-        all_options.append([{"label": _theme_label(t), "value": t["id"]} for t in themes])
+        all_options.append(_theme_options(themes))
         all_data.append({str(t["id"]): t for t in themes})
 
     return _feedback_alert("Default theme updated.", "success"), all_options, all_data
@@ -730,7 +737,7 @@ def execute_delete(
     all_data: list = []
     for bt in ("executive-dark", "executive-light"):
         themes = _list_themes(bt)
-        all_options.append([{"label": _theme_label(t), "value": t["id"]} for t in themes])
+        all_options.append(_theme_options(themes))
         all_data.append({str(t["id"]): t for t in themes})
 
     return _feedback_alert("Theme deleted.", "success"), all_options, all_data

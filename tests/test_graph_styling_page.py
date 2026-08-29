@@ -384,6 +384,23 @@ def test_theme_label_marks_builtin_and_default() -> None:
     assert "(builtin)" not in _theme_label({"name": "X", "source": "user", "is_default": False})
 
 
+@pytest.mark.unit
+def test_theme_options_default_first() -> None:
+    """_theme_options puts the default theme first, then sorts by name."""
+    from app.dash_app.pages.settings.graph_styling.callbacks import _theme_options
+
+    themes = [
+        {"id": 1, "name": "Zebra", "is_default": False, "source": "user"},
+        {"id": 2, "name": "Default", "is_default": True, "source": "builtin"},
+        {"id": 3, "name": "Alpha", "is_default": False, "source": "user"},
+    ]
+    options = _theme_options(themes)
+    values = [o["value"] for o in options]
+    assert values[0] == 2  # default first
+    # Remaining sorted by name.
+    assert values[1:] == [3, 1]  # Alpha, Zebra
+
+
 # ── Edge preview ───────────────────────────────────────────────────────
 
 
