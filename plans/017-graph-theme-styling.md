@@ -223,7 +223,7 @@ automated **and** manual tests pass. Each sub-phase is independently shippable a
 
 > **Exit criteria**: Graph page fetches `/effective` for the current `theme-store` mode.
 
-- [ ] Graph page: `update_graph_stylesheet` callback fetches `/effective` for
+- [x] Graph page: `update_graph_stylesheet` callback fetches `/effective` for
   the current `theme-store`.
 
 **Automated tests**:
@@ -337,7 +337,7 @@ automated tests and manual tests pass.**
 - [x] Phase 1 complete (shared core + DB)
 - [x] Phase 2 complete (API)
 - [x] Phase 3.1 complete (`build_cytoscape_stylesheet` consumes merged tokens)
-- [ ] Phase 3.2 complete (Graph page stylesheet callback)
+- [x] Phase 3.2 complete (Graph page stylesheet callback)
 - [ ] Phase 3.3 complete (Collab page stylesheet callback)
 - [ ] Phase 3.4 complete (Search page dynamic badge colors)
 - [ ] Phase 3.5 complete (consistency test updated)
