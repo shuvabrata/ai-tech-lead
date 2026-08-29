@@ -94,39 +94,38 @@ def test_layout_has_two_base_mode_tabs() -> None:
 
 @pytest.mark.unit
 def test_layout_has_node_type_rows_per_section() -> None:
-    """Each base-mode section renders a node-type row per type (excluding default)."""
+    """The editor body renders a node-type row per type (excluding default)."""
     from app.common.graph_theme import NODE_TYPES
+    from app.dash_app.pages.settings.graph_styling.components import (
+        build_editor_body,
+    )
 
     expected = {nt for nt in NODE_TYPES if nt != "default"}
-    layout = get_layout()
+    body = build_editor_body("executive-light", {})
     rows = [
-        n for n in _collect(layout)
+        n for n in _collect(body)
         if isinstance(getattr(n, "id", None), dict)
         and n.id.get("type") == "gs-node-row"
     ]
-    for base_theme in ("executive-light", "executive-dark"):
-        per_theme = {
-            n.id["node_type"] for n in rows if n.id["base_theme"] == base_theme
-        }
-        assert per_theme == expected
+    per_theme = {n.id["node_type"] for n in rows}
+    assert per_theme == expected
 
 
 @pytest.mark.unit
 def test_layout_has_edges_and_global_cards() -> None:
-    """Each base-mode section includes an Edges card and a Global card."""
-    layout = get_layout()
+    """The editor body includes an Edges card and a Global card."""
+    from app.dash_app.pages.settings.graph_styling.components import (
+        build_editor_body,
+    )
+
+    body = build_editor_body("executive-light", {})
     cards = [
-        n for n in _collect(layout)
+        n for n in _collect(body)
         if isinstance(getattr(n, "id", None), dict)
         and n.id.get("type") in ("gs-edges-card", "gs-global-card")
     ]
-    for base_theme in ("executive-light", "executive-dark"):
-        kinds = {
-            n.id["type"]
-            for n in cards
-            if n.id["base_theme"] == base_theme
-        }
-        assert kinds == {"gs-edges-card", "gs-global-card"}
+    kinds = {n.id["type"] for n in cards}
+    assert kinds == {"gs-edges-card", "gs-global-card"}
 
 
 @pytest.mark.unit
@@ -159,19 +158,19 @@ def test_node_row_has_all_six_fields() -> None:
 def test_each_row_has_glyph() -> None:
     """Each node-type row carries an inline preview glyph."""
     from app.common.graph_theme import NODE_TYPES
+    from app.dash_app.pages.settings.graph_styling.components import (
+        build_editor_body,
+    )
 
     expected = {nt for nt in NODE_TYPES if nt != "default"}
-    layout = get_layout()
+    body = build_editor_body("executive-dark", {})
     glyphs = [
-        n for n in _collect(layout)
+        n for n in _collect(body)
         if isinstance(getattr(n, "id", None), dict)
         and n.id.get("type") == "gs-node-glyph"
     ]
-    for base_theme in ("executive-light", "executive-dark"):
-        per_theme = {
-            n.id["node_type"] for n in glyphs if n.id["base_theme"] == base_theme
-        }
-        assert per_theme == expected
+    per_theme = {n.id["node_type"] for n in glyphs}
+    assert per_theme == expected
 
 
 @pytest.mark.unit
@@ -230,19 +229,19 @@ def test_glyph_style_uses_defaults_when_unset() -> None:
 def test_each_row_has_reset_button() -> None:
     """Each node-type row carries a reset button."""
     from app.common.graph_theme import NODE_TYPES
+    from app.dash_app.pages.settings.graph_styling.components import (
+        build_editor_body,
+    )
 
     expected = {nt for nt in NODE_TYPES if nt != "default"}
-    layout = get_layout()
+    body = build_editor_body("executive-light", {})
     resets = [
-        n for n in _collect(layout)
+        n for n in _collect(body)
         if isinstance(getattr(n, "id", None), dict)
         and n.id.get("type") == "gs-node-reset"
     ]
-    for base_theme in ("executive-light", "executive-dark"):
-        per_theme = {
-            n.id["node_type"] for n in resets if n.id["base_theme"] == base_theme
-        }
-        assert per_theme == expected
+    per_theme = {n.id["node_type"] for n in resets}
+    assert per_theme == expected
 
 
 @pytest.mark.unit
@@ -254,3 +253,103 @@ def test_reset_clears_all_fields() -> None:
 
     result = reset_node_row(1)
     assert result == (None, None, None, None, None, None)
+
+
+# ── Phase 4.4 — theme management ───────────────────────────────────────
+
+
+@pytest.mark.unit
+def test_section_has_theme_toolbar_and_body() -> None:
+    """Each base-mode section has a theme toolbar and an (empty) editor body."""
+    from app.dash_app.pages.settings.graph_styling.components import (
+        build_base_mode_section,
+    )
+
+    section = build_base_mode_section("executive-dark")
+    nodes = _collect(section)
+    types = {
+        n.id["type"]
+        for n in nodes
+        if isinstance(getattr(n, "id", None), dict)
+    }
+    assert "gs-theme-toolbar" in types
+    assert "gs-editor-body" in types
+    assert "gs-theme-store" in types
+
+
+@pytest.mark.unit
+def test_editor_body_prepopulates_overrides() -> None:
+    """The editor body pre-populates inputs from a theme's overrides."""
+    from app.dash_app.pages.settings.graph_styling.components import (
+        build_editor_body,
+    )
+
+    overrides = {
+        "nodes": {"Person": {"color": "#00FF00", "shape": "diamond"}},
+        "edges": {"width": 5},
+        "global": {"selection_color": "#FF0000"},
+    }
+    body = build_editor_body("executive-light", overrides)
+
+    person_color = None
+    person_shape = None
+    edge_width = None
+    global_selection = None
+    for n in _collect(body):
+        nid = getattr(n, "id", None)
+        if not isinstance(nid, dict):
+            continue
+        if nid.get("type") == "gs-node-field" and nid.get("node_type") == "Person":
+            if nid["field"] == "color":
+                person_color = getattr(n, "value", None)
+            if nid["field"] == "shape":
+                person_shape = getattr(n, "value", None)
+        if nid.get("type") == "gs-edge-field" and nid["field"] == "width":
+            edge_width = getattr(n, "value", None)
+        if nid.get("type") == "gs-global-field" and nid["field"] == "selection_color":
+            global_selection = getattr(n, "value", None)
+
+    assert person_color == "#00FF00"
+    assert person_shape == "diamond"
+    assert edge_width == 5
+    assert global_selection == "#FF0000"
+
+
+@pytest.mark.unit
+def test_collect_overrides_omits_empty() -> None:
+    """_collect_overrides builds a semantic doc and drops empty values."""
+    from app.dash_app.pages.settings.graph_styling.callbacks import (
+        _collect_overrides,
+    )
+
+    node_values = ["#00FF00", None]
+    node_ids = [
+        {"type": "gs-node-field", "node_type": "Person", "field": "color"},
+        {"type": "gs-node-field", "node_type": "Person", "field": "border"},
+    ]
+    edge_values = [5, None]
+    edge_ids = [
+        {"type": "gs-edge-field", "field": "width"},
+        {"type": "gs-edge-field", "field": "line_color"},
+    ]
+    global_values = [None]
+    global_ids = [{"type": "gs-global-field", "field": "selection_color"}]
+
+    result = _collect_overrides(
+        node_values, node_ids, edge_values, edge_ids, global_values, global_ids
+    )
+    assert result == {
+        "nodes": {"Person": {"color": "#00FF00"}},
+        "edges": {"width": 5},
+        "global": {},
+    }
+
+
+@pytest.mark.unit
+def test_theme_label_marks_builtin_and_default() -> None:
+    """_theme_label annotates builtin and default themes."""
+    from app.dash_app.pages.settings.graph_styling.callbacks import _theme_label
+
+    assert "(builtin)" in _theme_label({"name": "Default", "source": "builtin", "is_default": False})
+    assert "\u2605" in _theme_label({"name": "Custom", "source": "user", "is_default": True})
+    assert "(builtin)" not in _theme_label({"name": "X", "source": "user", "is_default": False})

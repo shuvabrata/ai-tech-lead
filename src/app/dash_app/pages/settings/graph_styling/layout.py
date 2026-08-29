@@ -80,6 +80,18 @@ def get_layout() -> html.Div:
                     "marginBottom": SPACING_SMALL,
                 },
             ),
+            html.Div(id="gs-page-feedback"),
+            dcc.Store(id="gs-set-default-pending", data=None),
+            dcc.Store(id="gs-delete-pending", data=None),
+            dcc.ConfirmDialog(
+                id="gs-set-default-confirm",
+                message="Set this theme as the default for its base mode? "
+                        "The previous default will be replaced.",
+            ),
+            dcc.ConfirmDialog(
+                id="gs-delete-confirm",
+                message="Delete this theme? This cannot be undone.",
+            ),
             build_base_mode_tabs(),
         ],
         style=CARD_CONTAINER_STYLE,

@@ -4,20 +4,42 @@ Phase 4.3 — per-row live preview + reset. Each node-type row carries an inline
 CSS glyph that reflects the row's current fill/border/border-width/shape/width/
 height in real time (aspect-ratio preserved, with a numeric ``WxH`` label) and
 a reset button that clears the row back to "inherit base".
+
+Phase 4.4 — theme management. A per-tab theme selector loads a theme's
+overrides into the editor; New / Duplicate / Save / Set-as-default / Delete
+actions drive the ``/api/v1/graph-themes/`` REST API.
 """
 
 from __future__ import annotations
 
+import os
 from typing import Any
 
-from dash import MATCH, Input, Output, callback, html
+import dash_bootstrap_components as dbc
+import requests
+from dash import (
+    ALL,
+    MATCH,
+    Input,
+    Output,
+    State,
+    callback,
+    callback_context,
+    html,
+    no_update,
+)
+from dash.exceptions import PreventUpdate
 
 from app.dash_app.pages.graph.utils.ui_components import get_shape_css
+from app.dash_app.pages.settings.graph_styling.components import build_editor_body
 from app.dash_app.styles import (
     COLOR_GRAY_MEDIUM,
     FONT_SANS,
     FONT_SIZE_XTINY,
 )
+
+API_BASE = os.getenv("API_BASE_URL", "http://localhost:8000")
+THEMES_API = f"{API_BASE}/api/v1/graph-themes/"
 
 # Reference node dimensions (px) used as fallbacks when width/height are unset
 # (matches the default node width/height in the base theme tokens: 60x50).
@@ -173,4 +195,418 @@ def update_node_glyph(
 def reset_node_row(_n_clicks: int) -> tuple:
     """Clear a row's six fields back to \"inherit base\" (unset)."""
     return None, None, None, None, None, None
+
+
+# ── Phase 4.4 — theme management ───────────────────────────────────────
+
+
+def _list_themes(base_theme: str) -> list[dict[str, Any]]:
+    """Fetch all themes for a base mode from the API."""
+    resp = requests.get(THEMES_API, timeout=10)
+    resp.raise_for_status()
+    themes = resp.json()
+    return [t for t in themes if t.get("base_theme") == base_theme]
+
+
+def _theme_label(theme: dict[str, Any]) -> str:
+    """Dropdown label for a theme (marks builtin and default)."""
+    label = theme.get("name", "Unnamed")
+    if theme.get("is_default"):
+        label += " \u2605"
+    if theme.get("source") == "builtin":
+        label += " (builtin)"
+    return label
+
+
+def _feedback_alert(content: str, color: str) -> list[Any]:
+    """Build a feedback alert region for the page."""
+    return [
+        dbc.Alert(
+            content,
+            color=color,
+            dismissable=True,
+            style={"fontFamily": FONT_SANS, "fontSize": FONT_SIZE_XTINY},
+        )
+    ]
+
+
+@callback(
+    Output({"type": "gs-theme-select", "base_theme": MATCH}, "options"),
+    Output({"type": "gs-theme-store", "base_theme": MATCH}, "data"),
+    Input("url", "pathname"),
+    State({"type": "gs-theme-select", "base_theme": MATCH}, "id"),
+)
+def load_themes(pathname: str, select_id: dict[str, str]) -> tuple:
+    """Load themes for a base mode when the page is visited.
+
+    Fires on navigation and on first render of the matched select components.
+    The ``pathname`` guard ensures it only loads for the Graph Styling page.
+    """
+    base_theme = select_id["base_theme"]
+    if pathname not in ("/app/settings/graph-styling", "/app/settings/graph-styling/"):
+        raise PreventUpdate
+
+    try:
+        themes = _list_themes(base_theme)
+    except requests.RequestException:
+        return [], {}
+
+    options = [
+        {"label": _theme_label(t), "value": t["id"]} for t in themes
+    ]
+    by_id = {str(t["id"]): t for t in themes}
+    return options, by_id
+
+
+@callback(
+    Output({"type": "gs-editor-body", "base_theme": MATCH}, "children"),
+    Output({"type": "gs-theme-name-input", "base_theme": MATCH}, "value"),
+    Output({"type": "gs-theme-name", "base_theme": MATCH}, "children"),
+    Input({"type": "gs-theme-select", "base_theme": MATCH}, "value"),
+    State({"type": "gs-theme-store", "base_theme": MATCH}, "data"),
+    prevent_initial_call=True,
+)
+def select_theme(
+    theme_id: Any, store: dict[str, Any]
+) -> tuple[Any, str | None, str]:
+    """Render the editor body for the selected theme."""
+    base_theme = callback_context.triggered_id["base_theme"]
+    if theme_id is None or not store:
+        raise PreventUpdate
+
+    theme = store.get(str(theme_id))
+    if theme is None:
+        raise PreventUpdate
+
+    overrides = theme.get("overrides") or {}
+    body = build_editor_body(base_theme, overrides)
+    name = theme.get("name", "")
+    name_label = (
+        f"Editing: {name}"
+        + (" (builtin \u2014 duplicate to edit)" if theme.get("source") == "builtin" else "")
+        + (" \u2605 default" if theme.get("is_default") else "")
+    )
+    return body, name, name_label
+
+
+# Collect a theme's current field values into an overrides document.
+_NODE_FIELD_MAP = {
+    "color": "color",
+    "border": "border",
+    "border_width": "border_width",
+    "shape": "shape",
+    "width": "width",
+    "height": "height",
+}
+
+
+def _collect_overrides(
+    node_values: list[Any],
+    node_ids: list[dict[str, str]],
+    edge_values: list[Any],
+    edge_ids: list[dict[str, str]],
+    global_values: list[Any],
+    global_ids: list[dict[str, str]],
+) -> dict[str, Any]:
+    """Assemble an override document from the editor's current field values.
+
+    Empty/None values are omitted (delta semantics — inherit the base).
+    """
+    nodes: dict[str, dict[str, Any]] = {}
+    for value, input_id in zip(node_values, node_ids):
+        if not isinstance(input_id, dict):
+            continue
+        if value in (None, "", []):
+            continue
+        node_type = input_id["node_type"]
+        field = input_id["field"]
+        nodes.setdefault(node_type, {})[_NODE_FIELD_MAP[field]] = value
+
+    edges: dict[str, Any] = {}
+    for value, input_id in zip(edge_values, edge_ids):
+        if not isinstance(input_id, dict):
+            continue
+        if value in (None, "", []):
+            continue
+        edges[input_id["field"]] = value
+
+    global_: dict[str, Any] = {}
+    for value, input_id in zip(global_values, global_ids):
+        if not isinstance(input_id, dict):
+            continue
+        if value in (None, "", []):
+            continue
+        global_[input_id["field"]] = value
+
+    return {"nodes": nodes, "edges": edges, "global": global_}
+
+
+def _refresh_after_action(base_theme: str) -> tuple[Any, Any, Any, Any]:
+    """Re-fetch themes and rebuild the selector options/store after a mutation."""
+    themes = _list_themes(base_theme)
+    options = [{"label": _theme_label(t), "value": t["id"]} for t in themes]
+    by_id = {str(t["id"]): t for t in themes}
+    return options, by_id, no_update, no_update
+
+
+@callback(
+    Output({"type": "gs-theme-select", "base_theme": MATCH}, "options", allow_duplicate=True),
+    Output({"type": "gs-theme-store", "base_theme": MATCH}, "data", allow_duplicate=True),
+    Output("gs-page-feedback", "children"),
+    Output({"type": "gs-theme-select", "base_theme": MATCH}, "value"),
+    Input({"type": "gs-theme-new", "base_theme": MATCH}, "n_clicks"),
+    State({"type": "gs-theme-name-input", "base_theme": MATCH}, "value"),
+    prevent_initial_call=True,
+)
+def new_theme(n_clicks: int | None, name: str | None) -> tuple:
+    """Create a new empty user theme."""
+    base_theme = callback_context.triggered_id["base_theme"]
+    if not n_clicks:
+        raise PreventUpdate
+    if not name:
+        return no_update, no_update, _feedback_alert("Enter a theme name first.", "warning"), no_update
+
+    try:
+        resp = requests.post(
+            THEMES_API,
+            json={"name": name, "base_theme": base_theme, "overrides": {}},
+            timeout=10,
+        )
+        if resp.status_code in (409, 422):
+            detail = resp.json().get("detail", "Invalid request")
+            return no_update, no_update, _feedback_alert(f"Create failed: {detail}", "danger"), no_update
+        resp.raise_for_status()
+        created = resp.json()
+    except requests.RequestException as exc:
+        return no_update, no_update, _feedback_alert(f"Create failed: {exc}", "danger"), no_update
+
+    options, by_id, _, _ = _refresh_after_action(base_theme)
+    return options, by_id, _feedback_alert(f"Created \u201c{created['name']}\u201d.", "success"), created["id"]
+
+
+@callback(
+    Output({"type": "gs-theme-select", "base_theme": MATCH}, "options", allow_duplicate=True),
+    Output({"type": "gs-theme-store", "base_theme": MATCH}, "data", allow_duplicate=True),
+    Output("gs-page-feedback", "children", allow_duplicate=True),
+    Output({"type": "gs-theme-select", "base_theme": MATCH}, "value", allow_duplicate=True),
+    Input({"type": "gs-theme-duplicate", "base_theme": MATCH}, "n_clicks"),
+    State({"type": "gs-theme-select", "base_theme": MATCH}, "value"),
+    prevent_initial_call=True,
+)
+def duplicate_theme(n_clicks: int | None, theme_id: Any) -> tuple:
+    """Clone the selected theme (copy-on-write)."""
+    base_theme = callback_context.triggered_id["base_theme"]
+    if not n_clicks or theme_id is None:
+        raise PreventUpdate
+
+    try:
+        resp = requests.post(f"{THEMES_API}{theme_id}/clone", timeout=10)
+        if resp.status_code == 409:
+            return no_update, no_update, _feedback_alert("Clone failed: name conflict.", "danger"), no_update
+        resp.raise_for_status()
+        cloned = resp.json()
+    except requests.RequestException as exc:
+        return no_update, no_update, _feedback_alert(f"Clone failed: {exc}", "danger"), no_update
+
+    options, by_id, _, _ = _refresh_after_action(base_theme)
+    return options, by_id, _feedback_alert(f"Duplicated to \u201c{cloned['name']}\u201d.", "success"), cloned["id"]
+
+
+@callback(
+    Output("gs-page-feedback", "children", allow_duplicate=True),
+    Output({"type": "gs-theme-store", "base_theme": MATCH}, "data", allow_duplicate=True),
+    Input({"type": "gs-theme-save", "base_theme": MATCH}, "n_clicks"),
+    State({"type": "gs-theme-select", "base_theme": MATCH}, "value"),
+    State({"type": "gs-theme-name-input", "base_theme": MATCH}, "value"),
+    State({"type": "gs-node-field", "base_theme": MATCH}, "value"),
+    State({"type": "gs-node-field", "base_theme": MATCH}, "id"),
+    State({"type": "gs-edge-field", "base_theme": MATCH}, "value"),
+    State({"type": "gs-edge-field", "base_theme": MATCH}, "id"),
+    State({"type": "gs-global-field", "base_theme": MATCH}, "value"),
+    State({"type": "gs-global-field", "base_theme": MATCH}, "id"),
+    prevent_initial_call=True,
+)
+def save_theme(
+    n_clicks: int | None,
+    theme_id: Any,
+    name: str | None,
+    node_values: list[Any],
+    node_ids: list[dict[str, str]],
+    edge_values: list[Any],
+    edge_ids: list[dict[str, str]],
+    global_values: list[Any],
+    global_ids: list[dict[str, str]],
+) -> tuple:
+    """Save the current editor values via a full-document PATCH."""
+    if not n_clicks or theme_id is None:
+        raise PreventUpdate
+
+    overrides = _collect_overrides(
+        node_values, node_ids, edge_values, edge_ids, global_values, global_ids
+    )
+    payload: dict[str, Any] = {"overrides": overrides}
+    if name:
+        payload["name"] = name
+
+    try:
+        resp = requests.patch(f"{THEMES_API}{theme_id}", json=payload, timeout=10)
+        if resp.status_code == 409:
+            detail = resp.json().get("detail", "Builtin themes are immutable.")
+            return _feedback_alert(f"Save failed: {detail}", "danger"), no_update
+        if resp.status_code == 422:
+            return _feedback_alert("Save failed: invalid values.", "danger"), no_update
+        resp.raise_for_status()
+        updated = resp.json()
+    except requests.RequestException as exc:
+        return _feedback_alert(f"Save failed: {exc}", "danger"), no_update
+
+    return _feedback_alert(f"Saved \u201c{updated['name']}\u201d.", "success"), no_update
+
+
+@callback(
+    Output("gs-set-default-confirm", "displayed"),
+    Output("gs-set-default-pending", "data"),
+    Input({"type": "gs-theme-set-default", "base_theme": ALL}, "n_clicks"),
+    State({"type": "gs-theme-select", "base_theme": ALL}, "value"),
+    State({"type": "gs-theme-set-default", "base_theme": ALL}, "id"),
+    prevent_initial_call=True,
+)
+def confirm_set_default(
+    n_clicks_list: list[int | None],
+    selected_values: list[Any],
+    button_ids: list[dict[str, str]],
+) -> tuple[bool, Any]:
+    """Show the set-default confirmation dialog and record the pending theme."""
+    if not any(n for n in n_clicks_list):
+        raise PreventUpdate
+
+    triggered = callback_context.triggered_id
+    if not isinstance(triggered, dict):
+        raise PreventUpdate
+    base_theme = triggered.get("base_theme")
+
+    # Find the selected theme id for the clicked tab's selector.
+    selected = None
+    for value, bid in zip(selected_values, button_ids):
+        if isinstance(bid, dict) and bid.get("base_theme") == base_theme:
+            selected = value
+            break
+
+    if selected is None:
+        raise PreventUpdate
+
+    return True, {"theme_id": selected}
+
+
+@callback(
+    Output("gs-page-feedback", "children", allow_duplicate=True),
+    Output({"type": "gs-theme-select", "base_theme": ALL}, "options", allow_duplicate=True),
+    Output({"type": "gs-theme-store", "base_theme": ALL}, "data", allow_duplicate=True),
+    Input("gs-set-default-confirm", "submit_n_clicks"),
+    State("gs-set-default-pending", "data"),
+    prevent_initial_call=True,
+)
+def execute_set_default(
+    submit_n_clicks: int | None,
+    pending: dict[str, Any] | None,
+) -> tuple:
+    """Set the pending theme as default for its base mode."""
+    if not submit_n_clicks or not pending:
+        raise PreventUpdate
+
+    theme_id = pending.get("theme_id")
+    if theme_id is None:
+        raise PreventUpdate
+
+    try:
+        resp = requests.post(
+            f"{THEMES_API}{theme_id}/set-default",
+            timeout=10,
+        )
+        resp.raise_for_status()
+    except requests.RequestException as exc:
+        return _feedback_alert(f"Set default failed: {exc}", "danger"), no_update, no_update
+
+    # Re-fetch themes for both base modes.
+    all_options: list = []
+    all_data: list = []
+    for bt in ("executive-dark", "executive-light"):
+        themes = _list_themes(bt)
+        all_options.append([{"label": _theme_label(t), "value": t["id"]} for t in themes])
+        all_data.append({str(t["id"]): t for t in themes})
+
+    return _feedback_alert("Default theme updated.", "success"), all_options, all_data
+
+
+@callback(
+    Output("gs-delete-confirm", "displayed"),
+    Output("gs-delete-pending", "data"),
+    Input({"type": "gs-theme-delete", "base_theme": ALL}, "n_clicks"),
+    State({"type": "gs-theme-select", "base_theme": ALL}, "value"),
+    State({"type": "gs-theme-delete", "base_theme": ALL}, "id"),
+    prevent_initial_call=True,
+)
+def confirm_delete(
+    n_clicks_list: list[int | None],
+    selected_values: list[Any],
+    button_ids: list[dict[str, str]],
+) -> tuple[bool, Any]:
+    """Show the delete confirmation dialog and record the pending theme."""
+    if not any(n for n in n_clicks_list):
+        raise PreventUpdate
+
+    triggered = callback_context.triggered_id
+    if not isinstance(triggered, dict):
+        raise PreventUpdate
+    base_theme = triggered.get("base_theme")
+
+    selected = None
+    for value, bid in zip(selected_values, button_ids):
+        if isinstance(bid, dict) and bid.get("base_theme") == base_theme:
+            selected = value
+            break
+
+    if selected is None:
+        raise PreventUpdate
+
+    return True, {"theme_id": selected}
+
+
+@callback(
+    Output("gs-page-feedback", "children", allow_duplicate=True),
+    Output({"type": "gs-theme-select", "base_theme": ALL}, "options", allow_duplicate=True),
+    Output({"type": "gs-theme-store", "base_theme": ALL}, "data", allow_duplicate=True),
+    Input("gs-delete-confirm", "submit_n_clicks"),
+    State("gs-delete-pending", "data"),
+    prevent_initial_call=True,
+)
+def execute_delete(
+    submit_n_clicks: int | None,
+    pending: dict[str, Any] | None,
+) -> tuple:
+    """Delete the pending theme."""
+    if not submit_n_clicks or not pending:
+        raise PreventUpdate
+
+    theme_id = pending.get("theme_id")
+    if theme_id is None:
+        raise PreventUpdate
+
+    try:
+        resp = requests.delete(f"{THEMES_API}{theme_id}", timeout=10)
+        if resp.status_code == 409:
+            detail = resp.json().get("detail", "Builtin themes cannot be deleted.")
+            return _feedback_alert(f"Delete failed: {detail}", "danger"), no_update, no_update
+        resp.raise_for_status()
+    except requests.RequestException as exc:
+        return _feedback_alert(f"Delete failed: {exc}", "danger"), no_update, no_update
+
+    all_options: list = []
+    all_data: list = []
+    for bt in ("executive-dark", "executive-light"):
+        themes = _list_themes(bt)
+        all_options.append([{"label": _theme_label(t), "value": t["id"]} for t in themes])
+        all_data.append({str(t["id"]): t for t in themes})
+
+    return _feedback_alert("Theme deleted.", "success"), all_options, all_data
 

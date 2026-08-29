@@ -95,11 +95,12 @@ def _field_label(text: str) -> html.Div:
     )
 
 
-def _color_input(input_id: dict[str, Any]) -> dcc.Input:
+def _color_input(input_id: dict[str, Any], value: Any = None) -> dcc.Input:
     """Native colour picker input."""
     return dcc.Input(
         id=input_id,
         type="color",
+        value=value,
         style={
             "width": "100%",
             "height": "34px",
@@ -112,13 +113,14 @@ def _color_input(input_id: dict[str, Any]) -> dcc.Input:
     )
 
 
-def _number_input(input_id: dict[str, Any]) -> dbc.Input:
+def _number_input(input_id: dict[str, Any], value: Any = None) -> dbc.Input:
     """Small numeric input."""
     return dbc.Input(
         id=input_id,
         type="number",
         min=1,
         step=1,
+        value=value,
         style={
             "fontFamily": FONT_SANS,
             "fontSize": FONT_SIZE_SMALL,
@@ -130,7 +132,7 @@ def _number_input(input_id: dict[str, Any]) -> dbc.Input:
     )
 
 
-def _shape_input(input_id: dict[str, Any]) -> dcc.Dropdown:
+def _shape_input(input_id: dict[str, Any], value: Any = None) -> dcc.Dropdown:
     """Shape dropdown populated with the full Cytoscape shape set.
 
     Clearable so an empty value means "inherit the base shape".
@@ -140,12 +142,13 @@ def _shape_input(input_id: dict[str, Any]) -> dcc.Dropdown:
         options=[{"label": shape, "value": shape} for shape in ALLOWED_SHAPES],
         clearable=True,
         placeholder="Inherit",
+        value=value,
         style={"fontFamily": FONT_SANS, "fontSize": FONT_SIZE_XSMALL},
     )
 
 
 def _build_field_input(
-    field: str, kind: str, base_theme: str, node_type: str
+    field: str, kind: str, base_theme: str, node_type: str, value: Any = None
 ) -> Any:
     """Build the input widget for a single node-type field."""
     input_id = {
@@ -155,10 +158,10 @@ def _build_field_input(
         "field": field,
     }
     if kind == "color":
-        return _color_input(input_id)
+        return _color_input(input_id, value)
     if kind == "shape":
-        return _shape_input(input_id)
-    return _number_input(input_id)
+        return _shape_input(input_id, value)
+    return _number_input(input_id, value)
 
 
 # ── Card builders ──────────────────────────────────────────────────────
@@ -194,13 +197,24 @@ def _card_title(text: str) -> html.Div:
     )
 
 
-def build_node_type_row(base_theme: str, node_type: str) -> html.Div:
+def build_node_type_row(
+    base_theme: str, node_type: str, overrides: dict[str, Any] | None = None
+) -> html.Div:
     """Build a single editor row for one node type.
 
     Renders the node type name, six inline inputs (fill, border, border-width,
     shape, width, height), an inline live-preview glyph, and a reset button
     that clears the row back to "inherit base".
+
+    Args:
+        base_theme: Base mode key (e.g. ``executive-dark``).
+        node_type: The node type (e.g. ``Person``).
+        overrides: Optional semantic override values for this node type
+            (``color``/``border``/``border_width``/``shape``/``width``/
+            ``height``). Used to pre-populate the inputs.
     """
+    overrides = overrides or {}
+
     name = html.Div(
         node_type,
         style={
@@ -212,7 +226,9 @@ def build_node_type_row(base_theme: str, node_type: str) -> html.Div:
     )
 
     inputs = [
-        _build_field_input(field, kind, base_theme, node_type)
+        _build_field_input(
+            field, kind, base_theme, node_type, overrides.get(field)
+        )
         for field, _label, kind in _NODE_FIELDS
     ]
 
@@ -251,15 +267,16 @@ def _node_header_row() -> html.Div:
     )
 
 
-def build_edges_card(base_theme: str) -> html.Div:
+def build_edges_card(base_theme: str, overrides: dict[str, Any] | None = None) -> html.Div:
     """Build the Edges card (applies to all edges)."""
+    overrides = overrides or {}
     fields: list[html.Div] = []
 
     color_id = {"type": "gs-edge-field", "base_theme": base_theme, "field": "line_color"}
-    fields.append(html.Div([_field_label("Line Color"), _color_input(color_id)]))
+    fields.append(html.Div([_field_label("Line Color"), _color_input(color_id, overrides.get("line_color"))]))
 
     width_id = {"type": "gs-edge-field", "base_theme": base_theme, "field": "width"}
-    fields.append(html.Div([_field_label("Width"), _number_input(width_id)]))
+    fields.append(html.Div([_field_label("Width"), _number_input(width_id, overrides.get("width"))]))
 
     arrow_id = {"type": "gs-edge-field", "base_theme": base_theme, "field": "arrow_shape"}
     fields.append(
@@ -272,6 +289,7 @@ def build_edges_card(base_theme: str) -> html.Div:
                         {"label": shape, "value": shape} for shape in ARROW_SHAPES
                     ],
                     clearable=False,
+                    value=overrides.get("arrow_shape"),
                     style={"fontFamily": FONT_SANS, "fontSize": FONT_SIZE_XSMALL},
                 ),
             ]
@@ -284,7 +302,7 @@ def build_edges_card(base_theme: str) -> html.Div:
         "field": "label_color",
     }
     fields.append(
-        html.Div([_field_label("Label Color"), _color_input(label_color_id)])
+        html.Div([_field_label("Label Color"), _color_input(label_color_id, overrides.get("label_color"))])
     )
 
     return _card_wrapper(
@@ -293,8 +311,9 @@ def build_edges_card(base_theme: str) -> html.Div:
     )
 
 
-def build_global_card(base_theme: str) -> html.Div:
+def build_global_card(base_theme: str, overrides: dict[str, Any] | None = None) -> html.Div:
     """Build the Global card (cross-cutting label/selection styling)."""
+    overrides = overrides or {}
     fields: list[html.Div] = []
 
     label_color_id = {
@@ -303,7 +322,7 @@ def build_global_card(base_theme: str) -> html.Div:
         "field": "node_label_color",
     }
     fields.append(
-        html.Div([_field_label("Node Label Color"), _color_input(label_color_id)])
+        html.Div([_field_label("Node Label Color"), _color_input(label_color_id, overrides.get("node_label_color"))])
     )
 
     selection_id = {
@@ -312,7 +331,7 @@ def build_global_card(base_theme: str) -> html.Div:
         "field": "selection_color",
     }
     fields.append(
-        html.Div([_field_label("Selection Color"), _color_input(selection_id)])
+        html.Div([_field_label("Selection Color"), _color_input(selection_id, overrides.get("selection_color"))])
     )
 
     edge_bg_id = {
@@ -321,7 +340,7 @@ def build_global_card(base_theme: str) -> html.Div:
         "field": "edge_label_background",
     }
     fields.append(
-        html.Div([_field_label("Edge Label Background"), _color_input(edge_bg_id)])
+        html.Div([_field_label("Edge Label Background"), _color_input(edge_bg_id, overrides.get("edge_label_background"))])
     )
 
     return _card_wrapper(
@@ -335,33 +354,136 @@ def _base_theme_label(base_theme: str) -> str:
     return base_theme.split("-")[-1].title()
 
 
-def build_base_mode_section(base_theme: str) -> html.Div:
-    """Build a full base-mode section (node rows + Edges + Global)."""
-    node_types = [nt for nt in NODE_TYPES if nt != "default"]
-
-    node_rows = html.Div(
-        [_node_header_row()]
-        + [build_node_type_row(base_theme, nt) for nt in node_types],
+def build_theme_toolbar(base_theme: str) -> html.Div:
+    """Build the per-tab theme management bar (selector + actions)."""
+    return html.Div(
+        [
+            dbc.Row(
+                [
+                    dbc.Col(
+                        dcc.Dropdown(
+                            id={
+                                "type": "gs-theme-select",
+                                "base_theme": base_theme,
+                            },
+                            options=[],
+                            placeholder="Select a theme\u2026",
+                            clearable=False,
+                            style={"fontFamily": FONT_SANS, "fontSize": FONT_SIZE_SMALL},
+                        ),
+                        width=3,
+                    ),
+                    dbc.Col(
+                        dbc.Input(
+                            id={
+                                "type": "gs-theme-name-input",
+                                "base_theme": base_theme,
+                            },
+                            type="text",
+                            placeholder="Theme name",
+                            maxLength=100,
+                            style={
+                                "fontFamily": FONT_SANS,
+                                "fontSize": FONT_SIZE_SMALL,
+                                "padding": SPACING_XXSMALL,
+                                "border": f"1px solid {COLOR_BORDER}",
+                                "borderRadius": "2px",
+                            },
+                        ),
+                        width=3,
+                    ),
+                    dbc.Col(
+                        [
+                            dbc.Button(
+                                "New",
+                                id={
+                                    "type": "gs-theme-new",
+                                    "base_theme": base_theme,
+                                },
+                                color="outline-primary",
+                                size="sm",
+                                className="me-2",
+                            ),
+                            dbc.Button(
+                                "Duplicate",
+                                id={
+                                    "type": "gs-theme-duplicate",
+                                    "base_theme": base_theme,
+                                },
+                                color="outline-secondary",
+                                size="sm",
+                                className="me-2",
+                            ),
+                            dbc.Button(
+                                "Save",
+                                id={
+                                    "type": "gs-theme-save",
+                                    "base_theme": base_theme,
+                                },
+                                color="primary",
+                                size="sm",
+                                className="me-2",
+                            ),
+                            dbc.Button(
+                                "Set as default",
+                                id={
+                                    "type": "gs-theme-set-default",
+                                    "base_theme": base_theme,
+                                },
+                                color="outline-primary",
+                                size="sm",
+                                className="me-2",
+                            ),
+                            dbc.Button(
+                                "Delete",
+                                id={
+                                    "type": "gs-theme-delete",
+                                    "base_theme": base_theme,
+                                },
+                                color="outline-danger",
+                                size="sm",
+                            ),
+                        ],
+                        width=6,
+                    ),
+                ],
+                className="g-2 align-items-center",
+            ),
+            html.Div(
+                id={
+                    "type": "gs-theme-name",
+                    "base_theme": base_theme,
+                },
+                style={
+                    "fontFamily": FONT_SANS,
+                    "fontSize": FONT_SIZE_XSMALL,
+                    "color": COLOR_GRAY_MEDIUM,
+                    "marginTop": SPACING_XXSMALL,
+                },
+            ),
+        ],
+        id={"type": "gs-theme-toolbar", "base_theme": base_theme},
         style={
-            "border": f"1px solid {COLOR_BORDER}",
-            "borderRadius": "2px",
-            "padding": SPACING_XSMALL,
-            "backgroundColor": COLOR_BACKGROUND_LIGHT,
             "marginBottom": SPACING_SMALL,
+            "paddingBottom": SPACING_SMALL,
+            "borderBottom": f"1px solid {COLOR_BORDER}",
         },
     )
 
-    # Edges + Global cards side by side.
-    edge_global_row = dbc.Row(
-        [
-            dbc.Col(build_edges_card(base_theme), md=6, xs=12),
-            dbc.Col(build_global_card(base_theme), md=6, xs=12),
-        ],
-        className="g-3",
-    )
 
+def build_base_mode_section(base_theme: str) -> html.Div:
+    """Build a full base-mode section (theme toolbar + editor body)."""
     return html.Div(
-        [node_rows, edge_global_row],
+        [
+            build_theme_toolbar(base_theme),
+            dcc.Store(
+                id={"type": "gs-theme-store", "base_theme": base_theme},
+                data={},
+            ),
+            html.Div(
+                id={"type": "gs-editor-body", "base_theme": base_theme},
+            ),
+        ],
         id={"type": "gs-base-section", "base_theme": base_theme},
     )
 
@@ -385,6 +507,49 @@ def build_base_mode_tabs() -> dbc.Tabs:
         active_tab=BASE_THEMES[0],
         style={"marginBottom": SPACING_SMALL},
     )
+
+
+def build_editor_body(
+    base_theme: str, overrides: dict[str, Any] | None = None
+) -> html.Div:
+    """Build the editor body (node rows + Edges + Global) for a theme.
+
+    Args:
+        base_theme: Base mode key.
+        overrides: The theme's override document (``nodes``/``edges``/``global``
+            semantic keys). Used to pre-populate the inputs.
+    """
+    overrides = overrides or {}
+    nodes = overrides.get("nodes") or {}
+    edges = overrides.get("edges") or {}
+    global_ = overrides.get("global") or {}
+
+    node_types = [nt for nt in NODE_TYPES if nt != "default"]
+
+    node_rows = html.Div(
+        [_node_header_row()]
+        + [
+            build_node_type_row(base_theme, nt, nodes.get(nt))
+            for nt in node_types
+        ],
+        style={
+            "border": f"1px solid {COLOR_BORDER}",
+            "borderRadius": "2px",
+            "padding": SPACING_XSMALL,
+            "backgroundColor": COLOR_BACKGROUND_LIGHT,
+            "marginBottom": SPACING_SMALL,
+        },
+    )
+
+    edge_global_row = dbc.Row(
+        [
+            dbc.Col(build_edges_card(base_theme, edges), md=6, xs=12),
+            dbc.Col(build_global_card(base_theme, global_), md=6, xs=12),
+        ],
+        className="g-3",
+    )
+
+    return html.Div([node_rows, edge_global_row])
 
 
 # ── Inline per-row live preview glyph ──────────────────────────────────
