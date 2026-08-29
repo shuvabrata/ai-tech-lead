@@ -28,6 +28,7 @@ from app.api.graph_themes.v1.models import (
 )
 from app.api.graph_themes.v1.service import (
     BuiltinImmutableError,
+    DefaultThemeError,
     DuplicateNameError,
     InvalidBaseThemeError,
     ThemeNotFoundError,
@@ -130,6 +131,8 @@ async def delete_graph_theme(
     except ThemeNotFoundError as exc:
         raise _not_found(exc) from exc
     except BuiltinImmutableError as exc:
+        raise _conflict(str(exc)) from exc
+    except DefaultThemeError as exc:
         raise _conflict(str(exc)) from exc
 
 

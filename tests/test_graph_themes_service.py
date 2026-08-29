@@ -20,6 +20,7 @@ from app.api.graph_themes.v1.models import (
 )
 from app.api.graph_themes.v1.service import (
     BuiltinImmutableError,
+    DefaultThemeError,
     ThemeNotFoundError,
 )
 from app.db.models.graph_theme import GraphTheme
@@ -302,6 +303,25 @@ class TestBuiltinImmutability:
         ):
             with pytest.raises(BuiltinImmutableError):
                 await service.delete_theme(mock_db, builtin.id)
+        mock_db.delete.assert_not_called()
+
+    @pytest.mark.asyncio
+    @pytest.mark.unit
+    async def test_delete_default_user_theme_raises(self, mock_db: AsyncMock) -> None:
+        """Deleting the default user theme raises DefaultThemeError."""
+        default_user = _make_theme(
+            theme_id=5,
+            name="Ocean Light",
+            base_theme="executive-light",
+            is_default=True,
+            source="user",
+        )
+        with patch(
+            "app.api.graph_themes.v1.service.qry.get_theme_by_id",
+            new=AsyncMock(return_value=default_user),
+        ):
+            with pytest.raises(DefaultThemeError):
+                await service.delete_theme(mock_db, default_user.id)
         mock_db.delete.assert_not_called()
 
 

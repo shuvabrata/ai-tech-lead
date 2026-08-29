@@ -41,6 +41,15 @@ class BuiltinImmutableError(ValueError):
     """
 
 
+class DefaultThemeError(ValueError):
+    """Raised when a write targets the current default theme.
+
+    The default theme for a base mode cannot be deleted directly — the user
+    must set another theme as default first, so the base mode never silently
+    falls back to the hardcoded base palette.
+    """
+
+
 class InvalidBaseThemeError(ValueError):
     """Raised when an unknown ``base_theme`` is requested."""
 
@@ -58,6 +67,15 @@ def _require_user_theme(theme: GraphTheme) -> None:
         raise BuiltinImmutableError(
             f"Theme '{theme.name}' is a builtin and cannot be modified. "
             "Duplicate it first to create an editable copy."
+        )
+
+
+def _require_not_default(theme: GraphTheme) -> None:
+    """Raise if ``theme`` is the current default for its base mode."""
+    if theme.is_default:
+        raise DefaultThemeError(
+            f"Theme '{theme.name}' is the default for its base mode and "
+            "cannot be deleted. Set another theme as default first."
         )
 
 
@@ -172,9 +190,14 @@ async def update_theme(
 
 
 async def delete_theme(db: AsyncSession, theme_id: int) -> None:
-    """Delete a user theme (builtin → :class:`BuiltinImmutableError`)."""
+    """Delete a user theme (builtin → :class:`BuiltinImmutableError`).
+
+    The current default theme is also protected (→ :class:`DefaultThemeError`),
+    so a base mode never silently falls back to the hardcoded base palette.
+    """
     theme = await get_theme(db, theme_id)
     _require_user_theme(theme)
+    _require_not_default(theme)
     name = theme.name
     await qry.delete_theme(db, theme)
     await db.commit()
