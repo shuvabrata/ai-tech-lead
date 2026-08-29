@@ -58,8 +58,9 @@ _NODE_FIELDS: tuple[tuple[str, str, str], ...] = (
 )
 
 # Grid template shared by the node-type header row and each node-type row:
-# a fixed name column, one column per configurable field, then a preview glyph.
-_NODE_GRID_TEMPLATE = "140px repeat(6, minmax(0, 1fr)) 48px"
+# a fixed name column, one column per configurable field, a preview glyph,
+# then a reset button.
+_NODE_GRID_TEMPLATE = "140px repeat(6, minmax(0, 1fr)) 56px 36px"
 
 # Column labels for the node-type header row (aligned with _NODE_FIELDS).
 _NODE_HEADER_LABELS: tuple[str, ...] = (
@@ -71,6 +72,7 @@ _NODE_HEADER_LABELS: tuple[str, ...] = (
     "Width",
     "Height",
     "Preview",
+    "",
 )
 
 
@@ -129,11 +131,15 @@ def _number_input(input_id: dict[str, Any]) -> dbc.Input:
 
 
 def _shape_input(input_id: dict[str, Any]) -> dcc.Dropdown:
-    """Shape dropdown populated with the full Cytoscape shape set."""
+    """Shape dropdown populated with the full Cytoscape shape set.
+
+    Clearable so an empty value means "inherit the base shape".
+    """
     return dcc.Dropdown(
         id=input_id,
         options=[{"label": shape, "value": shape} for shape in ALLOWED_SHAPES],
-        clearable=False,
+        clearable=True,
+        placeholder="Inherit",
         style={"fontFamily": FONT_SANS, "fontSize": FONT_SIZE_XSMALL},
     )
 
@@ -192,8 +198,8 @@ def build_node_type_row(base_theme: str, node_type: str) -> html.Div:
     """Build a single editor row for one node type.
 
     Renders the node type name, six inline inputs (fill, border, border-width,
-    shape, width, height), and an inline live-preview glyph that reflects the
-    current values of those inputs.
+    shape, width, height), an inline live-preview glyph, and a reset button
+    that clears the row back to "inherit base".
     """
     name = html.Div(
         node_type,
@@ -211,9 +217,10 @@ def build_node_type_row(base_theme: str, node_type: str) -> html.Div:
     ]
 
     glyph = build_node_glyph(base_theme, node_type)
+    reset = build_node_reset(base_theme, node_type)
 
     return html.Div(
-        [name, *inputs, glyph],
+        [name, *inputs, glyph, reset],
         id={
             "type": "gs-node-row",
             "base_theme": base_theme,
@@ -387,9 +394,9 @@ def build_node_glyph(base_theme: str, node_type: str) -> html.Div:
     """Build the inline live-preview glyph for a single node-type row.
 
     A lightweight CSS glyph (no Cytoscape engine) that reflects the row's
-    current fill/border/border-width/shape/width/height via a callback. The
-    shape is rendered with the same ``clip-path`` mapping used by the node
-    legend, so the glyph matches the graph's node shapes.
+    current fill/border/border-width/shape/width/height via a callback, plus a
+    numeric ``WxH`` label. The shape is rendered with the same ``clip-path``
+    mapping used by the node legend.
     """
     return html.Div(
         id={
@@ -398,10 +405,34 @@ def build_node_glyph(base_theme: str, node_type: str) -> html.Div:
             "node_type": node_type,
         },
         style={
-            "width": "28px",
-            "height": "28px",
+            "width": "56px",
+            "minHeight": "44px",
             "display": "flex",
+            "flexDirection": "row",
             "alignItems": "center",
-            "justifyContent": "center",
+            "justifyContent": "flex-start",
+            "gap": SPACING_XXSMALL,
+        },
+    )
+
+
+def build_node_reset(base_theme: str, node_type: str) -> html.Button:
+    """Build the row-level reset button (clears the row back to "inherit")."""
+    return html.Button(
+        html.I(className="fa-solid fa-rotate-left"),
+        id={
+            "type": "gs-node-reset",
+            "base_theme": base_theme,
+            "node_type": node_type,
+        },
+        title=f"Reset {node_type}",
+        n_clicks=0,
+        style={
+            "background": "none",
+            "border": "none",
+            "color": COLOR_GRAY_MEDIUM,
+            "cursor": "pointer",
+            "padding": SPACING_XXSMALL,
+            "fontSize": FONT_SIZE_SMALL,
         },
     )
