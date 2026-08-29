@@ -149,6 +149,8 @@ def create_dash_app():
             return settings.get_layout()
         if pathname in ("/app/settings/runtime", "/app/settings/runtime/"):
             return settings.get_runtime_layout()
+        if pathname in ("/app/settings/graph-styling", "/app/settings/graph-styling/"):
+            return settings.get_graph_styling_layout()
         if pathname == "/app/search":
             return search.get_layout()
         if pathname == "/app/chat":

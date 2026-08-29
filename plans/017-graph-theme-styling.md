@@ -284,14 +284,14 @@ automated **and** manual tests pass. Each sub-phase is independently shippable a
 
 > **Exit criteria**: the Graph Styling page is reachable at `/app/settings/graph-styling` and renders an empty-but-valid shell (no editor controls yet).
 
-- [ ] Create `src/app/dash_app/pages/settings/graph_styling/` package with a
+- [x] Create `src/app/dash_app/pages/settings/graph_styling/` package with a
   `layout.py` exposing `get_layout()` (minimal placeholder) and a `callbacks.py`
   (registered via the package `__init__.py`).
-- [ ] Register the page route in `dash_app/layout.py` (`/app/settings/graph-styling`).
-- [ ] Un-gate the `graph-styling` card in `settings/layout.py`
+- [x] Register the page route in `dash_app/layout.py` (`/app/settings/graph-styling`).
+- [x] Un-gate the `graph-styling` card in `settings/layout.py`
   (`coming_soon=False`, add `href="/app/settings/graph-styling"`).
-- [ ] Add a `graph-styling` branch in `settings/callbacks.py` `handle_card_click()`.
-- [ ] Export `get_layout` from `settings/__init__.py` and register callbacks.
+- [x] Add a `graph-styling` branch in `settings/callbacks.py` `handle_card_click()`.
+- [x] Export `get_layout` from `settings/__init__.py` and register callbacks.
 
 **Automated tests**:
 - `pytest -m unit tests/test_graph_styling_page.py -q` (new) — layout returns a `html.Div` shell; package import registers callbacks without error.
@@ -392,7 +392,7 @@ automated tests and manual tests pass.**
 - [x] Phase 3.4 complete (Search page dynamic badge colors)
 - [x] Phase 3.5 complete (consistency test updated)
 - [x] Phase 3 complete (all consumers wired)
-- [ ] Phase 4.1 complete (scaffolding + route + card un-gate)
+- [x] Phase 4.1 complete (scaffolding + route + card un-gate)
 - [ ] Phase 4.2 complete (editor layout — sections + cards)
 - [ ] Phase 4.3 complete (single-node live preview)
 - [ ] Phase 4.4 complete (actions — clone/set-default/save/delete)

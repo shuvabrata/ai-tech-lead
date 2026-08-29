@@ -40,7 +40,7 @@ def get_layout() -> html.Div:
             title="Graph Styling",
             icon="fa-solid fa-palette",
             description="Customize graph colors, labels, and node appearance.",
-            coming_soon=True,
+            href="/app/settings/graph-styling",
         ),
     ]
 
