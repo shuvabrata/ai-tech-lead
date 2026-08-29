@@ -341,7 +341,7 @@ automated tests and manual tests pass.**
 - [x] Phase 3.3 complete (Collab page stylesheet callback)
 - [x] Phase 3.4 complete (Search page dynamic badge colors)
 - [x] Phase 3.5 complete (consistency test updated)
-- [ ] Phase 3 complete (all consumers wired)
+- [x] Phase 3 complete (all consumers wired)
 - [ ] Phase 4 complete (editor UI)
 - [ ] All automated suites green (`pytest -m unit tests -q`)
 - [ ] Manual smoke test full pass (create → edit → set-default → verify on all 3 pages)
