@@ -18,7 +18,7 @@ from app.api.graph_themes.v1.models import (
     GraphThemeUpdate,
     ThemeOverrides,
 )
-from app.common.graph_theme import merge_theme_overrides
+from app.common.graph_theme import effective_semantic_theme, merge_theme_overrides, parse_overrides
 from app.db.models.graph_theme import (
     SOURCE_BUILTIN,
     SOURCE_USER,
@@ -66,6 +66,28 @@ def _overrides_to_dict(overrides: ThemeOverrides) -> dict[str, Any]:
     return overrides.model_dump(by_alias=True, exclude_none=True)
 
 
+def _snapshot_overrides(
+    base_theme: str, overrides: ThemeOverrides
+) -> dict[str, Any]:
+    """Materialize a **full snapshot** of the effective theme for a user theme.
+
+    Custom (user) themes are stored as complete snapshots so they are immune to
+    future base-palette changes: every field — including the untyped ``default``
+    node which has no editor card — is resolved to its effective value and
+    frozen. This is the deliberate reversal of the "deltas only" principle,
+    scoped to ``source == user`` rows (builtin themes remain sparse deltas that
+    track the base palette).
+    """
+    effective = effective_semantic_theme(
+        get_theme_tokens(base_theme), overrides
+    )
+    return {
+        "nodes": effective["nodes"],
+        "edges": effective["edges"],
+        "global": effective["global"],
+    }
+
+
 def _raise_on_duplicate_name(exc: IntegrityError) -> None:
     """Translate a name-uniqueness IntegrityError into :class:`DuplicateNameError`.
 
@@ -103,12 +125,12 @@ async def get_theme(db: AsyncSession, theme_id: int) -> GraphTheme:
 async def create_theme(
     db: AsyncSession, payload: GraphThemeCreate
 ) -> GraphTheme:
-    """Create a new user theme."""
+    """Create a new user theme as a full snapshot of the effective theme."""
     theme = GraphTheme(
         name=payload.name,
         base_theme=payload.base_theme,
         is_default=False,
-        overrides=_overrides_to_dict(payload.overrides),
+        overrides=_snapshot_overrides(payload.base_theme, payload.overrides),
         source=SOURCE_USER,
     )
     try:
@@ -136,7 +158,7 @@ async def update_theme(
     if payload.base_theme is not None:
         theme.base_theme = payload.base_theme
     if payload.overrides is not None:
-        theme.overrides = _overrides_to_dict(payload.overrides)
+        theme.overrides = _snapshot_overrides(theme.base_theme, payload.overrides)
 
     try:
         theme = await qry.touch_theme(db, theme)
@@ -163,14 +185,15 @@ async def clone_theme(db: AsyncSession, theme_id: int) -> GraphTheme:
     """Copy-on-write: create a new user row from an existing theme.
 
     Works for both builtin and user sources. The clone is never a default and
-    is named ``<name> (copy)``.
+    is named ``<name> (copy)``. The clone is stored as a **full snapshot** of
+    the source's effective theme (immune to future base-palette changes).
     """
     source = await get_theme(db, theme_id)
     clone = GraphTheme(
         name=f"{source.name} (copy)",
         base_theme=source.base_theme,
         is_default=False,
-        overrides=dict(source.overrides or {}),
+        overrides=_snapshot_overrides(source.base_theme, parse_overrides(source.overrides or {})),
         source=SOURCE_USER,
     )
     try:

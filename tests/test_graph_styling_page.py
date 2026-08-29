@@ -353,3 +353,68 @@ def test_theme_label_marks_builtin_and_default() -> None:
     assert "(builtin)" in _theme_label({"name": "Default", "source": "builtin", "is_default": False})
     assert "\u2605" in _theme_label({"name": "Custom", "source": "user", "is_default": True})
     assert "(builtin)" not in _theme_label({"name": "X", "source": "user", "is_default": False})
+
+
+# ── Edge preview ───────────────────────────────────────────────────────
+
+
+@pytest.mark.unit
+def test_edges_card_has_preview_glyph() -> None:
+    """The Edges card renders an edge preview glyph."""
+    from app.dash_app.pages.settings.graph_styling.components import (
+        build_editor_body,
+    )
+
+    body = build_editor_body("executive-light", {})
+    glyphs = [
+        n for n in _collect(body)
+        if isinstance(getattr(n, "id", None), dict)
+        and n.id.get("type") == "gs-edge-glyph"
+    ]
+    assert len(glyphs) == 1
+
+
+@pytest.mark.unit
+def test_edge_preview_has_cytoscape() -> None:
+    """The edge preview uses a Cytoscape component (two nodes + edge)."""
+    from app.dash_app.pages.settings.graph_styling.components import (
+        build_editor_body,
+    )
+
+    body = build_editor_body("executive-light", {})
+    cyto_comps = [
+        n for n in _collect(body)
+        if isinstance(getattr(n, "id", None), dict)
+        and n.id.get("type") == "gs-edge-cytoscape"
+    ]
+    assert len(cyto_comps) == 1
+    elements = cyto_comps[0].elements
+    assert len(elements) == 3  # two nodes + one edge
+
+
+@pytest.mark.unit
+def test_edge_preview_stylesheet_reflects_fields() -> None:
+    """The edge preview stylesheet reflects line colour/width/arrow/label."""
+    from app.dash_app.pages.settings.graph_styling.callbacks import (
+        build_edge_preview_stylesheet,
+    )
+
+    rules = build_edge_preview_stylesheet("#FF0000", 3, "triangle", "#000000")
+    edge_rule = next(r for r in rules if r["selector"] == "edge")
+    style = edge_rule["style"]
+    assert style["line-color"] == "#FF0000"
+    assert style["width"] == 3
+    assert style["target-arrow-shape"] == "triangle"
+    assert style["color"] == "#000000"
+
+
+@pytest.mark.unit
+def test_edge_preview_stylesheet_none_arrow() -> None:
+    """An arrow_shape of 'none' sets target-arrow-shape to 'none'."""
+    from app.dash_app.pages.settings.graph_styling.callbacks import (
+        build_edge_preview_stylesheet,
+    )
+
+    rules = build_edge_preview_stylesheet("#FF0000", 2, "none", "#000000")
+    edge_rule = next(r for r in rules if r["selector"] == "edge")
+    assert edge_rule["style"]["target-arrow-shape"] == "none"

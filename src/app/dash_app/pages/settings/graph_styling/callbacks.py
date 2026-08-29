@@ -30,12 +30,14 @@ from dash import (
 )
 from dash.exceptions import PreventUpdate
 
+from app.common.graph_theme import effective_semantic_theme
 from app.dash_app.pages.graph.utils.ui_components import get_shape_css
 from app.dash_app.pages.settings.graph_styling.components import build_editor_body
 from app.dash_app.styles import (
     COLOR_GRAY_MEDIUM,
     FONT_SANS,
     FONT_SIZE_XTINY,
+    get_theme_tokens,
 )
 
 API_BASE = os.getenv("API_BASE_URL", "http://localhost:8000")
@@ -197,6 +199,90 @@ def reset_node_row(_n_clicks: int) -> tuple:
     return None, None, None, None, None, None
 
 
+# ── Edge preview ───────────────────────────────────────────────────────
+
+
+def build_edge_preview_stylesheet(
+    line_color: Any,
+    width: Any,
+    arrow_shape: Any,
+    label_color: Any,
+) -> list[dict[str, Any]]:
+    """Build a Cytoscape stylesheet for the two-node edge preview.
+
+    Styles the edge (line colour/width, target-arrow shape, label colour) and
+    gives the two endpoint nodes a neutral appearance so the edge reads
+    clearly, matching how edges render in the real graph.
+    """
+    color = line_color or "#C0C0C0"
+    label = label_color or "#2d3748"
+    stroke_w = int(_num(width, 2))
+    arrow = arrow_shape or "triangle"
+
+    return [
+        {
+            "selector": "node",
+            "style": {
+                "background-color": "#B8B8B8",
+                "border-color": "#9E9E9E",
+                "border-width": "1px",
+                "width": "16px",
+                "height": "16px",
+                "label": "data(label)",
+                "font-size": "9px",
+                "color": "#666666",
+                "text-valign": "bottom",
+                "text-margin-y": "4px",
+            },
+        },
+        {
+            "selector": "edge",
+            "style": {
+                "width": stroke_w,
+                "line-color": color,
+                "target-arrow-color": color,
+                "target-arrow-shape": arrow,
+                "source-arrow-shape": "none",
+                "mid-source-arrow-shape": "none",
+                "mid-target-arrow-shape": "none",
+                "arrow-scale": 1.0,
+                "curve-style": "bezier",
+                "label": "data(label)",
+                "font-size": "9px",
+                "color": label,
+                "text-rotation": "autorotate",
+                "text-background-color": "#ffffff",
+                "text-background-opacity": 0.8,
+            },
+        },
+    ]
+
+
+@callback(
+    Output({"type": "gs-edge-cytoscape", "base_theme": MATCH}, "stylesheet"),
+    Input(
+        {"type": "gs-edge-field", "base_theme": MATCH, "field": "line_color"}, "value"
+    ),
+    Input(
+        {"type": "gs-edge-field", "base_theme": MATCH, "field": "width"}, "value"
+    ),
+    Input(
+        {"type": "gs-edge-field", "base_theme": MATCH, "field": "arrow_shape"}, "value"
+    ),
+    Input(
+        {"type": "gs-edge-field", "base_theme": MATCH, "field": "label_color"}, "value"
+    ),
+)
+def update_edge_glyph(
+    line_color: Any,
+    width: Any,
+    arrow_shape: Any,
+    label_color: Any,
+) -> list[dict[str, Any]]:
+    """Update the edge preview stylesheet from the four edge field values."""
+    return build_edge_preview_stylesheet(line_color, width, arrow_shape, label_color)
+
+
 # ── Phase 4.4 — theme management ───────────────────────────────────────
 
 
@@ -269,7 +355,11 @@ def load_themes(pathname: str, select_id: dict[str, str]) -> tuple:
 def select_theme(
     theme_id: Any, store: dict[str, Any]
 ) -> tuple[Any, str | None, str]:
-    """Render the editor body for the selected theme."""
+    """Render the editor body for the selected theme.
+
+    Populates every field with its **effective** (concrete) value, so a theme
+    with sparse/no overrides still shows the base values it actually renders.
+    """
     base_theme = callback_context.triggered_id["base_theme"]
     if theme_id is None or not store:
         raise PreventUpdate
@@ -279,7 +369,8 @@ def select_theme(
         raise PreventUpdate
 
     overrides = theme.get("overrides") or {}
-    body = build_editor_body(base_theme, overrides)
+    effective = effective_semantic_theme(get_theme_tokens(base_theme), overrides)
+    body = build_editor_body(base_theme, effective)
     name = theme.get("name", "")
     name_label = (
         f"Editing: {name}"

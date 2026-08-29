@@ -29,9 +29,14 @@ output.
 
 ## Core principle (anti-drift)
 
-The DB stores **deltas only**, never full palette snapshots. The hardcoded
-`THEME_TOKENS` remain the single source of truth for the *base*; a theme row
-contains only the properties it changes. Effective theme is always computed:
+> **Revised (2026-08-29)** — decisions #1 and #4 below were reversed during
+> Phase 4 implementation. See the note under "Design decisions".
+
+The DB stores **deltas only** for **builtin** themes; **custom (user)** themes
+are stored as **full snapshots** so they are immune to future base-palette
+changes. The hardcoded `THEME_TOKENS` remain the single source of truth for
+the *base*; a builtin row contains only the properties it changes. Effective
+theme is always computed:
 
 ```
 effective = base_tokens (code)  ⊕  overrides (DB)
@@ -46,12 +51,23 @@ All decisions reached via the grill-me process:
 
 1. **Model**: Layered override — hardcoded `THEME_TOKENS` (executive-light /
    executive-dark) is the fallback; DB themes carry partial overrides.
-2. **Active selection**: Named theme documents with `is_default` scoped **per
-   base mode** (a user can have a default light theme and a default dark theme).
-3. **Scope**: ALL Cytoscape properties configurable; per-property hardcoded
-   fallback. Propagation to Search + Collaboration Network is in scope.
+
+   > **REVERSED (Phase 4)**: Custom (user) themes are stored as **full
+   > snapshots** of the effective theme (every field materialized, including
+   > the untyped `default` node). Rationale: the editor should display
+   > *effective* values (no blank "inherit" fields), and custom themes should
+   > be **immune to future base-palette changes** — only builtin themes should
+   > track the base. Builtin themes remain sparse deltas.
+
 4. **Override structure**: Structured per-nodeType document (semantic keys),
    stored as a single JSONB `overrides` column.
+
+   > **REVISED (Phase 4)**: For `source == user` rows, the stored `overrides`
+   > is a complete snapshot produced server-side by
+   > `effective_semantic_theme(base_tokens, submitted_overrides)` in
+   > `common/graph_theme.py`. The editor displays and submits *effective*
+   > values; the service materializes the full snapshot on create/update/clone.
+   > `NodeOverride.border_width` now allows `0` (base nodes are borderless).
 5. **Out-of-the-box**: Seed one empty immutable "Default" anchor per base mode
    PLUS one illustrative example theme per mode.
 6. **Merge location**: Server-side merge in a single `/effective` endpoint

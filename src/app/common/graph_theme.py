@@ -146,11 +146,14 @@ class NodeOverride(BaseModel):
 
     All fields are optional; only present fields are merged over the base.
     ``width`` / ``height`` / ``border_width`` are plain numeric pixels.
+    ``border_width`` accepts ``0`` (no border) so that full-snapshot themes can
+    explicitly freeze the base's borderless default and remain immune to
+    future base-palette changes.
     """
 
     color: str | None = Field(default=None, pattern=HEX_COLOR)
     border: str | None = Field(default=None, pattern=HEX_COLOR)
-    border_width: int | None = Field(default=None, gt=0)
+    border_width: int | None = Field(default=None, ge=0)
     shape: ShapeLiteral | None = None
     width: int | None = Field(default=None, gt=0, le=400)
     height: int | None = Field(default=None, gt=0, le=400)
@@ -364,6 +367,102 @@ def merge_theme_overrides(
         global_["selection_color"] = g.selection_color
     if g.edge_label_background is not None:
         global_["edge_label_background"] = g.edge_label_background
+
+    return {"nodes": nodes, "edges": edges, "global": global_}
+
+
+def _px_to_int(value: Any, default: int = 0) -> int:
+    """Parse a ``"Npx"`` / numeric dimension into an int (drop the suffix)."""
+    if value is None:
+        return default
+    text = str(value).strip()
+    if text.lower().endswith("px"):
+        text = text[:-2]
+    try:
+        return int(float(text))
+    except (TypeError, ValueError):
+        return default
+
+
+def effective_semantic_theme(
+    base_tokens: dict[str, str], overrides: ThemeOverrides | dict[str, Any]
+) -> dict[str, Any]:
+    """Return the full effective theme in **semantic** space.
+
+    This is the editor-facing counterpart to :func:`merge_theme_overrides`
+    (which emits Cytoscape space for the consumer pages). Every node type
+    (including the untyped ``default``), plus edges and global, carries
+    **concrete** values — base tokens resolved and merged with any overrides —
+    in the semantic key vocabulary used by the override contract
+    (``color`` / ``border`` / ``border_width`` / ``shape`` / ``width`` /
+    ``height`` for nodes; ``line_color`` / ``width`` / ``arrow_shape`` /
+    ``label_color`` for edges; ``node_label_color`` / ``selection_color`` /
+    ``edge_label_background`` for global).
+
+    The result is a **full snapshot**: a custom theme stored from this output
+    is frozen against future base-palette changes (all fields explicit, no
+    deltas fall through to the base).
+
+    Dimension fields are plain numeric px (no ``"px"`` suffix), matching the
+    override contract.
+    """
+    if not isinstance(overrides, ThemeOverrides):
+        overrides = parse_overrides(overrides)
+
+    nodes: dict[str, Any] = {}
+    for node_type in NODE_TYPES:
+        base_props = _base_node_properties(node_type, base_tokens)
+        node_override = overrides.nodes.get(node_type) or NodeOverride()
+        merged = merge_node_override(base_props, node_override)
+        nodes[node_type] = {
+            "color": merged["background-color"],
+            "border": merged["border-color"],
+            "border_width": _px_to_int(merged.get("border-width"), 0),
+            "shape": merged["shape"],
+            "width": _px_to_int(merged.get("width"), 60),
+            "height": _px_to_int(merged.get("height"), 50),
+        }
+
+    e = overrides.edges
+    edges = {
+        "line_color": (
+            e.line_color
+            if e.line_color is not None
+            else base_tokens.get("graph.edge.default", "#C0C0C0")
+        ),
+        "width": (
+            e.width if e.width is not None else _px_to_int(base_tokens.get("graph.edge.width", 2), 2)
+        ),
+        "arrow_shape": (
+            e.arrow_shape
+            if e.arrow_shape is not None
+            else base_tokens.get("graph.edge.arrow", "triangle")
+        ),
+        "label_color": (
+            e.label_color
+            if e.label_color is not None
+            else base_tokens.get("text.secondary", "#2d3748")
+        ),
+    }
+
+    g = overrides.global_
+    global_ = {
+        "node_label_color": (
+            g.node_label_color
+            if g.node_label_color is not None
+            else base_tokens.get("graph.node.label", "#f4f7fb")
+        ),
+        "selection_color": (
+            g.selection_color
+            if g.selection_color is not None
+            else base_tokens.get("graph.selection", "#424242")
+        ),
+        "edge_label_background": (
+            g.edge_label_background
+            if g.edge_label_background is not None
+            else base_tokens.get("surface.base", "#ffffff")
+        ),
+    }
 
     return {"nodes": nodes, "edges": edges, "global": global_}
 

@@ -230,7 +230,7 @@ class TestClone:
     async def test_clones_builtin_to_new_user_row(
         self, mock_db: AsyncMock
     ) -> None:
-        """A clone of a builtin produces a new user row with copied overrides."""
+        """A clone of a builtin produces a new user row as a full snapshot."""
         builtin = _make_theme(
             theme_id=1,
             name="Ocean Light",
@@ -256,7 +256,15 @@ class TestClone:
         assert clone.source == "user"
         assert clone.is_default is False
         assert clone.base_theme == "executive-light"
-        assert clone.overrides == {"nodes": {"Person": {"color": "#0EA5E9"}}}
+        # The clone is a full snapshot: every node type (incl. default) plus
+        # edges/global are materialized with their effective values, and the
+        # Person colour override is frozen in.
+        nodes = clone.overrides["nodes"]
+        assert nodes["Person"]["color"] == "#0EA5E9"
+        assert "default" in nodes
+        assert set(nodes) >= {"Person", "Issue", "default"}
+        assert clone.overrides["edges"]["line_color"]
+        assert clone.overrides["global"]["node_label_color"]
         # The clone is a fresh object, distinct from the builtin source.
         assert clone is not builtin
 

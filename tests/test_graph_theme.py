@@ -16,6 +16,7 @@ from app.common.graph_theme import (
     GlobalOverride,
     NodeOverride,
     ThemeOverrides,
+    effective_semantic_theme,
     merge_theme_overrides,
     overrides_to_cytoscape_rules,
 )
@@ -201,3 +202,47 @@ def test_rules_complete_for_all_types():
     rules = _rules_for(merged)
     for node_type in ("Person", "Project", "Branch"):
         assert f'node[nodeType = "{node_type}"]' in rules
+
+
+# ── effective_semantic_theme (editor-facing full snapshot) ────────────
+
+
+def test_effective_semantic_empty_is_full_base():
+    """Empty overrides still produce a full concrete doc (no blanks)."""
+    eff = effective_semantic_theme(BASE_LIGHT, ThemeOverrides())
+    person = eff["nodes"]["Person"]
+    assert person["color"] == "#3B82F6"
+    assert person["border"] == "#2563EB"
+    assert person["border_width"] == 0  # base nodes are borderless
+    assert person["shape"] == "ellipse"
+    assert isinstance(person["width"], int)
+    assert isinstance(person["height"], int)
+    # Untyped default node present with concrete values.
+    assert eff["nodes"]["default"]["color"] == "#B8B8B8"
+    # Edges + global concrete.
+    assert eff["edges"]["line_color"] == "#C0C0C0"
+    assert eff["global"]["node_label_color"] == "#f4f7fb"
+
+
+def test_effective_semantic_applies_override():
+    """Overrides win and are reflected in semantic space."""
+    overrides = ThemeOverrides(
+        nodes={"Person": NodeOverride(color="#00FF00", shape="diamond", width=80)},
+        edges=EdgeOverride(line_color="#888888"),
+        global_=GlobalOverride(selection_color="#FFAA00"),
+    )
+    eff = effective_semantic_theme(BASE_LIGHT, overrides)
+    person = eff["nodes"]["Person"]
+    assert person["color"] == "#00FF00"
+    assert person["shape"] == "diamond"
+    assert person["width"] == 80
+    assert eff["edges"]["line_color"] == "#888888"
+    assert eff["global"]["selection_color"] == "#FFAA00"
+
+
+def test_effective_semantic_includes_all_node_types():
+    """The snapshot covers every node type (full immunity)."""
+    eff = effective_semantic_theme(BASE_LIGHT, ThemeOverrides())
+    from app.common.graph_theme import NODE_TYPES
+
+    assert set(eff["nodes"].keys()) == set(NODE_TYPES)

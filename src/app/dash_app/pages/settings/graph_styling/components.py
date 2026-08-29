@@ -11,6 +11,7 @@ from __future__ import annotations
 from typing import Any
 
 import dash_bootstrap_components as dbc
+import dash_cytoscape as cyto
 from dash import dcc, html
 
 from app.common.graph_theme import ALLOWED_SHAPES, NODE_TYPES
@@ -117,12 +118,14 @@ def _color_input(input_id: dict[str, Any], value: Any = None) -> dcc.Input:
     )
 
 
-def _number_input(input_id: dict[str, Any], value: Any = None) -> dbc.Input:
+def _number_input(
+    input_id: dict[str, Any], value: Any = None, min_value: int = 1
+) -> dbc.Input:
     """Small numeric input."""
     return dbc.Input(
         id=input_id,
         type="number",
-        min=1,
+        min=min_value,
         step=1,
         value=value,
         style={
@@ -139,16 +142,14 @@ def _number_input(input_id: dict[str, Any], value: Any = None) -> dbc.Input:
 def _shape_input(input_id: dict[str, Any], value: Any = None) -> dbc.Select:
     """Shape dropdown populated with the full Cytoscape shape set.
 
-    Native ``<select>`` (consistent with the rest of the app). An explicit
-    "Inherit (default)" option (empty value) means "inherit the base shape".
+    Native ``<select>`` (consistent with the rest of the app). Every node has a
+    concrete shape (no "inherit" state — themes are full snapshots).
     """
-    options = [{"label": "Inherit (default)", "value": ""}] + [
-        {"label": shape, "value": shape} for shape in ALLOWED_SHAPES
-    ]
+    options = [{"label": shape, "value": shape} for shape in ALLOWED_SHAPES]
     return dbc.Select(
         id=input_id,
         options=options,
-        value=value if value is not None else "",
+        value=value if value is not None else "ellipse",
         style={
             "fontFamily": FONT_SANS,
             "fontSize": FONT_SIZE_SMALL,
@@ -175,7 +176,9 @@ def _build_field_input(
         return _color_input(input_id, value)
     if kind == "shape":
         return _shape_input(input_id, value)
-    return _number_input(input_id, value)
+    # ``border_width`` may be 0 (borderless base nodes); width/height stay ≥1.
+    min_value = 0 if field == "border_width" else 1
+    return _number_input(input_id, value, min_value=min_value)
 
 
 # ── Card builders ──────────────────────────────────────────────────────
@@ -327,8 +330,68 @@ def build_edges_card(base_theme: str, overrides: dict[str, Any] | None = None) -
     )
 
     return _card_wrapper(
-        [_card_title("Edges"), html.Div(fields)],
+        [
+            _card_title("Edges"),
+            html.Div(
+                [
+                    # 80% — form fields (stacked).
+                    html.Div(fields, style={"flex": "0 0 80%", "paddingRight": SPACING_SMALL}),
+                    # 20% — live edge preview.
+                    build_edge_glyph(base_theme),
+                ],
+                style={"display": "flex", "alignItems": "stretch"},
+            ),
+        ],
         {"type": "gs-edges-card", "base_theme": base_theme},
+    )
+
+
+def build_edge_glyph(base_theme: str) -> html.Div:
+    """Build the live edge preview area (right 20% of the Edges card).
+
+    A Cytoscape preview with two nodes and one labelled edge renders the line
+    colour/width, arrowhead shape, and label colour exactly as the graph does.
+    """
+    elements = [
+        {"data": {"id": "edge-preview-a", "label": "A"}},
+        {"data": {"id": "edge-preview-b", "label": "B"}},
+        {
+            "data": {
+                "id": "edge-preview-e",
+                "source": "edge-preview-a",
+                "target": "edge-preview-b",
+                "label": "label",
+            }
+        },
+    ]
+
+    return html.Div(
+        id={"type": "gs-edge-glyph", "base_theme": base_theme},
+        style={
+            "flex": "0 0 20%",
+            "display": "flex",
+            "alignItems": "stretch",
+            "justifyContent": "center",
+            "borderLeft": f"1px solid {COLOR_BORDER}",
+            "paddingLeft": SPACING_SMALL,
+            "minHeight": "260px",
+            "overflow": "hidden",
+        },
+        children=[
+            cyto.Cytoscape(
+                id={"type": "gs-edge-cytoscape", "base_theme": base_theme},
+                elements=elements,
+                layout={"name": "preset", "positions": {
+                    "edge-preview-a": {"x": 40, "y": 20},
+                    "edge-preview-b": {"x": 40, "y": 230},
+                }},
+                style={"width": "100%", "height": "260px"},
+                stylesheet=[],
+                userZoomingEnabled=False,
+                userPanningEnabled=False,
+                boxSelectionEnabled=False,
+            ),
+        ],
     )
 
 
