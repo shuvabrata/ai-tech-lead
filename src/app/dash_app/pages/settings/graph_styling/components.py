@@ -11,6 +11,7 @@ from __future__ import annotations
 from typing import Any
 
 import dash_bootstrap_components as dbc
+import dash_cytoscape as cyto
 from dash import dcc, html
 
 from app.common.graph_theme import ALLOWED_SHAPES, NODE_TYPES
@@ -372,5 +373,56 @@ def build_base_mode_tabs() -> dbc.Tabs:
         ],
         id="gs-base-mode-tabs",
         active_tab=BASE_THEMES[0],
+        style={"marginBottom": SPACING_SMALL},
+    )
+
+
+# ── Single-node live preview ───────────────────────────────────────────
+
+
+def build_preview() -> html.Div:
+    """Build the single-node Cytoscape live preview.
+
+    Renders one node (with ``nodeType`` matching the currently edited node
+    type) plus a ``dcc.Store`` that holds the working override document. The
+    preview stylesheet is rebuilt by a callback whenever a node field changes.
+    """
+    elements = [
+        {"data": {"id": "preview-node", "label": "Preview", "nodeType": "Person"}},
+    ]
+
+    return html.Div(
+        [
+            html.Div(
+                "Live Preview",
+                style={
+                    "fontFamily": FONT_SANS,
+                    "fontSize": FONT_SIZE_SMALL,
+                    "fontWeight": FONT_WEIGHT_SEMIBOLD,
+                    "color": COLOR_CHARCOAL_MEDIUM,
+                    "textTransform": "uppercase",
+                    "letterSpacing": "0.5px",
+                    "marginBottom": SPACING_XSMALL,
+                },
+            ),
+            dcc.Store(id="gs-preview-working", data={}),
+            dcc.Store(id="gs-preview-node-type", data="Person"),
+            cyto.Cytoscape(
+                id="gs-preview-cytoscape",
+                elements=elements,
+                layout={"name": "preset"},
+                style={
+                    "width": "100%",
+                    "height": "180px",
+                    "backgroundColor": "var(--color-graph-canvas)",
+                    "borderRadius": "2px",
+                    "border": f"1px solid {COLOR_BORDER}",
+                },
+                stylesheet=[],
+                userZoomingEnabled=False,
+                userPanningEnabled=False,
+            ),
+        ],
+        id="gs-preview",
         style={"marginBottom": SPACING_SMALL},
     )

@@ -150,3 +150,54 @@ def test_node_row_has_all_six_fields() -> None:
         "width",
         "height",
     }
+
+
+# ── Phase 4.3 — single-node live preview ───────────────────────────────
+
+
+@pytest.mark.unit
+def test_preview_is_rendered() -> None:
+    """The layout includes a Cytoscape preview and its working stores."""
+    layout = get_layout()
+    ids = [
+        getattr(n, "id", None)
+        for n in _collect(layout)
+        if isinstance(getattr(n, "id", None), str)
+    ]
+    assert "gs-preview-cytoscape" in ids
+    assert "gs-preview-node-type" in ids
+
+
+@pytest.mark.unit
+def test_preview_stylesheet_reflects_override() -> None:
+    """The preview stylesheet reflects the edited node's shape/color/size."""
+    from app.dash_app.pages.settings.graph_styling.callbacks import (
+        build_preview_stylesheet,
+    )
+
+    overrides = {"shape": "diamond", "color": "#00FF00", "width": 80, "height": 60}
+    rules = build_preview_stylesheet("executive-light", "Person", overrides)
+
+    # The per-nodeType rule for Person should exist and reflect the override.
+    person_rule = next(
+        (r for r in rules if r.get("selector") == 'node[nodeType = "Person"]'),
+        None,
+    )
+    assert person_rule is not None
+    style = person_rule["style"]
+    assert style["shape"] == "diamond"
+    assert style["background-color"] == "#00FF00"
+    assert style["width"] == "80px"
+    assert style["height"] == "60px"
+
+
+@pytest.mark.unit
+def test_preview_stylesheet_has_node_rule() -> None:
+    """The preview stylesheet always includes a generic node rule."""
+    from app.dash_app.pages.settings.graph_styling.callbacks import (
+        build_preview_stylesheet,
+    )
+
+    rules = build_preview_stylesheet("executive-dark", "Person", {})
+    selectors = [r.get("selector") for r in rules]
+    assert "node" in selectors
