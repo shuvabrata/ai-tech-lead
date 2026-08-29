@@ -318,7 +318,7 @@ automated **and** manual tests pass. Each sub-phase is independently shippable a
 
 > **Exit criteria**: a single-node Cytoscape preview reflects the currently edited node's shape/color/size in real time.
 
-- [ ] Add a single-node Cytoscape preview component driven by a `dcc.Store` working dict via `overrides_to_cytoscape_rules()`.
+- [x] Add a single-node Cytoscape preview component driven by a `dcc.Store` working dict via `overrides_to_cytoscape_rules()`.
 
 **Automated tests**:
 - `pytest -m unit tests/test_graph_styling_page.py -q` — preview callback emits a stylesheet with the edited node's shape/color/size.
@@ -394,7 +394,7 @@ automated tests and manual tests pass.**
 - [x] Phase 3 complete (all consumers wired)
 - [x] Phase 4.1 complete (scaffolding + route + card un-gate)
 - [x] Phase 4.2 complete (editor layout — sections + cards)
-- [ ] Phase 4.3 complete (single-node live preview)
+- [x] Phase 4.3 complete (single-node live preview)
 - [ ] Phase 4.4 complete (actions — clone/set-default/save/delete)
 - [ ] Phase 4.5 complete (legend glyph parity)
 - [ ] Phase 4 complete (editor UI)
