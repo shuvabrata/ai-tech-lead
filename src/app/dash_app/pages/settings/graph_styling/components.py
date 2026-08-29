@@ -96,7 +96,11 @@ def _field_label(text: str) -> html.Div:
 
 
 def _color_input(input_id: dict[str, Any], value: Any = None) -> dcc.Input:
-    """Native colour picker input."""
+    """Native colour picker input.
+
+    The browser renders the colour swatch natively, so we strip the outer
+    border/background to avoid a "box in a box" appearance.
+    """
     return dcc.Input(
         id=input_id,
         type="color",
@@ -105,10 +109,10 @@ def _color_input(input_id: dict[str, Any], value: Any = None) -> dcc.Input:
             "width": "100%",
             "height": "34px",
             "padding": "0",
-            "border": f"1px solid {COLOR_BORDER}",
+            "border": "none",
             "borderRadius": "2px",
             "cursor": "pointer",
-            "backgroundColor": COLOR_BACKGROUND_LIGHT,
+            "backgroundColor": "transparent",
         },
     )
 
