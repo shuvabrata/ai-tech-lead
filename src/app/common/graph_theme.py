@@ -506,6 +506,9 @@ def overrides_to_cytoscape_rules(merged_tokens: dict[str, Any]) -> list[dict[str
             style["width"] = str(props["width"])
         if "height" in props:
             style["height"] = str(props["height"])
+        # Typed node label colour comes from the global override, falling back
+        # to the base token. Mirrors the generic node rule above.
+        style["color"] = str(global_.get("node_label_color", "#f4f7fb"))
         if not style:
             continue
         rules.append(

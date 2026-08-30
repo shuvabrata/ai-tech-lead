@@ -64,7 +64,6 @@ def build_cytoscape_stylesheet(theme_name: str = ACTIVE_THEME, effective=None):
     cyto_font_family = re.sub(r"[\"']", "", FONT_SANS)
 
     node_label_color = tokens["text.primary"] if theme_name == "executive-light" else "#f4f7fb"
-    typed_node_label_color = tokens["graph.node.label"]
     edge_label_bg = tokens["surface.base"]
 
     edges = effective["edges"]
@@ -93,18 +92,22 @@ def build_cytoscape_stylesheet(theme_name: str = ACTIVE_THEME, effective=None):
         'text-max-width': '56px'
     })
     # The shared function sets the generic node's ``color`` from the theme's
-    # node_label_color; the stylesheet overrides it with the page's label
-    # colour (light mode uses text.primary). This preserves the pre-existing
-    # behaviour exactly.
-    generic_node_rule["style"]["color"] = node_label_color
+    # node_label_color. The merged doc always carries node_label_color (the
+    # base graph.node.label value when unset), so compare against the base
+    # token to detect an explicit override. When overridden, use the override
+    # value; otherwise fall back to the page's label colour (light mode uses
+    # text.primary). This honours the override while preserving the
+    # pre-existing generic-vs-typed fallback distinction.
+    if globals_.get("node_label_color") != tokens["graph.node.label"]:
+        generic_node_rule["style"]["color"] = globals_["node_label_color"]
+    else:
+        generic_node_rule["style"]["color"] = node_label_color
     # ``shape`` is intentionally omitted from the generic node rule (ellipse is
     # the Cytoscape default), preserving parity with the previous output.
     generic_node_rule["style"].pop("shape", None)
 
-    # Enrich each per-nodeType rule with the typed label colour.
-    for rule in theme_rules[1:]:
-        if rule["selector"].startswith("node[nodeType"):
-            rule["style"]["color"] = typed_node_label_color
+    # Typed node label colour is set by the shared function (from the global
+    # override); no per-nodeType enrichment is needed here.
 
     # Enrich the edge rule with the full edge styling (fonts, arrows, labels).
     edge_rule = next(r for r in theme_rules if r["selector"] == "edge")

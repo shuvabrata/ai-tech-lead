@@ -370,6 +370,58 @@ def test_stylesheet_full_output_unchanged():
     assert "shape" not in generic["style"]  # intentionally omitted
 
 
+# ── node_label_color override reaches the rendered stylesheet ─────────
+
+
+def _stylesheet_node_colors(theme_name, effective):
+    """Return {selector: color} for the generic and typed node rules."""
+    stylesheet = build_cytoscape_stylesheet(theme_name, effective=effective)
+    return {
+        rule["selector"]: rule["style"]["color"]
+        for rule in stylesheet
+        if rule["selector"] == "node"
+        or rule["selector"].startswith("node[nodeType")
+    }
+
+
+def test_node_label_color_override_applies_to_generic_node():
+    """A node_label_color override changes the generic node label colour."""
+    from app.dash_app.styles import get_theme_tokens
+
+    merged = merge_theme_overrides(
+        get_theme_tokens("executive-light"),
+        ThemeOverrides(global_=GlobalOverride(node_label_color="#00FF00")),
+    )
+    colors = _stylesheet_node_colors("executive-light", merged)
+    assert colors["node"] == "#00FF00"
+
+
+def test_node_label_color_override_applies_to_typed_node():
+    """A node_label_color override changes the typed node label colour."""
+    from app.dash_app.styles import get_theme_tokens
+
+    merged = merge_theme_overrides(
+        get_theme_tokens("executive-light"),
+        ThemeOverrides(global_=GlobalOverride(node_label_color="#00FF00")),
+    )
+    colors = _stylesheet_node_colors("executive-light", merged)
+    assert colors['node[nodeType = "Person"]'] == "#00FF00"
+
+
+def test_node_label_color_falls_back_to_base_without_override():
+    """Without an override, the generic/typed fallback distinction is preserved.
+
+    Light mode: generic node uses text.primary (#1a202c), typed nodes use
+    graph.node.label (#f4f7fb). Collapsing these would be a visual regression.
+    """
+    from app.dash_app.styles import get_theme_tokens
+
+    merged = merge_theme_overrides(get_theme_tokens("executive-light"), {})
+    colors = _stylesheet_node_colors("executive-light", merged)
+    assert colors["node"] == "#1a202c"
+    assert colors['node[nodeType = "Person"]'] == "#f4f7fb"
+
+
 # ── effective_semantic_theme (editor-facing full snapshot) ────────────
 
 
