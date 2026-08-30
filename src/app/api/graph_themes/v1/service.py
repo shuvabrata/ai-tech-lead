@@ -106,6 +106,52 @@ def _snapshot_overrides(
     }
 
 
+def _snapshot_delta(
+    base_theme: str, snapshot: dict[str, Any]
+) -> dict[str, Any]:
+    """Extract the user's intentional overrides from a full snapshot.
+
+    A full snapshot is a complete document frozen to ``base_theme``'s palette,
+    so re-snapshotting it verbatim against a *different* base is a no-op (every
+    field is explicit and overrides the new base). To re-base a theme, we must
+    first recover the user's deltas — the fields that differ from the pure
+    ``base_theme`` palette — then re-snapshot those deltas against the new base.
+
+    Returns a sparse override doc (only the fields that diverge from the base),
+    suitable for :func:`parse_overrides` / :func:`_snapshot_overrides`.
+    """
+    base = effective_semantic_theme(get_theme_tokens(base_theme), {})
+    delta: dict[str, Any] = {}
+
+    nodes = snapshot.get("nodes", {})
+    base_nodes = base.get("nodes", {})
+    delta_nodes: dict[str, Any] = {}
+    for node_type, props in nodes.items():
+        base_props = base_nodes.get(node_type, {})
+        changed = {
+            key: value
+            for key, value in props.items()
+            if base_props.get(key) != value
+        }
+        if changed:
+            delta_nodes[node_type] = changed
+    if delta_nodes:
+        delta["nodes"] = delta_nodes
+
+    for section in ("edges", "global"):
+        props = snapshot.get(section, {})
+        base_props = base.get(section, {})
+        changed = {
+            key: value
+            for key, value in props.items()
+            if base_props.get(key) != value
+        }
+        if changed:
+            delta[section] = changed
+
+    return delta
+
+
 def _raise_on_duplicate_name(exc: IntegrityError) -> None:
     """Translate a name-uniqueness IntegrityError into :class:`DuplicateNameError`.
 
@@ -171,12 +217,31 @@ async def update_theme(
     theme = await get_theme(db, theme_id)
     _require_user_theme(theme)
 
+    # Determine the effective base after this update. If the base is actually
+    # changing, guard against orphaning the current default for the old base
+    # mode (same contract as deleting a default).
+    new_base = (
+        payload.base_theme if payload.base_theme is not None else theme.base_theme
+    )
+    if payload.base_theme is not None and new_base != theme.base_theme:
+        _require_not_default(theme)
+
     if payload.name is not None:
         theme.name = payload.name
-    if payload.base_theme is not None:
-        theme.base_theme = payload.base_theme
+    if payload.base_theme is not None and new_base != theme.base_theme:
+        # Re-base the theme: recover the user's deltas from the existing full
+        # snapshot (diffed against the OLD base), then re-snapshot those deltas
+        # against the NEW base. Re-snapshotting the snapshot verbatim would be
+        # a no-op because a full snapshot is immune to base changes.
+        theme.overrides = _snapshot_overrides(
+            new_base,
+            parse_overrides(
+                _snapshot_delta(theme.base_theme, theme.overrides or {})
+            ),
+        )
     if payload.overrides is not None:
-        theme.overrides = _snapshot_overrides(theme.base_theme, payload.overrides)
+        theme.overrides = _snapshot_overrides(new_base, payload.overrides)
+    theme.base_theme = new_base
 
     try:
         theme = await qry.touch_theme(db, theme)

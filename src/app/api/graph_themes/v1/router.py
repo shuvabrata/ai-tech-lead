@@ -113,6 +113,8 @@ async def update_graph_theme(
         raise _conflict(str(exc)) from exc
     except DuplicateNameError as exc:
         raise _conflict(str(exc)) from exc
+    except DefaultThemeError as exc:
+        raise _conflict(str(exc)) from exc
     except ValidationError as exc:
         raise HTTPException(status_code=422, detail=exc.errors()) from exc
     except ValueError as exc:

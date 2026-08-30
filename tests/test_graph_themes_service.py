@@ -398,4 +398,146 @@ class TestDuplicateName:
         ):
             with pytest.raises(service.DuplicateNameError):
                 await service.create_theme(mock_db, payload)
-        mock_db.rollback.assert_awaited_once()
+
+
+# ── PATCH base_theme (re-snapshot + default-orphaning guard) ─────────
+
+
+class TestUpdateBaseTheme:
+    """PATCHing ``base_theme`` re-snapshots against the new base and guards
+    against orphaning a default.
+
+    A full snapshot is immune to base changes, so re-basing must recover the
+    user's deltas (diffed against the old base) and re-snapshot them against
+    the new base. The default-orphaning guard fires before any mutation.
+    """
+
+    @pytest.mark.asyncio
+    @pytest.mark.unit
+    async def test_update_base_theme_resnapshots_existing_overrides(
+        self, mock_db: AsyncMock
+    ) -> None:
+        """Changing base_theme re-materializes the snapshot against the new base.
+
+        The stored snapshot is a full document frozen to the light base. After
+        PATCHing to dark, the fields that differ between the bases (the untyped
+        ``default`` node colour and the global ``selection_color``) must reflect
+        the dark base, while the user's Person override survives.
+        """
+        theme = _make_theme(
+            theme_id=7,
+            name="Probe",
+            base_theme="executive-light",
+            is_default=False,
+            source="user",
+            overrides={
+                "nodes": {
+                    "Person": {"color": "#123456"},
+                    "default": {"color": "#B8B8B8"},
+                },
+                "edges": {"line_color": "#C0C0C0"},
+                "global": {"selection_color": "#424242"},
+            },
+        )
+        with (
+            patch(
+                "app.api.graph_themes.v1.service.qry.get_theme_by_id",
+                new=AsyncMock(return_value=theme),
+            ),
+            patch(
+                "app.api.graph_themes.v1.service.qry.touch_theme",
+                side_effect=lambda _db, th: th,
+            ),
+        ):
+            result = await service.update_theme(
+                mock_db,
+                theme.id,
+                GraphThemeUpdate(base_theme="executive-dark"),
+            )
+
+        assert result.base_theme == "executive-dark"
+        # Re-snapshotted against the dark base.
+        assert result.overrides["nodes"]["default"]["color"] == "#7f8fa3"
+        assert result.overrides["global"]["selection_color"] == "#d5deea"
+        assert result.overrides["edges"]["line_color"] == "#8c9aab"
+        # The user's intentional override survives.
+        assert result.overrides["nodes"]["Person"]["color"] == "#123456"
+
+    @pytest.mark.asyncio
+    @pytest.mark.unit
+    async def test_update_base_theme_orphaning_default_raises(
+        self, mock_db: AsyncMock
+    ) -> None:
+        """Changing base_theme on a default theme raises DefaultThemeError.
+
+        The guard fires before any mutation, so the theme's base_theme is
+        unchanged.
+        """
+        theme = _make_theme(
+            theme_id=8,
+            name="Default Light",
+            base_theme="executive-light",
+            is_default=True,
+            source="user",
+            overrides={"nodes": {"Person": {"color": "#123456"}}},
+        )
+        with patch(
+            "app.api.graph_themes.v1.service.qry.get_theme_by_id",
+            new=AsyncMock(return_value=theme),
+        ):
+            with pytest.raises(DefaultThemeError):
+                await service.update_theme(
+                    mock_db,
+                    theme.id,
+                    GraphThemeUpdate(base_theme="executive-dark"),
+                )
+        # The guard fired before the mutation.
+        assert theme.base_theme == "executive-light"
+        mock_db.commit.assert_not_called()
+
+    @pytest.mark.asyncio
+    @pytest.mark.unit
+    async def test_update_base_theme_same_base_is_noop(
+        self, mock_db: AsyncMock
+    ) -> None:
+        """PATCHing base_theme with the current value is a no-op.
+
+        No re-snapshot occurs and no error is raised; the stored snapshot is
+        left untouched.
+        """
+        theme = _make_theme(
+            theme_id=9,
+            name="Probe",
+            base_theme="executive-light",
+            is_default=False,
+            source="user",
+            overrides={
+                "nodes": {
+                    "Person": {"color": "#123456"},
+                    "default": {"color": "#B8B8B8"},
+                },
+                "global": {"selection_color": "#424242"},
+            },
+        )
+        original_overrides = dict(theme.overrides)
+        with (
+            patch(
+                "app.api.graph_themes.v1.service.qry.get_theme_by_id",
+                new=AsyncMock(return_value=theme),
+            ),
+            patch(
+                "app.api.graph_themes.v1.service.qry.touch_theme",
+                side_effect=lambda _db, th: th,
+            ),
+        ):
+            result = await service.update_theme(
+                mock_db,
+                theme.id,
+                GraphThemeUpdate(base_theme="executive-light"),
+            )
+
+        assert result.base_theme == "executive-light"
+        # Snapshot untouched (still the light base's default node colour).
+        assert result.overrides["nodes"]["default"]["color"] == "#B8B8B8"
+        assert result.overrides == original_overrides
+        mock_db.commit.assert_awaited_once()

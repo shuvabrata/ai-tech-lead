@@ -299,3 +299,152 @@ class TestSetDefault:
             light = [t for t in themes if t["base_theme"] == "executive-light"]
             defaults = [t for t in light if t["is_default"]]
             assert defaults[0]["id"] == original_default["id"]
+
+
+# ── PATCH base_theme (re-snapshot + default-orphaning guard) ─────────
+
+
+class TestUpdateBaseTheme:
+    """PATCHing ``base_theme`` re-snapshots against the new base and guards
+    against orphaning a default.
+
+    Cleanup: every row created here carries the ``test`` substring in its name
+    and is deleted in a ``finally``; the session-scoped ``themes_snapshot``
+    fixture additionally restores the pre-test defaults and removes any leaked
+    rows regardless of pass/fail.
+    """
+
+    @pytest.mark.asyncio
+    async def test_base_theme_change_resnapshots_against_new_base(self) -> None:
+        """PATCHing only ``base_theme`` re-materializes the stored snapshot.
+
+        The stored snapshot is a full document frozen to the *old* base's
+        palette. Changing ``base_theme`` must re-snapshot the existing
+        overrides against the **new** base so the theme actually renders with
+        the new palette. Fields that differ between the light and dark bases
+        (the untyped ``default`` node colour and the global ``selection_color``)
+        must reflect the dark base after the PATCH.
+        """
+        async with httpx.AsyncClient(base_url=BASE_URL) as client:
+            # Create a light-base theme with a distinctive Person override.
+            resp = await client.post(
+                "/api/v1/graph-themes/",
+                json={
+                    "name": "test-base-change",
+                    "base_theme": "executive-light",
+                    "overrides": {
+                        "nodes": {"Person": {"color": "#123456"}},
+                    },
+                },
+            )
+            assert resp.status_code == 201
+            theme_id = resp.json()["id"]
+
+            try:
+                # Sanity: the light snapshot froze the light base's default
+                # node colour and selection colour.
+                created = resp.json()
+                assert created["overrides"]["nodes"]["default"]["color"] == "#B8B8B8"
+                assert created["overrides"]["global"]["selection_color"] == "#424242"
+
+                # PATCH only base_theme → dark.
+                resp = await client.patch(
+                    f"/api/v1/graph-themes/{theme_id}",
+                    json={"base_theme": "executive-dark"},
+                )
+                assert resp.status_code == 200
+                updated = resp.json()
+
+                # The base column changed...
+                assert updated["base_theme"] == "executive-dark"
+                # ...and the snapshot was re-materialized against the dark base:
+                # the default node colour and selection colour now reflect dark.
+                assert updated["overrides"]["nodes"]["default"]["color"] == "#7f8fa3"
+                assert updated["overrides"]["global"]["selection_color"] == "#d5deea"
+                # The user's Person override survives the re-snapshot.
+                assert updated["overrides"]["nodes"]["Person"]["color"] == "#123456"
+            finally:
+                await client.delete(f"/api/v1/graph-themes/{theme_id}")
+
+    @pytest.mark.asyncio
+    async def test_base_theme_change_on_default_returns_409(self) -> None:
+        """Moving a default theme to another base mode is rejected (409).
+
+        Otherwise the old base mode would be silently left with no default —
+        the exact fallback-to-hardcoded-palette state that the delete guard
+        exists to prevent. The guard must fire before any mutation.
+        """
+        async with httpx.AsyncClient(base_url=BASE_URL) as client:
+            # Capture the current light default BEFORE the swap so cleanup can
+            # restore it (after the swap, the candidate is the default).
+            themes = await _list_themes(client)
+            light = [t for t in themes if t["base_theme"] == "executive-light"]
+            original_default = next(t for t in light if t["is_default"])
+
+            # Create a candidate and make it the default for light.
+            resp = await client.post(
+                "/api/v1/graph-themes/",
+                json={"name": "test-base-change-default", "base_theme": "executive-light"},
+            )
+            assert resp.status_code == 201
+            theme_id = resp.json()["id"]
+
+            try:
+                resp = await client.post(f"/api/v1/graph-themes/{theme_id}/set-default")
+                assert resp.status_code == 200
+
+                # PATCHing base_theme on the default must be rejected.
+                resp = await client.patch(
+                    f"/api/v1/graph-themes/{theme_id}",
+                    json={"base_theme": "executive-dark"},
+                )
+                assert resp.status_code == 409
+
+                # The theme is unchanged: still light, still the default.
+                resp = await client.get(f"/api/v1/graph-themes/{theme_id}")
+                assert resp.status_code == 200
+                theme = resp.json()
+                assert theme["base_theme"] == "executive-light"
+                assert theme["is_default"] is True
+            finally:
+                # Restore the original light default, then remove the candidate.
+                await client.post(
+                    f"/api/v1/graph-themes/{original_default['id']}/set-default"
+                )
+                await client.delete(f"/api/v1/graph-themes/{theme_id}")
+
+    @pytest.mark.asyncio
+    async def test_base_theme_same_value_is_noop(self) -> None:
+        """PATCHing ``base_theme`` with the current value is a no-op.
+
+        No re-snapshot occurs and no error is raised; the stored snapshot is
+        left untouched.
+        """
+        async with httpx.AsyncClient(base_url=BASE_URL) as client:
+            resp = await client.post(
+                "/api/v1/graph-themes/",
+                json={
+                    "name": "test-base-noop",
+                    "base_theme": "executive-light",
+                    "overrides": {
+                        "nodes": {"Person": {"color": "#123456"}},
+                    },
+                },
+            )
+            assert resp.status_code == 201
+            theme_id = resp.json()["id"]
+            original_overrides = resp.json()["overrides"]
+
+            try:
+                resp = await client.patch(
+                    f"/api/v1/graph-themes/{theme_id}",
+                    json={"base_theme": "executive-light"},
+                )
+                assert resp.status_code == 200
+                updated = resp.json()
+                assert updated["base_theme"] == "executive-light"
+                # Snapshot untouched (still the light base's default node colour).
+                assert updated["overrides"]["nodes"]["default"]["color"] == "#B8B8B8"
+                assert updated["overrides"] == original_overrides
+            finally:
+                await client.delete(f"/api/v1/graph-themes/{theme_id}")
