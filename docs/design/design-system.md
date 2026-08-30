@@ -155,16 +155,31 @@ Follows a consistent 4px/8px grid system:
 
 ### Page Headers
 
-**Style Token**: `PAGE_HEADER_STYLE`
+**Style Token**: `COMPACT_PAGE_HEADER_STYLE`
 
 ```python
 from app.dash_app.components.common import create_page_header
 
-# Usage
-header = create_page_header("My Page Title")
+# Usage — breadcrumb is a list of (label, href) segments; href=None = current page
+header = create_page_header(
+    [("Settings", "/app/settings"), ("Graph Styling", None)],
+    "Customize graph colors, shapes, sizes, and node appearance.",
+)
 ```
 
-**Visual**: Uppercase text with 1.5px letter spacing, gray color, bottom border
+**Visual**: A single compact row — `BREADCRUMB | description` — above a full-width
+bottom border. Uppercase breadcrumb with 0.8px letter spacing (per the Executive
+Dashboard navigation rule).
+
+**Color rules**:
+- **Clickable breadcrumb segments** (`href` provided): navy (`COLOR_NAVY`), no underline
+- **Current-page segment** (`href=None`): charcoal (`COLOR_CHARCOAL_MEDIUM`), non-clickable
+- **Description** (after the `|` separator): gray (`COLOR_GRAY_MEDIUM`), sentence-case
+- **`/`** separates breadcrumb segments; **`|`** separates the breadcrumb from the description
+
+**Layout rule**: The header sits on the plain page background, **outside** any
+`CARD_CONTAINER_STYLE` wrapper. The card container wraps only the page content
+(cards, tables, etc.), never the header.
 
 ---
 
@@ -397,10 +412,13 @@ from app.dash_app.styles import CARD_CONTAINER_STYLE
 
 def get_layout():
     return html.Div([
-        # Page header
-        create_page_header("My New Page"),
-        
-        # Card container
+        # Page header — sits on the plain background, OUTSIDE the card container
+        create_page_header(
+            [("My New Page", None)],
+            "A short description of what this page does.",
+        ),
+
+        # Card container — wraps only the page content, never the header
         html.Div([
             create_feature_card(
                 title="Feature 1",

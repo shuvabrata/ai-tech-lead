@@ -8,13 +8,7 @@ from dash import html
 import dash_bootstrap_components as dbc
 
 from app.dash_app.components.common import create_page_header
-from app.dash_app.styles import (
-    CARD_CONTAINER_STYLE,
-    COLOR_GRAY_MEDIUM,
-    FONT_SANS,
-    FONT_SIZE_SMALL,
-    SPACING_SMALL,
-)
+from app.dash_app.styles import CARD_CONTAINER_STYLE
 from .components.settings_card import settings_card
 
 
@@ -46,23 +40,19 @@ def get_layout() -> html.Div:
 
     return html.Div(
         [
-            create_page_header("Settings"),
-            html.Div(
+            create_page_header(
+                [("Settings", None)],
                 "Manage runtime configuration, AI behaviour, and graph appearance.",
-                style={
-                    "fontFamily": FONT_SANS,
-                    "fontSize": FONT_SIZE_SMALL,
-                    "color": COLOR_GRAY_MEDIUM,
-                    "marginBottom": SPACING_SMALL,
-                },
             ),
-            dbc.Row(
-                [
-                    dbc.Col(card, md=3, sm=6, xs=12)
-                    for card in cards
-                ],
-                className="g-3",
+            html.Div(
+                dbc.Row(
+                    [
+                        dbc.Col(card, md=3, sm=6, xs=12)
+                        for card in cards
+                    ],
+                    className="g-3",
+                ),
+                style=CARD_CONTAINER_STYLE,
             ),
         ],
-        style=CARD_CONTAINER_STYLE,
     )

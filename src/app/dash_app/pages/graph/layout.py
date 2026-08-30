@@ -12,7 +12,7 @@ from .styles import CYTOSCAPE_STYLESHEET
 from .components import create_expansion_modal, create_context_menu, create_time_slider_pair
 from .utils.ui_components import create_performance_metrics
 
-from app.dash_app.components.common import create_controls_bar
+from app.dash_app.components.common import create_controls_bar, create_page_header
 
 from app.dash_app.styles import (
     FONT_SANS,
@@ -664,6 +664,10 @@ def get_layout():
         html.Div with full page layout
     """
     return html.Div([
+        create_page_header(
+            [("Graph", None)],
+            "Explore the collaboration graph.",
+        ),
         # Results Section (graph visualization + details panel)
         create_results_section(),
 

@@ -32,7 +32,7 @@ from dash import (
 )
 from dash.exceptions import PreventUpdate
 
-from app.dash_app.components.common import create_alert
+from app.dash_app.components.common import create_alert, create_page_header
 from app.dash_app.styles import (
     CARD_CONTAINER_STYLE,
     COLOR_BACKGROUND_LIGHT,
@@ -50,7 +50,6 @@ from app.dash_app.styles import (
     FONT_SIZE_XTINY,
     FONT_WEIGHT_SEMIBOLD,
     INPUT_STYLE,
-    PAGE_HEADER_STYLE,
     SPACING_XXSMALL,
     SPACING_XSMALL,
     SPACING_SMALL,
@@ -299,52 +298,14 @@ def get_runtime_layout() -> html.Div:
                         "default values? This cannot be undone.",
             ),
             html.Div(id="settings-feedback"),
-            html.Div(
-                [
-                    dcc.Link(
-                        "Settings",
-                        href="/app/settings",
-                        style={
-                            "fontFamily": FONT_SANS,
-                            "fontSize": FONT_SIZE_SMALL,
-                            "color": COLOR_GRAY_MEDIUM,
-                            "textDecoration": "none",
-                        },
-                    ),
-                    html.Span(
-                        " / ",
-                        style={
-                            "fontFamily": FONT_SANS,
-                            "fontSize": FONT_SIZE_SMALL,
-                            "color": COLOR_GRAY_MEDIUM,
-                            "margin": f"0 {SPACING_XSMALL}",
-                        },
-                    ),
-                    html.Span(
-                        "Runtime Settings",
-                        style={
-                            "fontFamily": FONT_SANS,
-                            "fontSize": FONT_SIZE_SMALL,
-                            "color": COLOR_CHARCOAL_MEDIUM,
-                        },
-                    ),
-                ],
-                style={"marginBottom": SPACING_SMALL},
+            create_page_header(
+                [("Settings", "/app/settings"), ("Runtime Settings", None)],
+                "Configure application behaviour without restarting containers. "
+                "Changes apply immediately.",
             ),
-            html.Div("Runtime Settings", style=PAGE_HEADER_STYLE),
-            # Description + sticky action bar on the same row.
+            # Sticky action bar.
             html.Div(
                 [
-                    html.Div(
-                        "Configure application behaviour without restarting "
-                        "containers. Changes apply immediately.",
-                        style={
-                            "fontFamily": FONT_SANS,
-                            "fontSize": FONT_SIZE_SMALL,
-                            "color": COLOR_GRAY_MEDIUM,
-                            "lineHeight": "1.6",
-                        },
-                    ),
                     html.Div(
                         [
                             dbc.Button(

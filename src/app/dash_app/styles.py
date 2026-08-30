@@ -6,9 +6,9 @@ All color values, typography settings, spacing, and common style patterns are
 defined here as the single source of truth for the Executive Dashboard aesthetic.
 
 Usage:
-    from app.dash_app.styles import COLOR_NAVY, FONT_SANS, PAGE_HEADER_STYLE
+    from app.dash_app.styles import COLOR_NAVY, FONT_SANS, COMPACT_PAGE_HEADER_STYLE
     
-    html.Div("My Header", style=PAGE_HEADER_STYLE)
+    html.Div("My Header", style=COMPACT_PAGE_HEADER_STYLE)
 """
 
 # =============================================================================
@@ -344,16 +344,17 @@ SPACING_XXLARGE = "48px"
 # =============================================================================
 
 # Page Headers
-PAGE_HEADER_STYLE = {
+COMPACT_PAGE_HEADER_STYLE = {
+    "display": "flex",
+    "alignItems": "center",
+    "gap": SPACING_XSMALL,
     "fontFamily": FONT_SANS,
     "fontSize": FONT_SIZE_SMALL,
-    "color": COLOR_GRAY_MEDIUM,
-    "letterSpacing": "1.5px",
     "textTransform": "uppercase",
-    "fontWeight": FONT_WEIGHT_MEDIUM,
+    "letterSpacing": "0.8px",
     "borderBottom": f"1px solid {COLOR_BORDER}",
     "paddingBottom": SPACING_XSMALL,
-    "marginBottom": SPACING_SMALL
+    "marginBottom": SPACING_XXSMALL
 }
 
 # Card Containers

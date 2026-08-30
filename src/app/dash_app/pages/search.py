@@ -19,7 +19,7 @@ from urllib.parse import parse_qs, unquote
 import dash_bootstrap_components as dbc
 
 from app.common.timezone import humanize_duration, to_app_timezone
-from app.dash_app.components.common import create_alert
+from app.dash_app.components.common import create_alert, create_page_header
 from app.dash_app.pages.graph.utils import fetch_effective_theme
 from app.dash_app.styles import (
     COLOR_BORDER,
@@ -782,6 +782,10 @@ def get_layout() -> html.Div:
 
     return html.Div(
         [
+            create_page_header(
+                [("Search", None)],
+                "Search across people, projects, and activity.",
+            ),
             # Hidden state stores
             dcc.Store(id="search-current-page", storage_type="session", data=1),
             dcc.Store(id="search-last-query-params", storage_type="session", data={}),
@@ -933,7 +937,6 @@ def get_layout() -> html.Div:
                 style=CARD_CONTAINER_STYLE,
             ),
         ],
-        className="mt-3",
     )
 
 

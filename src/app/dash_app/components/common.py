@@ -8,7 +8,8 @@ Usage:
     from app.dash_app.components.common import create_page_header, create_feature_card
     
     layout = html.Div([
-        create_page_header("My Page Title"),
+        create_page_header([("Settings", "/app/settings"), ("Graph Styling", None)],
+                           "Customize graph colors, shapes, sizes, and node appearance."),
         create_feature_card("Feature Title", "Feature description...")
     ])
 """
@@ -23,7 +24,7 @@ from app.settings import settings
 
 from app.dash_app.styles import (
     # Style patterns
-    PAGE_HEADER_STYLE,
+    COMPACT_PAGE_HEADER_STYLE,
     CARD_CONTAINER_STYLE,
     FEATURE_CARD_STYLE,
     FEATURE_CARD_TITLE_STYLE,
@@ -59,20 +60,69 @@ from app.dash_app.styles import (
 )
 
 
-def create_page_header(text: str) -> html.Div:
+def create_page_header(
+    breadcrumb: list[tuple[str, str | None]],
+    description: str | None = None,
+) -> html.Div:
     """
-    Create a consistent page header with Executive Dashboard styling.
-    
+    Create a compact single-row page header with Executive Dashboard styling.
+
+    Renders a breadcrumb trail followed by an optional description, all on one
+    row above a full-width divider line. Breadcrumb segments with an ``href``
+    are rendered as clickable links (navy); segments with ``None`` are rendered
+    as non-clickable current-page text (charcoal). The description, when given,
+    is appended after a ``|`` separator in muted gray sentence-case text.
+
     Args:
-        text: The header text to display
-        
+        breadcrumb: Ordered list of ``(label, href)`` segments. ``href=None``
+            renders the segment as non-clickable current-page text.
+        description: Optional description text shown after the ``|`` separator.
+
     Returns:
-        html.Div: A styled page header component
-        
+        html.Div: A styled compact page header component.
+
     Example:
-        create_page_header("Strategic Analysis & Advisory")
+        create_page_header(
+            [("Settings", "/app/settings"), ("Graph Styling", None)],
+            "Customize graph colors, shapes, sizes, and node appearance.",
+        )
     """
-    return html.Div(text, style=PAGE_HEADER_STYLE)
+    link_style = {
+        "color": COLOR_NAVY,
+        "textDecoration": "none",
+    }
+    current_style = {
+        "color": COLOR_CHARCOAL_MEDIUM,
+    }
+    separator_style = {
+        "color": COLOR_GRAY_MEDIUM,
+        "margin": f"0 {SPACING_XSMALL}",
+    }
+
+    children: list[Any] = []
+    for index, (label, href) in enumerate(breadcrumb):
+        if index > 0:
+            children.append(html.Span(" / ", style=separator_style))
+        if href:
+            children.append(dcc.Link(label, href=href, style=link_style))
+        else:
+            children.append(html.Span(label, style=current_style))
+
+    if description:
+        if breadcrumb:
+            children.append(html.Span(" | ", style=separator_style))
+        children.append(
+            html.Span(
+                description,
+                style={
+                    "color": COLOR_GRAY_MEDIUM,
+                    "textTransform": "none",
+                    "letterSpacing": "normal",
+                },
+            )
+        )
+
+    return html.Div(children, style=COMPACT_PAGE_HEADER_STYLE)
 
 
 def create_alert(

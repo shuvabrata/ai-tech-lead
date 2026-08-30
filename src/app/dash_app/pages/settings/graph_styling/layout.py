@@ -15,70 +15,18 @@ from __future__ import annotations
 from dash import dcc, html
 
 from app.dash_app.components.common import create_page_header
-from app.dash_app.styles import (
-    CARD_CONTAINER_STYLE,
-    COLOR_CHARCOAL_MEDIUM,
-    COLOR_GRAY_MEDIUM,
-    FONT_SANS,
-    FONT_SIZE_SMALL,
-    SPACING_SMALL,
-    SPACING_XSMALL,
-)
+from app.dash_app.styles import CARD_CONTAINER_STYLE
 
 from .components import build_base_mode_tabs
-
-
-def _breadcrumb() -> html.Div:
-    """Breadcrumb trail (Settings / Graph Styling)."""
-    return html.Div(
-        [
-            dcc.Link(
-                "Settings",
-                href="/app/settings",
-                style={
-                    "fontFamily": FONT_SANS,
-                    "fontSize": FONT_SIZE_SMALL,
-                    "color": COLOR_GRAY_MEDIUM,
-                    "textDecoration": "none",
-                },
-            ),
-            html.Span(
-                " / ",
-                style={
-                    "fontFamily": FONT_SANS,
-                    "fontSize": FONT_SIZE_SMALL,
-                    "color": COLOR_GRAY_MEDIUM,
-                    "margin": f"0 {SPACING_XSMALL}",
-                },
-            ),
-            html.Span(
-                "Graph Styling",
-                style={
-                    "fontFamily": FONT_SANS,
-                    "fontSize": FONT_SIZE_SMALL,
-                    "color": COLOR_CHARCOAL_MEDIUM,
-                },
-            ),
-        ],
-        style={"marginBottom": SPACING_SMALL},
-    )
 
 
 def get_layout() -> html.Div:
     """Return the Graph Styling settings page layout."""
     return html.Div(
         [
-            _breadcrumb(),
-            create_page_header("Graph Styling"),
-            html.Div(
+            create_page_header(
+                [("Settings", "/app/settings"), ("Graph Styling", None)],
                 "Customize graph colors, shapes, sizes, and node appearance.",
-                style={
-                    "fontFamily": FONT_SANS,
-                    "fontSize": FONT_SIZE_SMALL,
-                    "color": COLOR_GRAY_MEDIUM,
-                    "lineHeight": "1.6",
-                    "marginBottom": SPACING_SMALL,
-                },
             ),
             html.Div(id="gs-page-feedback"),
             dcc.Store(id="gs-set-default-pending", data=None),
