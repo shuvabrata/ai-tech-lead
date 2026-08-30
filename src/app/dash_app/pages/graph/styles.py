@@ -6,7 +6,7 @@ including node colors, sizes, edge styles, and selection states.
 
 import re
 
-from app.common.graph_theme import NODE_TYPES, merge_theme_overrides
+from app.common.graph_theme import merge_theme_overrides, overrides_to_cytoscape_rules
 from app.dash_app.styles import (
     ACTIVE_THEME,
     get_theme_tokens,
@@ -67,144 +67,79 @@ def build_cytoscape_stylesheet(theme_name: str = ACTIVE_THEME, effective=None):
     typed_node_label_color = tokens["graph.node.label"]
     edge_label_bg = tokens["surface.base"]
 
-    nodes = effective["nodes"]
-    default_props = nodes.get("default", {})
-
-    # Generic (untyped) node rule. ``shape`` is intentionally omitted (ellipse
-    # is the Cytoscape default), preserving parity with the previous output.
-    node_rules = [
-        {
-            'selector': 'node',
-            'style': {
-                'label': 'data(displayLabel)',
-                'background-color': default_props.get(
-                    "background-color", tokens["graph.node.default"]
-                ),
-                'color': node_label_color,
-                'text-valign': 'center',
-                'text-halign': 'center',
-                'font-family': cyto_font_family,
-                'font-size': FONT_SIZE_TINY,
-                'font-weight': FONT_WEIGHT_MEDIUM,
-                'width': default_props.get("width", "60px"),
-                'height': default_props.get("height", "50px"),
-                'border-width': '0px',
-                'border-color': default_props.get(
-                    "border-color", tokens["graph.node.default.border"]
-                ),
-                'text-wrap': 'wrap',
-                'text-max-width': '56px'
-            }
-        }
-    ]
-
-    # Per-nodeType rules, driven entirely by the effective theme. Selectors are
-    # disjoint, so iteration order is irrelevant.
-    for node_type in NODE_TYPES:
-        if node_type == "default":
-            continue
-        props = nodes[node_type]
-        node_rules.append({
-            'selector': f'node[nodeType = "{node_type}"]',
-            'style': {
-                'shape': props["shape"],
-                'background-color': props["background-color"],
-                'border-color': props["border-color"],
-                'color': typed_node_label_color,
-                'width': props["width"],
-                'height': props["height"],
-            }
-        })
-
     edges = effective["edges"]
     globals_ = effective["global"]
 
+    # Theme-derived rules come from the single shared translation layer
+    # (app.common.graph_theme.overrides_to_cytoscape_rules). The generic node,
+    # per-nodeType, edge, and selected rules are all produced there.
+    theme_rules = overrides_to_cytoscape_rules(effective)
+
+    # Enrich the generic (untyped) node rule with the font/label styling that
+    # is a stylesheet concern, not a theme concern. ``shape`` is intentionally
+    # omitted (ellipse is the Cytoscape default), preserving parity with the
+    # previous output.
+    generic_node_rule = theme_rules[0]
+    generic_node_rule["style"].update({
+        'label': 'data(displayLabel)',
+        'color': node_label_color,
+        'text-valign': 'center',
+        'text-halign': 'center',
+        'font-family': cyto_font_family,
+        'font-size': FONT_SIZE_TINY,
+        'font-weight': FONT_WEIGHT_MEDIUM,
+        'border-width': '0px',
+        'text-wrap': 'wrap',
+        'text-max-width': '56px'
+    })
+    # The shared function sets the generic node's ``color`` from the theme's
+    # node_label_color; the stylesheet overrides it with the page's label
+    # colour (light mode uses text.primary). This preserves the pre-existing
+    # behaviour exactly.
+    generic_node_rule["style"]["color"] = node_label_color
+    # ``shape`` is intentionally omitted from the generic node rule (ellipse is
+    # the Cytoscape default), preserving parity with the previous output.
+    generic_node_rule["style"].pop("shape", None)
+
+    # Enrich each per-nodeType rule with the typed label colour.
+    for rule in theme_rules[1:]:
+        if rule["selector"].startswith("node[nodeType"):
+            rule["style"]["color"] = typed_node_label_color
+
+    # Enrich the edge rule with the full edge styling (fonts, arrows, labels).
+    edge_rule = next(r for r in theme_rules if r["selector"] == "edge")
+    edge_rule["style"].update({
+        'target-arrow-color': edges.get("line-color", tokens["graph.edge.default"]),
+        'arrow-scale': 1.0,
+        'curve-style': 'bezier',
+        'control-point-step-size': 40,
+        'label': 'data(label)',
+        'font-family': cyto_font_family,
+        'font-size': FONT_SIZE_XXSMALL,
+        'font-weight': FONT_WEIGHT_MEDIUM,
+        'text-rotation': 'autorotate',
+        'text-margin-y': -10,
+        'text-background-color': globals_.get(
+            "edge_label_background", edge_label_bg
+        ),
+        'text-background-opacity': 0.85,
+        'text-background-padding': '3px',
+        'text-outline-color': globals_.get(
+            "edge_label_background", edge_label_bg
+        ),
+        'text-outline-width': 1
+    })
+
+    # Enrich the node:selected rule with the selection border styling.
+    selected_rule = next(r for r in theme_rules if r["selector"] == "node:selected")
+    selected_rule["style"].update({
+        'border-width': '2px',
+        'border-style': 'solid',
+        'z-index': 9999
+    })
+
     return [
-        *node_rules,
-        {
-            'selector': 'edge',
-            'style': {
-                'width': edges.get("width", 2),
-                'line-color': edges.get("line-color", tokens["graph.edge.default"]),
-                'target-arrow-color': edges.get("line-color", tokens["graph.edge.default"]),
-                'target-arrow-shape': edges.get("target-arrow-shape", "triangle"),
-                'arrow-scale': 1.0,
-                'curve-style': 'bezier',
-                'control-point-step-size': 40,
-                'label': 'data(label)',
-                'font-family': cyto_font_family,
-                'font-size': FONT_SIZE_XXSMALL,
-                'font-weight': FONT_WEIGHT_MEDIUM,
-                'color': edges.get("color", tokens["text.secondary"]),
-                'text-rotation': 'autorotate',
-                'text-margin-y': -10,
-                'text-background-color': globals_.get(
-                    "edge_label_background", edge_label_bg
-                ),
-                'text-background-opacity': 0.85,
-                'text-background-padding': '3px',
-                'text-outline-color': globals_.get(
-                    "edge_label_background", edge_label_bg
-                ),
-                'text-outline-width': 1
-            }
-        },
-        {
-            # normalized_weight is a 0–100 value computed server-side relative to the
-            # heaviest edge in the current graph load. Raw 'weight' is preserved
-            # separately for display and filter logic.
-            'selector': 'edge[normalized_weight]',
-            'style': {
-                # line_color is a pre-computed hex string set server-side via
-                # algorithm._weight_to_hex() using a matplotlib multi-stop colormap
-                # (grey → light red → deep crimson). Using data() instead of mapData()
-                # bypasses Cytoscape's two-color-only interpolation limit.
-                'line-color': 'data(line_color)',
-                # Opacity: weak edges fade to near-invisible, strong ones are opaque.
-                # This naturally de-clutters the graph without hiding data.
-                'opacity': 'mapData(normalized_weight, 0, 100, 0.5, 0.9)',
-                # Z-index: strong edges render on top of weak ones so they are
-                # never buried under the noise of low-weight connections.
-                'z-index': 'mapData(normalized_weight, 0, 100, 1, 500)',
-            }
-        },
-        {
-            'selector': 'edge.collaboration-edge',
-            'style': {
-                # Collaboration scores are symmetric, so hide directional arrows.
-                'target-arrow-shape': 'none',
-                'source-arrow-shape': 'none',
-                'mid-target-arrow-shape': 'none',
-                'mid-source-arrow-shape': 'none',
-            }
-        },
-        {
-            # Dynamic node size: overrides fixed nodeType sizes when a caller
-            # has pre-computed width and height render values from _node_size.
-            # Absent on generic graph nodes -> fixed nodeType selectors remain in effect.
-            'selector': 'node[_render_width_px]',
-            'style': {
-                'width': 'data(_render_width_px)',
-                'height': 'data(_render_height_px)',
-            }
-        },
-        {
-            'selector': 'node:selected',
-            'style': {
-                'border-width': '2px',
-                'border-color': globals_.get(
-                    "selection_color", tokens["graph.selection"]
-                ),
-                'border-style': 'solid',
-                'z-index': 9999
-            }
-        },
-        {
-            'selector': 'edge:selected',
-            'style': {
-                'z-index': 9999,
-            }
-        },
+        *theme_rules,
         {
             'selector': '.selected-highlight',
             'style': {

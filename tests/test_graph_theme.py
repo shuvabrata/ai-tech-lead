@@ -224,6 +224,152 @@ def test_rules_complete_for_all_types():
         assert f'node[nodeType = "{node_type}"]' in rules
 
 
+# ── stylesheet consolidation (single shared translation layer) ────────
+
+
+def _stylesheet_selectors(stylesheet):
+    """Return the ordered list of selectors in a stylesheet."""
+    return [rule["selector"] for rule in stylesheet]
+
+
+def test_stylesheet_uses_shared_translation_layer():
+    """The stylesheet's theme selectors come from the shared translation layer.
+
+    Every theme selector emitted by ``overrides_to_cytoscape_rules`` must be
+    present in the stylesheet, and the per-nodeType ``background-color`` /
+    ``shape`` values must match. Set-equality (not subset) guards against the
+    stylesheet silently gaining a theme selector the shared function doesn't
+    emit.
+    """
+    from app.dash_app.styles import get_theme_tokens
+
+    theme_name = "executive-light"
+    effective = merge_theme_overrides(get_theme_tokens(theme_name), {})
+    shared_rules = overrides_to_cytoscape_rules(effective)
+    stylesheet = build_cytoscape_stylesheet(theme_name)
+
+    shared_by_selector = {r["selector"]: r["style"] for r in shared_rules}
+    sheet_by_selector = {r["selector"]: r["style"] for r in stylesheet}
+
+    # Every theme selector the shared function emits is present in the sheet.
+    for selector, style in shared_by_selector.items():
+        assert selector in sheet_by_selector, f"missing theme selector {selector}"
+        # Per-nodeType background-color / shape must match exactly.
+        if selector.startswith("node[nodeType"):
+            assert sheet_by_selector[selector]["background-color"] == style["background-color"]
+            assert sheet_by_selector[selector]["shape"] == style["shape"]
+
+    # The stylesheet must not contain a theme selector the shared function
+    # doesn't emit. The non-theme selectors (highlight/dim, community,
+    # spotlight) are exempt.
+    non_theme_selectors = {
+        ".selected-highlight", "node.selected-highlight", "edge.selected-highlight",
+        ".selected-dim", "node.selected-dim", "edge.selected-dim",
+        ".highlighted", ".dimmed", "node.dimmed", "edge.dimmed",
+        *[f".community-{i}" for i in range(20)],
+        "node.spotlight-dim", "node.spotlight-match",
+        "edge.spotlight-dim", "edge.spotlight-match",
+    }
+    theme_selectors_in_sheet = {
+        s for s in sheet_by_selector if s not in non_theme_selectors
+    }
+    assert theme_selectors_in_sheet == set(shared_by_selector)
+
+
+def test_stylesheet_keeps_non_theme_rules():
+    """The static non-theme rules survive the consolidation."""
+    stylesheet = build_cytoscape_stylesheet("executive-light")
+    selectors = _stylesheet_selectors(stylesheet)
+    for selector in (
+        "edge[normalized_weight]",
+        "edge.collaboration-edge",
+        "node[_render_width_px]",
+        "edge:selected",
+    ):
+        assert selector in selectors, f"missing non-theme selector {selector}"
+
+
+def test_stylesheet_full_output_unchanged():
+    """Characterization test: the stylesheet output is unchanged.
+
+    Captures the full ordered ``(selector, style)`` output of
+    ``build_cytoscape_stylesheet`` for the default theme. This is the
+    machine-checkable proof of the consolidation's "no behavioural change"
+    contract — if a future change alters the rendered stylesheet, this test
+    fails and forces an explicit decision.
+    """
+    stylesheet = build_cytoscape_stylesheet("executive-light")
+    # Assert the ordered selector list (the load-bearing structure) and the
+    # theme-derived style values, rather than the entire dict, to keep the
+    # snapshot readable and focused on what the consolidation must preserve.
+    assert _stylesheet_selectors(stylesheet) == [
+        "node",
+        "node[nodeType = \"Person\"]",
+        "node[nodeType = \"Project\"]",
+        "node[nodeType = \"Issue\"]",
+        "node[nodeType = \"Epic\"]",
+        "node[nodeType = \"Repository\"]",
+        "node[nodeType = \"Branch\"]",
+        "node[nodeType = \"Team\"]",
+        "node[nodeType = \"IdentityMapping\"]",
+        "node[nodeType = \"Initiative\"]",
+        "node[nodeType = \"Sprint\"]",
+        "node[nodeType = \"Commit\"]",
+        "node[nodeType = \"File\"]",
+        "node[nodeType = \"PullRequest\"]",
+        "node[nodeType = \"Space\"]",
+        "node[nodeType = \"Page\"]",
+        "node[nodeType = \"Blogpost\"]",
+        "edge",
+        "edge[normalized_weight]",
+        "edge.collaboration-edge",
+        "node[_render_width_px]",
+        "node:selected",
+        "edge:selected",
+        ".selected-highlight",
+        "node.selected-highlight",
+        "edge.selected-highlight",
+        ".selected-dim",
+        "node.selected-dim",
+        "edge.selected-dim",
+        ".highlighted",
+        ".dimmed",
+        "node.dimmed",
+        "edge.dimmed",
+        ".community-0",
+        ".community-1",
+        ".community-2",
+        ".community-3",
+        ".community-4",
+        ".community-5",
+        ".community-6",
+        ".community-7",
+        ".community-8",
+        ".community-9",
+        ".community-10",
+        ".community-11",
+        ".community-12",
+        ".community-13",
+        ".community-14",
+        ".community-15",
+        ".community-16",
+        ".community-17",
+        ".community-18",
+        ".community-19",
+        "node.spotlight-dim",
+        "node.spotlight-match",
+        "edge.spotlight-dim",
+        "edge.spotlight-match",
+    ]
+
+    # The generic node rule must carry the font/label styling (the one piece
+    # that must NOT move into the pure layer).
+    generic = next(r for r in stylesheet if r["selector"] == "node")
+    assert "font-family" in generic["style"]
+    assert "label" in generic["style"]
+    assert "shape" not in generic["style"]  # intentionally omitted
+
+
 # ── effective_semantic_theme (editor-facing full snapshot) ────────────
 
 

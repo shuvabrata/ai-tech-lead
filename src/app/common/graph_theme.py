@@ -527,12 +527,74 @@ def overrides_to_cytoscape_rules(merged_tokens: dict[str, Any]) -> list[dict[str
         edge_style[cyto_key] = edges.get(cyto_key, default)
     rules.append({"selector": "edge", "style": edge_style})
 
+    # Static non-theme rules the graph stylesheet needs. These carry no theme
+    # values, so they live in the pure layer alongside the theme rules; the
+    # stylesheet builder enriches the theme rules with font/label styling and
+    # appends the highlight/dim, community-colour, and spotlight rules.
+    #
+    # Order matters: these are emitted in the same relative order the
+    # stylesheet builder historically produced, so the consolidated output is
+    # byte-identical to the pre-consolidation stylesheet.
+    rules.extend(
+        [
+            {
+                # normalized_weight is a 0–100 value computed server-side relative to the
+                # heaviest edge in the current graph load. Raw 'weight' is preserved
+                # separately for display and filter logic.
+                "selector": "edge[normalized_weight]",
+                "style": {
+                    # line_color is a pre-computed hex string set server-side via
+                    # algorithm._weight_to_hex() using a matplotlib multi-stop colormap
+                    # (grey → light red → deep crimson). Using data() instead of mapData()
+                    # bypasses Cytoscape's two-color-only interpolation limit.
+                    "line-color": "data(line_color)",
+                    # Opacity: weak edges fade to near-invisible, strong ones are opaque.
+                    # This naturally de-clutters the graph without hiding data.
+                    "opacity": "mapData(normalized_weight, 0, 100, 0.5, 0.9)",
+                    # Z-index: strong edges render on top of weak ones so they are
+                    # never buried under the noise of low-weight connections.
+                    "z-index": "mapData(normalized_weight, 0, 100, 1, 500)",
+                },
+            },
+            {
+                "selector": "edge.collaboration-edge",
+                "style": {
+                    # Collaboration scores are symmetric, so hide directional arrows.
+                    "target-arrow-shape": "none",
+                    "source-arrow-shape": "none",
+                    "mid-target-arrow-shape": "none",
+                    "mid-source-arrow-shape": "none",
+                },
+            },
+            {
+                # Dynamic node size: overrides fixed nodeType sizes when a caller
+                # has pre-computed width and height render values from _node_size.
+                # Absent on generic graph nodes -> fixed nodeType selectors remain in effect.
+                "selector": "node[_render_width_px]",
+                "style": {
+                    "width": "data(_render_width_px)",
+                    "height": "data(_render_height_px)",
+                },
+            },
+        ]
+    )
+
     # Selected node (theme selection colour).
     rules.append(
         {
             "selector": "node:selected",
             "style": {
                 "border-color": str(global_.get("selection_color", "#424242")),
+            },
+        }
+    )
+
+    # Selected edge (static, non-theme).
+    rules.append(
+        {
+            "selector": "edge:selected",
+            "style": {
+                "z-index": 9999,
             },
         }
     )
