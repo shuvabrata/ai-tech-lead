@@ -42,18 +42,12 @@ def get_layout():
     """Return the analytics gallery page."""
     return html.Div(
         [
-            create_page_header("Analytics"),
+            create_page_header(
+                [("Analytics", None)],
+                "Launch pre-built graph visualizations for common leadership and delivery questions.",
+            ),
             html.Div(
                 [
-                    html.Div(
-                        "Launch pre-built graph visualizations for common leadership and delivery questions.",
-                        style={
-                            "fontFamily": FONT_SANS,
-                            "fontSize": FONT_SIZE_SMALL,
-                            "color": COLOR_GRAY_MEDIUM,
-                            "marginBottom": SPACING_MEDIUM,
-                        },
-                    ),
                     dbc.Row(
                         [
                             dbc.Col(_create_analytic_card(analytic), md=6, className="mb-3")
@@ -65,7 +59,6 @@ def get_layout():
                 style=CARD_CONTAINER_STYLE,
             ),
         ],
-        className="mt-3",
     )
 
 

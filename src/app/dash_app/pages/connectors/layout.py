@@ -39,18 +39,12 @@ from .components.tooltips import FIELD_TOOLTIPS
 def get_layout():
     return html.Div(
         [
-            create_page_header("Connectors"),
+            create_page_header(
+                [("Connectors", None)],
+                "Manage external integrations and verify connectivity.",
+            ),
             html.Div(
                 [
-                    html.Div(
-                        "Manage external integrations and verify connectivity.",
-                        style={
-                            "fontFamily": FONT_SANS,
-                            "fontSize": FONT_SIZE_SMALL,
-                            "color": COLOR_GRAY_MEDIUM,
-                            "marginBottom": SPACING_SMALL,
-                        },
-                    ),
                     dcc.Store(id="connectors-store", storage_type="memory"),
                     dcc.Loading(
                         id="connectors-loading",
@@ -79,7 +73,6 @@ def get_layout():
                 style=CARD_CONTAINER_STYLE,
             ),
         ],
-        className="mt-3",
     )
 
 
@@ -96,7 +89,10 @@ def get_detail_layout(connector_type: str):
     if not form_spec:
         return html.Div(
             [
-                create_page_header("Connectors"),
+                create_page_header(
+                    [("Connectors", None)],
+                    "Manage external integrations and verify connectivity.",
+                ),
                 create_alert(
                     f"Unknown connector type: {connector_type}",
                     color="warning",
@@ -195,7 +191,10 @@ def get_detail_layout(connector_type: str):
 
     return html.Div(
         [
-            create_page_header(f"Connectors / {display_name}"),
+            create_page_header(
+                [("Connectors", "/app/connectors"), (display_name, None)],
+                f"Configure the {display_name} connector.",
+            ),
             html.Div(
                 [
                     dcc.Store(id="connector-detail-store", storage_type="memory"),
@@ -234,7 +233,6 @@ def get_detail_layout(connector_type: str):
                 style=CARD_CONTAINER_STYLE,
             ),
         ],
-        className="mt-3",
     )
 
 
@@ -339,41 +337,6 @@ def _section_container(children: html.Div) -> html.Div:
             "borderRadius": "2px",
             "marginBottom": SPACING_SMALL,
         },
-    )
-
-
-def _breadcrumb(display_name: str) -> html.Div:
-    return html.Div(
-        [
-            dcc.Link(
-                "Connectors",
-                href="/app/connectors",
-                style={
-                    "fontFamily": FONT_SANS,
-                    "fontSize": FONT_SIZE_SMALL,
-                    "color": COLOR_GRAY_MEDIUM,
-                    "textDecoration": "none",
-                },
-            ),
-            html.Span(
-                " / ",
-                style={
-                    "fontFamily": FONT_SANS,
-                    "fontSize": FONT_SIZE_SMALL,
-                    "color": COLOR_GRAY_MEDIUM,
-                    "margin": f"0 {SPACING_XSMALL}",
-                },
-            ),
-            html.Span(
-                display_name,
-                style={
-                    "fontFamily": FONT_SANS,
-                    "fontSize": FONT_SIZE_SMALL,
-                    "color": COLOR_CHARCOAL_MEDIUM,
-                },
-            ),
-        ],
-        style={"marginBottom": SPACING_SMALL},
     )
 
 
@@ -743,7 +706,10 @@ def _get_manual_setup_layout(connector_type: str, connector_meta: dict) -> html.
 
     return html.Div(
         [
-            create_page_header(f"Connectors / {display_name}"),
+            create_page_header(
+                [("Connectors", "/app/connectors"), (display_name, None)],
+                f"Configure the {display_name} connector.",
+            ),
             html.Div(
                 [
                     # Required stores — callbacks still fire on all detail pages
@@ -899,5 +865,4 @@ def _get_manual_setup_layout(connector_type: str, connector_meta: dict) -> html.
                 style=CARD_CONTAINER_STYLE,
             ),
         ],
-        className="mt-3",
     )

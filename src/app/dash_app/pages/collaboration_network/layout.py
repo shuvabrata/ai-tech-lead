@@ -15,6 +15,7 @@ from app.dash_app.components.common import (
     create_alert,
     create_controls_bar,
     create_loading_overlay_container,
+    create_page_header,
 )
 from app.dash_app.pages.graph.styles import CYTOSCAPE_STYLESHEET
 from app.dash_app.styles import (
@@ -161,6 +162,10 @@ def get_layout() -> html.Div:
     """Return the collaboration network page layout."""
     return html.Div(
         [
+            create_page_header(
+                [("Analytics", "/app/analytics"), ("Collaboration Network", None)],
+                "Analyze team collaboration and network structure.",
+            ),
             # Stores
             dcc.Store(id="collab-elements-store", data=[]),
             dcc.Store(id="collab-community-available-store", data=[]),
@@ -168,21 +173,8 @@ def get_layout() -> html.Div:
             dcc.Store(id="collab-spotlight-debounced-store", data=""),
             dcc.Store(id="collab-loading-state", data=True),
 
-            # Top bar: back link + live stats banner
-            html.Div(
-                [
-                    dbc.Button(
-                        [html.I(className="fas fa-arrow-left me-2"), "Analytics"],
-                        href="/app/analytics",
-                        color="link",
-                        size="sm",
-                        style={"padding": "0", "fontSize": "13px", "textDecoration": "none"},
-                    ),
-                    html.Div(id="collab-banner", children=[], style={"display": "none", "flex": "1"}),
-                ],
-                className="d-flex align-items-center gap-3 mb-2",
-                style={"padding": "8px 0"},
-            ),
+            # Live stats banner
+            html.Div(id="collab-banner", children=[], style={"display": "none", "flex": "1"}),
 
             # Main 2-column row: canvas (left) + filter + properties (right)
             dbc.Row([
@@ -244,7 +236,6 @@ def get_layout() -> html.Div:
             html.Div(id="collab-render-trigger", style={"display": "none"}),
         ],
         id="collab-page",
-        className="mt-2",
         style={"padding": "0 8px"},
     )
 

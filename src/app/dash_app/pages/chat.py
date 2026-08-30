@@ -7,7 +7,7 @@ import requests
 
 from app.common.timezone import now_in_app_timezone, humanize_duration
 from app.runtime_settings import runtime_settings
-from app.dash_app.components.common import create_diamond_icon
+from app.dash_app.components.common import create_diamond_icon, create_page_header
 from app.dash_app.styles import (
     FONT_SANS,
     FONT_SERIF,
@@ -43,6 +43,10 @@ def _ui_timestamp() -> str:
 def get_layout():
     """Return the chat page layout with Executive Dashboard aesthetic"""
     return html.Div([
+        create_page_header(
+            [("Chat", None)],
+            "Ask questions about your team's work and collaboration.",
+        ),
         # Main chat container with refined styling
         html.Div([
             # Messages area with elegant container
