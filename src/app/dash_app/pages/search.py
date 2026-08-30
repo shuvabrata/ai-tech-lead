@@ -20,6 +20,7 @@ import dash_bootstrap_components as dbc
 
 from app.common.timezone import humanize_duration, to_app_timezone
 from app.dash_app.components.common import create_alert
+from app.dash_app.pages.graph.utils import fetch_effective_theme
 from app.dash_app.styles import (
     COLOR_BORDER,
     COLOR_BORDER_LIGHT,
@@ -127,11 +128,12 @@ def _get_api_base_url() -> str:
 # ---------------------------------------------------------------------------
 # Entity type → badge background colour (aligned with graph node palette)
 # ---------------------------------------------------------------------------
-# Use the same TOKENS dict as the graph page (get_theme_tokens) so badge
-# colours always match the Cytoscape node colours exactly.
-# IMPORTANT: keep this dict in sync with the nodeType selectors in
-# src/app/dash_app/pages/graph/styles.py.  The unit test
-# tests/test_search_node_color_consistency.py enforces that invariant.
+# Base palette comes from the same TOKENS dict as the graph page so badge
+# colours always match the Cytoscape node colours exactly. These values are
+# the *fallback*: at render time the effective graph theme (base ⊕ user
+# overrides, fetched from /api/v1/graph-themes/effective) may override them via
+# :func:`_badge_colors_from_effective`. The unit test
+# tests/test_search_node_color_consistency.py enforces the invariant.
 _ENTITY_TYPE_BADGE_COLORS: dict[str, str] = {
     "Person": TOKENS["graph.node.person"],
     "Issue": TOKENS["graph.node.issue"],
@@ -151,10 +153,38 @@ _ENTITY_TYPE_BADGE_COLORS: dict[str, str] = {
     "Blogpost": TOKENS["graph.node.blogpost"],
 }
 
+_DEFAULT_BADGE_COLOR = TOKENS["graph.node.default"]
 
-def _badge_color(entity_type: str) -> str:
-    """Return the badge background hex colour for a given entity type."""
-    return _ENTITY_TYPE_BADGE_COLORS.get(entity_type, TOKENS["graph.node.default"])
+
+def _badge_colors_from_effective(effective: dict | None) -> dict[str, str]:
+    """Resolve nodeType → badge colour from an effective theme document.
+
+    ``effective`` is the merged tokens returned by ``/api/v1/graph-themes/effective``
+    (shape: ``{"nodes": {<Type>: {"background-color": ...}, "default": {...}}, ...}``).
+    Base colours are the fallback; any node type present in the effective theme
+    overrides its base colour. Returns a copy, never mutates the base map.
+    """
+    colors = dict(_ENTITY_TYPE_BADGE_COLORS)
+    if not effective:
+        return colors
+    nodes = effective.get("nodes", {})
+    for node_type, base_color in _ENTITY_TYPE_BADGE_COLORS.items():
+        props = nodes.get(node_type, {})
+        if props and props.get("background-color"):
+            colors[node_type] = props["background-color"]
+    return colors
+
+
+def _badge_color(
+    entity_type: str, badge_colors: dict[str, str] | None = None
+) -> str:
+    """Return the badge background hex colour for a given entity type.
+
+    ``badge_colors`` is the resolved effective nodeType → colour map (from the
+    graph-theme store). When omitted, the base ``TOKENS`` snapshot is used.
+    """
+    colors = badge_colors or _ENTITY_TYPE_BADGE_COLORS
+    return colors.get(entity_type, _DEFAULT_BADGE_COLOR)
 
 
 # ---------------------------------------------------------------------------
@@ -363,7 +393,7 @@ def _parse_highlight(highlight: str) -> list:
     return parts
 
 
-def _build_result_card(result: dict, full: bool) -> html.Div:
+def _build_result_card(result: dict, full: bool, badge_colors: dict[str, str] | None = None) -> html.Div:
     """Build a single search result card."""
     wba_id: str = result.get("wba_id", "")
     url: str | None = result.get("url")
@@ -375,7 +405,7 @@ def _build_result_card(result: dict, full: bool) -> html.Div:
     parts = wba_id.split("::", 2)
     source_label = parts[0].capitalize() if len(parts) > 0 else ""
     entity_type = parts[1] if len(parts) > 1 else ""
-    badge_bg = _badge_color(entity_type)
+    badge_bg = _badge_color(entity_type, badge_colors)
 
     display_name = _extract_display_name(wba_id, attributes)
     formatted_time = _format_event_time(event_time)
@@ -933,6 +963,20 @@ def _populate_url_q_store(search: str | None) -> str | None:
         raise PreventUpdate
     return q
 
+@callback(
+    Output("search-theme-store", "data"),
+    Input("theme-store", "data"),
+)
+def _populate_search_theme_store(theme_name: str | None) -> dict | None:
+    """Fetch the effective graph theme into the search theme store.
+
+    Fires when the app theme changes (light/dark) and on page mount. Returns
+    the merged tokens or ``None`` on error so badge colours fall back to base.
+    """
+    active_theme = theme_name or "executive-light"
+    return fetch_effective_theme(active_theme)
+
+
 # Shared output spec — used by execute_search, paginate_search, and
 # restore_search_on_navigate so allow_duplicate is needed on the latter two.
 _SEARCH_OUTPUTS = [
@@ -960,12 +1004,14 @@ _SEARCH_OUTPUTS = [
     Input("search-last-query-params", "data"),
     State("search-current-page", "data"),
     State("search-full-toggle", "value"),
+    State("search-theme-store", "data"),
     prevent_initial_call="initial_duplicate",
 )
 def restore_search_on_navigate(
     last_query_params: dict | None,
     current_page: int | None,
     full: bool,
+    effective_theme: dict | None,
 ) -> tuple:
     """Re-execute the last search when the session store is restored on page load.
 
@@ -981,6 +1027,8 @@ def restore_search_on_navigate(
 
     if not last_query_params:
         return _no_restore
+
+    badge_colors = _badge_colors_from_effective(effective_theme)
 
     page = int(current_page or 1)
     params = dict(last_query_params)
@@ -1007,7 +1055,7 @@ def restore_search_on_navigate(
     total_pages = max(1, math.ceil(total / page_size))
 
     if results:
-        content = html.Div([_build_result_card(r, bool(full)) for r in results])
+        content = html.Div([_build_result_card(r, bool(full), badge_colors) for r in results])
     else:
         content = html.Div(
             [
@@ -1083,6 +1131,7 @@ def _toggle_entity_type_disabled(person_only_values: list | None) -> bool:
     State("search-date-to", "value"),
     State("search-last-query-params", "data"),
     State("search-person-only", "value"),
+    State("search-theme-store", "data"),
     prevent_initial_call=True,
 )
 def execute_search(
@@ -1098,6 +1147,7 @@ def execute_search(
     date_to: str | None,
     last_query_params: dict | None,
     person_only: list | None,
+    effective_theme: dict | None,
 ) -> tuple:
     """Fire a search request and render result cards."""
     triggered_id = ctx.triggered_id
@@ -1118,6 +1168,8 @@ def execute_search(
 
     _empty_header = {**_RESULTS_HEADER_STYLE, "display": "none"}
     _empty_pagination = {**_PAGINATION_STYLE, "display": "none"}
+
+    badge_colors = _badge_colors_from_effective(effective_theme)
 
     # ── Build query params ─────────────────────────────────────────────────
     params: dict = {
@@ -1174,7 +1226,7 @@ def execute_search(
 
     # ── Render results or empty state ──────────────────────────────────────
     if results:
-        content = html.Div([_build_result_card(r, bool(full)) for r in results])
+        content = html.Div([_build_result_card(r, bool(full), badge_colors) for r in results])
     else:
         content = html.Div(
             [
@@ -1227,6 +1279,7 @@ def execute_search(
     State("search-current-page", "data"),
     State("search-last-query-params", "data"),
     State("search-full-toggle", "value"),
+    State("search-theme-store", "data"),
     prevent_initial_call=True,
 )
 def paginate_search(
@@ -1235,6 +1288,7 @@ def paginate_search(
     current_page: int | None,
     last_query_params: dict | None,
     full: bool,
+    effective_theme: dict | None,
 ) -> tuple:
     """Navigate to the previous or next page of search results."""
     _empty_header = {**_RESULTS_HEADER_STYLE, "display": "none"}
@@ -1245,6 +1299,8 @@ def paginate_search(
             no_update, no_update, no_update, no_update,
             no_update, no_update, no_update, no_update, no_update,
         )
+
+    badge_colors = _badge_colors_from_effective(effective_theme)
 
     page = int(current_page or 1)
     triggered_id = ctx.triggered_id
@@ -1290,7 +1346,7 @@ def paginate_search(
     total_pages = max(1, math.ceil(total / page_size))
 
     if results:
-        content = html.Div([_build_result_card(r, bool(full)) for r in results])
+        content = html.Div([_build_result_card(r, bool(full), badge_colors) for r in results])
     else:
         content = html.Div(
             [

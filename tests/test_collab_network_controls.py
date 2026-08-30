@@ -3,13 +3,17 @@
 Tests cover:
   - display_collab_properties (node selected, edge selected, nothing selected)
   - toggle_collab_fullwidth (fullwidth on/off)
+  - update_collab_stylesheet (merged theme → stylesheet)
 """
+
+from unittest.mock import patch
 
 import pytest
 from dash import html
 
 from app.dash_app.pages.collaboration_network.callbacks.display import (
     display_collab_properties,
+    update_collab_stylesheet,
 )
 from app.dash_app.pages.collaboration_network.callbacks.navigation import (
     toggle_collab_fullwidth,
@@ -124,3 +128,43 @@ class TestToggleCollabFullwidth:
     def test_toggle_returns_tuple_of_three(self):
         result = toggle_collab_fullwidth(1, False)
         assert len(result) == 3
+
+
+# ---------------------------------------------------------------------------
+# update_collab_stylesheet
+# ---------------------------------------------------------------------------
+
+class TestUpdateCollabStylesheet:
+    def _selector_map(self, stylesheet):
+        return {rule["selector"]: rule["style"] for rule in stylesheet}
+
+    def test_fallback_to_base_on_fetch_error(self):
+        """When /effective fails, the stylesheet falls back to base tokens."""
+        with patch(
+            "app.dash_app.pages.collaboration_network.callbacks.display.fetch_effective_theme",
+            return_value=None,
+        ):
+            stylesheet = update_collab_stylesheet("executive-light")
+        by_sel = self._selector_map(stylesheet)
+        # Base palette (no override) → Person stays blue.
+        person = by_sel['node[nodeType = "Person"]']
+        assert person["background-color"] == "#3B82F6"
+        assert person["shape"] == "octagon"
+
+    def test_merged_override_applies_to_person(self):
+        """A merged effective theme override propagates to the stylesheet."""
+        from app.common.graph_theme import NodeOverride, ThemeOverrides, merge_theme_overrides
+        from app.dash_app.styles import get_theme_tokens
+
+        effective = merge_theme_overrides(
+            get_theme_tokens("executive-light"),
+            ThemeOverrides(nodes={"Person": NodeOverride(color="#00FF00")}),
+        )
+        with patch(
+            "app.dash_app.pages.collaboration_network.callbacks.display.fetch_effective_theme",
+            return_value=effective,
+        ):
+            stylesheet = update_collab_stylesheet("executive-light")
+        by_sel = self._selector_map(stylesheet)
+        person = by_sel['node[nodeType = "Person"]']
+        assert person["background-color"] == "#00FF00"

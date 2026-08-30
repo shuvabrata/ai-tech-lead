@@ -6,6 +6,7 @@ including node colors, sizes, edge styles, and selection states.
 
 import re
 
+from app.common.graph_theme import merge_theme_overrides, overrides_to_cytoscape_rules
 from app.dash_app.styles import (
     ACTIVE_THEME,
     get_theme_tokens,
@@ -47,291 +48,101 @@ COMMUNITY_COLORS = [
 ]
 
 
-def build_cytoscape_stylesheet(theme_name: str = ACTIVE_THEME):
-    """Build Cytoscape stylesheet for a specific theme."""
+def build_cytoscape_stylesheet(theme_name: str = ACTIVE_THEME, effective=None):
+    """Build Cytoscape stylesheet for a specific theme.
+
+    Node shape/size/colour are driven by the *effective* theme (base tokens ⊕
+    overrides) so user-configured graph themes propagate to the stylesheet.
+    ``effective`` is an optional pre-merged theme document (the output of
+    :func:`app.common.graph_theme.merge_theme_overrides`); when omitted, the
+    base tokens are merged with empty overrides — identical to the previous
+    hardcoded output.
+    """
     tokens = get_theme_tokens(theme_name)
+    if effective is None:
+        effective = merge_theme_overrides(tokens, {})
     cyto_font_family = re.sub(r"[\"']", "", FONT_SANS)
 
     node_label_color = tokens["text.primary"] if theme_name == "executive-light" else "#f4f7fb"
-    typed_node_label_color = tokens["graph.node.label"]
     edge_label_bg = tokens["surface.base"]
 
+    edges = effective["edges"]
+    globals_ = effective["global"]
+
+    # Theme-derived rules come from the single shared translation layer
+    # (app.common.graph_theme.overrides_to_cytoscape_rules). The generic node,
+    # per-nodeType, edge, and selected rules are all produced there.
+    theme_rules = overrides_to_cytoscape_rules(effective)
+
+    # Enrich the generic (untyped) node rule with the font/label styling that
+    # is a stylesheet concern, not a theme concern. ``shape`` is intentionally
+    # omitted (ellipse is the Cytoscape default), preserving parity with the
+    # previous output.
+    generic_node_rule = theme_rules[0]
+    generic_node_rule["style"].update({
+        'label': 'data(displayLabel)',
+        'color': node_label_color,
+        'text-valign': 'center',
+        'text-halign': 'center',
+        'font-family': cyto_font_family,
+        'font-size': FONT_SIZE_TINY,
+        'font-weight': FONT_WEIGHT_MEDIUM,
+        'border-width': '0px',
+        'text-wrap': 'wrap',
+        'text-max-width': '56px'
+    })
+    # The shared function sets the generic node's ``color`` from the theme's
+    # node_label_color. The merged doc always carries node_label_color (the
+    # base graph.node.label value when unset), so compare against the base
+    # token to detect an explicit override. When overridden, use the override
+    # value; otherwise fall back to the page's label colour (light mode uses
+    # text.primary). This honours the override while preserving the
+    # pre-existing generic-vs-typed fallback distinction.
+    if globals_.get("node_label_color") != tokens["graph.node.label"]:
+        generic_node_rule["style"]["color"] = globals_["node_label_color"]
+    else:
+        generic_node_rule["style"]["color"] = node_label_color
+    # ``shape`` is intentionally omitted from the generic node rule (ellipse is
+    # the Cytoscape default), preserving parity with the previous output.
+    generic_node_rule["style"].pop("shape", None)
+
+    # Typed node label colour is set by the shared function (from the global
+    # override); no per-nodeType enrichment is needed here.
+
+    # Enrich the edge rule with the full edge styling (fonts, arrows, labels).
+    edge_rule = next(r for r in theme_rules if r["selector"] == "edge")
+    edge_rule["style"].update({
+        'target-arrow-color': edges.get("line-color", tokens["graph.edge.default"]),
+        'arrow-scale': 1.0,
+        'curve-style': 'bezier',
+        'control-point-step-size': 40,
+        'label': 'data(label)',
+        'font-family': cyto_font_family,
+        'font-size': FONT_SIZE_XXSMALL,
+        'font-weight': FONT_WEIGHT_MEDIUM,
+        'text-rotation': 'autorotate',
+        'text-margin-y': -10,
+        'text-background-color': globals_.get(
+            "edge_label_background", edge_label_bg
+        ),
+        'text-background-opacity': 0.85,
+        'text-background-padding': '3px',
+        'text-outline-color': globals_.get(
+            "edge_label_background", edge_label_bg
+        ),
+        'text-outline-width': 1
+    })
+
+    # Enrich the node:selected rule with the selection border styling.
+    selected_rule = next(r for r in theme_rules if r["selector"] == "node:selected")
+    selected_rule["style"].update({
+        'border-width': '2px',
+        'border-style': 'solid',
+        'z-index': 9999
+    })
+
     return [
-        {
-            'selector': 'node',
-            'style': {
-                'label': 'data(displayLabel)',
-                'background-color': tokens["graph.node.default"],
-                'color': node_label_color,
-                'text-valign': 'center',
-                'text-halign': 'center',
-                'font-family': cyto_font_family,
-                'font-size': FONT_SIZE_TINY,
-                'font-weight': FONT_WEIGHT_MEDIUM,
-                'width': '60px',
-                'height': '50px',
-                'border-width': '0px',
-                'border-color': tokens["graph.node.default.border"],
-                'text-wrap': 'wrap',
-                'text-max-width': '56px'
-            }
-        },
-        {
-            'selector': 'node[nodeType = "Project"]',
-            'style': {
-                'shape': 'round-rectangle',
-                'background-color': tokens["graph.node.project"],
-                'border-color': tokens["graph.node.project.border"],
-                'color': typed_node_label_color,
-                'width': '70px',
-                'height': '35px'
-            }
-        },
-        # Explicit nodeType mappings are kept intentionally complete for core
-        # domain entities so they do not rely on default fallback styling.
-        {
-            'selector': 'node[nodeType = "Person"]',
-            'style': {
-                'shape': 'octagon',
-                'background-color': tokens["graph.node.person"],
-                'border-color': tokens["graph.node.person.border"],
-                'color': typed_node_label_color,
-                'width': '66px',
-                'height': '56px'
-            }
-        },
-        {
-            'selector': 'node[nodeType = "Branch"]',
-            'style': {
-                'shape': 'diamond',
-                'background-color': tokens["graph.node.branch"],
-                'border-color': tokens["graph.node.branch.border"],
-                'color': typed_node_label_color,
-                'width': '58px',
-                'height': '50px'
-            }
-        },
-        {
-            'selector': 'node[nodeType = "Epic"]',
-            'style': {
-                'shape': 'hexagon',
-                'background-color': tokens["graph.node.epic"],
-                'border-color': tokens["graph.node.epic.border"],
-                'color': typed_node_label_color,
-                'width': '66px',
-                'height': '56px'
-            }
-        },
-        {
-            'selector': 'node[nodeType = "Issue"]',
-            'style': {
-                'shape': 'triangle',
-                'background-color': tokens["graph.node.issue"],
-                'border-color': tokens["graph.node.issue.border"],
-                'color': typed_node_label_color,
-                'width': '58px',
-                'height': '50px'
-            }
-        },
-        {
-            'selector': 'node[nodeType = "Repository"]',
-            'style': {
-                'shape': 'rectangle',
-                'background-color': tokens["graph.node.repository"],
-                'border-color': tokens["graph.node.repository.border"],
-                'color': typed_node_label_color,
-                'width': '68px',
-                'height': '34px'
-            }
-        },
-        {
-            'selector': 'node[nodeType = "Team"]',
-            'style': {
-                'shape': 'pentagon',
-                'background-color': tokens["graph.node.team"],
-                'border-color': tokens["graph.node.team.border"],
-                'color': typed_node_label_color,
-                'width': '64px',
-                'height': '54px'
-            }
-        },
-        {
-            'selector': 'node[nodeType = "IdentityMapping"]',
-            'style': {
-                'shape': 'tag',
-                'background-color': tokens["graph.node.identity_mapping"],
-                'border-color': tokens["graph.node.identity_mapping.border"],
-                'color': typed_node_label_color,
-                'width': '62px',
-                'height': '50px'
-            }
-        },
-        {
-            'selector': 'node[nodeType = "Initiative"]',
-            'style': {
-                'shape': 'round-hexagon',
-                'background-color': tokens["graph.node.initiative"],
-                'border-color': tokens["graph.node.initiative.border"],
-                'color': typed_node_label_color,
-                'width': '66px',
-                'height': '54px'
-            }
-        },
-        {
-            'selector': 'node[nodeType = "Sprint"]',
-            'style': {
-                'shape': 'vee',
-                'background-color': tokens["graph.node.sprint"],
-                'border-color': tokens["graph.node.sprint.border"],
-                'color': typed_node_label_color,
-                'width': '60px',
-                'height': '48px'
-            }
-        },
-        {
-            'selector': 'node[nodeType = "Commit"]',
-            'style': {
-                'shape': 'rhomboid',
-                'background-color': tokens["graph.node.commit"],
-                'border-color': tokens["graph.node.commit.border"],
-                'color': typed_node_label_color,
-                'width': '62px',
-                'height': '30px'
-            }
-        },
-        {
-            'selector': 'node[nodeType = "File"]',
-            'style': {
-                'shape': 'barrel',
-                'background-color': tokens["graph.node.file"],
-                'border-color': tokens["graph.node.file.border"],
-                'color': typed_node_label_color,
-                'width': '64px',
-                'height': '32px'
-            }
-        },
-        {
-            'selector': 'node[nodeType = "PullRequest"]',
-            'style': {
-                'shape': 'ellipse',
-                'background-color': tokens["graph.node.pull_request"],
-                'border-color': tokens["graph.node.pull_request.border"],
-                'color': typed_node_label_color,
-                'width': '66px',
-                'height': '33px'
-            }
-        },
-        {
-            'selector': 'node[nodeType = "Space"]',
-            'style': {
-                'shape': 'cut-rectangle',
-                'background-color': tokens.get("graph.node.space", tokens["graph.node.default"]),
-                'border-color': tokens.get("graph.node.space.border", tokens["graph.node.default.border"]),
-                'color': typed_node_label_color,
-                'width': '70px',
-                'height': '40px'
-            }
-        },
-        {
-            'selector': 'node[nodeType = "Page"]',
-            'style': {
-                'shape': 'bottom-round-rectangle',
-                'background-color': tokens.get("graph.node.page", tokens["graph.node.default"]),
-                'border-color': tokens.get("graph.node.page.border", tokens["graph.node.default.border"]),
-                'color': typed_node_label_color,
-                'width': '64px',
-                'height': '38px'
-            }
-        },
-        {
-            'selector': 'node[nodeType = "Blogpost"]',
-            'style': {
-                'shape': 'round-diamond',
-                'background-color': tokens.get("graph.node.blogpost", tokens["graph.node.default"]),
-                'border-color': tokens.get("graph.node.blogpost.border", tokens["graph.node.default.border"]),
-                'color': typed_node_label_color,
-                'width': '60px',
-                'height': '60px'
-            }
-        },
-        {
-            'selector': 'edge',
-            'style': {
-                'width': 2,
-                'line-color': tokens["graph.edge.default"],
-                'target-arrow-color': tokens["graph.edge.default"],
-                'target-arrow-shape': 'triangle',
-                'arrow-scale': 1.0,
-                'curve-style': 'bezier',
-                'control-point-step-size': 40,
-                'label': 'data(label)',
-                'font-family': cyto_font_family,
-                'font-size': FONT_SIZE_XXSMALL,
-                'font-weight': FONT_WEIGHT_MEDIUM,
-                'color': tokens["text.secondary"],
-                'text-rotation': 'autorotate',
-                'text-margin-y': -10,
-                'text-background-color': edge_label_bg,
-                'text-background-opacity': 0.85,
-                'text-background-padding': '3px',
-                'text-outline-color': edge_label_bg,
-                'text-outline-width': 1
-            }
-        },
-        {
-            # normalized_weight is a 0–100 value computed server-side relative to the
-            # heaviest edge in the current graph load. Raw 'weight' is preserved
-            # separately for display and filter logic.
-            'selector': 'edge[normalized_weight]',
-            'style': {
-                # line_color is a pre-computed hex string set server-side via
-                # algorithm._weight_to_hex() using a matplotlib multi-stop colormap
-                # (grey → light red → deep crimson). Using data() instead of mapData()
-                # bypasses Cytoscape's two-color-only interpolation limit.
-                'line-color': 'data(line_color)',
-                # Opacity: weak edges fade to near-invisible, strong ones are opaque.
-                # This naturally de-clutters the graph without hiding data.
-                'opacity': 'mapData(normalized_weight, 0, 100, 0.5, 0.9)',
-                # Z-index: strong edges render on top of weak ones so they are
-                # never buried under the noise of low-weight connections.
-                'z-index': 'mapData(normalized_weight, 0, 100, 1, 500)',
-            }
-        },
-        {
-            'selector': 'edge.collaboration-edge',
-            'style': {
-                # Collaboration scores are symmetric, so hide directional arrows.
-                'target-arrow-shape': 'none',
-                'source-arrow-shape': 'none',
-                'mid-target-arrow-shape': 'none',
-                'mid-source-arrow-shape': 'none',
-            }
-        },
-        {
-            # Dynamic node size: overrides fixed nodeType sizes when a caller
-            # has pre-computed width and height render values from _node_size.
-            # Absent on generic graph nodes -> fixed nodeType selectors remain in effect.
-            'selector': 'node[_render_width_px]',
-            'style': {
-                'width': 'data(_render_width_px)',
-                'height': 'data(_render_height_px)',
-            }
-        },
-        {
-            'selector': 'node:selected',
-            'style': {
-                'border-width': '2px',
-                'border-color': tokens["graph.selection"],
-                'border-style': 'solid',
-                'z-index': 9999
-            }
-        },
-        {
-            'selector': 'edge:selected',
-            'style': {
-                'z-index': 9999,
-            }
-        },
+        *theme_rules,
         {
             'selector': '.selected-highlight',
             'style': {

@@ -284,6 +284,44 @@ input::placeholder {
 }
 
 /* ============================================================================= */
+/* react-select Dropdown Styling (dcc.Dropdown) — light theme defaults          */
+/* ============================================================================= */
+
+.Select-control {
+    background-color: var(--color-background-white) !important;
+    border-color: var(--color-border) !important;
+    color: var(--color-charcoal) !important;
+}
+
+.Select-control:hover {
+    border-color: var(--color-border-light) !important;
+}
+
+.Select-input {
+    color: var(--color-charcoal) !important;
+}
+
+.Select-menu-outer {
+    background-color: var(--color-background-white) !important;
+    border-color: var(--color-border) !important;
+}
+
+.Select-option {
+    background-color: var(--color-background-white) !important;
+    color: var(--color-charcoal) !important;
+}
+
+.Select-option.is-focused {
+    background-color: var(--color-surface-active) !important;
+    color: var(--color-charcoal) !important;
+}
+
+.Select-option.is-selected {
+    background-color: var(--color-navy) !important;
+    color: var(--color-background-white) !important;
+}
+
+/* ============================================================================= */
 /* Dark Theme Form Styling */
 /* ============================================================================= */
 
@@ -347,6 +385,36 @@ input::placeholder {
 
 .theme-executive-dark .Select-placeholder {
     color: var(--color-gray-dark) !important;
+}
+
+.theme-executive-dark .Select-control {
+    background-color: var(--color-background-light) !important;
+    border-color: var(--color-border-light) !important;
+    color: var(--color-text-dark) !important;
+}
+
+.theme-executive-dark .Select-input {
+    color: var(--color-text-dark) !important;
+}
+
+.theme-executive-dark .Select-menu-outer {
+    background-color: var(--color-background-light) !important;
+    border-color: var(--color-border-light) !important;
+}
+
+.theme-executive-dark .Select-option {
+    background-color: var(--color-background-light) !important;
+    color: var(--color-text-dark) !important;
+}
+
+.theme-executive-dark .Select-option.is-focused {
+    background-color: var(--color-surface-active) !important;
+    color: var(--color-text-dark) !important;
+}
+
+.theme-executive-dark .Select-option.is-selected {
+    background-color: var(--color-navy) !important;
+    color: var(--color-background-white) !important;
 }
 
 .theme-executive-dark .form-control:focus {
@@ -1269,4 +1337,39 @@ input::placeholder {
 
 .theme-executive-dark .setup-banner a {
     color: #90cdf4;
+}
+
+/* ============================================================
+   Bootstrap Nav Tabs (theme-aware)
+   ============================================================ */
+
+/* Default (light) theme: keep Bootstrap's standard tab look. */
+
+.nav-tabs .nav-link,
+.nav-tabs .nav-link:focus,
+.nav-tabs .nav-link:hover {
+    color: var(--color-gray-dark);
+    border-color: var(--color-border);
+    background-color: transparent;
+}
+
+.nav-tabs .nav-link.active {
+    color: var(--color-navy);
+    background-color: var(--color-background-white);
+    border-color: var(--color-border) var(--color-border) transparent;
+}
+
+/* Dark theme: never render tabs with a white background. */
+.theme-executive-dark .nav-tabs .nav-link,
+.theme-executive-dark .nav-tabs .nav-link:focus,
+.theme-executive-dark .nav-tabs .nav-link:hover {
+    color: var(--color-gray-dark);
+    border-color: var(--color-border-light);
+    background-color: transparent;
+}
+
+.theme-executive-dark .nav-tabs .nav-link.active {
+    color: var(--color-text-dark);
+    background-color: var(--color-background-light);
+    border-color: var(--color-border-light) var(--color-border-light) transparent;
 }

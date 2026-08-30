@@ -22,7 +22,9 @@ import pytest
 # ---------------------------------------------------------------------------
 # Imports under test
 # ---------------------------------------------------------------------------
+from app.common.graph_theme import NodeOverride, ThemeOverrides, merge_theme_overrides
 from app.dash_app.pages.graph.styles import build_cytoscape_stylesheet
+from app.dash_app.styles import get_theme_tokens
 import app.dash_app.pages.search as search_module
 
 # ---------------------------------------------------------------------------
@@ -110,3 +112,42 @@ def test_no_extra_search_badge_colors_use_wrong_token():
         f"{not_from_tokens}. Use TOKENS['graph.node.*'] keys instead of "
         "hardcoded hex strings."
     )
+
+
+# ---------------------------------------------------------------------------
+# Dynamic resolution (Phase 3.4) — effective theme overrides base badge colour
+# ---------------------------------------------------------------------------
+
+@pytest.mark.unit
+def test_effective_theme_overrides_badge_color():
+    """A merged effective theme override must flow into badge colour resolution."""
+    effective = merge_theme_overrides(
+        get_theme_tokens("executive-light"),
+        ThemeOverrides(nodes={"Person": NodeOverride(color="#00FF00")}),
+    )
+    colors = search_module._badge_colors_from_effective(effective)
+    assert colors["Person"] == "#00FF00"
+    # Untouched types keep their base colour.
+    assert colors["Project"] == search_module._ENTITY_TYPE_BADGE_COLORS["Project"]
+
+
+@pytest.mark.unit
+def test_effective_theme_none_returns_base_copy():
+    """None (fetch failure) returns the base badge colours unchanged."""
+    colors = search_module._badge_colors_from_effective(None)
+    assert colors == search_module._ENTITY_TYPE_BADGE_COLORS
+    # It must be a copy, not the same object (so callers can mutate safely).
+    assert colors is not search_module._ENTITY_TYPE_BADGE_COLORS
+
+
+@pytest.mark.unit
+def test_badge_color_uses_effective_when_provided():
+    """_badge_color honours the provided effective colour map over the base."""
+    effective = merge_theme_overrides(
+        get_theme_tokens("executive-light"),
+        ThemeOverrides(nodes={"Person": NodeOverride(color="#00FF00")}),
+    )
+    colors = search_module._badge_colors_from_effective(effective)
+    assert search_module._badge_color("Person", colors) == "#00FF00"
+    # Without an effective map, falls back to base.
+    assert search_module._badge_color("Person") == "#3B82F6"

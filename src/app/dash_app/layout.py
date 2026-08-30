@@ -110,6 +110,7 @@ def create_dash_app():
         dcc.Location(id="url", refresh=False),
         dcc.Store(id="sidebar-collapsed", storage_type="local", data=False),
         dcc.Store(id="theme-store", storage_type="local", data="executive-light"),
+        dcc.Store(id="search-theme-store", storage_type="memory", data=None),
         dcc.Store(id="date-format-store", data=app_settings.UI_DATE_FORMAT),
         dcc.Store(id="datetime-format-store", data=app_settings.UI_DATETIME_FORMAT),
         html.Div(id="format-init-dummy", style={"display": "none"}),
@@ -148,6 +149,8 @@ def create_dash_app():
             return settings.get_layout()
         if pathname in ("/app/settings/runtime", "/app/settings/runtime/"):
             return settings.get_runtime_layout()
+        if pathname in ("/app/settings/graph-styling", "/app/settings/graph-styling/"):
+            return settings.get_graph_styling_layout()
         if pathname == "/app/search":
             return search.get_layout()
         if pathname == "/app/chat":

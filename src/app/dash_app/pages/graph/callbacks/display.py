@@ -27,7 +27,7 @@ from app.dash_app.styles import (
 )
 from app.dash_app.components.common import build_element_properties_content, register_edge_hover_dimming_callback, register_fullwidth_callback
 from ..styles import build_cytoscape_stylesheet
-from ..utils import create_node_legend, is_node_element
+from ..utils import create_node_legend, fetch_effective_theme, is_node_element
 
 register_fullwidth_callback("graph")
 register_edge_hover_dimming_callback("graph-cytoscape")
@@ -131,9 +131,18 @@ def update_layout(layout_name, reset_clicks, current_layout):
     Input("theme-store", "data")
 )
 def update_graph_stylesheet(theme_name):
-    """Update graph node/edge palette when the app theme changes."""
+    """Update graph node/edge palette when the app theme changes.
+
+    Fetches the server-merged effective theme (base tokens ⊕ default-theme
+    overrides) for the active base mode and builds the Cytoscape stylesheet
+    from it. Falls back to the base tokens on any error so the graph still
+    renders with the hardcoded palette.
+    """
     active_theme = theme_name or "executive-light"
-    return build_cytoscape_stylesheet(active_theme)
+
+    effective = fetch_effective_theme(active_theme)
+
+    return build_cytoscape_stylesheet(active_theme, effective=effective)
 
 
 

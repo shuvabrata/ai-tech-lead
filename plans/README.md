@@ -15,6 +15,7 @@ at commit `33c242b`, executed, and their plan files removed.
 | 005  | [MCP thread join timeout](005-mcp-thread-join-timeout.md) | P2 | S | — | TODO |
 | 009  | [Branch node — model, display properties, and backfill](009-branch-node-model-and-display-properties.md) | P2 | S-M | — | DRAFT 🚧 |
 | 016  | [Add remaining runtime settings](016-add-remaining-runtime-settings.md) | P1 | L | 010–015 | READY |
+| 017  | [User-configurable Graph Themes](017-graph-theme-styling.md) | P2 | L | — | READY |
 
 ## Reconciliation notes (2026-06-27)
 

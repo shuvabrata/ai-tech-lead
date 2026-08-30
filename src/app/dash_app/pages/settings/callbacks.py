@@ -30,8 +30,10 @@ def handle_card_click(_timestamps: list[int | None]) -> Any:
     if not card_id:
         raise PreventUpdate
 
-    # Only the Runtime Settings card is clickable today.
     if card_id == "runtime":
         return "/app/settings/runtime"
+
+    if card_id == "graph-styling":
+        return "/app/settings/graph-styling"
 
     raise PreventUpdate
