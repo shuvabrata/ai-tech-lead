@@ -44,13 +44,15 @@ def get_layout() -> html.Div:
                 [("Settings", None)],
                 "Manage runtime configuration, AI behaviour, and graph appearance.",
             ),
-            dbc.Row(
-                [
-                    dbc.Col(card, md=3, sm=6, xs=12)
-                    for card in cards
-                ],
-                className="g-3",
+            html.Div(
+                dbc.Row(
+                    [
+                        dbc.Col(card, md=3, sm=6, xs=12)
+                        for card in cards
+                    ],
+                    className="g-3",
+                ),
+                style=CARD_CONTAINER_STYLE,
             ),
         ],
-        style=CARD_CONTAINER_STYLE,
     )
