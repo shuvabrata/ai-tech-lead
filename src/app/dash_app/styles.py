@@ -354,7 +354,7 @@ COMPACT_PAGE_HEADER_STYLE = {
     "letterSpacing": "0.8px",
     "borderBottom": f"1px solid {COLOR_BORDER}",
     "paddingBottom": SPACING_XSMALL,
-    "marginBottom": SPACING_SMALL
+    "marginBottom": SPACING_XSMALL
 }
 
 # Card Containers
