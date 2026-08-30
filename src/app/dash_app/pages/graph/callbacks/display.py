@@ -3,8 +3,6 @@
 Callbacks for graph display, layout management, and property details.
 """
 
-import requests
-
 import dash_bootstrap_components as dbc
 from dash import html, Input, Output, State, callback, callback_context
 
@@ -28,12 +26,8 @@ from app.dash_app.styles import (
     FONT_SIZE_XTINY
 )
 from app.dash_app.components.common import build_element_properties_content, register_edge_hover_dimming_callback, register_fullwidth_callback
-from app.runtime_settings import runtime_settings
-from common.logger import logger
 from ..styles import build_cytoscape_stylesheet
-from ..utils import create_node_legend, get_graph_api_base_url, is_node_element
-
-TIMEOUT_SECONDS = runtime_settings.get_int("HTTP_REQUEST_TIMEOUT")
+from ..utils import create_node_legend, fetch_effective_theme, is_node_element
 
 register_fullwidth_callback("graph")
 register_edge_hover_dimming_callback("graph-cytoscape")
@@ -146,28 +140,7 @@ def update_graph_stylesheet(theme_name):
     """
     active_theme = theme_name or "executive-light"
 
-    effective = None
-    try:
-        api_base = get_graph_api_base_url()
-        resp = requests.get(
-            f"{api_base}/api/v1/graph-themes/effective",
-            params={"base_theme": active_theme},
-            timeout=TIMEOUT_SECONDS,
-        )
-        if resp.status_code == 200:
-            effective = resp.json()
-        else:
-            logger.warning(
-                "Graph effective theme fetch returned %s for base_theme=%s",
-                resp.status_code,
-                active_theme,
-            )
-    except requests.RequestException as exc:
-        logger.warning(
-            "Graph effective theme fetch failed for base_theme=%s: %s",
-            active_theme,
-            exc,
-        )
+    effective = fetch_effective_theme(active_theme)
 
     return build_cytoscape_stylesheet(active_theme, effective=effective)
 

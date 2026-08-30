@@ -20,6 +20,7 @@ import dash_bootstrap_components as dbc
 
 from app.common.timezone import humanize_duration, to_app_timezone
 from app.dash_app.components.common import create_alert
+from app.dash_app.pages.graph.utils import fetch_effective_theme
 from app.dash_app.styles import (
     COLOR_BORDER,
     COLOR_BORDER_LIGHT,
@@ -973,26 +974,7 @@ def _populate_search_theme_store(theme_name: str | None) -> dict | None:
     the merged tokens or ``None`` on error so badge colours fall back to base.
     """
     active_theme = theme_name or "executive-light"
-    try:
-        response = requests.get(
-            f"{_get_api_base_url()}/api/v1/graph-themes/effective",
-            params={"base_theme": active_theme},
-            timeout=runtime_settings.get_int("HTTP_REQUEST_TIMEOUT"),
-        )
-        if response.status_code == 200:
-            return response.json()
-        logger.warning(
-            "Search effective theme fetch returned %s for base_theme=%s",
-            response.status_code,
-            active_theme,
-        )
-    except requests.RequestException as exc:
-        logger.warning(
-            "Search effective theme fetch failed for base_theme=%s: %s",
-            active_theme,
-            exc,
-        )
-    return None
+    return fetch_effective_theme(active_theme)
 
 
 # Shared output spec — used by execute_search, paginate_search, and

@@ -141,7 +141,7 @@ class TestUpdateCollabStylesheet:
     def test_fallback_to_base_on_fetch_error(self):
         """When /effective fails, the stylesheet falls back to base tokens."""
         with patch(
-            "app.dash_app.pages.collaboration_network.callbacks.display._fetch_effective_theme",
+            "app.dash_app.pages.collaboration_network.callbacks.display.fetch_effective_theme",
             return_value=None,
         ):
             stylesheet = update_collab_stylesheet("executive-light")
@@ -161,7 +161,7 @@ class TestUpdateCollabStylesheet:
             ThemeOverrides(nodes={"Person": NodeOverride(color="#00FF00")}),
         )
         with patch(
-            "app.dash_app.pages.collaboration_network.callbacks.display._fetch_effective_theme",
+            "app.dash_app.pages.collaboration_network.callbacks.display.fetch_effective_theme",
             return_value=effective,
         ):
             stylesheet = update_collab_stylesheet("executive-light")

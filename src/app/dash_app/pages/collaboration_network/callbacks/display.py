@@ -1,49 +1,13 @@
 """Collaboration Network display callbacks — properties panel + stylesheet."""
 
-import requests
-
 from dash import Input, Output, callback, html
 
 from app.dash_app.components.common import build_element_properties_content, register_edge_hover_dimming_callback
 from app.dash_app.pages.graph.styles import build_cytoscape_stylesheet
+from app.dash_app.pages.graph.utils import fetch_effective_theme
 from app.dash_app.styles import FONT_SIZE_XSMALL
-from app.runtime_settings import runtime_settings
-from common.logger import logger
-
-from app.dash_app.pages.graph.utils import get_graph_api_base_url
 
 register_edge_hover_dimming_callback("collab-cytoscape")
-
-TIMEOUT_SECONDS = runtime_settings.get_int("HTTP_REQUEST_TIMEOUT")
-
-
-def _fetch_effective_theme(base_theme: str) -> dict | None:
-    """Fetch the server-merged effective theme for a base mode.
-
-    Returns the merged tokens on 200, or ``None`` on any error so callers fall
-    back to the base tokens (hardcoded palette).
-    """
-    try:
-        api_base = get_graph_api_base_url()
-        resp = requests.get(
-            f"{api_base}/api/v1/graph-themes/effective",
-            params={"base_theme": base_theme},
-            timeout=TIMEOUT_SECONDS,
-        )
-        if resp.status_code == 200:
-            return resp.json()
-        logger.warning(
-            "Collab effective theme fetch returned %s for base_theme=%s",
-            resp.status_code,
-            base_theme,
-        )
-    except requests.RequestException as exc:
-        logger.warning(
-            "Collab effective theme fetch failed for base_theme=%s: %s",
-            base_theme,
-            exc,
-        )
-    return None
 
 
 @callback(
@@ -57,7 +21,7 @@ def update_collab_stylesheet(theme_name):
     overrides) for the active base mode, mirroring the Graph page.
     """
     active_theme = theme_name or "executive-light"
-    effective = _fetch_effective_theme(active_theme)
+    effective = fetch_effective_theme(active_theme)
     return build_cytoscape_stylesheet(active_theme, effective=effective)
 
 

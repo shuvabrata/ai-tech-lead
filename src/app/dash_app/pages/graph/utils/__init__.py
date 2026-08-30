@@ -22,7 +22,8 @@ from .formatters import format_property_value, build_property_items
 from .graph_operations import (
     get_graph_api_base_url,
     get_graph_expand_url,
-    execute_expansion_and_merge
+    execute_expansion_and_merge,
+    fetch_effective_theme,
 )
 from .element_types import (
     is_edge_data,
@@ -53,6 +54,7 @@ __all__ = [
     'get_graph_api_base_url',
     'get_graph_expand_url',
     'execute_expansion_and_merge',
+    'fetch_effective_theme',
     # Element typing
     'is_edge_data',
     'is_node_data',
