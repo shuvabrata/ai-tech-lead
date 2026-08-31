@@ -150,11 +150,12 @@ class TestFetchComments:
             raise _http_429()
         mock_jira.get.side_effect = _always_429
 
+        # A tiny timeout forces immediate exhaustion; time.sleep is mocked so
+        # the loop terminates deterministically instead of waiting the full
+        # 1-hour default deadline.
         with mock.patch("time.sleep"):
-            result = fetch_comments(mock_jira, "PROJ-6")
+            result = fetch_comments(mock_jira, "PROJ-6", retry_timeout=0)
 
-        # retry_with_backoff default max_retries=5 → 5 attempts then [].
-        assert mock_jira.get.call_count == 5
         assert result == []
 
     def test_fetch_comments_non_rate_limit_rethrows_to_empty(self):

@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from common.logger import logger
+from connectors.producers.github.retry_with_backoff import retry_with_backoff
 
 
 # ---------------------------------------------------------------------------
@@ -263,13 +264,16 @@ def fetch_github_user(user_obj: Any) -> Dict[str, Any]:
         if login in _user_cache:
             return _user_cache[login]
 
+        # Accessing .name/.email on a NamedUser triggers a blocking
+        # GET /users/{login} API call. Wrap in retry_with_backoff so a
+        # transient network blip retries instead of falling through to the
+        # login-only fallback below. Only caches after a successful fetch.
         try:
-            name = user_obj.name or login
+            name, email = retry_with_backoff(
+                lambda: (user_obj.name or login, (user_obj.email or "").lower())
+            )
         except Exception:
             name = login
-        try:
-            email = (user_obj.email or "").lower()
-        except Exception:
             email = ""
 
         result = {"login": login, "name": name, "email": email}

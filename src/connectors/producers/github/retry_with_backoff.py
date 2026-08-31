@@ -1,8 +1,29 @@
+import errno
+import socket
 import time
-from typing import Callable, TypeVar
+from typing import Callable, Optional, TypeVar
+
+import requests
+import urllib3
+
 from common.logger import logger
 
 T = TypeVar('T')
+
+# Default retry budget: a background scan can tolerate up to an hour of
+# intermittent connectivity before giving up on a single call.
+DEFAULT_TIMEOUT = 3600  # total budget in seconds (1 hour)
+DEFAULT_MAX_DELAY = 30  # per-sleep cap in seconds
+DEFAULT_INITIAL_DELAY = 1
+
+# Raw socket errno values that indicate a transient network failure.
+_NETWORK_ERRNOS = {
+    errno.ECONNRESET,
+    errno.ECONNREFUSED,
+    errno.EHOSTUNREACH,
+    errno.ENETUNREACH,
+    errno.ETIMEDOUT,
+}
 
 
 def _is_rate_limit(exc: Exception) -> bool:
@@ -29,36 +50,104 @@ def _is_rate_limit(exc: Exception) -> bool:
     return "rate limit" in error_str or "api rate limit exceeded" in error_str
 
 
-def retry_with_backoff(func: Callable[[], T], max_retries: int = 5, initial_delay: int = 1) -> T:
+def _is_network_error(exc: Exception) -> bool:
+    """Return True if *exc* represents a transient network failure.
+
+    These are the errors raised when the network drops mid-request (DNS
+    resolution failure, connection reset/refused, timeout, proxy blip, or a
+    mid-stream disconnect). They are recoverable once connectivity returns, so
+    they should be retried rather than treated as fatal.
+
+    Detection is type-based (``isinstance``) against the ``requests`` /
+    ``urllib3`` / ``socket`` exception classes, which is more robust than
+    string matching. A raw ``OSError`` with a transient ``errno`` is also
+    treated as a network error.
     """
-    Retry a function with exponential backoff for rate limiting.
+    if isinstance(
+        exc,
+        (
+            requests.exceptions.ConnectionError,
+            requests.exceptions.Timeout,
+            requests.exceptions.ChunkedEncodingError,
+            requests.exceptions.ProxyError,
+            urllib3.exceptions.MaxRetryError,
+            socket.gaierror,
+        ),
+    ):
+        return True
+    return isinstance(exc, OSError) and exc.errno in _NETWORK_ERRNOS
+
+
+def _is_retryable(exc: Exception) -> bool:
+    """Return True if *exc* is a transient, retryable failure.
+
+    Combines two signals:
+
+    1. Rate-limit (HTTP 429) — via status code or message substring.
+    2. Transient network errors — via ``isinstance`` checks against the
+       ``requests`` / ``urllib3`` / ``socket`` exception classes.
+
+    Non-retryable errors (e.g. 404, 400, 403, deterministic 5xx) fall through
+    and are re-raised immediately.
+    """
+    return _is_rate_limit(exc) or _is_network_error(exc)
+
+
+def retry_with_backoff(
+    func: Callable[[], T],
+    timeout: int = DEFAULT_TIMEOUT,
+    max_delay: int = DEFAULT_MAX_DELAY,
+    max_retries: Optional[int] = None,
+    initial_delay: int = DEFAULT_INITIAL_DELAY,
+) -> T:
+    """
+    Retry a function with exponential backoff for transient failures.
+
+    Retries rate-limit (HTTP 429) and transient network errors (DNS, connection
+    reset/refused, timeout) until a total time budget (``timeout``) is
+    exhausted. Backoff doubles each attempt, capped at ``max_delay`` seconds,
+    and never sleeps past the deadline.
 
     Args:
-        func: Function to execute (should be a lambda or callable)
-        max_retries: Maximum number of retry attempts
-        initial_delay: Initial delay in seconds (doubles each retry)
+        func: Function to execute (should be a lambda or callable).
+        timeout: Total retry budget in seconds. Defaults to 1 hour.
+        max_delay: Maximum per-sleep delay in seconds.
+        max_retries: Optional secondary cap on the number of attempts. When
+            ``None`` (default), the deadline is the only bound.
+        initial_delay: Initial delay in seconds (doubles each retry).
 
     Returns:
-        Result of the function call
+        Result of the function call.
 
     Raises:
-        Exception: If all retries are exhausted
+        Exception: If the retry budget is exhausted or a non-retryable error
+            occurs.
     """
+    deadline = time.time() + timeout
     delay = initial_delay
+    attempt = 0
 
-    for attempt in range(max_retries):
+    while True:
         try:
             return func()
         except Exception as e:
-            if _is_rate_limit(e):
-                if attempt < max_retries - 1:
-                    logger.info(f"      Rate limit hit. Retrying in {delay}s... (attempt {attempt + 1}/{max_retries})")
-                    time.sleep(delay)
-                    delay *= 2  # Exponential backoff
-                else:
-                    raise Exception(f"Max retries exceeded due to rate limiting: {str(e)}") from e
-            else:
-                # Not a rate limit error, raise immediately
+            if not _is_retryable(e):
                 raise
 
-    raise Exception(f"Failed after {max_retries} attempts")
+            attempt += 1
+            if max_retries is not None and attempt >= max_retries:
+                raise Exception(f"Max retries exceeded: {str(e)}") from e
+
+            remaining = deadline - time.time()
+            if remaining <= 0:
+                raise Exception(f"Retry timeout ({timeout}s) exceeded: {str(e)}") from e
+
+            sleep_for = min(delay, max_delay, remaining)
+            logger.info(
+                "Retryable error. Retrying in %.0fs... (attempt %d): %s",
+                sleep_for,
+                attempt,
+                e,
+            )
+            time.sleep(sleep_for)
+            delay = min(delay * 2, max_delay)

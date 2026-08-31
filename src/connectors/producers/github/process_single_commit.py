@@ -10,6 +10,7 @@ from connectors.producers.github.map_github import fetch_github_user, map_commit
 from connectors.producers.github.build_commit_signal import build_commit_signal
 from connectors.producers.github.build_file_signal import build_file_signal
 from connectors.producers.github.build_person_signal import build_person_signal
+from connectors.producers.github.retry_with_backoff import retry_with_backoff
 
 
 async def process_single_commit(
@@ -30,7 +31,11 @@ async def process_single_commit(
             def extract_data() -> tuple[Dict[str, Any], Dict[str, Any], list[Dict[str, Any]]]:
                 a_data = fetch_github_user(commit.author or commit.commit.author)
                 c_data = map_commit(repo.name, commit, repo_owner)
-                f_data = map_commit_files(commit.files)
+                # commit.files is a lazy PyGithub attribute that triggers a
+                # network call on access — materialize inside the retry so a
+                # transient blip retries instead of dropping the commit.
+                files = retry_with_backoff(lambda: list(commit.files))
+                f_data = map_commit_files(files)
                 return a_data, c_data, f_data
 
             author_data, commit_data, file_data_list = await asyncio.to_thread(extract_data)

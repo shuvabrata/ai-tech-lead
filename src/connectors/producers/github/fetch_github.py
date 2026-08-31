@@ -36,7 +36,10 @@ def fetch_repo_topics(repo: Any) -> List[str]:
     Returns:
         List of topic strings (may be empty).
     """
-    return retry_with_backoff(repo.get_topics)
+    # Materialize inside the retry: repo.get_topics() returns a lazy
+    # PaginatedList whose network I/O happens on iteration, so the retry must
+    # wrap the list(). Note get_topics is a method — call it with ().
+    return retry_with_backoff(lambda: list(repo.get_topics()))
 
 
 # ---------------------------------------------------------------------------
@@ -188,12 +191,12 @@ def fetch_pull_requests_direct(repo_obj: Any) -> Iterable[Any]:
     # guarantees the caller's early-break stays correct across both state
     # groups and no PRs are skipped.
     open_prs = retry_with_backoff(
-        lambda: repo_obj.get_pulls(state="open", sort="updated", direction="desc")
+        lambda: list(repo_obj.get_pulls(state="open", sort="updated", direction="desc"))
     )
     closed_prs = retry_with_backoff(
-        lambda: repo_obj.get_pulls(state="closed", sort="updated", direction="desc")
+        lambda: list(repo_obj.get_pulls(state="closed", sort="updated", direction="desc"))
     )
-    combined = list(open_prs) + list(closed_prs)
+    combined = open_prs + closed_prs
 
     def _updated_key(pr: Any) -> datetime:
         updated: Optional[datetime] = getattr(pr, "updated_at", None)
@@ -326,8 +329,10 @@ def fetch_issues_direct(repo_obj: Any) -> Iterable[Any]:
     full_name = getattr(repo_obj, "full_name", "?")
     logger.info("Fetching issues directly for '%s' (fallback)...", full_name)
 
+    # Materialize inside the retry: get_issues returns a lazy PaginatedList
+    # whose network I/O happens on iteration, so the retry must wrap the list().
     raw = retry_with_backoff(
-        lambda: repo_obj.get_issues(state="all", sort="updated", direction="desc")
+        lambda: list(repo_obj.get_issues(state="all", sort="updated", direction="desc"))
     )
 
     filtered = [issue for issue in raw if not getattr(issue, "pull_request", None)]
