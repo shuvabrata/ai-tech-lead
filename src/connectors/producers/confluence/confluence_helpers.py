@@ -1,6 +1,6 @@
 import asyncio
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Dict, List, Optional
 
 from atlassian import Confluence  # type: ignore[import-untyped]
 
@@ -9,6 +9,7 @@ from connectors.producers.confluence.fetch_spaces import fetch_spaces
 from connectors.producers.confluence.fetch_content_likes import fetch_content_likes
 from connectors.producers.confluence.fetch_page_comments import fetch_page_comments
 from connectors.producers.confluence.fetch_user_details import fetch_user_details
+from connectors.producers.github.retry_with_backoff import retry_with_backoff
 
 
 def _normalize_space_key(key: str) -> str:
@@ -60,13 +61,19 @@ def fetch_space_pages(
     for content_type in ("page", "blogpost"):
         start = 0
         while True:
-            response = confluence.get(
-                f"/rest/api/space/{space_key}/content/{content_type}",
-                params={
-                    "expand": "version,history,status,ancestors,space",
-                    "limit": page_size,
-                    "start": start,
-                },
+            # Retry rate-limit (HTTP 429) and transient network errors with
+            # exponential backoff so a momentary connectivity loss does not
+            # abort the space content fetch. Bind content_type/start as default
+            # args to avoid late-binding closure issues in the lambda.
+            response = retry_with_backoff(
+                lambda ct=content_type, st=start: confluence.get(
+                    f"/rest/api/space/{space_key}/content/{ct}",
+                    params={
+                        "expand": "version,history,status,ancestors,space",
+                        "limit": page_size,
+                        "start": st,
+                    },
+                )
             )
             if not isinstance(response, dict):
                 logger.debug("Exiting loop for space %s content_type %s: unexpected response format", space_key, content_type)

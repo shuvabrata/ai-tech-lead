@@ -5,6 +5,7 @@ from urllib.parse import parse_qs, urlparse
 
 from atlassian import Confluence
 from common.logger import logger
+from connectors.producers.github.retry_with_backoff import retry_with_backoff
 
 
 def _next_cursor(next_link: str) -> str | None:
@@ -38,7 +39,10 @@ def fetch_content_likes(
             params["cursor"] = cursor
 
         logger.debug(f"Calling Confluence API: {path} with params: {params}")
-        response = confluence.get(path, params=params)
+        # Retry rate-limit (HTTP 429) and transient network errors with
+        # exponential backoff so a momentary connectivity loss does not abort
+        # the likes fetch.
+        response = retry_with_backoff(lambda: confluence.get(path, params=params))
         page_results = response.get("results", [])
         results.extend(page_results)
         

@@ -5,6 +5,7 @@ from typing import Any, Dict, List
 from atlassian import Confluence
 
 from common.logger import logger
+from connectors.producers.github.retry_with_backoff import retry_with_backoff
 
 
 def fetch_page_comments(confluence: Confluence, page_id: str, content_type: str = "page") -> List[Dict[str, Any]]:
@@ -16,11 +17,16 @@ def fetch_page_comments(confluence: Confluence, page_id: str, content_type: str 
 
     try:
         while True:
-            response = confluence.get_page_comments(
-                page_id,
-                expand='body.storage,history',
-                start=start,
-                limit=page_size,
+            # Retry rate-limit (HTTP 429) and transient network errors with
+            # exponential backoff so a momentary connectivity loss does not
+            # drop a page's comments.
+            response = retry_with_backoff(
+                lambda: confluence.get_page_comments(
+                    page_id,
+                    expand='body.storage,history',
+                    start=start,
+                    limit=page_size,
+                )
             )
             results = response.get('results', [])
             if not results:
