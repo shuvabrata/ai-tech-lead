@@ -137,8 +137,8 @@ class TestFetchComments:
         # The success path finalised after retrying the two 429s.
         assert mock_jira.get.call_count == 3
 
-    def test_fetch_comments_gives_up_after_max_retries(self):
-        """A persistent 429 exhausts retries and yields [] (not an exception).
+    def test_fetch_comments_gives_up_after_timeout(self):
+        """A persistent 429 exhausts the retry deadline and yields [] (not an exception).
 
         Even after backoff is exhausted, the existing error contract (return
         ``[]``) is preserved so a single rate-limited issue does not abort the

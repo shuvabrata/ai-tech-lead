@@ -67,4 +67,10 @@ async def process_single_commit(
                 await pub_callback(build_file_signal(file_data, commit_data, repo_data))
 
         except Exception as exc:
-            logger.warning("Commit skipped: %s", exc)
+            logger.warning(
+                "Commit skipped: type=%s exception=%r sha=%s",
+                type(exc).__name__,
+                exc,
+                getattr(commit, "sha", "?")[:12],
+                exc_info=False,
+            )

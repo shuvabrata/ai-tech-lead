@@ -136,13 +136,13 @@ class TestRetryWithBackoffBehavior:
             assert retry_with_backoff(_flaky) == "ok"
         assert calls["n"] == 2
 
-    def test_exhausts_retries_then_raises(self):
-        """Persistent 429 → raises after max_retries."""
+    def test_exhausts_timeout_then_raises(self):
+        """Persistent 429 → raises after the retry budget is exhausted."""
         def _always_429():
             raise _http_429()
 
-        with mock.patch("time.sleep"), pytest.raises(Exception, match="Max retries"):
-            retry_with_backoff(_always_429, max_retries=3)
+        with mock.patch("time.sleep"), pytest.raises(Exception, match="Retry timeout"):
+            retry_with_backoff(_always_429, timeout=0)
 
     def test_timeout_budget_exhausted_then_raises(self):
         """Persistent network error → raises after the time budget is exhausted."""

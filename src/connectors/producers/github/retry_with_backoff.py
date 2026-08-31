@@ -1,7 +1,7 @@
 import errno
 import socket
 import time
-from typing import Callable, Optional, TypeVar
+from typing import Callable, TypeVar
 
 import requests
 import urllib3
@@ -97,7 +97,6 @@ def retry_with_backoff(
     func: Callable[[], T],
     timeout: int = DEFAULT_TIMEOUT,
     max_delay: int = DEFAULT_MAX_DELAY,
-    max_retries: Optional[int] = None,
     initial_delay: int = DEFAULT_INITIAL_DELAY,
 ) -> T:
     """
@@ -112,8 +111,6 @@ def retry_with_backoff(
         func: Function to execute (should be a lambda or callable).
         timeout: Total retry budget in seconds. Defaults to 1 hour.
         max_delay: Maximum per-sleep delay in seconds.
-        max_retries: Optional secondary cap on the number of attempts. When
-            ``None`` (default), the deadline is the only bound.
         initial_delay: Initial delay in seconds (doubles each retry).
 
     Returns:
@@ -135,9 +132,6 @@ def retry_with_backoff(
                 raise
 
             attempt += 1
-            if max_retries is not None and attempt >= max_retries:
-                raise Exception(f"Max retries exceeded: {str(e)}") from e
-
             remaining = deadline - time.time()
             if remaining <= 0:
                 raise Exception(f"Retry timeout ({timeout}s) exceeded: {str(e)}") from e
