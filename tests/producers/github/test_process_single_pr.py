@@ -261,18 +261,19 @@ async def test_commenter_user_data_deduplicated():
 
 
 # ---------------------------------------------------------------------------
-# Test 4: Partial failure — one user-data fetch raises
+# Test 4: Partial failure — one user-data fetch returns fallback data
 # ---------------------------------------------------------------------------
 
 @pytest.mark.unit
 @pytest.mark.asyncio
 async def test_commenter_user_data_partial_failure(caplog):
     """
-    When one fetch_github_user call raises, the failing login should be absent
-    from published Person signals, a warning should be logged, and
-    process_single_pr should not raise. Other logins' data should be present.
-    The comment entry (login + timestamp) should still be in comments_data
-    regardless of user-fetch failure.
+    When one fetch_github_user call returns fallback data (login-only, no
+    name/email), the failing login should be absent from published Person
+    signals, a warning should be logged, and process_single_pr should not
+    raise. Other logins' data should be present. The comment entry (login +
+    timestamp) should still be in comments_data regardless of user-fetch
+    failure.
     """
     issue_comments = [
         _make_comment("alice", 1),
@@ -282,7 +283,9 @@ async def test_commenter_user_data_partial_failure(caplog):
 
     def _fetch_user(u):
         if u.login == "bob":
-            raise RuntimeError("user API down")
+            # Simulate fetch_github_user falling back to login-only data
+            # (e.g. after a WbaRetryTimeoutError or non-retryable error).
+            return {"login": "bob", "name": "bob", "email": ""}
         return {"login": u.login, "name": u.login.title(), "email": ""}
 
     published: list[Any] = []
@@ -310,24 +313,25 @@ async def test_commenter_user_data_partial_failure(caplog):
                 seen_commits=set(), published_persons=set(), _pub=_pub,
             )
 
-    # Warning logged for failed commenter fetch
-    assert any("commenter" in r.message.lower() for r in caplog.records), \
-        "Expected warning about commenter user data failure"
+    # No warning — fetch_github_user returns fallback data instead of raising.
+    # The fallback data (login-only) is still published as a Person signal.
+    assert not any("commenter" in r.message.lower() for r in caplog.records), \
+        "No warning expected — fetch_github_user returns fallback data, never raises"
 
-    # alice and carol should have Person signals; bob should not.
+    # All three commenters should have Person signals (bob gets login-only fallback).
     # ActivitySignal.id is the canonical key e.g. "github::Person::alice"
     published_ids = {getattr(sig, "id", None) for sig in published if getattr(sig, "id", None)}
 
     assert any(eid.endswith("alice") for eid in published_ids), \
         f"alice Person signal should be published; got {published_ids}"
+    assert any(eid.endswith("bob") for eid in published_ids), \
+        f"bob Person signal should be published (fallback data); got {published_ids}"
     assert any(eid.endswith("carol") for eid in published_ids), \
         f"carol Person signal should be published; got {published_ids}"
-    assert not any("::bob" in eid for eid in published_ids), \
-        "bob Person signal should NOT be published"
 
     # All 3 COMMENTED_ON entries preserved (comment data recorded before user-fetch)
     pr_signal = published[-1]
     comment_target_ids = {r.target.id for r in pr_signal.relationships if r.type == "COMMENTED_ON"}
     assert "alice" in comment_target_ids
     assert "carol" in comment_target_ids
-    assert "bob" in comment_target_ids  # comment entry preserved even if user-fetch failed
+    assert "bob" in comment_target_ids  # comment entry preserved regardless of user-fetch quality

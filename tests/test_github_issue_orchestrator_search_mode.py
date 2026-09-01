@@ -1,13 +1,20 @@
-"""Unit tests for the GitHub issue orchestrator (Phase 4).
+"""Unit tests for the GitHub issue orchestrator in **search** mode.
 
-Tests cover ``process_issues`` through the public boundary, mirroring the
-strategy used in ``tests/producers/github/test_process_single_pr.py``:
+Covers ``process_issues`` when ``ISSUE_FETCH_MODE=search`` (the default). In
+this mode the Search API (``fetch_issues``) is used exclusively — there is no
+automatic fallback to the direct API. These tests verify:
 
-- ``asyncio.to_thread`` is replaced with an ``AsyncMock`` whose side_effect
-  calls the wrapped function directly (no real thread pool).
-- Underlying fetch / map / build functions are mocked at the
-  ``connectors.producers.github.process_issues`` module level.
-- All tests are marked ``unit`` (no external services required).
+- The Search API is used when ``ISSUE_FETCH_MODE=search``.
+- The direct API is never called in search mode.
+- A missing ``github_obj`` in search mode is an error (no silent fallback).
+- Search API failures are fatal (no fallback), not silently swallowed.
+- ``WbaRetryTimeoutError`` propagates so the repo is skipped without cursor
+  advance.
+- Per-issue processing still works (signals, persons, refs, error isolation).
+
+The ``asyncio.to_thread`` is replaced with an ``AsyncMock`` whose side_effect
+calls the wrapped function directly (no real thread pool). All fetch / map /
+build functions are mocked at the ``process_issues`` module level.
 """
 from __future__ import annotations
 
@@ -19,15 +26,16 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from connectors.producers.github.process_issues import process_issues
+from connectors.producers.github.retry_with_backoff import WbaRetryTimeoutError
 
 _MODULE = "connectors.producers.github.process_issues"
+
+_REPO_FULL_NAME = "owner/repo"
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-
-_REPO_FULL_NAME = "owner/repo"
 
 
 def _make_issue(number: int = 42, state: str = "open", body: str = "") -> MagicMock:
@@ -119,23 +127,88 @@ def _enter_patches(stack: ExitStack, patches: List):
         stack.enter_context(p)
 
 
+def _patch_mode(stack: ExitStack, mode: str = "search"):
+    """Force ``ISSUE_FETCH_MODE`` to the given value for the test."""
+    stack.enter_context(patch(f"{_MODULE}.os.getenv", return_value=mode))
+
+
 # ---------------------------------------------------------------------------
-# Tests
+# Mode selection
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.unit
 @pytest.mark.asyncio
-async def test_process_issues_uses_search_api_when_github_obj_provided():
-    """When ``github_obj`` is provided, the Search API path should be used."""
+async def test_search_mode_uses_search_api():
+    """In search mode, ``fetch_issues`` should be used."""
     issue = _make_issue(number=42)
     with ExitStack() as stack:
+        _patch_mode(stack, "search")
         stack.enter_context(
             patch(f"{_MODULE}.resolve_issues_since_date", return_value=datetime(2026, 1, 1, tzinfo=timezone.utc))
         )
         _enter_patches(stack, _common_patches(issues=[issue]))
-        published: Dict[str, int] = {}
-        seen: set = set()
+        search_mock = stack.enter_context(
+            patch(f"{_MODULE}.fetch_issues", return_value=[issue])
+        )
+        direct_mock = stack.enter_context(
+            patch(f"{_MODULE}.fetch_issues_direct", return_value=[issue])
+        )
+        await process_issues(
+            repo=_make_repo(),
+            repo_data=_repo_data(),
+            repo_owner="owner",
+            full_name=_REPO_FULL_NAME,
+            last_synced_at=None,
+            published={},
+            seen_persons=set(),
+            pub_callback=AsyncMock(),
+            github_obj=MagicMock(),
+        )
+        search_mock.assert_called_once()
+        direct_mock.assert_not_called()
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_search_mode_never_calls_direct_even_on_empty():
+    """In search mode, an empty Search API result must NOT trigger the direct API."""
+    with ExitStack() as stack:
+        _patch_mode(stack, "search")
+        stack.enter_context(
+            patch(f"{_MODULE}.resolve_issues_since_date", return_value=datetime(2026, 1, 1, tzinfo=timezone.utc))
+        )
+        _enter_patches(stack, _common_patches(issues=[]))
+        direct_mock = stack.enter_context(
+            patch(f"{_MODULE}.fetch_issues_direct", return_value=[])
+        )
+        await process_issues(
+            repo=_make_repo(),
+            repo_data=_repo_data(),
+            repo_owner="owner",
+            full_name=_REPO_FULL_NAME,
+            last_synced_at=None,
+            published={},
+            seen_persons=set(),
+            pub_callback=AsyncMock(),
+            github_obj=MagicMock(),
+        )
+        direct_mock.assert_not_called()
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_search_mode_requires_github_obj():
+    """In search mode, a missing ``github_obj`` is an error, not a silent fallback."""
+    with ExitStack() as stack:
+        _patch_mode(stack, "search")
+        stack.enter_context(
+            patch(f"{_MODULE}.resolve_issues_since_date", return_value=datetime(2026, 1, 1, tzinfo=timezone.utc))
+        )
+        _enter_patches(stack, _common_patches(issues=[]))
+        direct_mock = stack.enter_context(
+            patch(f"{_MODULE}.fetch_issues_direct", return_value=[])
+        )
         pub = AsyncMock()
         await process_issues(
             repo=_make_repo(),
@@ -143,22 +216,29 @@ async def test_process_issues_uses_search_api_when_github_obj_provided():
             repo_owner="owner",
             full_name=_REPO_FULL_NAME,
             last_synced_at=None,
-            published=published,
-            seen_persons=seen,
+            published={},
+            seen_persons=set(),
             pub_callback=pub,
-            github_obj=MagicMock(),
+            github_obj=None,
         )
+        # No fallback to direct; no signals published.
+        direct_mock.assert_not_called()
+        pub.assert_not_called()
 
 
 @pytest.mark.unit
 @pytest.mark.asyncio
-async def test_process_issues_skips_direct_when_search_returns_empty():
-    """When the Search API returns no issues (success), the direct fallback is skipped."""
+async def test_search_mode_failure_is_fatal_no_fallback():
+    """A Search API failure in search mode must NOT fall back to direct."""
     with ExitStack() as stack:
+        _patch_mode(stack, "search")
         stack.enter_context(
             patch(f"{_MODULE}.resolve_issues_since_date", return_value=datetime(2026, 1, 1, tzinfo=timezone.utc))
         )
-        _enter_patches(stack, _common_patches(issues=[], comments=[]))
+        _enter_patches(stack, _common_patches(issues=[]))
+        stack.enter_context(
+            patch(f"{_MODULE}.fetch_issues", side_effect=RuntimeError("search down"))
+        )
         direct_mock = stack.enter_context(
             patch(f"{_MODULE}.fetch_issues_direct", return_value=[])
         )
@@ -175,42 +255,51 @@ async def test_process_issues_skips_direct_when_search_returns_empty():
             github_obj=MagicMock(),
         )
         direct_mock.assert_not_called()
+        pub.assert_not_called()
 
 
 @pytest.mark.unit
 @pytest.mark.asyncio
-async def test_process_issues_falls_back_to_direct_when_no_github_obj():
-    """Without a ``github_obj``, the direct fetch path is used."""
-    issue = _make_issue(number=11)
+async def test_search_mode_propagates_wba_timeout():
+    """A ``WbaRetryTimeoutError`` in search mode must propagate (no cursor advance)."""
     with ExitStack() as stack:
+        _patch_mode(stack, "search")
         stack.enter_context(
             patch(f"{_MODULE}.resolve_issues_since_date", return_value=datetime(2026, 1, 1, tzinfo=timezone.utc))
         )
-        _enter_patches(stack, _common_patches(issues=[issue]))
-        direct_mock = stack.enter_context(
-            patch(f"{_MODULE}.fetch_issues_direct", return_value=[issue])
+        _enter_patches(stack, _common_patches(issues=[]))
+        stack.enter_context(
+            patch(
+                f"{_MODULE}.fetch_issues",
+                side_effect=WbaRetryTimeoutError(3600, RuntimeError("net down")),
+            )
         )
-        pub = AsyncMock()
-        await process_issues(
-            repo=_make_repo(),
-            repo_data=_repo_data(),
-            repo_owner="owner",
-            full_name=_REPO_FULL_NAME,
-            last_synced_at=None,
-            published={},
-            seen_persons=set(),
-            pub_callback=pub,
-            github_obj=None,
-        )
-        direct_mock.assert_called_once()
+        with pytest.raises(WbaRetryTimeoutError):
+            await process_issues(
+                repo=_make_repo(),
+                repo_data=_repo_data(),
+                repo_owner="owner",
+                full_name=_REPO_FULL_NAME,
+                last_synced_at=None,
+                published={},
+                seen_persons=set(),
+                pub_callback=AsyncMock(),
+                github_obj=MagicMock(),
+            )
+
+
+# ---------------------------------------------------------------------------
+# Per-issue processing (shared behavior, exercised in search mode)
+# ---------------------------------------------------------------------------
 
 
 @pytest.mark.unit
 @pytest.mark.asyncio
-async def test_process_issues_publishes_issue_signal_per_issue():
+async def test_search_mode_publishes_issue_signal_per_issue():
     """One Issue signal should be published per fetched issue."""
     issues = [_make_issue(number=1), _make_issue(number=2), _make_issue(number=3)]
     with ExitStack() as stack:
+        _patch_mode(stack, "search")
         stack.enter_context(
             patch(f"{_MODULE}.resolve_issues_since_date", return_value=datetime(2026, 1, 1, tzinfo=timezone.utc))
         )
@@ -225,22 +314,22 @@ async def test_process_issues_publishes_issue_signal_per_issue():
             published={},
             seen_persons=set(),
             pub_callback=pub,
-            github_obj=None,
+            github_obj=MagicMock(),
         )
-        # Each issue → one Issue signal (plus any Person signals).
         issue_signals = [c for c in pub.call_args_list if c.args[0] is not None and getattr(c.args[0], "_signal_kind", None) == "Issue"]
         assert len(issue_signals) == 3
 
 
 @pytest.mark.unit
 @pytest.mark.asyncio
-async def test_process_issues_emits_person_signals_for_unseen_users():
+async def test_search_mode_emits_person_signals_for_unseen_users():
     """Person signals should be emitted for assignees/commenters/mentions not yet seen."""
     issue = _make_issue(number=1)
     issue.assignees = [MagicMock(login="bob")]
     comments = [_make_comment("charlie")]
 
     with ExitStack() as stack:
+        _patch_mode(stack, "search")
         stack.enter_context(
             patch(f"{_MODULE}.resolve_issues_since_date", return_value=datetime(2026, 1, 1, tzinfo=timezone.utc))
         )
@@ -256,84 +345,16 @@ async def test_process_issues_emits_person_signals_for_unseen_users():
             published={},
             seen_persons=seen,
             pub_callback=pub,
-            github_obj=None,
+            github_obj=MagicMock(),
         )
-        # bob (assignee), charlie (commenter), dave (mention) → 3 Person signals
         person_signals = [c for c in pub.call_args_list if getattr(c.args[0], "_signal_kind", None) == "Person"]
         assert len(person_signals) == 3
-        # All three logins should now be in seen_persons
         assert {"bob", "charlie", "dave"}.issubset(seen)
 
 
 @pytest.mark.unit
 @pytest.mark.asyncio
-async def test_process_issues_skips_person_signals_for_already_seen_users():
-    """Users already in ``seen_persons`` should not trigger a duplicate Person signal."""
-    issue = _make_issue(number=1)
-    issue.assignees = [MagicMock(login="bob")]
-    comments = [_make_comment("charlie")]
-
-    with ExitStack() as stack:
-        stack.enter_context(
-            patch(f"{_MODULE}.resolve_issues_since_date", return_value=datetime(2026, 1, 1, tzinfo=timezone.utc))
-        )
-        _enter_patches(stack, _common_patches(issues=[issue], comments=comments, mentions=[]))
-        seen = {"bob", "charlie"}
-        pub = AsyncMock()
-        await process_issues(
-            repo=_make_repo(),
-            repo_data=_repo_data(),
-            repo_owner="owner",
-            full_name=_REPO_FULL_NAME,
-            last_synced_at=None,
-            published={},
-            seen_persons=seen,
-            pub_callback=pub,
-            github_obj=None,
-        )
-        person_signals = [c for c in pub.call_args_list if getattr(c.args[0], "_signal_kind", None) == "Person"]
-        assert len(person_signals) == 0
-
-
-@pytest.mark.unit
-@pytest.mark.asyncio
-async def test_process_issues_splits_github_refs_into_relates_to_and_references():
-    """Same-repo GitHub refs → RELATES_TO; cross-repo refs → REFERENCES."""
-    issue = _make_issue(number=1)
-    # extract_github_issue_refs returns both same-repo and cross-repo refs
-    github_refs = [f"{_REPO_FULL_NAME}#10", "otherorg/otherrepo#99"]
-
-    captured: Dict[str, Any] = {}
-
-    def _capture_build(**kwargs):
-        captured["relates_to_ids"] = kwargs.get("relates_to_ids", [])
-        captured["referenced_github_issue_ids"] = kwargs.get("referenced_github_issue_ids", [])
-        return MagicMock(_signal_kind="Issue")
-
-    with ExitStack() as stack:
-        stack.enter_context(
-            patch(f"{_MODULE}.resolve_issues_since_date", return_value=datetime(2026, 1, 1, tzinfo=timezone.utc))
-        )
-        _enter_patches(stack, _common_patches(issues=[issue], github_refs=github_refs))
-        stack.enter_context(patch(f"{_MODULE}.build_issue_signal", side_effect=_capture_build))
-        await process_issues(
-            repo=_make_repo(),
-            repo_data=_repo_data(),
-            repo_owner="owner",
-            full_name=_REPO_FULL_NAME,
-            last_synced_at=None,
-            published={},
-            seen_persons=set(),
-            pub_callback=AsyncMock(),
-            github_obj=None,
-        )
-        assert captured["relates_to_ids"] == [f"{_REPO_FULL_NAME}#10"]
-        assert captured["referenced_github_issue_ids"] == ["otherorg/otherrepo#99"]
-
-
-@pytest.mark.unit
-@pytest.mark.asyncio
-async def test_process_issues_continues_on_per_issue_exception():
+async def test_search_mode_continues_on_per_issue_exception():
     """A failure processing one issue should not stop the rest."""
     issues = [_make_issue(number=1), _make_issue(number=2), _make_issue(number=3)]
 
@@ -346,6 +367,7 @@ async def test_process_issues_continues_on_per_issue_exception():
         return _issue_data(getattr(issue, "number", 1))
 
     with ExitStack() as stack:
+        _patch_mode(stack, "search")
         stack.enter_context(
             patch(f"{_MODULE}.resolve_issues_since_date", return_value=datetime(2026, 1, 1, tzinfo=timezone.utc))
         )
@@ -360,35 +382,7 @@ async def test_process_issues_continues_on_per_issue_exception():
             published={},
             seen_persons=set(),
             pub_callback=pub,
-            github_obj=None,
+            github_obj=MagicMock(),
         )
-        # Two Issue signals should still be published (issues 1 and 3)
         issue_signals = [c for c in pub.call_args_list if getattr(c.args[0], "_signal_kind", None) == "Issue"]
         assert len(issue_signals) == 2
-
-
-@pytest.mark.unit
-@pytest.mark.asyncio
-async def test_process_issues_returns_early_when_direct_fetch_fails():
-    """When both Search and direct fetch fail, no signals should be published."""
-    with ExitStack() as stack:
-        stack.enter_context(
-            patch(f"{_MODULE}.resolve_issues_since_date", return_value=datetime(2026, 1, 1, tzinfo=timezone.utc))
-        )
-        _enter_patches(stack, _common_patches(issues=[]))
-        stack.enter_context(
-            patch(f"{_MODULE}.fetch_issues_direct", side_effect=RuntimeError("api down"))
-        )
-        pub = AsyncMock()
-        await process_issues(
-            repo=_make_repo(),
-            repo_data=_repo_data(),
-            repo_owner="owner",
-            full_name=_REPO_FULL_NAME,
-            last_synced_at=None,
-            published={},
-            seen_persons=set(),
-            pub_callback=pub,
-            github_obj=None,
-        )
-        pub.assert_not_called()

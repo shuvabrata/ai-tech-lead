@@ -19,7 +19,10 @@ from typing import Any, Iterable, List, Optional
 from github import GithubException
 
 from common.logger import logger
-from connectors.producers.github.retry_with_backoff import retry_with_backoff
+from connectors.producers.github.retry_with_backoff import (
+    WbaRetryTimeoutError,
+    retry_with_backoff,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -36,7 +39,10 @@ def fetch_repo_topics(repo: Any) -> List[str]:
     Returns:
         List of topic strings (may be empty).
     """
-    return retry_with_backoff(repo.get_topics)
+    # Materialize inside the retry: repo.get_topics() returns a lazy
+    # PaginatedList whose network I/O happens on iteration, so the retry must
+    # wrap the list(). Note get_topics is a method — call it with ().
+    return retry_with_backoff(lambda: list(repo.get_topics()))
 
 
 # ---------------------------------------------------------------------------
@@ -65,7 +71,15 @@ def fetch_commits(repo: Any, since_date: datetime) -> List[Any]:
                 return []
             raise
 
-    return retry_with_backoff(_get_commits)
+    commits = retry_with_backoff(_get_commits)
+    logger.debug(
+        "[fetch_commits] repo=%s branch=%s since=%s fetched=%d commits",
+        getattr(repo, "full_name", "?"),
+        branch_sha,
+        since_date.date(),
+        len(commits),
+    )
+    return commits
 
 
 def fetch_commit_files(commit: Any) -> List[Any]:
@@ -77,7 +91,13 @@ def fetch_commit_files(commit: Any) -> List[Any]:
     Returns:
         List of PyGithub File objects.
     """
-    return retry_with_backoff(lambda: list(commit.files))
+    files = retry_with_backoff(lambda: list(commit.files))
+    logger.debug(
+        "[fetch_commit_files] sha=%s fetched=%d files",
+        getattr(commit, "sha", "?")[:12],
+        len(files),
+    )
+    return files
 
 
 def fetch_commit_comments(commit: Any) -> List[Any]:
@@ -125,25 +145,31 @@ def fetch_pull_requests_search(
         f" updated:>={since_date.date()}"
     )
 
-    def _search() -> List[Any]:
-        try:
-            return list(github_obj.search_issues(query=query, sort="updated", order="desc"))
-        except GithubException as exc:
-            logger.warning(f"    GitHub Search API error: {exc}")
-            return []
-
-    raw_issues = retry_with_backoff(_search)
-
-    converted: List[Any] = []
-    for index, issue in enumerate(raw_issues, start=1):
+    def _search_and_convert() -> List[Any]:
+        # search_issues returns partially-loaded Issue objects. Accessing
+        # .pull_request on each triggers a lazy GET /repos/{owner}/{repo}/issues/{number}
+        # API call per issue. Both the search and the per-issue lazy loads are
+        # inside the enclosing retry_with_backoff, so a transient network blip or
+        # rate-limit error during either retries instead of being swallowed to [].
+        raw = list(github_obj.search_issues(query=query, sort="updated", order="desc"))
+        converted: List[Any] = []
+        for idx, issue in enumerate(raw, start=1):
+            logger.debug(
+                f"[fetch_pull_requests_search] Issue {idx}: "
+                f"pull_request={bool(issue.pull_request)} number={getattr(issue, 'number', None)}"
+            )
+            if issue.pull_request:
+                converted.append(issue.as_pull_request())
         logger.debug(
-            f"[fetch_pull_requests_search] Issue {index}: "
-            f"pull_request={bool(issue.pull_request)} number={getattr(issue, 'number', None)}"
+            "[fetch_pull_requests_search] repo=%s since=%s raw_issues=%d converted_prs=%d",
+            repo_full_name,
+            since_date.date(),
+            len(raw),
+            len(converted),
         )
-        if issue.pull_request:
-            converted.append(issue.as_pull_request())
+        return converted
 
-    return converted
+    return retry_with_backoff(_search_and_convert)
 
 
 def fetch_pull_requests_direct(repo_obj: Any) -> Iterable[Any]:
@@ -188,12 +214,12 @@ def fetch_pull_requests_direct(repo_obj: Any) -> Iterable[Any]:
     # guarantees the caller's early-break stays correct across both state
     # groups and no PRs are skipped.
     open_prs = retry_with_backoff(
-        lambda: repo_obj.get_pulls(state="open", sort="updated", direction="desc")
+        lambda: list(repo_obj.get_pulls(state="open", sort="updated", direction="desc"))
     )
     closed_prs = retry_with_backoff(
-        lambda: repo_obj.get_pulls(state="closed", sort="updated", direction="desc")
+        lambda: list(repo_obj.get_pulls(state="closed", sort="updated", direction="desc"))
     )
-    combined = list(open_prs) + list(closed_prs)
+    combined = open_prs + closed_prs
 
     def _updated_key(pr: Any) -> datetime:
         updated: Optional[datetime] = getattr(pr, "updated_at", None)
@@ -284,50 +310,72 @@ def fetch_issues(
 
     logger.info("Fetching issues for '%s' since %s ...", repo_full_name, since_date.date())
 
-    def _search() -> List[Any]:
-        try:
-            return list(github_obj.search_issues(query=query, sort="updated", order="desc"))
-        except GithubException as exc:
-            logger.warning("    GitHub Search API error: %s", exc)
-            return []
+    def _search_and_filter() -> List[Any]:
+        # search_issues returns partially-loaded Issue objects. Accessing
+        # .pull_request on each triggers a lazy GET /repos/{owner}/{repo}/issues/{number}
+        # API call per issue. Both the search and the per-issue lazy loads are
+        # inside the enclosing retry_with_backoff, so a transient network blip or
+        # rate-limit error during either retries instead of being swallowed to [].
+        raw = list(github_obj.search_issues(query=query, sort="updated", order="desc"))
+        filtered: List[Any] = []
+        for idx, issue in enumerate(raw, start=1):
+            # Accessing .pull_request triggers a lazy GET — inside retry scope.
+            is_pr = bool(getattr(issue, "pull_request", None))
+            logger.debug(
+                "Issue #%d: pull_request=%s, state=%s",
+                getattr(issue, "number", "?"),
+                is_pr,
+                getattr(issue, "state", "?"),
+            )
+            if not is_pr:
+                filtered.append(issue)
+        logger.info("Found %d total issues (filtered %d PRs) for '%s'", len(filtered), len(raw) - len(filtered), repo_full_name)
+        return filtered
 
-    raw_issues = retry_with_backoff(_search)
-
-    filtered: List[Any] = []
-    for index, issue in enumerate(raw_issues, start=1):
-        is_pr = bool(getattr(issue, "pull_request", None))
-        logger.debug(
-            "Issue #%d: pull_request=%s, state=%s",
-            getattr(issue, "number", "?"),
-            is_pr,
-            getattr(issue, "state", "?"),
-        )
-        if not is_pr:
-            filtered.append(issue)
-
-    logger.info("Found %d total issues (filtered %d PRs) for '%s'", len(filtered), len(raw_issues) - len(filtered), repo_full_name)
-    return filtered
+    return retry_with_backoff(_search_and_filter)
 
 
-def fetch_issues_direct(repo_obj: Any) -> Iterable[Any]:
+def fetch_issues_direct(repo_obj: Any, since_date: Optional[datetime] = None) -> Iterable[Any]:
     """Fetch all issues directly from the repository endpoint.
 
     Fallback for first sync or when the Search API fails.  The ``get_issues``
-    method does NOT support an ``updated_at`` filter, so this returns all issues
-    sorted by ``updated`` descending — the caller is responsible for filtering
-    by date if needed.
+    method supports a ``since`` filter (ISO 8601) that limits results to issues
+    last updated at or after that time. When ``since_date`` is provided, only
+    issues updated within the incremental window are returned — matching the
+    Search API's ``updated:>=`` filter so both code paths produce consistent
+    counts.
 
     Args:
         repo_obj: PyGithub Repository object.
+        since_date: Optional lower bound for ``updated_at`` filtering. When
+            ``None``, all issues are returned (full sync).
 
     Returns:
         Iterable of PyGithub Issue objects (PRs excluded).
     """
     full_name = getattr(repo_obj, "full_name", "?")
-    logger.info("Fetching issues directly for '%s' (fallback)...", full_name)
+    if since_date is not None:
+        logger.info(
+            "Fetching issues directly for '%s' since %s (fallback)...",
+            full_name,
+            since_date.date(),
+        )
+    else:
+        logger.info("Fetching issues directly for '%s' (fallback, full sync)...", full_name)
 
+    # Materialize inside the retry: get_issues returns a lazy PaginatedList
+    # whose network I/O happens on iteration, so the retry must wrap the list().
+    # The `since` param mirrors the Search API's updated:>= filter so both
+    # implementations apply the same incremental window.
     raw = retry_with_backoff(
-        lambda: repo_obj.get_issues(state="all", sort="updated", direction="desc")
+        lambda: list(
+            repo_obj.get_issues(
+                state="all",
+                sort="updated",
+                direction="desc",
+                since=since_date.isoformat() if since_date else None,
+            )
+        )
     )
 
     filtered = [issue for issue in raw if not getattr(issue, "pull_request", None)]
@@ -364,8 +412,26 @@ def fetch_repo_teams(repo: Any) -> List[Any]:
     """
     try:
         return retry_with_backoff(lambda: list(repo.get_teams()))
+    except WbaRetryTimeoutError as exc:
+        # CRITICAL: retry budget exhausted. Returning [] here would silently
+        # drop ALL teams for this repo AND advance the sync cursor (the caller
+        # sees an empty list as success). Re-raise so the config-level handler
+        # skips this repo without advancing the cursor.
+        logger.debug(
+            "fetch_repo_teams: WbaRetryTimeoutError for '%s' after %.0fs — re-raising "
+            "so repo is skipped without cursor advance: %s",
+            getattr(repo, "full_name", "?"),
+            exc.timeout,
+            exc,
+        )
+        raise
     except Exception as exc:
-        logger.debug("fetch_repo_teams: could not fetch teams for '%s': %s", getattr(repo, "full_name", "?"), exc)
+        logger.debug(
+            "fetch_repo_teams: could not fetch teams for '%s' type=%s: %s",
+            getattr(repo, "full_name", "?"),
+            type(exc).__name__,
+            exc,
+        )
         return []
 
 
@@ -382,10 +448,24 @@ def fetch_repo_collaborators(repo: Any) -> List[Any]:
     try:
         collaborators = retry_with_backoff(lambda: list(repo.get_collaborators()))
         return [collab for collab in collaborators if getattr(collab, "type", None) == "User"]
+    except WbaRetryTimeoutError as exc:
+        # CRITICAL: retry budget exhausted. Returning [] here would silently
+        # drop ALL collaborators for this repo AND advance the sync cursor.
+        # Re-raise so the config-level handler skips this repo without
+        # advancing the cursor.
+        logger.debug(
+            "fetch_repo_collaborators: WbaRetryTimeoutError for '%s' after %.0fs — "
+            "re-raising so repo is skipped without cursor advance: %s",
+            getattr(repo, "full_name", "?"),
+            exc.timeout,
+            exc,
+        )
+        raise
     except Exception as exc:
         logger.debug(
-            "fetch_repo_collaborators: could not fetch collaborators for '%s': %s",
+            "fetch_repo_collaborators: could not fetch collaborators for '%s' type=%s: %s",
             getattr(repo, "full_name", "?"),
+            type(exc).__name__,
             exc,
         )
         return []

@@ -23,6 +23,7 @@ from connectors.producers.jira.fetch_jira import (
     fetch_issues,
     resolve_jql_date_field,
 )
+from connectors.producers.github.retry_with_backoff import WbaRetryTimeoutError
 
 
 # ---------------------------------------------------------------------------
@@ -137,12 +138,12 @@ class TestFetchComments:
         # The success path finalised after retrying the two 429s.
         assert mock_jira.get.call_count == 3
 
-    def test_fetch_comments_gives_up_after_max_retries(self):
-        """A persistent 429 exhausts retries and yields [] (not an exception).
+    def test_fetch_comments_gives_up_after_timeout(self):
+        """A persistent 429 exhausts the retry deadline and raises WbaRetryTimeoutError.
 
-        Even after backoff is exhausted, the existing error contract (return
-        ``[]``) is preserved so a single rate-limited issue does not abort the
-        whole scan.
+        The retry-budget exhaustion is a distinct signal that propagates so the
+        config-level handler can skip this account's cursor and retry it on the
+        next scan (rather than silently dropping the comments).
         """
         mock_jira = Mock()
         # A callable side_effect raises every time (persistent 429).
@@ -150,12 +151,11 @@ class TestFetchComments:
             raise _http_429()
         mock_jira.get.side_effect = _always_429
 
-        with mock.patch("time.sleep"):
-            result = fetch_comments(mock_jira, "PROJ-6")
-
-        # retry_with_backoff default max_retries=5 → 5 attempts then [].
-        assert mock_jira.get.call_count == 5
-        assert result == []
+        # A tiny timeout forces immediate exhaustion; time.sleep is mocked so
+        # the loop terminates deterministically instead of waiting the full
+        # 1-hour default deadline.
+        with mock.patch("time.sleep"), pytest.raises(WbaRetryTimeoutError):
+            fetch_comments(mock_jira, "PROJ-6", retry_timeout=0)
 
     def test_fetch_comments_non_rate_limit_rethrows_to_empty(self):
         """A 404 (non-rate-limit) is NOT retried — falls through to []."""
@@ -204,23 +204,18 @@ class TestResolveJqlDateField:
         assert date_str == fetch_jira.resolve_lookback_cutoff(90)
 
     def test_resolve_jql_date_field_incremental(self):
-        """Cursor present → uses 'updated' with a quoted cursor timestamp.
-
-        The timestamp is the cursor minus the sync-cursor overlap
-        (``_SYNC_CURSOR_OVERLAP``), matching Confluence, so entities updated
-        during the previous run are not missed.
-        """
+        """Cursor present → uses 'updated' with a quoted cursor timestamp."""
         cursor = datetime(2026, 8, 1, 10, 30, tzinfo=timezone.utc)
         field, date_str = resolve_jql_date_field(90, cursor)
         assert field == "updated"
-        assert date_str == '"2026-08-01 09:30"'
+        assert date_str == '"2026-08-01 10:30"'
 
     def test_resolve_jql_date_field_incremental_overlap(self):
-        """A sync cursor is pushed one hour earlier to cover the overlap."""
+        """A sync cursor is used directly without adjustment."""
         cursor = datetime(2026, 8, 22, 4, 7, tzinfo=timezone.utc)
         field, date_str = resolve_jql_date_field(90, cursor)
         assert field == "updated"
-        assert date_str == '"2026-08-22 03:07"'
+        assert date_str == '"2026-08-22 04:07"'
 
 
 # ---------------------------------------------------------------------------
@@ -238,7 +233,7 @@ class TestFetchJqlWithLastSyncedAt:
         cursor = datetime(2026, 8, 1, 9, 0, tzinfo=timezone.utc)
         fetch_initiatives(mock_jira, lookback_days=90, last_synced_at=cursor)
         jql = mock_jira.enhanced_jql.call_args.kwargs["jql"]
-        assert "updated >= \"2026-08-01 08:00\"" in jql
+        assert 'updated >= "2026-08-01 09:00"' in jql
 
     def test_fetch_epics_uses_updated_on_incremental(self):
         mock_jira = Mock()
@@ -246,7 +241,7 @@ class TestFetchJqlWithLastSyncedAt:
         cursor = datetime(2026, 8, 1, 9, 0, tzinfo=timezone.utc)
         fetch_epics(mock_jira, lookback_days=30, last_synced_at=cursor)
         jql = mock_jira.enhanced_jql.call_args.kwargs["jql"]
-        assert "updated >= \"2026-08-01 08:00\"" in jql
+        assert 'updated >= "2026-08-01 09:00"' in jql
 
     def test_fetch_issues_uses_created_on_first_run(self):
         mock_jira = Mock()

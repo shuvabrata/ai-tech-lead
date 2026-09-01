@@ -30,7 +30,3 @@ cd "$PROJECT_ROOT" && PYTHONPATH=src ELASTICSEARCH_URL="${ELASTICSEARCH_URL:-htt
   python scripts/clear_es_data.py
 echo "Elasticsearch cleared."
 
-# Clear log files (keep directory structure intact)
-echo "Clearing log files..."
-find "$PROJECT_ROOT/logs" -type f \( -name "*.log" -o -name "*.jsonl" \) -delete
-echo "Log files cleared."

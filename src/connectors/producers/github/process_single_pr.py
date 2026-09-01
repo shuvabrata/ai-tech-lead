@@ -25,6 +25,7 @@ from connectors.producers.github.map_github import (
 
 from common.logger import logger
 from common.activity_signal.models import ActivitySignal
+from connectors.producers.github.retry_with_backoff import WbaRetryTimeoutError
 
 async def process_single_pr(pr: Any, 
                             repo: Any,
@@ -42,6 +43,11 @@ async def process_single_pr(pr: Any,
         return fetch_github_user(pr.user), map_pull_request(repo.name, pr, repo_owner)
 
     author_data, pr_data = await asyncio.to_thread(get_pr_author_and_data)
+    logger.debug(
+        "[process_single_pr] PR #%s author=%r fetched",
+        pr.number,
+        author_data.get("login") or author_data.get("name", "unknown"),
+    )
 
     author_login = author_data.get("login") or author_data.get("name", "unknown")
     logger.debug(
@@ -55,6 +61,12 @@ async def process_single_pr(pr: Any,
     reviews_raw = await asyncio.to_thread(fetch_pr_reviews, pr)
     review_map = map_pr_reviews(reviews_raw)
     reviewer_logins = list(review_map.keys())
+    logger.debug(
+        "[process_single_pr] PR #%s reviews=%d reviewer_logins=%r",
+        pr.number,
+        len(reviews_raw),
+        reviewer_logins,
+    )
     # Build reviewer enriched data in a thread — same lazy-load concern as PR author.
     def build_reviewer_user_data() -> Dict[str, Dict[str, Any]]:
         return {
@@ -66,6 +78,11 @@ async def process_single_pr(pr: Any,
     reviewer_user_data: Dict[str, Dict[str, Any]] = await asyncio.to_thread(
         build_reviewer_user_data
     )
+    logger.debug(
+        "[process_single_pr] PR #%s reviewer_user_data=%d entries",
+        pr.number,
+        len(reviewer_user_data),
+    )
 
     # Extract merger details — fetch full user data so a proper Person signal
     # is emitted (not just a stub node created by merge_relationship).
@@ -76,6 +93,9 @@ async def process_single_pr(pr: Any,
         if merged_by_obj and getattr(merged_by_obj, "login", None):
             merger_data = await asyncio.to_thread(fetch_github_user, merged_by_obj)
             merger_login = merger_data["login"]
+            logger.debug(
+                "[process_single_pr] PR #%s merger=%r fetched", pr.number, merger_login,
+            )
 
     # Requested reviewers — fetch full user data via fetch_github_user so
     # these users get dedicated Person signals, not just stub nodes.
@@ -92,6 +112,11 @@ async def process_single_pr(pr: Any,
         fetch_requested_reviewer_data
     )
     requested_reviewer_logins: List[str] = list(requested_reviewer_user_data.keys())
+    logger.debug(
+        "[process_single_pr] PR #%s requested_reviewers=%d",
+        pr.number,
+        len(requested_reviewer_logins),
+    )
 
     # Commit SHAs for INCLUDES relationships
     pr_commits_raw = []
@@ -136,8 +161,23 @@ async def process_single_pr(pr: Any,
                     # which is sufficient for our use cases and avoids extra API calls to check branch membership.
                     await _pub(build_commit_signal(pr_c_data, pr_a_data, repo_name=repo.name, branch_name=None))
                     seen_commits.add(c_sha)
+                except WbaRetryTimeoutError:
+                    logger.debug(
+                        "[process_single_pr] WbaRetryTimeoutError propagating for PR commit "
+                        "sha=%s pr=#%s — repo will be skipped without cursor advance",
+                        c_sha[:8],
+                        pr.number,
+                    )
+                    raise
                 except Exception as inner_exc:
                     logger.warning("Failed to emit PR commit '%s': %s", c_sha, inner_exc)
+    except WbaRetryTimeoutError:
+        logger.debug(
+            "[process_single_pr] WbaRetryTimeoutError propagating for PR #%s (commits) — "
+            "repo will be skipped without cursor advance",
+            pr.number,
+        )
+        raise
     except Exception as exc:
         logger.warning("Could not fetch commits for PR #%s: %s", pr.number, exc)
         commit_shas = []
@@ -153,6 +193,14 @@ async def process_single_pr(pr: Any,
             async with _sem:
                 try:
                     return await asyncio.to_thread(fetch_commit_comments, c)
+                except WbaRetryTimeoutError:
+                    logger.debug(
+                        "[process_single_pr] WbaRetryTimeoutError propagating for commit-comment "
+                        "fetch sha=%s pr=#%s — repo will be skipped without cursor advance",
+                        getattr(c, "sha", "unknown")[:8],
+                        pr.number,
+                    )
+                    raise
                 except Exception as e:
                     logger.warning(
                         "Could not fetch comments for commit %s: %s",
@@ -176,6 +224,13 @@ async def process_single_pr(pr: Any,
     _ir_results = await asyncio.gather(_issue_task, _review_task, return_exceptions=True)
 
     issue_comments_raw: List[Any] = []
+    if isinstance(_ir_results[0], WbaRetryTimeoutError):
+        logger.debug(
+            "[process_single_pr] WbaRetryTimeoutError propagating for PR #%s (issue comments) — "
+            "repo will be skipped without cursor advance",
+            pr.number,
+        )
+        raise _ir_results[0]
     if isinstance(_ir_results[0], Exception):
         logger.warning("Could not fetch issue comments for PR #%s: %s", pr.number, _ir_results[0])
     else:
@@ -183,6 +238,13 @@ async def process_single_pr(pr: Any,
         logger.info(f"Fetched {len(issue_comments_raw)} issue comments for PR #{pr.number}")
 
     review_comments_raw: List[Any] = []
+    if isinstance(_ir_results[1], WbaRetryTimeoutError):
+        logger.debug(
+            "[process_single_pr] WbaRetryTimeoutError propagating for PR #%s (review comments) — "
+            "repo will be skipped without cursor advance",
+            pr.number,
+        )
+        raise _ir_results[1]
     if isinstance(_ir_results[1], Exception):
         logger.warning("Could not fetch review comments for PR #%s: %s", pr.number, _ir_results[1])
     else:
@@ -216,6 +278,11 @@ async def process_single_pr(pr: Any,
             comments_list.append({"login": login, "timestamp": ts})
 
     # Pass 2: fetch user data concurrently, reusing _sem.
+    # fetch_github_user catches non-retryable exceptions internally and falls
+    # back to login-only data, but WbaRetryTimeoutError propagates so the
+    # repo is skipped without cursor advance. A plain gather without
+    # return_exceptions is safe: WbaRetryTimeoutError fails fast, non-timeout
+    # errors are handled inside fetch_github_user.
     async def _fetch_user(login: str) -> tuple[str, Any]:
         async with _sem:
             return login, await asyncio.to_thread(fetch_github_user, unique_users[login])
@@ -223,15 +290,10 @@ async def process_single_pr(pr: Any,
     logins = list(unique_users.keys())
     user_results = await asyncio.gather(
         *[_fetch_user(login) for login in logins],
-        return_exceptions=True,
     )
     commenter_user_data: Dict[str, Dict[str, Any]] = {}
-    for item in user_results:
-        if isinstance(item, Exception):
-            logger.warning("Could not fetch user data for a commenter: %s", item)
-        else:
-            _login, _data = item
-            commenter_user_data[_login] = _data
+    for _login, _data in user_results:
+        commenter_user_data[_login] = _data
 
     comments_data = comments_list
     logger.info(f"Total Number of commenters: {len(commenter_user_data)} for PR #{pr.number}")

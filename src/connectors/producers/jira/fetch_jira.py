@@ -15,20 +15,15 @@ from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, Set
 
 from common.logger import logger
-from connectors.producers.github.retry_with_backoff import retry_with_backoff
+from connectors.producers.github.retry_with_backoff import (
+    WbaRetryTimeoutError,
+    retry_with_backoff,
+)
 
 
 # ---------------------------------------------------------------------------
 # Date helpers
 # ---------------------------------------------------------------------------
-
-
-# Overlap the incremental cursor by this interval so entities updated during
-# the previous run (after their ``updated`` field was read but before the cursor
-# was persisted) are not missed.  Re-fetching is harmless: the consumer's
-# snapshot pattern makes re-processing idempotent.  Matches Confluence
-# (``src/connectors/producers/confluence/main.py`` ``_SYNC_CURSOR_OVERLAP``).
-_SYNC_CURSOR_OVERLAP = timedelta(hours=1)
 
 
 def resolve_lookback_cutoff(lookback_days: int) -> str:
@@ -69,7 +64,7 @@ def resolve_jql_date_field(
     """
     if last_synced_at is None:
         return "created", resolve_lookback_cutoff(lookback_days)
-    effective = last_synced_at - _SYNC_CURSOR_OVERLAP
+    effective = last_synced_at
     return "updated", f'"{effective.strftime("%Y-%m-%d %H:%M")}"'
 
 
@@ -99,7 +94,12 @@ def fetch_projects(jira: Any, max_results_per_page: int = 100) -> List[Dict[str,
                 "startAt": start_at,
                 "maxResults": max_results_per_page,
             }
-            projects = jira.get("rest/api/3/project/search", params=params)
+            # Retry rate-limit (HTTP 429) and transient network errors with
+            # exponential backoff so a momentary connectivity loss does not
+            # abort the project fetch.
+            projects = retry_with_backoff(
+                lambda: jira.get("rest/api/3/project/search", params=params)
+            )
 
             if not projects or "values" not in projects:
                 break
@@ -120,6 +120,8 @@ def fetch_projects(jira: Any, max_results_per_page: int = 100) -> List[Dict[str,
         logger.info(f"Found {len(all_projects)} total projects")
         return all_projects
 
+    except WbaRetryTimeoutError:
+        raise
     except Exception as e:
         logger.error(f"Error fetching projects: {e}")
         logger.exception(e)
@@ -161,10 +163,15 @@ def fetch_initiatives(
         next_page_token = None
 
         while True:
-            response = jira.enhanced_jql(
-                jql=jql,
-                nextPageToken=next_page_token,
-                limit=max_results_per_page,
+            # Retry rate-limit (HTTP 429) and transient network errors with
+            # exponential backoff so a momentary connectivity loss does not
+            # abort the initiative fetch.
+            response = retry_with_backoff(
+                lambda: jira.enhanced_jql(
+                    jql=jql,
+                    nextPageToken=next_page_token,
+                    limit=max_results_per_page,
+                )
             )
 
             if not response or "issues" not in response:
@@ -184,6 +191,8 @@ def fetch_initiatives(
         logger.info(f"Found {len(all_initiatives)} total initiatives")
         return all_initiatives
 
+    except WbaRetryTimeoutError:
+        raise
     except Exception as e:
         logger.error(f"Error fetching initiatives: {e}")
         logger.exception(e)
@@ -225,10 +234,15 @@ def fetch_epics(
         next_page_token = None
 
         while True:
-            response = jira.enhanced_jql(
-                jql=jql,
-                nextPageToken=next_page_token,
-                limit=max_results_per_page,
+            # Retry rate-limit (HTTP 429) and transient network errors with
+            # exponential backoff so a momentary connectivity loss does not
+            # abort the epic fetch.
+            response = retry_with_backoff(
+                lambda: jira.enhanced_jql(
+                    jql=jql,
+                    nextPageToken=next_page_token,
+                    limit=max_results_per_page,
+                )
             )
 
             if not response or "issues" not in response:
@@ -248,6 +262,8 @@ def fetch_epics(
         logger.info(f"Found {len(all_epics)} total epics")
         return all_epics
 
+    except WbaRetryTimeoutError:
+        raise
     except Exception as e:
         logger.error(f"Error fetching epics: {e}")
         logger.exception(e)
@@ -285,7 +301,13 @@ def fetch_sprints_by_ids(
 
         for sprint_id in sprint_ids:
             try:
-                sprint_response = jira.get(f"rest/agile/1.0/sprint/{sprint_id}")
+                # Retry rate-limit (HTTP 429) and transient network errors with
+                # exponential backoff so a momentary connectivity loss does not
+                # drop a sprint. Bind sprint_id as a default arg to avoid
+                # late-binding closure issues in the lambda.
+                sprint_response = retry_with_backoff(
+                    lambda sid=sprint_id: jira.get(f"rest/agile/1.0/sprint/{sid}")
+                )
 
                 if sprint_response:
                     sprints.append(sprint_response)
@@ -297,6 +319,8 @@ def fetch_sprints_by_ids(
                     logger.warning(f"  ✗ Sprint {sprint_id} not found")
                     failed_count += 1
 
+            except WbaRetryTimeoutError:
+                raise
             except Exception as e:
                 logger.warning(f"  ✗ Could not fetch sprint {sprint_id}: {e}")
                 failed_count += 1
@@ -307,6 +331,8 @@ def fetch_sprints_by_ids(
 
         return sprints
 
+    except WbaRetryTimeoutError:
+        raise
     except Exception as e:
         logger.error(f"Error fetching sprints by IDs: {e}")
         logger.exception(e)
@@ -354,10 +380,15 @@ def fetch_issues(
         next_page_token = None
 
         while True:
-            response = jira.enhanced_jql(
-                jql=jql,
-                nextPageToken=next_page_token,
-                limit=max_results_per_page,
+            # Retry rate-limit (HTTP 429) and transient network errors with
+            # exponential backoff so a momentary connectivity loss does not
+            # abort the issue fetch.
+            response = retry_with_backoff(
+                lambda: jira.enhanced_jql(
+                    jql=jql,
+                    nextPageToken=next_page_token,
+                    limit=max_results_per_page,
+                )
             )
 
             if not response or "issues" not in response:
@@ -377,6 +408,8 @@ def fetch_issues(
         logger.info(f"Found {len(all_issues)} total issues")
         return all_issues
 
+    except WbaRetryTimeoutError:
+        raise
     except Exception as e:
         logger.error(f"Error fetching issues: {e}")
         logger.exception(e)
@@ -392,6 +425,7 @@ def fetch_comments(
     jira: Any,
     issue_id_or_key: str,
     max_results: int = 100,
+    retry_timeout: int = 3600,
 ) -> List[Dict[str, Any]]:
     """Fetch all comments for a Jira issue.
 
@@ -405,6 +439,8 @@ def fetch_comments(
         jira: Authenticated ``atlassian.Jira`` connection object.
         issue_id_or_key: Jira issue ID or key, e.g. ``"PROJ-123"``.
         max_results: Page size for the comment search API.
+        retry_timeout: Total retry budget in seconds for transient failures
+            (defaults to 1 hour, matching the GitHub producer).
 
     Returns:
         List of raw comment dicts, or ``[]`` on error or when the issue has no
@@ -419,12 +455,15 @@ def fetch_comments(
                 "startAt": start_at,
                 "maxResults": max_results,
             }
-            # Retry rate-limit (HTTP 429) responses with exponential backoff so
-            # comment fetches are not silently dropped on a busy instance.
+            # Retry rate-limit (HTTP 429) and transient network errors with
+            # exponential backoff so comment fetches are not silently dropped
+            # on a busy instance or a momentary connectivity loss. Uses the
+            # default 1-hour retry deadline, matching the GitHub producer.
             response = retry_with_backoff(
                 lambda: jira.get(
                     f"rest/api/3/issue/{issue_id_or_key}/comment", params=params
-                )
+                ),
+                retry_budget=retry_timeout,
             )
 
             if not response or "comments" not in response:
@@ -447,6 +486,8 @@ def fetch_comments(
         )
         return all_comments
 
+    except WbaRetryTimeoutError:
+        raise
     except Exception as e:
         logger.error(f"Error fetching comments for {issue_id_or_key}: {e}")
         logger.exception(e)

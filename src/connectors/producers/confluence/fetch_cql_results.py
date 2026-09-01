@@ -1,6 +1,7 @@
 from typing import Any, Dict, List
 from atlassian import Confluence
 from common.logger import logger
+from connectors.producers.github.retry_with_backoff import retry_with_backoff
 
 
 def fetch_cql_results(confluence: Confluence, cql: str) -> List[Dict[str, Any]]:
@@ -12,11 +13,16 @@ def fetch_cql_results(confluence: Confluence, cql: str) -> List[Dict[str, Any]]:
 
     logger.info(f"Starting CQL query: {cql}")
     while True:
-        response = confluence.cql(
-            cql,
-            start=start,
-            limit=page_size,
-            expand="content.version,content.history,content.space,content.ancestors",
+        # Retry rate-limit (HTTP 429) and transient network errors with
+        # exponential backoff so a momentary connectivity loss does not abort
+        # the CQL fetch.
+        response = retry_with_backoff(
+            lambda: confluence.cql(
+                cql,
+                start=start,
+                limit=page_size,
+                expand="content.version,content.history,content.space,content.ancestors",
+            )
         )
 
         # Capture the authoritative total on the first response.
