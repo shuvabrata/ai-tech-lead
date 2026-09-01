@@ -20,6 +20,10 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from common.logger import logger
+from connectors.producers.github.retry_with_backoff import (
+    WbaRetryTimeoutError,
+    retry_with_backoff,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -263,13 +267,32 @@ def fetch_github_user(user_obj: Any) -> Dict[str, Any]:
         if login in _user_cache:
             return _user_cache[login]
 
+        # Accessing .name/.email on a NamedUser triggers a blocking
+        # GET /users/{login} API call. Wrap in retry_with_backoff so a
+        # transient network blip retries instead of falling through to the
+        # login-only fallback below. Only caches after a successful fetch.
+        #
+        # WbaRetryTimeoutError is deliberately NOT caught here — it signals
+        # that the retry budget for this user's detail fetch is exhausted and
+        # the entire repo should be skipped without advancing the cursor.
+        # Let it propagate to the config-level handler in main.py.
         try:
-            name = user_obj.name or login
-        except Exception:
+            name, email = retry_with_backoff(
+                lambda: (user_obj.name or login, (user_obj.email or "").lower())
+            )
+        except WbaRetryTimeoutError:
+            raise
+        except Exception as exc:
+            # Non-retryable error (e.g. 404/403) or unexpected failure fetching
+            # this user's details. Fall back to login-only data.
+            logger.debug(
+                "[fetch_github_user] non-retryable error for login=%r type=%s — "
+                "falling back to login-only data (name/email lost): %s",
+                login,
+                type(exc).__name__,
+                exc,
+            )
             name = login
-        try:
-            email = (user_obj.email or "").lower()
-        except Exception:
             email = ""
 
         result = {"login": login, "name": name, "email": email}

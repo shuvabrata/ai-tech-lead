@@ -2,7 +2,7 @@
 
 Tests cover:
 - ``fetch_issues`` — Search API query construction, PR filtering, pagination.
-- ``fetch_issues_direct`` — fallback path, PR filtering.
+- ``fetch_issues_direct`` — direct repository endpoint, ``since`` param, PR filtering.
 - ``fetch_issue_comments`` — comment retrieval.
 - ``resolve_issues_since_date`` — cursor resolution and lookback window.
 """
@@ -116,14 +116,22 @@ def test_fetch_issues_search_query_sort_and_order():
 
 
 @pytest.mark.unit
-def test_fetch_issues_returns_empty_list_on_search_api_error():
-    """When the Search API raises a GithubException, return an empty list."""
+def test_fetch_issues_propagates_non_retryable_search_error():
+    """A non-retryable Search failure (e.g. 404) propagates — never converted to [].
+
+    Returning [] here would silently advance the sync cursor and drop the repo's
+    issues. Non-retryable errors must surface to the caller. Mirror the passthrough
+    patch used by the retryable test to keep the test deterministic.
+    """
     github_obj = MagicMock()
-    github_obj.search_issues.side_effect = GithubException(status=403, data={}, headers={})
+    github_obj.search_issues.side_effect = GithubException(status=404, data={}, headers={})
 
-    result = fetch_issues(github_obj, "owner/repo", datetime(2026, 1, 1, tzinfo=timezone.utc))
-
-    assert result == []
+    with patch(
+        "connectors.producers.github.fetch_github.retry_with_backoff",
+        side_effect=lambda fn: fn(),
+    ):
+        with pytest.raises(GithubException):
+            fetch_issues(github_obj, "owner/repo", datetime(2026, 1, 1, tzinfo=timezone.utc))
 
 
 @pytest.mark.unit
@@ -154,14 +162,42 @@ def test_fetch_issues_all_returned_issues_are_non_pr():
     assert all(not getattr(i, "pull_request", None) for i in result)
 
 
+@pytest.mark.unit
+def test_fetch_issues_propagates_retryable_rate_limit_error():
+    """A retryable Search failure (rate limit) must NOT be swallowed to [].
+
+    PyGithub raises ``RateLimitExceededException`` (a ``GithubException``
+    subclass) whose message contains "API rate limit exceeded". That is
+    exactly what ``_is_rate_limit`` classifies as retryable, so the inner
+    ``except GithubException: return []`` in ``fetch_issues`` must not
+    intercept it. Instead the error must propagate to ``retry_with_backoff``.
+
+    To make the test deterministic without a real 1-hour retry budget, we
+    patch ``retry_with_backoff`` with a passthrough that simply invokes the
+    wrapped function once (no retry loop). The wrapped function should raise
+    the ``GithubException`` out to the caller rather than return [].
+    """
+    github_obj = MagicMock()
+    github_obj.search_issues.side_effect = GithubException(
+        status=403, data={"message": "API rate limit exceeded"}, headers={}
+    )
+
+    with patch(
+        "connectors.producers.github.fetch_github.retry_with_backoff",
+        side_effect=lambda fn: fn(),
+    ):
+        with pytest.raises(GithubException):
+            fetch_issues(github_obj, "owner/repo", datetime(2026, 1, 1, tzinfo=timezone.utc))
+
+
 # ---------------------------------------------------------------------------
-# fetch_issues_direct — fallback
+# fetch_issues_direct — direct repository endpoint
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.unit
 def test_fetch_issues_direct_returns_only_non_pr_issues():
-    """The direct fallback should also filter out PRs."""
+    """The direct fetch should also filter out PRs."""
     issues = [
         _make_issue(1, is_pr=False),
         _make_issue(2, is_pr=True),
@@ -181,7 +217,7 @@ def test_fetch_issues_direct_returns_only_non_pr_issues():
 
 @pytest.mark.unit
 def test_fetch_issues_direct_uses_state_all():
-    """The direct fallback should fetch issues with ``state="all"``."""
+    """The direct fetch should use ``state="all"``."""
     repo_obj = MagicMock()
     repo_obj.full_name = "owner/repo"
     repo_obj.get_issues.return_value = []
@@ -192,6 +228,33 @@ def test_fetch_issues_direct_uses_state_all():
     assert call_args.kwargs.get("state") == "all"
     assert call_args.kwargs.get("sort") == "updated"
     assert call_args.kwargs.get("direction") == "desc"
+
+
+@pytest.mark.unit
+def test_fetch_issues_direct_passes_since_when_provided():
+    """When ``since_date`` is provided, it should be passed to ``get_issues``."""
+    repo_obj = MagicMock()
+    repo_obj.full_name = "owner/repo"
+    repo_obj.get_issues.return_value = []
+
+    since = datetime(2026, 6, 15, tzinfo=timezone.utc)
+    list(fetch_issues_direct(repo_obj, since_date=since))
+
+    call_args = repo_obj.get_issues.call_args
+    assert call_args.kwargs.get("since") == since.isoformat()
+
+
+@pytest.mark.unit
+def test_fetch_issues_direct_omits_since_when_not_provided():
+    """When ``since_date`` is None, ``since`` should not be passed to ``get_issues``."""
+    repo_obj = MagicMock()
+    repo_obj.full_name = "owner/repo"
+    repo_obj.get_issues.return_value = []
+
+    list(fetch_issues_direct(repo_obj, since_date=None))
+
+    call_args = repo_obj.get_issues.call_args
+    assert call_args.kwargs.get("since") is None
 
 
 @pytest.mark.unit

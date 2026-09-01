@@ -36,18 +36,24 @@ async def process_commits(
     semaphore = asyncio.Semaphore(3)  # Capped concurrency to prevent API rate limits
 
     if commits_raw:
-        await asyncio.gather(*(
-            process_single_commit(
-                commit=c,
-                semaphore=semaphore,
-                repo=repo,
-                repo_owner=repo_owner,
-                published_persons=published_persons,
-                seen_commits=seen_commits,
-                pub_callback=pub_callback,
-            )
-            for c in commits_raw
-        ))
+        # CRITICAL: The first WbaRetryTimeoutError propagates immediately
+        # (default return_exceptions=False), cancelling remaining coroutines
+        # so the repo is skipped without cursor advance. Non-timeout per-commit
+        # failures are swallowed inside process_single_commit and logged there.
+        await asyncio.gather(
+            *(
+                process_single_commit(
+                    commit=c,
+                    semaphore=semaphore,
+                    repo=repo,
+                    repo_owner=repo_owner,
+                    published_persons=published_persons,
+                    seen_commits=seen_commits,
+                    pub_callback=pub_callback,
+                )
+                for c in commits_raw
+            ),
+        )
 
     logger.info("Commits done (%d) for '%s'", published.get("Commit", 0), full_name)
     return seen_commits, published_persons

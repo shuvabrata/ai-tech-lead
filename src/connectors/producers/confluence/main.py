@@ -57,15 +57,12 @@ from connectors.producers.confluence.parse_body_for_relations import (
 )
 from connectors.producers.sync_cursor import get_sync_cursor, set_sync_cursor
 from connectors.producers.daemon_common import ScanResult, producer_main
+from connectors.producers.github.retry_with_backoff import WbaRetryTimeoutError
 
 _SOURCE = "confluence"
 _VERSION = "1.0"
 
-# During incremental scan, we assume the last scan window
-# to move by this interval just to make sure we dont miss any transient
-# changes. Scanning dulicates is not a problem as the consumer will
-# upsert them.
-_SYNC_CURSOR_OVERLAP = timedelta(hours=1)
+
 
 
 def _connector_url() -> str:
@@ -740,9 +737,9 @@ async def process_account(
         # time of the lookback window.
         body_last_synced_at = since_date
 
-        # If incremental scan, we use the last synced timestamp as the body sync cursor with some overlap.
+        # If incremental scan, we use the last synced timestamp as the body sync cursor.
         if last_synced_at is not None:
-            body_last_synced_at = last_synced_at - _SYNC_CURSOR_OVERLAP
+            body_last_synced_at = last_synced_at
 
         # See fetch_space_pages() for why a full space scan is required even when
         # only a small number of items fall within the since_date window.
@@ -839,6 +836,16 @@ async def main_async() -> ScanResult:
                     published,
                 )
                 result.items_succeeded += 1
+            except WbaRetryTimeoutError as exc:
+                # Retry budget exhausted — the account is incomplete. Do NOT
+                # advance its sync cursor so the next scan re-considers it.
+                logger.error(
+                    "Retry budget exhausted for Confluence config id=%s url=%s — skipping, will retry next scan: %s",
+                    account.get("id"),
+                    account.get("url"),
+                    exc,
+                )
+                result.add_error(str(account.get("id", "unknown")), str(exc))
             except Exception as exc:  # pragma: no cover
                 logger.error(
                     "Failed to process Confluence config id=%s url=%s: %s",

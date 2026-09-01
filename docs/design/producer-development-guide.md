@@ -247,11 +247,14 @@ from connectors.producers.sync_cursor import get_sync_cursor, set_sync_cursor
 cursor = await get_sync_cursor(source=_SOURCE, resource_id=<jira_base_url_or_repo>)
 last_synced_at = cursor.last_synced_at if cursor else None
 
+# Capture scan start time BEFORE fetching
+scan_started_at = datetime.now(timezone.utc)
+
 # Pass to fetch functions
 entities = await fetch_<entities>(since=last_synced_at)
 
-# On success only
-await set_sync_cursor(source=_SOURCE, resource_id=<id>, last_synced_at=datetime.now(timezone.utc))
+# On success only — use scan_started_at, NOT datetime.now()
+await set_sync_cursor(source=_SOURCE, resource_id=<id>, last_synced_at=scan_started_at)
 ```
 
 - [ ] `get_sync_cursor()` called at startup; `last_synced_at=None` triggers a full sync

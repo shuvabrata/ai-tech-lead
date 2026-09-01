@@ -1,7 +1,8 @@
 from typing import Dict, List, Optional
-from github import Github, NamedUser
+from github import Github
 from github.Repository import Repository
 from common.logger import logger
+from connectors.producers.github.retry_with_backoff import retry_with_backoff
 
 def get_all_repos_for_owner(
     client: Github, 
@@ -38,8 +39,10 @@ def get_all_repos_for_owner(
             logger.info(f"Searching repositories with query: {search_query}")
             
             # Use GitHub search API
-            search_results = client.search_repositories(query=search_query)
-            repos = list(search_results)
+            search_results = retry_with_backoff(
+                lambda: list(client.search_repositories(query=search_query))
+            )
+            repos = search_results
             logger.info(f"Found {len(repos)} repositories matching filters for {owner}")
             
         except Exception as e:
@@ -49,14 +52,14 @@ def get_all_repos_for_owner(
         # No filters - use standard get_repos() method
         try:
             # Try as organization first
-            org = client.get_organization(owner)
-            repos = list(org.get_repos())
+            org = retry_with_backoff(lambda: client.get_organization(owner))
+            repos = retry_with_backoff(lambda: list(org.get_repos()))
             logger.info(f"Found {len(repos)} repositories for organization: {owner}")
         except Exception:
             # If not an organization, try as user
             try:
-                user = client.get_user(owner)
-                repos = list(user.get_repos())
+                user = retry_with_backoff(lambda: client.get_user(owner))
+                repos = retry_with_backoff(lambda: list(user.get_repos()))
                 logger.info(f"Found {len(repos)} repositories for user: {owner}")
             except Exception as e:
                 logger.info(f"Error fetching repositories for {owner}: {str(e)}")
