@@ -233,7 +233,7 @@ class TestFetchJqlWithLastSyncedAt:
         cursor = datetime(2026, 8, 1, 9, 0, tzinfo=timezone.utc)
         fetch_initiatives(mock_jira, lookback_days=90, last_synced_at=cursor)
         jql = mock_jira.enhanced_jql.call_args.kwargs["jql"]
-        assert "updated >= \"2026-08-01 08:00\"" in jql
+        assert 'updated >= "2026-08-01 09:00"' in jql
 
     def test_fetch_epics_uses_updated_on_incremental(self):
         mock_jira = Mock()
@@ -241,7 +241,7 @@ class TestFetchJqlWithLastSyncedAt:
         cursor = datetime(2026, 8, 1, 9, 0, tzinfo=timezone.utc)
         fetch_epics(mock_jira, lookback_days=30, last_synced_at=cursor)
         jql = mock_jira.enhanced_jql.call_args.kwargs["jql"]
-        assert "updated >= \"2026-08-01 08:00\"" in jql
+        assert 'updated >= "2026-08-01 09:00"' in jql
 
     def test_fetch_issues_uses_created_on_first_run(self):
         mock_jira = Mock()
