@@ -148,14 +148,10 @@ def fetch_pull_requests_search(
     def _search_and_convert() -> List[Any]:
         # search_issues returns partially-loaded Issue objects. Accessing
         # .pull_request on each triggers a lazy GET /repos/{owner}/{repo}/issues/{number}
-        # API call per issue. Both the search and the per-issue lazy loads must
-        # be inside retry_with_backoff so a transient network blip during the
-        # iteration doesn't silently drop PRs.
-        try:
-            raw = list(github_obj.search_issues(query=query, sort="updated", order="desc"))
-        except GithubException as exc:
-            logger.warning(f"    GitHub Search API error: {exc}")
-            return []
+        # API call per issue. Both the search and the per-issue lazy loads are
+        # inside the enclosing retry_with_backoff, so a transient network blip or
+        # rate-limit error during either retries instead of being swallowed to [].
+        raw = list(github_obj.search_issues(query=query, sort="updated", order="desc"))
         converted: List[Any] = []
         for idx, issue in enumerate(raw, start=1):
             logger.debug(
@@ -317,14 +313,10 @@ def fetch_issues(
     def _search_and_filter() -> List[Any]:
         # search_issues returns partially-loaded Issue objects. Accessing
         # .pull_request on each triggers a lazy GET /repos/{owner}/{repo}/issues/{number}
-        # API call per issue.  Both the search and the per-issue lazy loads must
-        # be inside retry_with_backoff so a transient network blip during the
-        # iteration doesn't silently drop issues.
-        try:
-            raw = list(github_obj.search_issues(query=query, sort="updated", order="desc"))
-        except GithubException as exc:
-            logger.warning("    GitHub Search API error: %s", exc)
-            return []
+        # API call per issue. Both the search and the per-issue lazy loads are
+        # inside the enclosing retry_with_backoff, so a transient network blip or
+        # rate-limit error during either retries instead of being swallowed to [].
+        raw = list(github_obj.search_issues(query=query, sort="updated", order="desc"))
         filtered: List[Any] = []
         for idx, issue in enumerate(raw, start=1):
             # Accessing .pull_request triggers a lazy GET — inside retry scope.
