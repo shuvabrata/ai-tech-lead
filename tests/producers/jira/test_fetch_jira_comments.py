@@ -204,23 +204,18 @@ class TestResolveJqlDateField:
         assert date_str == fetch_jira.resolve_lookback_cutoff(90)
 
     def test_resolve_jql_date_field_incremental(self):
-        """Cursor present → uses 'updated' with a quoted cursor timestamp.
-
-        The timestamp is the cursor minus the sync-cursor overlap
-        (``_SYNC_CURSOR_OVERLAP``), matching Confluence, so entities updated
-        during the previous run are not missed.
-        """
+        """Cursor present → uses 'updated' with a quoted cursor timestamp."""
         cursor = datetime(2026, 8, 1, 10, 30, tzinfo=timezone.utc)
         field, date_str = resolve_jql_date_field(90, cursor)
         assert field == "updated"
-        assert date_str == '"2026-08-01 09:30"'
+        assert date_str == '"2026-08-01 10:30"'
 
     def test_resolve_jql_date_field_incremental_overlap(self):
-        """A sync cursor is pushed one hour earlier to cover the overlap."""
+        """A sync cursor is used directly without adjustment."""
         cursor = datetime(2026, 8, 22, 4, 7, tzinfo=timezone.utc)
         field, date_str = resolve_jql_date_field(90, cursor)
         assert field == "updated"
-        assert date_str == '"2026-08-22 03:07"'
+        assert date_str == '"2026-08-22 04:07"'
 
 
 # ---------------------------------------------------------------------------

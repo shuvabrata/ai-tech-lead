@@ -26,14 +26,6 @@ from connectors.producers.github.retry_with_backoff import (
 # ---------------------------------------------------------------------------
 
 
-# Overlap the incremental cursor by this interval so entities updated during
-# the previous run (after their ``updated`` field was read but before the cursor
-# was persisted) are not missed.  Re-fetching is harmless: the consumer's
-# snapshot pattern makes re-processing idempotent.  Matches Confluence
-# (``src/connectors/producers/confluence/main.py`` ``_SYNC_CURSOR_OVERLAP``).
-_SYNC_CURSOR_OVERLAP = timedelta(hours=1)
-
-
 def resolve_lookback_cutoff(lookback_days: int) -> str:
     """Return a ``YYYY-MM-DD`` string representing the lookback cutoff date.
 
@@ -72,7 +64,7 @@ def resolve_jql_date_field(
     """
     if last_synced_at is None:
         return "created", resolve_lookback_cutoff(lookback_days)
-    effective = last_synced_at - _SYNC_CURSOR_OVERLAP
+    effective = last_synced_at
     return "updated", f'"{effective.strftime("%Y-%m-%d %H:%M")}"'
 
 
