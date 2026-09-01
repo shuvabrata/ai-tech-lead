@@ -44,6 +44,7 @@ from connectors.producers.github.constants import _SOURCE
 from connectors.producers.github.process_repo_signals import (
     process_repo_signals,
 )
+from connectors.producers.github.retry_with_backoff import WbaRetryTimeoutError
 from connectors.producers.sync_cursor import get_sync_cursor, set_sync_cursor
 from connectors.producers.daemon_common import ScanResult, producer_main
 
@@ -131,6 +132,17 @@ async def main_async() -> ScanResult:
                         total,
                         published,
                     )
+                except WbaRetryTimeoutError as exc:
+                    # Retry budget exhausted — the repo is incomplete. Do NOT
+                    # advance its sync cursor so the next scan re-considers it.
+                    logger.error(
+                        "Retry budget exhausted for repo '%s' — skipping, will retry next scan: %s",
+                        full_name,
+                        exc,
+                    )
+                    config_failed = True
+                    if first_error is None:
+                        first_error = str(exc)
                 except Exception as exc:
                     logger.error("Error processing repo '%s': %s", full_name, exc, exc_info=True)
                     config_failed = True

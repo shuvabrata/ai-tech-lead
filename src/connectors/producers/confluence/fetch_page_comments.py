@@ -5,7 +5,10 @@ from typing import Any, Dict, List
 from atlassian import Confluence
 
 from common.logger import logger
-from connectors.producers.github.retry_with_backoff import retry_with_backoff
+from connectors.producers.github.retry_with_backoff import (
+    WbaRetryTimeoutError,
+    retry_with_backoff,
+)
 
 
 def fetch_page_comments(confluence: Confluence, page_id: str, content_type: str = "page") -> List[Dict[str, Any]]:
@@ -43,6 +46,8 @@ def fetch_page_comments(confluence: Confluence, page_id: str, content_type: str 
             # Stop if we received fewer than a full page — no more results.
             if len(results) < page_size:
                 break
+    except WbaRetryTimeoutError:
+        raise
     except Exception as exc:
         logger.warning(
             "Failed to fetch comments for %s content_id=%s: %s",

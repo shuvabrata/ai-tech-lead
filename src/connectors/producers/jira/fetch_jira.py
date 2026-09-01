@@ -15,7 +15,10 @@ from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, Set
 
 from common.logger import logger
-from connectors.producers.github.retry_with_backoff import retry_with_backoff
+from connectors.producers.github.retry_with_backoff import (
+    WbaRetryTimeoutError,
+    retry_with_backoff,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -125,6 +128,8 @@ def fetch_projects(jira: Any, max_results_per_page: int = 100) -> List[Dict[str,
         logger.info(f"Found {len(all_projects)} total projects")
         return all_projects
 
+    except WbaRetryTimeoutError:
+        raise
     except Exception as e:
         logger.error(f"Error fetching projects: {e}")
         logger.exception(e)
@@ -194,6 +199,8 @@ def fetch_initiatives(
         logger.info(f"Found {len(all_initiatives)} total initiatives")
         return all_initiatives
 
+    except WbaRetryTimeoutError:
+        raise
     except Exception as e:
         logger.error(f"Error fetching initiatives: {e}")
         logger.exception(e)
@@ -263,6 +270,8 @@ def fetch_epics(
         logger.info(f"Found {len(all_epics)} total epics")
         return all_epics
 
+    except WbaRetryTimeoutError:
+        raise
     except Exception as e:
         logger.error(f"Error fetching epics: {e}")
         logger.exception(e)
@@ -318,6 +327,8 @@ def fetch_sprints_by_ids(
                     logger.warning(f"  ✗ Sprint {sprint_id} not found")
                     failed_count += 1
 
+            except WbaRetryTimeoutError:
+                raise
             except Exception as e:
                 logger.warning(f"  ✗ Could not fetch sprint {sprint_id}: {e}")
                 failed_count += 1
@@ -328,6 +339,8 @@ def fetch_sprints_by_ids(
 
         return sprints
 
+    except WbaRetryTimeoutError:
+        raise
     except Exception as e:
         logger.error(f"Error fetching sprints by IDs: {e}")
         logger.exception(e)
@@ -403,6 +416,8 @@ def fetch_issues(
         logger.info(f"Found {len(all_issues)} total issues")
         return all_issues
 
+    except WbaRetryTimeoutError:
+        raise
     except Exception as e:
         logger.error(f"Error fetching issues: {e}")
         logger.exception(e)
@@ -479,6 +494,8 @@ def fetch_comments(
         )
         return all_comments
 
+    except WbaRetryTimeoutError:
+        raise
     except Exception as e:
         logger.error(f"Error fetching comments for {issue_id_or_key}: {e}")
         logger.exception(e)

@@ -71,6 +71,7 @@ from connectors.producers.jira.map_jira import (
 )
 from connectors.producers.sync_cursor import get_sync_cursor, set_sync_cursor
 from connectors.producers.daemon_common import ScanResult, producer_main
+from connectors.producers.github.retry_with_backoff import WbaRetryTimeoutError
 
 _SOURCE = "jira"
 _VERSION = "1.0"
@@ -1115,6 +1116,8 @@ async def publish_signals(
                     "team_id": team_id,
                 },
             })
+        except WbaRetryTimeoutError:
+            raise
         except Exception as exc:
             logger.warning("Issue skipped: %s", exc)
 
@@ -1138,6 +1141,8 @@ async def publish_signals(
                     "Issue",
                     **item["kwargs"],
                 )
+            except WbaRetryTimeoutError:
+                raise
             except Exception as exc:
                 logger.warning("Issue skipped: %s", exc)
             if processed % 25 == 0:
@@ -1230,6 +1235,15 @@ async def main_async() -> ScanResult:
                     published,
                 )
                 result.items_succeeded += 1
+            except WbaRetryTimeoutError as exc:
+                # Retry budget exhausted — the account is incomplete. Do NOT
+                # advance its sync cursor so the next scan re-considers it.
+                logger.error(
+                    "Retry budget exhausted for Jira '%s' — skipping, will retry next scan: %s",
+                    jira_base_url,
+                    exc,
+                )
+                result.add_error(jira_base_url, str(exc))
             except Exception as exc:
                 logger.error("Error processing Jira '%s': %s", jira_base_url, exc, exc_info=True)
                 result.add_error(jira_base_url, str(exc))

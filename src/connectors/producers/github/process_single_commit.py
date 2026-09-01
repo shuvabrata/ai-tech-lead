@@ -10,7 +10,10 @@ from connectors.producers.github.map_github import fetch_github_user, map_commit
 from connectors.producers.github.build_commit_signal import build_commit_signal
 from connectors.producers.github.build_file_signal import build_file_signal
 from connectors.producers.github.build_person_signal import build_person_signal
-from connectors.producers.github.retry_with_backoff import retry_with_backoff
+from connectors.producers.github.retry_with_backoff import (
+    WbaRetryTimeoutError,
+    retry_with_backoff,
+)
 
 
 def _extract_commit_data(
@@ -88,6 +91,11 @@ async def process_single_commit(
             for file_data in file_data_list:
                 await pub_callback(build_file_signal(file_data, commit_data, repo_data))
 
+        except WbaRetryTimeoutError:
+            # A retry-budget exhaustion means the repo is incomplete — propagate
+            # so the config-level handler skips this repo's cursor and retries
+            # it on the next scan.
+            raise
         except Exception as exc:
             logger.warning(
                 "Commit skipped: type=%s exception=%r sha=%s",

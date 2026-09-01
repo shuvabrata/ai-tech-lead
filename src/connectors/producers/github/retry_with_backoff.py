@@ -16,6 +16,25 @@ DEFAULT_TIMEOUT = 3600  # total budget in seconds (1 hour)
 DEFAULT_MAX_DELAY = 30  # per-sleep cap in seconds
 DEFAULT_INITIAL_DELAY = 1
 
+
+class WbaRetryTimeoutError(Exception):
+    """Raised when ``retry_with_backoff`` exhausts its time budget.
+
+    This is a distinct, catchable signal so producers can distinguish a
+    transient-but-persistent connectivity failure (which should be retried on
+    the next scan without advancing the sync cursor) from a non-retryable API
+    error (e.g. 404/403).
+
+    Attributes:
+        timeout: The total retry budget in seconds that was exhausted.
+        original: The last underlying exception that triggered the retries.
+    """
+
+    def __init__(self, timeout: int, original: Exception) -> None:
+        self.timeout = timeout
+        self.original = original
+        super().__init__(f"Retry timeout ({timeout}s) exceeded: {original}")
+
 # Raw socket errno values that indicate a transient network failure.
 _NETWORK_ERRNOS = {
     errno.ECONNRESET,
@@ -117,8 +136,8 @@ def retry_with_backoff(
         Result of the function call.
 
     Raises:
-        Exception: If the retry budget is exhausted or a non-retryable error
-            occurs.
+        WbaRetryTimeoutError: If the retry budget is exhausted.
+        Exception: If a non-retryable error occurs (re-raised as-is).
     """
     deadline = time.time() + timeout
     delay = initial_delay
@@ -134,7 +153,7 @@ def retry_with_backoff(
             attempt += 1
             remaining = deadline - time.time()
             if remaining <= 0:
-                raise Exception(f"Retry timeout ({timeout}s) exceeded: {str(e)}") from e
+                raise WbaRetryTimeoutError(timeout, e) from e
 
             sleep_for = min(delay, max_delay, remaining)
             logger.info(

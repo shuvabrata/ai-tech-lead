@@ -23,6 +23,7 @@ from connectors.producers.jira.fetch_jira import (
     fetch_issues,
     resolve_jql_date_field,
 )
+from connectors.producers.github.retry_with_backoff import WbaRetryTimeoutError
 
 
 # ---------------------------------------------------------------------------
@@ -138,11 +139,11 @@ class TestFetchComments:
         assert mock_jira.get.call_count == 3
 
     def test_fetch_comments_gives_up_after_timeout(self):
-        """A persistent 429 exhausts the retry deadline and yields [] (not an exception).
+        """A persistent 429 exhausts the retry deadline and raises WbaRetryTimeoutError.
 
-        Even after backoff is exhausted, the existing error contract (return
-        ``[]``) is preserved so a single rate-limited issue does not abort the
-        whole scan.
+        The retry-budget exhaustion is a distinct signal that propagates so the
+        config-level handler can skip this account's cursor and retry it on the
+        next scan (rather than silently dropping the comments).
         """
         mock_jira = Mock()
         # A callable side_effect raises every time (persistent 429).
@@ -153,10 +154,8 @@ class TestFetchComments:
         # A tiny timeout forces immediate exhaustion; time.sleep is mocked so
         # the loop terminates deterministically instead of waiting the full
         # 1-hour default deadline.
-        with mock.patch("time.sleep"):
-            result = fetch_comments(mock_jira, "PROJ-6", retry_timeout=0)
-
-        assert result == []
+        with mock.patch("time.sleep"), pytest.raises(WbaRetryTimeoutError):
+            fetch_comments(mock_jira, "PROJ-6", retry_timeout=0)
 
     def test_fetch_comments_non_rate_limit_rethrows_to_empty(self):
         """A 404 (non-rate-limit) is NOT retried — falls through to []."""

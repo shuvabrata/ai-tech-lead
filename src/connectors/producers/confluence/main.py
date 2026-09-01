@@ -57,6 +57,7 @@ from connectors.producers.confluence.parse_body_for_relations import (
 )
 from connectors.producers.sync_cursor import get_sync_cursor, set_sync_cursor
 from connectors.producers.daemon_common import ScanResult, producer_main
+from connectors.producers.github.retry_with_backoff import WbaRetryTimeoutError
 
 _SOURCE = "confluence"
 _VERSION = "1.0"
@@ -839,6 +840,16 @@ async def main_async() -> ScanResult:
                     published,
                 )
                 result.items_succeeded += 1
+            except WbaRetryTimeoutError as exc:
+                # Retry budget exhausted — the account is incomplete. Do NOT
+                # advance its sync cursor so the next scan re-considers it.
+                logger.error(
+                    "Retry budget exhausted for Confluence config id=%s url=%s — skipping, will retry next scan: %s",
+                    account.get("id"),
+                    account.get("url"),
+                    exc,
+                )
+                result.add_error(str(account.get("id", "unknown")), str(exc))
             except Exception as exc:  # pragma: no cover
                 logger.error(
                     "Failed to process Confluence config id=%s url=%s: %s",

@@ -15,6 +15,7 @@ import pytest
 import requests
 
 from connectors.producers.github.retry_with_backoff import (
+    WbaRetryTimeoutError,
     _is_network_error,
     _is_rate_limit,
     _is_retryable,
@@ -137,22 +138,37 @@ class TestRetryWithBackoffBehavior:
         assert calls["n"] == 2
 
     def test_exhausts_timeout_then_raises(self):
-        """Persistent 429 → raises after the retry budget is exhausted."""
+        """Persistent 429 → raises WbaRetryTimeoutError after the budget."""
         def _always_429():
             raise _http_429()
 
-        with mock.patch("time.sleep"), pytest.raises(Exception, match="Retry timeout"):
+        with mock.patch("time.sleep"), pytest.raises(WbaRetryTimeoutError):
             retry_with_backoff(_always_429, timeout=0)
 
     def test_timeout_budget_exhausted_then_raises(self):
-        """Persistent network error → raises after the time budget is exhausted."""
+        """Persistent network error → raises WbaRetryTimeoutError."""
         def _always_network_error():
             raise requests.ConnectionError("Failed to resolve 'api.github.com'")
 
         # A tiny timeout forces immediate exhaustion; time.sleep is mocked so
         # the loop terminates deterministically.
-        with mock.patch("time.sleep"), pytest.raises(Exception, match="Retry timeout"):
+        with mock.patch("time.sleep"), pytest.raises(WbaRetryTimeoutError):
             retry_with_backoff(_always_network_error, timeout=0)
+
+    def test_timeout_error_carries_original_and_timeout(self):
+        """WbaRetryTimeoutError exposes the timeout and original exception."""
+        original = requests.ConnectionError("Failed to resolve 'api.github.com'")
+
+        def _always_network_error():
+            raise original
+
+        with mock.patch("time.sleep"):
+            with pytest.raises(WbaRetryTimeoutError) as exc_info:
+                retry_with_backoff(_always_network_error, timeout=0)
+
+        assert exc_info.value.timeout == 0
+        assert exc_info.value.original is original
+        assert "Retry timeout" in str(exc_info.value)
 
     def test_non_retryable_raises_immediately(self):
         """A non-retryable error is not retried."""

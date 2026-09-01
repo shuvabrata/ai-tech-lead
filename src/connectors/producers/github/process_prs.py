@@ -9,6 +9,7 @@ from common.logger import logger
 
 from connectors.producers.github.fetch_github import fetch_pull_requests_direct, resolve_prs_since_date
 from connectors.producers.github.process_single_pr import process_single_pr
+from connectors.producers.github.retry_with_backoff import WbaRetryTimeoutError
 
 
 async def process_prs(
@@ -25,7 +26,10 @@ async def process_prs(
     """Fetch pull requests for *repo* and publish PullRequest and related signals."""
     pr_since = resolve_prs_since_date(last_synced_at)
     logger.info("Fetching pull requests for '%s'...", full_name)
-    prs_raw = await asyncio.to_thread(fetch_pull_requests_direct, repo)
+    try:
+        prs_raw = await asyncio.to_thread(fetch_pull_requests_direct, repo)
+    except WbaRetryTimeoutError:  # pylint: disable=try-except-raise
+        raise
 
     for pr in prs_raw:
         try:
@@ -51,6 +55,8 @@ async def process_prs(
                 published_persons=published_persons,
                 _pub=pub_callback,
             )
+        except WbaRetryTimeoutError:
+            raise
         except Exception as exc:
             logger.warning("PR skipped: %s", exc)
 

@@ -11,6 +11,7 @@ from common.activity_signal.models import (
 from common.logger import logger
 from connectors.producers.github.fetch_github import fetch_repo_collaborators
 from connectors.producers.github.map_github import fetch_github_user
+from connectors.producers.github.retry_with_backoff import WbaRetryTimeoutError
 
 _SOURCE = "github"
 
@@ -55,6 +56,8 @@ async def process_collaborators(
     logger.info("Fetching collaborators for '%s'...", full_name)
     try:
         collaborators = await asyncio.to_thread(fetch_repo_collaborators, repo)
+    except WbaRetryTimeoutError:
+        raise
     except Exception as exc:
         logger.warning("Could not fetch collaborators for '%s': %s", full_name, exc)
         return
@@ -97,6 +100,8 @@ async def process_collaborators(
                 extra_relationships=[collaborator_rel],
             )
             await pub_callback(sig)
+        except WbaRetryTimeoutError:
+            raise
         except Exception as exc:
             logger.warning(
                 "Could not process collaborator '%s' in '%s': %s",

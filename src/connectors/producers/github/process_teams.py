@@ -12,7 +12,10 @@ from common.activity_signal.models import (
 from common.logger import logger
 from connectors.producers.github.fetch_github import fetch_repo_teams
 from connectors.producers.github.map_github import fetch_github_user
-from connectors.producers.github.retry_with_backoff import retry_with_backoff
+from connectors.producers.github.retry_with_backoff import (
+    WbaRetryTimeoutError,
+    retry_with_backoff,
+)
 
 _SOURCE = "github"
 
@@ -56,6 +59,8 @@ async def process_teams(
                 members_raw = await asyncio.to_thread(
                     lambda t=team: retry_with_backoff(lambda: list(t.get_members()))
                 )
+            except WbaRetryTimeoutError:
+                raise
             except Exception as exc:
                 logger.warning("Could not fetch members for team '%s': %s", team_slug, exc)
                 members_raw = []
@@ -119,8 +124,12 @@ async def process_teams(
                         extra_relationships=member_rels,
                     )
                     await pub_callback(member_sig)
+            except WbaRetryTimeoutError:
+                raise
             except Exception as exc:
                 logger.warning("Could not fetch members for team '%s': %s", team_slug, exc)
+    except WbaRetryTimeoutError:
+        raise
     except Exception as exc:
         logger.warning("Could not fetch teams for '%s': %s", full_name, exc)
     logger.info("Teams done (%d) for '%s'", published.get("Team", 0), full_name)

@@ -25,6 +25,7 @@ from connectors.producers.github.map_github import (
 
 from common.logger import logger
 from common.activity_signal.models import ActivitySignal
+from connectors.producers.github.retry_with_backoff import WbaRetryTimeoutError
 
 async def process_single_pr(pr: Any, 
                             repo: Any,
@@ -136,8 +137,12 @@ async def process_single_pr(pr: Any,
                     # which is sufficient for our use cases and avoids extra API calls to check branch membership.
                     await _pub(build_commit_signal(pr_c_data, pr_a_data, repo_name=repo.name, branch_name=None))
                     seen_commits.add(c_sha)
+                except WbaRetryTimeoutError:
+                    raise
                 except Exception as inner_exc:
                     logger.warning("Failed to emit PR commit '%s': %s", c_sha, inner_exc)
+    except WbaRetryTimeoutError:
+        raise
     except Exception as exc:
         logger.warning("Could not fetch commits for PR #%s: %s", pr.number, exc)
         commit_shas = []
@@ -153,6 +158,8 @@ async def process_single_pr(pr: Any,
             async with _sem:
                 try:
                     return await asyncio.to_thread(fetch_commit_comments, c)
+                except WbaRetryTimeoutError:
+                    raise
                 except Exception as e:
                     logger.warning(
                         "Could not fetch comments for commit %s: %s",
@@ -176,6 +183,8 @@ async def process_single_pr(pr: Any,
     _ir_results = await asyncio.gather(_issue_task, _review_task, return_exceptions=True)
 
     issue_comments_raw: List[Any] = []
+    if isinstance(_ir_results[0], WbaRetryTimeoutError):
+        raise _ir_results[0]
     if isinstance(_ir_results[0], Exception):
         logger.warning("Could not fetch issue comments for PR #%s: %s", pr.number, _ir_results[0])
     else:
@@ -183,6 +192,8 @@ async def process_single_pr(pr: Any,
         logger.info(f"Fetched {len(issue_comments_raw)} issue comments for PR #{pr.number}")
 
     review_comments_raw: List[Any] = []
+    if isinstance(_ir_results[1], WbaRetryTimeoutError):
+        raise _ir_results[1]
     if isinstance(_ir_results[1], Exception):
         logger.warning("Could not fetch review comments for PR #%s: %s", pr.number, _ir_results[1])
     else:
@@ -227,6 +238,8 @@ async def process_single_pr(pr: Any,
     )
     commenter_user_data: Dict[str, Dict[str, Any]] = {}
     for item in user_results:
+        if isinstance(item, WbaRetryTimeoutError):
+            raise item
         if isinstance(item, Exception):
             logger.warning("Could not fetch user data for a commenter: %s", item)
         else:

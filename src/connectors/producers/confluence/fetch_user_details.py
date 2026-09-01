@@ -1,7 +1,10 @@
 from typing import Any, Dict
 from atlassian import Confluence
 from common.logger import logger
-from connectors.producers.github.retry_with_backoff import retry_with_backoff
+from connectors.producers.github.retry_with_backoff import (
+    WbaRetryTimeoutError,
+    retry_with_backoff,
+)
 
 def fetch_user_details(confluence: Confluence, account_id: str) -> Dict[str, Any]:
     """Fetch user details from Confluence REST API."""
@@ -15,6 +18,8 @@ def fetch_user_details(confluence: Confluence, account_id: str) -> Dict[str, Any
         )
         logger.debug("Fetched user details for account_id=%s", account_id)
         return response
+    except WbaRetryTimeoutError:
+        raise
     except Exception as exc:
         logger.warning("Failed to fetch user details for account_id=%s: %s", account_id, exc)
         return {}

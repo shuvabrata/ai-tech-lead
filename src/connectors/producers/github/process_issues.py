@@ -32,6 +32,7 @@ from connectors.producers.github.map_github import (
     fetch_github_user,
     map_issue,
 )
+from connectors.producers.github.retry_with_backoff import WbaRetryTimeoutError
 
 
 async def process_issues(
@@ -70,6 +71,8 @@ async def process_issues(
             issues_raw = await asyncio.to_thread(
                 fetch_issues, github_obj, full_name, issue_since
             )
+        except WbaRetryTimeoutError:
+            raise
         except Exception as exc:
             logger.warning("Search API failed for '%s', falling back to direct: %s", full_name, exc)
             search_errored = True
@@ -78,6 +81,8 @@ async def process_issues(
         logger.info("Using direct issues fetch for '%s' (fallback or first sync)", full_name)
         try:
             issues_raw = list(await asyncio.to_thread(fetch_issues_direct, repo))
+        except WbaRetryTimeoutError:
+            raise
         except Exception as exc:
             logger.error("Failed to fetch issues for '%s': %s", full_name, exc)
             return
@@ -105,6 +110,8 @@ async def process_issues(
                 seen_persons=seen_persons,
                 pub_callback=pub_callback,
             )
+        except WbaRetryTimeoutError:
+            raise
         except Exception as exc:
             logger.warning("Issue skipped: %s", exc)
 
