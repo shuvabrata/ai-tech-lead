@@ -94,6 +94,7 @@ async def process_repo_signals(
 
     # Topics — run in thread so time.sleep in retry_with_backoff never blocks the event loop
     topics = await asyncio.to_thread(fetch_repo_topics, repo)
+    logger.debug("[process_repo_signals] repo=%s topics=%d", full_name, len(topics))
 
     # Repository signal
     try:

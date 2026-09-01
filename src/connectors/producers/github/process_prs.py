@@ -56,8 +56,13 @@ async def process_prs(
                 _pub=pub_callback,
             )
         except WbaRetryTimeoutError:
+            logger.debug(
+                "[process_prs] WbaRetryTimeoutError propagating for '%s' — repo will be "
+                "skipped without cursor advance",
+                full_name,
+            )
             raise
         except Exception as exc:
-            logger.warning("PR skipped: %s", exc)
+            logger.warning("PR skipped: type=%s exception=%r pr=#%s", type(exc).__name__, exc, getattr(pr, "number", "?"))
 
     logger.info("PRs done (%d) for '%s'", published.get("PullRequest", 0), full_name)

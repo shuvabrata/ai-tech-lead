@@ -11,6 +11,7 @@ Mirrors ``process_prs.py`` / ``process_single_pr.py`` in structure.
 from __future__ import annotations
 
 import asyncio
+import os
 from datetime import datetime, timezone
 from typing import Any, Awaitable, Callable, Dict, List, Optional, Set
 
@@ -72,6 +73,11 @@ async def process_issues(
                 fetch_issues, github_obj, full_name, issue_since
             )
         except WbaRetryTimeoutError:
+            logger.debug(
+                "[process_issues] WbaRetryTimeoutError propagating for '%s' (search fetch) — "
+                "repo will be skipped without cursor advance",
+                full_name,
+            )
             raise
         except Exception as exc:
             logger.warning("Search API failed for '%s', falling back to direct: %s", full_name, exc)
@@ -82,6 +88,11 @@ async def process_issues(
         try:
             issues_raw = list(await asyncio.to_thread(fetch_issues_direct, repo))
         except WbaRetryTimeoutError:
+            logger.debug(
+                "[process_issues] WbaRetryTimeoutError propagating for '%s' (direct fetch) — "
+                "repo will be skipped without cursor advance",
+                full_name,
+            )
             raise
         except Exception as exc:
             logger.error("Failed to fetch issues for '%s': %s", full_name, exc)
@@ -111,9 +122,19 @@ async def process_issues(
                 pub_callback=pub_callback,
             )
         except WbaRetryTimeoutError:
+            logger.debug(
+                "[process_issues] WbaRetryTimeoutError propagating for '%s' — repo will be "
+                "skipped without cursor advance",
+                full_name,
+            )
             raise
         except Exception as exc:
-            logger.warning("Issue skipped: %s", exc)
+            logger.warning(
+                "Issue skipped: type=%s exception=%r issue=#%s",
+                type(exc).__name__,
+                exc,
+                getattr(issue, "number", "?"),
+            )
 
     logger.info("Issues done (%d) for '%s'", published.get("Issue", 0), full_name)
 

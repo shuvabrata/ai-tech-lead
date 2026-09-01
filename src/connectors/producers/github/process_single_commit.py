@@ -95,6 +95,11 @@ async def process_single_commit(
             # A retry-budget exhaustion means the repo is incomplete — propagate
             # so the config-level handler skips this repo's cursor and retries
             # it on the next scan.
+            logger.debug(
+                "[process_single_commit] WbaRetryTimeoutError propagating for sha=%s — "
+                "repo will be skipped without cursor advance",
+                getattr(commit, "sha", "?")[:12],
+            )
             raise
         except Exception as exc:
             logger.warning(

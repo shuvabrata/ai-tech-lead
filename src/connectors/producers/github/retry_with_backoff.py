@@ -12,7 +12,7 @@ T = TypeVar('T')
 
 # Default retry budget: a background scan can tolerate up to an hour of
 # intermittent connectivity before giving up on a single call.
-DEFAULT_TIMEOUT = 3600  # total budget in seconds (1 hour)
+DEFAULT_TIMEOUT = 1800  # total budget in seconds (1 hour)
 DEFAULT_MAX_DELAY = 30  # per-sleep cap in seconds
 DEFAULT_INITIAL_DELAY = 1
 
@@ -153,14 +153,21 @@ def retry_with_backoff(
             attempt += 1
             remaining = deadline - time.time()
             if remaining <= 0:
+                logger.warning(
+                    "Retry budget exhausted after %d attempts and %.0fs: %s Raising WbaRetryTimeoutError.",
+                    attempt,
+                    timeout,
+                    e,
+                )
                 raise WbaRetryTimeoutError(timeout, e) from e
 
             sleep_for = min(delay, max_delay, remaining)
             logger.info(
-                "Retryable error. Retrying in %.0fs... (attempt %d): %s",
+                "Retryable error. Retrying in %.0fs... (attempt %d): %s. Time remaining: %.0fs",
                 sleep_for,
                 attempt,
                 e,
+                remaining
             )
             time.sleep(sleep_for)
             delay = min(delay * 2, max_delay)

@@ -57,6 +57,11 @@ async def process_collaborators(
     try:
         collaborators = await asyncio.to_thread(fetch_repo_collaborators, repo)
     except WbaRetryTimeoutError:
+        logger.debug(
+            "[process_collaborators] WbaRetryTimeoutError propagating for '%s' — repo will "
+            "be skipped without cursor advance",
+            full_name,
+        )
         raise
     except Exception as exc:
         logger.warning("Could not fetch collaborators for '%s': %s", full_name, exc)
@@ -101,6 +106,12 @@ async def process_collaborators(
             )
             await pub_callback(sig)
         except WbaRetryTimeoutError:
+            logger.debug(
+                "[process_collaborators] WbaRetryTimeoutError propagating for collaborator "
+                "'%s' in '%s' — repo will be skipped without cursor advance",
+                getattr(collaborator, "login", "unknown"),
+                full_name,
+            )
             raise
         except Exception as exc:
             logger.warning(

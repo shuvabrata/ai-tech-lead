@@ -60,6 +60,12 @@ async def process_teams(
                     lambda t=team: retry_with_backoff(lambda: list(t.get_members()))
                 )
             except WbaRetryTimeoutError:
+                logger.debug(
+                    "[process_teams] WbaRetryTimeoutError propagating for team '%s' in '%s' — "
+                    "repo will be skipped without cursor advance",
+                    team_slug,
+                    full_name,
+                )
                 raise
             except Exception as exc:
                 logger.warning("Could not fetch members for team '%s': %s", team_slug, exc)
@@ -125,10 +131,21 @@ async def process_teams(
                     )
                     await pub_callback(member_sig)
             except WbaRetryTimeoutError:
+                logger.debug(
+                    "[process_teams] WbaRetryTimeoutError propagating for member-detail fetch "
+                    "of team '%s' in '%s' — repo will be skipped without cursor advance",
+                    team_slug,
+                    full_name,
+                )
                 raise
             except Exception as exc:
                 logger.warning("Could not fetch members for team '%s': %s", team_slug, exc)
     except WbaRetryTimeoutError:
+        logger.debug(
+            "[process_teams] WbaRetryTimeoutError propagating for '%s' — repo will be skipped "
+            "without cursor advance",
+            full_name,
+        )
         raise
     except Exception as exc:
         logger.warning("Could not fetch teams for '%s': %s", full_name, exc)
