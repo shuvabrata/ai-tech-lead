@@ -36,6 +36,28 @@ from connectors.producers.github.map_github import (
 from connectors.producers.github.retry_with_backoff import WbaRetryTimeoutError
 
 
+def _resolve_issue_fetch_mode() -> str:
+    """Return the issue-fetch strategy from the ``ISSUE_FETCH_MODE`` env var.
+
+    Valid values:
+        - ``search``: use the GitHub Search API (``fetch_issues``).
+        - ``direct``: use the repository issues endpoint (``fetch_issues_direct``).
+
+    Defaults to ``search``. Any other value logs a warning and falls back to
+    ``search``. This replaces the previous automatic search→direct fallback so
+    the two implementations are never mixed within a single scan, keeping
+    published counts consistent.
+    """
+    mode = os.getenv("ISSUE_FETCH_MODE", "search").strip().lower()
+    if mode not in ("search", "direct"):
+        logger.warning(
+            "Unknown ISSUE_FETCH_MODE=%r — defaulting to 'search'",
+            mode,
+        )
+        return "search"
+    return mode
+
+
 async def process_issues(
     repo: Any,
     repo_data: Dict[str, Any],
@@ -62,12 +84,43 @@ async def process_issues(
             provided, falls back to ``fetch_issues_direct``.
     """
     issue_since = resolve_issues_since_date(last_synced_at)
-    logger.info("Fetching issues for '%s' (owner=%s)...", full_name, repo_owner)
+    fetch_mode = _resolve_issue_fetch_mode()
+    logger.info(
+        "Fetching issues for '%s' (owner=%s, mode=%s)...",
+        full_name,
+        repo_owner,
+        fetch_mode,
+    )
 
-    # Fetch issues — prefer Search API (incremental), fall back to direct
+    # Fetch issues using the explicitly configured strategy. No automatic
+    # fallback between the two implementations — the mode is fixed per scan so
+    # published counts stay consistent regardless of transient network errors.
     issues_raw: List[Any] = []
-    search_errored = False
-    if github_obj:
+    if fetch_mode == "direct":
+        logger.info("Using direct issues fetch for '%s' (ISSUE_FETCH_MODE=direct)", full_name)
+        try:
+            issues_raw = list(
+                await asyncio.to_thread(fetch_issues_direct, repo, issue_since)
+            )
+        except WbaRetryTimeoutError:
+            logger.debug(
+                "[process_issues] WbaRetryTimeoutError propagating for '%s' (direct fetch) — "
+                "repo will be skipped without cursor advance",
+                full_name,
+            )
+            raise
+        except Exception as exc:
+            logger.error("Failed to fetch issues for '%s': %s", full_name, exc)
+            return
+    else:
+        # search mode — requires the Search API client
+        if github_obj is None:
+            logger.error(
+                "ISSUE_FETCH_MODE=search but no github_obj provided for '%s' — "
+                "cannot use Search API, skipping issues",
+                full_name,
+            )
+            return
         try:
             issues_raw = await asyncio.to_thread(
                 fetch_issues, github_obj, full_name, issue_since
@@ -80,22 +133,7 @@ async def process_issues(
             )
             raise
         except Exception as exc:
-            logger.warning("Search API failed for '%s', falling back to direct: %s", full_name, exc)
-            search_errored = True
-
-    if not issues_raw and (github_obj is None or search_errored):
-        logger.info("Using direct issues fetch for '%s' (fallback or first sync)", full_name)
-        try:
-            issues_raw = list(await asyncio.to_thread(fetch_issues_direct, repo))
-        except WbaRetryTimeoutError:
-            logger.debug(
-                "[process_issues] WbaRetryTimeoutError propagating for '%s' (direct fetch) — "
-                "repo will be skipped without cursor advance",
-                full_name,
-            )
-            raise
-        except Exception as exc:
-            logger.error("Failed to fetch issues for '%s': %s", full_name, exc)
+            logger.error("Search API failed for '%s': %s", full_name, exc)
             return
 
     logger.info("Fetched %d issues for '%s'", len(issues_raw), full_name)

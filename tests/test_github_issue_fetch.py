@@ -2,7 +2,7 @@
 
 Tests cover:
 - ``fetch_issues`` — Search API query construction, PR filtering, pagination.
-- ``fetch_issues_direct`` — fallback path, PR filtering.
+- ``fetch_issues_direct`` — direct repository endpoint, ``since`` param, PR filtering.
 - ``fetch_issue_comments`` — comment retrieval.
 - ``resolve_issues_since_date`` — cursor resolution and lookback window.
 """
@@ -155,13 +155,13 @@ def test_fetch_issues_all_returned_issues_are_non_pr():
 
 
 # ---------------------------------------------------------------------------
-# fetch_issues_direct — fallback
+# fetch_issues_direct — direct repository endpoint
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.unit
 def test_fetch_issues_direct_returns_only_non_pr_issues():
-    """The direct fallback should also filter out PRs."""
+    """The direct fetch should also filter out PRs."""
     issues = [
         _make_issue(1, is_pr=False),
         _make_issue(2, is_pr=True),
@@ -181,7 +181,7 @@ def test_fetch_issues_direct_returns_only_non_pr_issues():
 
 @pytest.mark.unit
 def test_fetch_issues_direct_uses_state_all():
-    """The direct fallback should fetch issues with ``state="all"``."""
+    """The direct fetch should use ``state="all"``."""
     repo_obj = MagicMock()
     repo_obj.full_name = "owner/repo"
     repo_obj.get_issues.return_value = []
@@ -192,6 +192,33 @@ def test_fetch_issues_direct_uses_state_all():
     assert call_args.kwargs.get("state") == "all"
     assert call_args.kwargs.get("sort") == "updated"
     assert call_args.kwargs.get("direction") == "desc"
+
+
+@pytest.mark.unit
+def test_fetch_issues_direct_passes_since_when_provided():
+    """When ``since_date`` is provided, it should be passed to ``get_issues``."""
+    repo_obj = MagicMock()
+    repo_obj.full_name = "owner/repo"
+    repo_obj.get_issues.return_value = []
+
+    since = datetime(2026, 6, 15, tzinfo=timezone.utc)
+    list(fetch_issues_direct(repo_obj, since_date=since))
+
+    call_args = repo_obj.get_issues.call_args
+    assert call_args.kwargs.get("since") == since.isoformat()
+
+
+@pytest.mark.unit
+def test_fetch_issues_direct_omits_since_when_not_provided():
+    """When ``since_date`` is None, ``since`` should not be passed to ``get_issues``."""
+    repo_obj = MagicMock()
+    repo_obj.full_name = "owner/repo"
+    repo_obj.get_issues.return_value = []
+
+    list(fetch_issues_direct(repo_obj, since_date=None))
+
+    call_args = repo_obj.get_issues.call_args
+    assert call_args.kwargs.get("since") is None
 
 
 @pytest.mark.unit
