@@ -143,7 +143,7 @@ class TestRetryWithBackoffBehavior:
             raise _http_429()
 
         with mock.patch("time.sleep"), pytest.raises(WbaRetryTimeoutError):
-            retry_with_backoff(_always_429, timeout=0)
+            retry_with_backoff(_always_429, retry_budget=0)
 
     def test_timeout_budget_exhausted_then_raises(self):
         """Persistent network error → raises WbaRetryTimeoutError."""
@@ -153,7 +153,7 @@ class TestRetryWithBackoffBehavior:
         # A tiny timeout forces immediate exhaustion; time.sleep is mocked so
         # the loop terminates deterministically.
         with mock.patch("time.sleep"), pytest.raises(WbaRetryTimeoutError):
-            retry_with_backoff(_always_network_error, timeout=0)
+            retry_with_backoff(_always_network_error, retry_budget=0)
 
     def test_timeout_error_carries_original_and_timeout(self):
         """WbaRetryTimeoutError exposes the timeout and original exception."""
@@ -164,7 +164,7 @@ class TestRetryWithBackoffBehavior:
 
         with mock.patch("time.sleep"):
             with pytest.raises(WbaRetryTimeoutError) as exc_info:
-                retry_with_backoff(_always_network_error, timeout=0)
+                retry_with_backoff(_always_network_error, retry_budget=0)
 
         assert exc_info.value.timeout == 0
         assert exc_info.value.original is original

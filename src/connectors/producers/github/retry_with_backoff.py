@@ -12,9 +12,9 @@ T = TypeVar('T')
 
 # Default retry budget: a background scan can tolerate up to an hour of
 # intermittent connectivity before giving up on a single call.
-DEFAULT_TIMEOUT = 1800  # total budget in seconds (1 hour)
-DEFAULT_MAX_DELAY = 30  # per-sleep cap in seconds
-DEFAULT_INITIAL_DELAY = 1
+DEFAULT_RETRY_BUDGET = 3600  # total budget in seconds (1 hour)
+DEFAULT_BACKOFF_CAP = 30     # per-sleep cap in seconds
+DEFAULT_BASE_DELAY = 1       # initial delay in seconds (doubles each retry)
 
 
 class WbaRetryTimeoutError(Exception):
@@ -114,23 +114,23 @@ def _is_retryable(exc: Exception) -> bool:
 
 def retry_with_backoff(
     func: Callable[[], T],
-    timeout: int = DEFAULT_TIMEOUT,
-    max_delay: int = DEFAULT_MAX_DELAY,
-    initial_delay: int = DEFAULT_INITIAL_DELAY,
+    retry_budget: int = DEFAULT_RETRY_BUDGET,
+    backoff_cap: int = DEFAULT_BACKOFF_CAP,
+    base_delay: int = DEFAULT_BASE_DELAY,
 ) -> T:
     """
     Retry a function with exponential backoff for transient failures.
 
     Retries rate-limit (HTTP 429) and transient network errors (DNS, connection
-    reset/refused, timeout) until a total time budget (``timeout``) is
-    exhausted. Backoff doubles each attempt, capped at ``max_delay`` seconds,
+    reset/refused, timeout) until a total time budget (``retry_budget``) is
+    exhausted. Backoff doubles each attempt, capped at ``backoff_cap`` seconds,
     and never sleeps past the deadline.
 
     Args:
         func: Function to execute (should be a lambda or callable).
-        timeout: Total retry budget in seconds. Defaults to 1 hour.
-        max_delay: Maximum per-sleep delay in seconds.
-        initial_delay: Initial delay in seconds (doubles each retry).
+        retry_budget: Total retry budget in seconds. Defaults to 1 hour.
+        backoff_cap: Maximum per-sleep delay in seconds.
+        base_delay: Initial delay in seconds (doubles each retry).
 
     Returns:
         Result of the function call.
@@ -139,8 +139,8 @@ def retry_with_backoff(
         WbaRetryTimeoutError: If the retry budget is exhausted.
         Exception: If a non-retryable error occurs (re-raised as-is).
     """
-    deadline = time.time() + timeout
-    delay = initial_delay
+    deadline = time.time() + retry_budget
+    delay = base_delay
     attempt = 0
 
     while True:
@@ -156,12 +156,12 @@ def retry_with_backoff(
                 logger.warning(
                     "Retry budget exhausted after %d attempts and %.0fs: %s Raising WbaRetryTimeoutError.",
                     attempt,
-                    timeout,
+                    retry_budget,
                     e,
                 )
-                raise WbaRetryTimeoutError(timeout, e) from e
+                raise WbaRetryTimeoutError(retry_budget, e) from e
 
-            sleep_for = min(delay, max_delay, remaining)
+            sleep_for = min(delay, backoff_cap, remaining)
             logger.info(
                 "Retryable error. Retrying in %.0fs... (attempt %d): %s. Time remaining: %.0fs",
                 sleep_for,
@@ -170,4 +170,4 @@ def retry_with_backoff(
                 remaining
             )
             time.sleep(sleep_for)
-            delay = min(delay * 2, max_delay)
+            delay = min(delay * 2, backoff_cap)

@@ -463,7 +463,7 @@ def fetch_comments(
                 lambda: jira.get(
                     f"rest/api/3/issue/{issue_id_or_key}/comment", params=params
                 ),
-                timeout=retry_timeout,
+                retry_budget=retry_timeout,
             )
 
             if not response or "comments" not in response:
