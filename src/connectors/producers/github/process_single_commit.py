@@ -13,6 +13,26 @@ from connectors.producers.github.build_person_signal import build_person_signal
 from connectors.producers.github.retry_with_backoff import retry_with_backoff
 
 
+def _extract_commit_data(
+    commit: Any,
+    repo: Any,
+    repo_owner: str,
+) -> tuple[Dict[str, Any], Dict[str, Any], list[Dict[str, Any]]]:
+    """Extract author, commit, and file data for a single commit.
+
+    All three steps touch lazy PyGithub attributes that trigger network calls
+    on access (``fetch_github_user`` → GET /users/{login}, ``map_commit`` →
+    commit.stats, ``commit.files``). This helper is designed to be wrapped in
+    ``retry_with_backoff`` so a transient network blip retries the whole unit
+    instead of dropping the commit.
+    """
+    a_data = fetch_github_user(commit.author or commit.commit.author)
+    c_data = map_commit(repo.name, commit, repo_owner)
+    files = list(commit.files)
+    f_data = map_commit_files(files)
+    return a_data, c_data, f_data
+
+
 async def process_single_commit(
     commit: Any,
     semaphore: asyncio.Semaphore,
@@ -28,15 +48,17 @@ async def process_single_commit(
             # Isolate blocking PyGithub lazy-loads in a background thread.
             # fetch_github_user handles both NamedUser (triggers GET /users/{login})
             # and GitAuthor (reads git metadata directly).
+            #
+            # The whole extract_data body is wrapped in retry_with_backoff so
+            # ALL lazy PyGithub loads for this commit (author, commit.stats via
+            # map_commit, and commit.files) retry as a single unit. Previously
+            # only commit.files was wrapped; commit.stats (accessed inside
+            # map_commit) was NOT, so a transient network blip there dropped
+            # the entire commit with no retry.
             def extract_data() -> tuple[Dict[str, Any], Dict[str, Any], list[Dict[str, Any]]]:
-                a_data = fetch_github_user(commit.author or commit.commit.author)
-                c_data = map_commit(repo.name, commit, repo_owner)
-                # commit.files is a lazy PyGithub attribute that triggers a
-                # network call on access — materialize inside the retry so a
-                # transient blip retries instead of dropping the commit.
-                files = retry_with_backoff(lambda: list(commit.files))
-                f_data = map_commit_files(files)
-                return a_data, c_data, f_data
+                return retry_with_backoff(
+                    lambda: _extract_commit_data(commit, repo, repo_owner)
+                )
 
             author_data, commit_data, file_data_list = await asyncio.to_thread(extract_data)
 
