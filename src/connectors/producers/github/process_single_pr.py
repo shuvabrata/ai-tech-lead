@@ -278,6 +278,11 @@ async def process_single_pr(pr: Any,
             comments_list.append({"login": login, "timestamp": ts})
 
     # Pass 2: fetch user data concurrently, reusing _sem.
+    # fetch_github_user catches non-retryable exceptions internally and falls
+    # back to login-only data, but WbaRetryTimeoutError propagates so the
+    # repo is skipped without cursor advance. A plain gather without
+    # return_exceptions is safe: WbaRetryTimeoutError fails fast, non-timeout
+    # errors are handled inside fetch_github_user.
     async def _fetch_user(login: str) -> tuple[str, Any]:
         async with _sem:
             return login, await asyncio.to_thread(fetch_github_user, unique_users[login])
@@ -285,22 +290,10 @@ async def process_single_pr(pr: Any,
     logins = list(unique_users.keys())
     user_results = await asyncio.gather(
         *[_fetch_user(login) for login in logins],
-        return_exceptions=True,
     )
     commenter_user_data: Dict[str, Dict[str, Any]] = {}
-    for item in user_results:
-        if isinstance(item, WbaRetryTimeoutError):
-            logger.debug(
-                "[process_single_pr] WbaRetryTimeoutError propagating for PR #%s (commenter user "
-                "fetch) — repo will be skipped without cursor advance",
-                pr.number,
-            )
-            raise item
-        if isinstance(item, Exception):
-            logger.warning("Could not fetch user data for a commenter: %s", item)
-        else:
-            _login, _data = item
-            commenter_user_data[_login] = _data
+    for _login, _data in user_results:
+        commenter_user_data[_login] = _data
 
     comments_data = comments_list
     logger.info(f"Total Number of commenters: {len(commenter_user_data)} for PR #{pr.number}")

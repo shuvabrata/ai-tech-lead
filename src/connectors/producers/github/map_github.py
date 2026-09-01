@@ -271,24 +271,17 @@ def fetch_github_user(user_obj: Any) -> Dict[str, Any]:
         # GET /users/{login} API call. Wrap in retry_with_backoff so a
         # transient network blip retries instead of falling through to the
         # login-only fallback below. Only caches after a successful fetch.
+        #
+        # WbaRetryTimeoutError is deliberately NOT caught here — it signals
+        # that the retry budget for this user's detail fetch is exhausted and
+        # the entire repo should be skipped without advancing the cursor.
+        # Let it propagate to the config-level handler in main.py.
         try:
             name, email = retry_with_backoff(
                 lambda: (user_obj.name or login, (user_obj.email or "").lower())
             )
-        except WbaRetryTimeoutError as exc:
-            # Retry budget exhausted for this user's detail fetch. We fall back
-            # to login-only data so the scan can continue, but this is a real
-            # data-loss point: the Person node will lack name/email. Log loudly
-            # so a scan analysis can spot it.
-            logger.debug(
-                "[fetch_github_user] WbaRetryTimeoutError for login=%r after %.0fs — "
-                "falling back to login-only data (name/email lost): %s",
-                login,
-                exc.timeout,
-                exc,
-            )
-            name = login
-            email = ""
+        except WbaRetryTimeoutError:
+            raise
         except Exception as exc:
             # Non-retryable error (e.g. 404/403) or unexpected failure fetching
             # this user's details. Fall back to login-only data.
