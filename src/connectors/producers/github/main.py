@@ -118,12 +118,12 @@ async def main_async() -> ScanResult:
                         last_synced_at,
                     )
 
+                    scan_started_at = datetime.now(timezone.utc)
                     published: Dict[str, int] = {}
                     with LogContext(request_id=repo.full_name):
                         await process_repo_signals(publisher, repo, owner, last_synced_at, published, github_obj=g)
 
-                    now = datetime.now(timezone.utc)
-                    await set_sync_cursor(_SOURCE, full_name, now)
+                    await set_sync_cursor(_SOURCE, full_name, scan_started_at)
 
                     total = sum(published.values())
                     logger.info(

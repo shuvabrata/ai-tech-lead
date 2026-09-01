@@ -1219,13 +1219,13 @@ async def main_async() -> ScanResult:
                     last_synced_at,
                 )
 
+                scan_started_at = datetime.now(timezone.utc)
                 published = await publish_signals(
                     publisher, jira, jira_base_url, lookback_days, max_results_per_page,
                     last_synced_at,
                 )
 
-                now = datetime.now(timezone.utc)
-                await set_sync_cursor(_SOURCE, jira_base_url, now)
+                await set_sync_cursor(_SOURCE, jira_base_url, scan_started_at)
 
                 total = sum(published.values())
                 logger.info(
