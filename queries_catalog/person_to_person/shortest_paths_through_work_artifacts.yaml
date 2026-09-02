@@ -42,7 +42,6 @@ queries:
     RETURN path
     LIMIT 10
 tags:
-- beta
 - table
 - graph
 owner: graph-team
