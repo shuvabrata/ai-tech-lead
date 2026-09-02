@@ -1043,7 +1043,7 @@ queries:
   # Person-to-Person Analytics
   # ============================================================================
   
-  - name: "Shortest Paths Collaboration"
+  - name: "Shortest Path Collaboration"
     section: "Person-to-Person"
     expectations:
       min_rows: 0
