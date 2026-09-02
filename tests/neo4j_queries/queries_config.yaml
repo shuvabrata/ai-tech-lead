@@ -1061,7 +1061,7 @@ queries:
       min_rows: 0
       max_time_ms: 3000
   
-  - name: "Shortest Paths Through Work Items"
+  - name: "Shortest Paths Through Work Artifacts"
     section: "Person-to-Person"
     expectations:
       min_rows: 0

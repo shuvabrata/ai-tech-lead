@@ -1,11 +1,11 @@
-name: Shortest Paths Through Code
+name: Shortest Paths Through Work Artifacts
 description: |-
-  **What it is:** Traces the shortest collaborative connection between two people, restricted entirely to GitHub artifacts (commits, PRs, reviews). This is a GitHub-only subset of the broader "Shortest Paths Through Work Artifacts" query.
+  **What it is:** Calculates the most direct collaboration path between two people by traversing only work-collaboration relationships across Jira, GitHub, and Confluence — assignments, reporting, authorship, reviews, mentions, comments, reactions, and the structural links between work items (part-of, references, includes, modifies, blocks, depends-on).
 
-  **How it helps:** Helps Tech Leads identify pure engineering pathways, bypassing managerial layers to find how code is actually shared.
+  **How it helps:** Helps coaches and leads distinguish genuine hands-on collaboration from incidental co-membership. Team membership and repository access alone never connect two people; only concrete shared work does.
 
-  **What-If Impact:** Mixing management nodes into code collaboration metrics artificially inflates the "technical reach" of non-coding managers.
-summary: Trace the shortest code-only connection between two people.
+  **What-If Impact:** Assuming two people collaborate just because they share a team or repo inflates collaboration metrics with false positives, hiding the reality that they may work on entirely disjoint artifacts.
+summary: Trace the shortest cross-domain work-artifact connection between two people.
 default_view: graph
 parameters:
 - name: person1_id
@@ -25,7 +25,7 @@ parameters:
 queries:
   tabular: |-
     MATCH (p1:Person {id: $person1_id}), (p2:Person {id: $person2_id})
-    MATCH path = allShortestPaths((p1)-[:AUTHORED_BY|REVIEWED_BY|CREATED_BY|COLLABORATOR|MODIFIES|INCLUDES*..10]-(p2))
+    MATCH path = allShortestPaths((p1)-[:ASSIGNED_TO|REPORTED_BY|AUTHORED_BY|MENTIONS|COMMENTED_ON|REACTED_TO|CREATED_BY|REVIEWED_BY|REQUESTED_REVIEWER|MERGED_BY|MODIFIED|RELATES_TO|PART_OF|REFERENCES|INCLUDES|MODIFIES|BLOCKS|DEPENDS_ON*..10]-(p2))
     WITH p1, p2, path, [n IN nodes(path)[1..-1] | coalesce(n.id, elementId(n))] AS intermediates
     WITH p1, p2, intermediates, collect(path)[0] AS path
     RETURN p1.name as person1,
@@ -36,7 +36,7 @@ queries:
     LIMIT 10
   graph: |-
     MATCH (p1:Person {id: $person1_id}), (p2:Person {id: $person2_id})
-    MATCH path = allShortestPaths((p1)-[:AUTHORED_BY|REVIEWED_BY|CREATED_BY|COLLABORATOR|MODIFIES|INCLUDES*..10]-(p2))
+    MATCH path = allShortestPaths((p1)-[:ASSIGNED_TO|REPORTED_BY|AUTHORED_BY|MENTIONS|COMMENTED_ON|REACTED_TO|CREATED_BY|REVIEWED_BY|REQUESTED_REVIEWER|MERGED_BY|MODIFIED|RELATES_TO|PART_OF|REFERENCES|INCLUDES|MODIFIES|BLOCKS|DEPENDS_ON*..10]-(p2))
     WITH path, [n IN nodes(path)[1..-1] | coalesce(n.id, elementId(n))] AS intermediates
     WITH intermediates, collect(path)[0] AS path
     RETURN path
