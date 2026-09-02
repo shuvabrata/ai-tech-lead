@@ -16,6 +16,7 @@ import requests
 
 from connectors.producers.github.retry_with_backoff import (
     WbaRetryTimeoutError,
+    _ensure_retry_settings,
     _is_network_error,
     _is_rate_limit,
     _is_retryable,
@@ -177,6 +178,60 @@ class TestRetryWithBackoffBehavior:
 
         with mock.patch("time.sleep"), pytest.raises(ValueError, match="boom"):
             retry_with_backoff(_boom)
+
+
+@pytest.mark.unit
+class TestRetrySettingsResolution:
+    """Retry settings are resolved once per process and cached in globals."""
+
+    def _reset_globals(self):
+        """Reset the module-level cached settings to their unset state."""
+        import connectors.producers.github.retry_with_backoff as mod
+        mod._retry_budget = None
+        mod._backoff_cap = None
+        mod._base_delay = None
+
+    def test_reads_from_runtime_cache_once(self):
+        """Values are read from the runtime cache and cached in globals."""
+        import connectors.producers.github.retry_with_backoff as mod
+        self._reset_globals()
+        with mock.patch(
+            "connectors.producers.daemon_common.runtime_cache"
+        ) as mock_cache:
+            mock_cache.get_int.side_effect = [3600, 30, 1]
+            _ensure_retry_settings()
+            # Second call must not re-read the cache.
+            _ensure_retry_settings()
+            assert mock_cache.get_int.call_count == 3
+        assert mod._retry_budget == 3600
+        assert mod._backoff_cap == 30
+        assert mod._base_delay == 1
+
+    def test_default_when_cache_unavailable(self):
+        """If the runtime cache read fails, the code defaults are used."""
+        import connectors.producers.github.retry_with_backoff as mod
+        self._reset_globals()
+        with mock.patch(
+            "connectors.producers.daemon_common.runtime_cache"
+        ) as mock_cache:
+            mock_cache.get_int.side_effect = RuntimeError("cache unavailable")
+            _ensure_retry_settings()
+        assert mod._retry_budget == 3600
+        assert mod._backoff_cap == 30
+        assert mod._base_delay == 1
+
+    def test_retry_with_backoff_uses_cached_values(self):
+        """retry_with_backoff resolves once and reuses the cached values."""
+        self._reset_globals()
+        with mock.patch(
+            "connectors.producers.daemon_common.runtime_cache"
+        ) as mock_cache:
+            mock_cache.get_int.side_effect = [3600, 30, 1]
+            with mock.patch("time.sleep"):
+                assert retry_with_backoff(lambda: 42) == 42
+                assert retry_with_backoff(lambda: 43) == 43
+            # Only one resolution for both calls.
+            assert mock_cache.get_int.call_count == 3
 
 
 def _http_429():

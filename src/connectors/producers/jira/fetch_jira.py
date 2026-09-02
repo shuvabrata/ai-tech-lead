@@ -425,7 +425,7 @@ def fetch_comments(
     jira: Any,
     issue_id_or_key: str,
     max_results: int = 100,
-    retry_timeout: int = 3600,
+    retry_timeout: int | None = None,
 ) -> List[Dict[str, Any]]:
     """Fetch all comments for a Jira issue.
 
@@ -439,8 +439,10 @@ def fetch_comments(
         jira: Authenticated ``atlassian.Jira`` connection object.
         issue_id_or_key: Jira issue ID or key, e.g. ``"PROJ-123"``.
         max_results: Page size for the comment search API.
-        retry_timeout: Total retry budget in seconds for transient failures
-            (defaults to 1 hour, matching the GitHub producer).
+        retry_timeout: Total retry budget in seconds for transient failures.
+            When ``None`` (default), resolves the runtime
+            ``RETRY_BUDGET_SECONDS`` setting (1 hour), matching the GitHub
+            producer.
 
     Returns:
         List of raw comment dicts, or ``[]`` on error or when the issue has no

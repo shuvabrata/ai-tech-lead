@@ -58,6 +58,7 @@ class Settings(BaseSettings):
     # Connector / Producer configuration
     COMMIT_DAYS_LIMIT: int = 60
     PULL_REQUEST_DAYS_LIMIT: int = 60
+    ISSUE_DAYS_LIMIT: int = 60
     IDENTITY_REFRESH_DAYS: int = 7
     MAX_TEAM_SIZE: int = 100
     JIRA_LOOKBACK_DAYS: int = 90
@@ -85,6 +86,11 @@ class Settings(BaseSettings):
     
     # Max recent action rows to display in the connector UI
     RECENT_ACTIONS_LIMIT: int = Field(default=5, ge=1, le=50)
+
+    # Retry-with-backoff configuration for producer API calls (in seconds)
+    RETRY_BUDGET_SECONDS: int = Field(default=3600, ge=1)
+    RETRY_BACKOFF_CAP_SECONDS: int = Field(default=30, ge=1)
+    RETRY_BASE_DELAY_SECONDS: int = Field(default=1, ge=1)
 
     # UI Configuration
     TIMEZONE: str = Field(default="UTC", validation_alias=AliasChoices("TIMEZONE", "TZ"))

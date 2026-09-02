@@ -81,6 +81,9 @@ class RuntimeSnapshotResponse(BaseModel):
     GRAPH_UI_MAX_NODE_LABEL_CHARS: int
     CONNECTOR_SCAN_POLL_INTERVAL: int
     RECENT_ACTIONS_LIMIT: int
+    RETRY_BUDGET_SECONDS: int = 3600
+    RETRY_BACKOFF_CAP_SECONDS: int = 30
+    RETRY_BASE_DELAY_SECONDS: int = 1
     TIMEZONE: str
     UI_DATETIME_FORMAT: str
     UI_DATE_FORMAT: str
@@ -99,6 +102,7 @@ class RuntimeSnapshotResponse(BaseModel):
     # ── Connectors ────────────────────────────────────────────────────
     COMMIT_DAYS_LIMIT: int = 60
     PULL_REQUEST_DAYS_LIMIT: int = 60
+    ISSUE_DAYS_LIMIT: int = 60
     IDENTITY_REFRESH_DAYS: int = 7
     MAX_TEAM_SIZE: int = 100
     JIRA_LOOKBACK_DAYS: int = 90

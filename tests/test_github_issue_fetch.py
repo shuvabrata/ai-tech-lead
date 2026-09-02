@@ -338,10 +338,13 @@ def test_resolve_issues_since_date_makes_naive_cursor_utc_aware():
 
 
 @pytest.mark.unit
-def test_resolve_issues_since_date_uses_lookback_window_on_first_sync(monkeypatch):
-    """When ``last_synced_at`` is None, use the ``ISSUE_DAYS_LIMIT`` env var."""
-    monkeypatch.setenv("ISSUE_DAYS_LIMIT", "30")
-    result = resolve_issues_since_date(None)
+def test_resolve_issues_since_date_uses_lookback_window_on_first_sync():
+    """When ``last_synced_at`` is None, use the ``ISSUE_DAYS_LIMIT`` runtime setting."""
+    with patch(
+        "connectors.producers.daemon_common.runtime_cache"
+    ) as mock_cache:
+        mock_cache.get_int.return_value = 30
+        result = resolve_issues_since_date(None)
     now = datetime.now(timezone.utc)
     # Should be roughly 30 days ago (allow a small delta for test execution time)
     delta = now - result
@@ -349,18 +352,24 @@ def test_resolve_issues_since_date_uses_lookback_window_on_first_sync(monkeypatc
 
 
 @pytest.mark.unit
-def test_resolve_issues_since_date_defaults_to_60_days(monkeypatch):
-    """When ``ISSUE_DAYS_LIMIT`` is not set, default to 60 days."""
-    monkeypatch.delenv("ISSUE_DAYS_LIMIT", raising=False)
-    result = resolve_issues_since_date(None)
+def test_resolve_issues_since_date_defaults_to_60_days():
+    """When the runtime cache is unavailable, default to 60 days."""
+    with patch(
+        "connectors.producers.daemon_common.runtime_cache"
+    ) as mock_cache:
+        mock_cache.get_int.side_effect = RuntimeError("cache unavailable")
+        result = resolve_issues_since_date(None)
     now = datetime.now(timezone.utc)
     delta = now - result
     assert timedelta(days=59) < delta < timedelta(days=61)
 
 
 @pytest.mark.unit
-def test_resolve_issues_since_date_first_sync_is_utc_aware(monkeypatch):
+def test_resolve_issues_since_date_first_sync_is_utc_aware():
     """The first-sync lookback date should be UTC-aware."""
-    monkeypatch.setenv("ISSUE_DAYS_LIMIT", "10")
-    result = resolve_issues_since_date(None)
+    with patch(
+        "connectors.producers.daemon_common.runtime_cache"
+    ) as mock_cache:
+        mock_cache.get_int.return_value = 10
+        result = resolve_issues_since_date(None)
     assert result.tzinfo == timezone.utc

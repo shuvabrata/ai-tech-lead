@@ -117,12 +117,12 @@ class TestSettingsDashboardRenders:
 class TestSettingsDataLoaded:
     """Verify settings data is loaded from the API and rendered correctly."""
 
-    def test_settings_api_returns_all_53_settings(self) -> None:
-        """GET /api/v1/settings/ returns exactly 53 settings."""
+    def test_settings_api_returns_all_57_settings(self) -> None:
+        """GET /api/v1/settings/ returns exactly 57 settings."""
         resp = httpx.get(f"{BASE_URL}/api/v1/settings/", timeout=10)
         assert resp.status_code == 200
         data = resp.json()
-        assert len(data) == 53
+        assert len(data) == 57
 
     def test_all_categories_present(self) -> None:
         """All expected categories appear in the settings response."""
