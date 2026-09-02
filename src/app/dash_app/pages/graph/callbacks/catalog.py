@@ -22,6 +22,7 @@ from app.dash_app.styles import (
 from app.runtime_settings import runtime_settings
 
 from ..utils import create_error_alert, get_graph_api_base_url
+from ..utils.cypher_substitution import substitute_catalog_query_parameters
 
 
 TIMEOUT_SECONDS = runtime_settings.get_int("HTTP_REQUEST_TIMEOUT")
@@ -682,6 +683,7 @@ def sync_catalog_parameter_values(
     State("selected-catalog-query-store", "data"),
     State("query-catalog-store", "data"),
     State("catalog-query-view-toggle", "value"),
+    State("catalog-parameters-store", "data"),
     prevent_initial_call=True,
 )
 def load_catalog_query_into_console(
@@ -691,8 +693,14 @@ def load_catalog_query_into_console(
     selected_query: dict | None,
     catalog_queries: list[dict] | None,
     catalog_view: str | None,
+    catalog_parameters: dict | None,
 ):
-    """Populate the query console with the selected catalog query text."""
+    """Populate the query console with the selected catalog query text.
+
+    Declared ``$param`` placeholders are substituted with the user's current
+    parameter values (or an empty string when unset) so the pasted query is
+    valid, executable Cypher.
+    """
     try:
         triggered_id = ctx.triggered_id
     except MissingCallbackContextException:
@@ -708,11 +716,12 @@ def load_catalog_query_into_console(
 
     if triggered_id == "catalog-load-console-btn":
         cypher = (query.get("queries") or {}).get(selected_view, no_update)
-        return cypher, "console"
+        return substitute_catalog_query_parameters(cypher, query, catalog_parameters), "console"
 
     deep_link_id, _ = parse_catalog_deep_link(search)
     if deep_link_id and deep_link_id == query.get("id"):
-        return (query.get("queries") or {}).get(selected_view, no_update), no_update
+        cypher = (query.get("queries") or {}).get(selected_view, no_update)
+        return substitute_catalog_query_parameters(cypher, query, catalog_parameters), no_update
 
     return no_update, no_update
 
