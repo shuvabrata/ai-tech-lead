@@ -1055,13 +1055,13 @@ queries:
       min_rows: 0
       max_time_ms: 3000
   
-  - name: "Shortest Path Through Code"
+  - name: "Shortest Paths Through Code"
     section: "Person-to-Person"
     expectations:
       min_rows: 0
       max_time_ms: 3000
   
-  - name: "Shortest Path Through Work Items"
+  - name: "Shortest Paths Through Work Items"
     section: "Person-to-Person"
     expectations:
       min_rows: 0

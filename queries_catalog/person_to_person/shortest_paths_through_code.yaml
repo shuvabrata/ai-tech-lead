@@ -1,4 +1,4 @@
-name: Shortest Path Through Code
+name: Shortest Paths Through Code
 description: |-
   **What it is:** Traces the shortest collaborative connection between two people, restricted entirely to GitHub artifacts (commits, PRs, reviews).
   
@@ -25,18 +25,22 @@ parameters:
 queries:
   tabular: |-
     MATCH (p1:Person {id: $person1_id}), (p2:Person {id: $person2_id})
-    MATCH path = shortestPath((p1)-[:AUTHORED_BY|REVIEWED_BY|CREATED_BY|COLLABORATOR|MODIFIES|INCLUDES*..10]-(p2))
+    MATCH path = allShortestPaths((p1)-[:AUTHORED_BY|REVIEWED_BY|CREATED_BY|COLLABORATOR|MODIFIES|INCLUDES*..10]-(p2))
+    WITH p1, p2, path, [n IN nodes(path)[1..-1] | coalesce(n.id, elementId(n))] AS intermediates
+    WITH p1, p2, intermediates, collect(path)[0] AS path
     RETURN p1.name as person1,
            p2.name as person2,
            length(path) as degrees_of_separation,
            [n IN nodes(path) | coalesce(n.name, n.key, n.title, n.path, n.sha, labels(n)[0])] as connection_path,
            [r IN relationships(path) | type(r)] as relationship_types
-        LIMIT 100
+    LIMIT 10
   graph: |-
     MATCH (p1:Person {id: $person1_id}), (p2:Person {id: $person2_id})
-    MATCH path = shortestPath((p1)-[:AUTHORED_BY|REVIEWED_BY|CREATED_BY|COLLABORATOR|MODIFIES|INCLUDES*..10]-(p2))
+    MATCH path = allShortestPaths((p1)-[:AUTHORED_BY|REVIEWED_BY|CREATED_BY|COLLABORATOR|MODIFIES|INCLUDES*..10]-(p2))
+    WITH path, [n IN nodes(path)[1..-1] | coalesce(n.id, elementId(n))] AS intermediates
+    WITH intermediates, collect(path)[0] AS path
     RETURN path
-    LIMIT 100
+    LIMIT 10
 tags:
 - beta
 - table
