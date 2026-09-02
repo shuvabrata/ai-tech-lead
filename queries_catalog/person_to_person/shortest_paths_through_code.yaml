@@ -1,11 +1,11 @@
-name: Shortest Path Collaboration
+name: Shortest Paths Through Code
 description: |-
-  **What it is:** Finds the absolute shortest path of collaboration between two people, traversing across all domains (Jira, GitHub, Confluence, Teams).
+  **What it is:** Traces the shortest collaborative connection between two people, restricted entirely to GitHub artifacts (commits, PRs, reviews).
   
-  **How it helps:** Acts as the definitive starting query for Organizational Network Analysis to understand how knowledge actually flows across the company.
+  **How it helps:** Helps Tech Leads identify pure engineering pathways, bypassing managerial layers to find how code is actually shared.
   
-  **What-If Impact:** Without cross-domain pathing, leadership is blind to the informal networks that actually hold the company together when formal processes fail.
-summary: Trace the shortest overall collaboration path between two people across domains.
+  **What-If Impact:** Mixing management nodes into code collaboration metrics artificially inflates the "technical reach" of non-coding managers.
+summary: Trace the shortest code-only connection between two people.
 default_view: graph
 parameters:
 - name: person1_id
@@ -25,18 +25,18 @@ parameters:
 queries:
   tabular: |-
     MATCH (p1:Person {id: $person1_id}), (p2:Person {id: $person2_id})
-    MATCH path = shortestPath((p1)-[*..6]-(p2))
+    MATCH path = allShortestPaths((p1)-[:AUTHORED_BY|REVIEWED_BY|CREATED_BY|COLLABORATOR|MODIFIES|INCLUDES*..10]-(p2))
     RETURN p1.name as person1,
            p2.name as person2,
            length(path) as degrees_of_separation,
-           [n IN nodes(path) | coalesce(n.name, n.key, n.title, n.path, labels(n)[0])] as connection_path,
+           [n IN nodes(path) | coalesce(n.name, n.key, n.title, n.path, n.sha, labels(n)[0])] as connection_path,
            [r IN relationships(path) | type(r)] as relationship_types
-        LIMIT 100
+        LIMIT 10
   graph: |-
     MATCH (p1:Person {id: $person1_id}), (p2:Person {id: $person2_id})
-    MATCH path = shortestPath((p1)-[*..6]-(p2))
+    MATCH path = allShortestPaths((p1)-[:AUTHORED_BY|REVIEWED_BY|CREATED_BY|COLLABORATOR|MODIFIES|INCLUDES*..10]-(p2))
     RETURN path
-    LIMIT 100
+    LIMIT 10
 tags:
 - beta
 - table
