@@ -297,6 +297,7 @@ When adding new relationship types:
 4. **Update load scripts**: Create relationships according to category
 5. **Document here**: Add to the appropriate category in this document
 6. **Update tests**: Ensure validation queries work as expected
+7. **Update catalog path queries**: If the new relationship represents work collaboration (not membership, hierarchy, or containment), add its type to the relationship-type whitelist in `queries_catalog/person_to_person/shortest_paths_through_work_artifacts.yaml`. If it is GitHub-specific, also add it to `queries_catalog/person_to_person/shortest_paths_through_code.yaml`. These queries traverse an explicit relationship whitelist at path-expansion time, so newly introduced collaboration edges are invisible to them until added.
 
 ## Performance Considerations
 
