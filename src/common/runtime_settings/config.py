@@ -33,6 +33,10 @@ class RuntimeConfig(BaseModel):
     # ── Connectors ───────────────────────────────────────────────────────
     CONNECTOR_SCAN_POLL_INTERVAL: int = Field(default=5000, ge=500)
     RECENT_ACTIONS_LIMIT: int = Field(default=5, ge=1, le=50)
+    RETRY_BUDGET_SECONDS: int = Field(default=3600, ge=1)
+    RETRY_BACKOFF_CAP_SECONDS: int = Field(default=30, ge=1)
+    RETRY_BASE_DELAY_SECONDS: int = Field(default=1, ge=1)
+    ISSUE_DAYS_LIMIT: int = Field(default=60, ge=1)
 
     # ── UI ───────────────────────────────────────────────────────────────
     TIMEZONE: str = "UTC"

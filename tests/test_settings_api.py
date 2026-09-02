@@ -65,13 +65,13 @@ class TestGetSettings:
     """Verify the GET endpoint returns source-aware metadata."""
 
     @pytest.mark.asyncio
-    async def test_returns_53_settings(self) -> None:
-        """GET returns exactly 53 settings."""
+    async def test_returns_57_settings(self) -> None:
+        """GET returns exactly 57 settings."""
         async with httpx.AsyncClient(base_url=BASE_URL) as client:
             resp = await client.get("/api/v1/settings/")
         assert resp.status_code == 200
         data = resp.json()
-        assert len(data) == 53
+        assert len(data) == 57
 
     @pytest.mark.asyncio
     async def test_response_shape(self) -> None:
@@ -287,7 +287,7 @@ class TestResetAll:
             )
         assert resp.status_code == 200
         data = resp.json()
-        assert len(data) == 53
+        assert len(data) == 57
         for item in data:
             assert item["value"] is None
 
@@ -356,12 +356,12 @@ class TestRuntimeSnapshot:
 
     @pytest.mark.asyncio
     async def test_returns_valid_runtime_config(self) -> None:
-        """The snapshot returns all 37 fields with correct types."""
+        """The snapshot returns all 41 fields with correct types."""
         async with httpx.AsyncClient(base_url=BASE_URL) as client:
             resp = await client.get("/api/v1/settings/runtime-snapshot")
         assert resp.status_code == 200
         data = resp.json()
-        assert len(data) == 37
+        assert len(data) == 41
         assert isinstance(data["HTTP_REQUEST_TIMEOUT"], int)
         assert isinstance(data["TIMEZONE"], str)
         assert isinstance(data["FF_NEO4J_USE_PROVIDER_PIPELINE"], bool)

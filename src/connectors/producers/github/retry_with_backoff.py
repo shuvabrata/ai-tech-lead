@@ -12,9 +12,58 @@ T = TypeVar('T')
 
 # Default retry budget: a background scan can tolerate up to an hour of
 # intermittent connectivity before giving up on a single call.
+#
+# These are the ultimate fallback defaults, used only when the runtime
+# settings cache is unavailable (e.g. standalone CLI/test).  In a normal scan
+# the effective values come from the shared ``daemon_common.runtime_cache``
+# (populated from the app API snapshot, which resolves DB override → env →
+# code default).
 DEFAULT_RETRY_BUDGET = 3600  # total budget in seconds (1 hour)
 DEFAULT_BACKOFF_CAP = 30     # per-sleep cap in seconds
 DEFAULT_BASE_DELAY = 1       # initial delay in seconds (doubles each retry)
+
+# Resolved retry settings, cached once per process.  A scan runs in a fresh
+# process spawned by the daemon, so the settings cannot change mid-scan —
+# resolving them once (lazily on first use) and reusing them for every API
+# call avoids re-reading the runtime cache on each call.
+# pylint: disable=invalid-name  # mutable caches, not constants
+_retry_budget: int | None = None
+_backoff_cap: int | None = None
+_base_delay: int | None = None
+# pylint: enable=invalid-name
+
+
+def _ensure_retry_settings() -> None:
+    """Resolve the three retry settings once per process and cache them.
+
+    The runtime settings cache (``daemon_common.runtime_cache``) is the single
+    read boundary for runtime-configurable settings.  It is populated from the
+    app API snapshot, which already resolves the canonical precedence
+    (DB override → env → code default), so no env-var or default handling is
+    repeated here.
+
+    Resolution is lazy (on first use) rather than at import time so the daemon
+    has refreshed the cache at scan startup before we read it.
+    ``daemon_common`` is imported lazily to keep this low-level utility usable
+    standalone (e.g. in tests).
+    """
+    global _retry_budget, _backoff_cap, _base_delay  # noqa: PLW0603
+    if _retry_budget is not None:
+        return
+    try:
+        # pylint: disable=import-outside-toplevel
+        from connectors.producers.daemon_common import runtime_cache
+        _retry_budget = int(runtime_cache.get_int("RETRY_BUDGET_SECONDS"))
+        _backoff_cap = int(runtime_cache.get_int("RETRY_BACKOFF_CAP_SECONDS"))
+        _base_delay = int(runtime_cache.get_int("RETRY_BASE_DELAY_SECONDS"))
+    except Exception:  # pylint: disable=broad-except
+        # Cache unavailable (e.g. standalone CLI/test) — fall back to defaults.
+        _retry_budget = DEFAULT_RETRY_BUDGET
+        _backoff_cap = DEFAULT_BACKOFF_CAP
+        _base_delay = DEFAULT_BASE_DELAY
+
+    logger.info("Resolved retry settings: budget=%s, backoff_cap=%s, base_delay=%s", _retry_budget, _backoff_cap, _base_delay)
+    
 
 
 class WbaRetryTimeoutError(Exception):
@@ -114,9 +163,9 @@ def _is_retryable(exc: Exception) -> bool:
 
 def retry_with_backoff(
     func: Callable[[], T],
-    retry_budget: int = DEFAULT_RETRY_BUDGET,
-    backoff_cap: int = DEFAULT_BACKOFF_CAP,
-    base_delay: int = DEFAULT_BASE_DELAY,
+    retry_budget: int | None = None,
+    backoff_cap: int | None = None,
+    base_delay: int | None = None,
 ) -> T:
     """
     Retry a function with exponential backoff for transient failures.
@@ -126,11 +175,20 @@ def retry_with_backoff(
     exhausted. Backoff doubles each attempt, capped at ``backoff_cap`` seconds,
     and never sleeps past the deadline.
 
+    When an argument is ``None`` (the default), the effective value is read
+    from the shared runtime settings cache.  The values are resolved once per
+    process (a scan runs in a fresh process, so they cannot change mid-scan)
+    and reused for every API call.  This lets the values be configured
+    dynamically via the runtime settings system without changing call sites.
+
     Args:
         func: Function to execute (should be a lambda or callable).
-        retry_budget: Total retry budget in seconds. Defaults to 1 hour.
-        backoff_cap: Maximum per-sleep delay in seconds.
-        base_delay: Initial delay in seconds (doubles each retry).
+        retry_budget: Total retry budget in seconds. Defaults to the resolved
+            ``RETRY_BUDGET_SECONDS`` (1 hour).
+        backoff_cap: Maximum per-sleep delay in seconds. Defaults to the
+            resolved ``RETRY_BACKOFF_CAP_SECONDS`` (30s).
+        base_delay: Initial delay in seconds (doubles each retry). Defaults to
+            the resolved ``RETRY_BASE_DELAY_SECONDS`` (1s).
 
     Returns:
         Result of the function call.
@@ -139,6 +197,18 @@ def retry_with_backoff(
         WbaRetryTimeoutError: If the retry budget is exhausted.
         Exception: If a non-retryable error occurs (re-raised as-is).
     """
+    if retry_budget is None or backoff_cap is None or base_delay is None:
+        _ensure_retry_settings()
+        assert _retry_budget is not None
+        assert _backoff_cap is not None
+        assert _base_delay is not None
+        if retry_budget is None:
+            retry_budget = _retry_budget
+        if backoff_cap is None:
+            backoff_cap = _backoff_cap
+        if base_delay is None:
+            base_delay = _base_delay
+
     deadline = time.time() + retry_budget
     delay = base_delay
     attempt = 0

@@ -517,14 +517,38 @@ def resolve_issues_since_date(last_synced_at: Optional[datetime]) -> datetime:
 
     Returns:
         ``last_synced_at`` (UTC-aware) for incremental syncs; a rolling window
-        based on the ``ISSUE_DAYS_LIMIT`` env var (default 60 days) for
+        based on the ``ISSUE_DAYS_LIMIT`` runtime setting (default 60 days) for
         first-time syncs.
     """
     if last_synced_at:
         resolved = last_synced_at if last_synced_at.tzinfo else last_synced_at.replace(tzinfo=timezone.utc)
         logger.info("Issues incremental sync: using cursor %s", resolved.isoformat())
         return resolved
-    issue_days_limit = int(os.getenv("ISSUE_DAYS_LIMIT", "60"))
+    issue_days_limit = _resolve_issue_days_limit()
     resolved = datetime.now(timezone.utc) - timedelta(days=issue_days_limit)
     logger.info("Issues first sync: using %d-day lookback window (since %s)", issue_days_limit, resolved.date())
     return resolved
+
+
+def _resolve_issue_days_limit() -> int:
+    """Resolve the ``ISSUE_DAYS_LIMIT`` value from the runtime settings cache.
+
+    The runtime settings cache (``daemon_common.runtime_cache``) is the single
+    read boundary for runtime-configurable settings.  It is populated from the
+    app API snapshot, which already resolves the canonical precedence
+    (DB override → env → code default), so no env-var or default handling is
+    repeated here.
+
+    ``daemon_common`` is imported lazily to keep this pure fetch module usable
+    standalone (e.g. in tests).
+
+    Returns:
+        The resolved lookback window in days (default 60).
+    """
+    try:
+        # pylint: disable=import-outside-toplevel
+        from connectors.producers.daemon_common import runtime_cache
+        return int(runtime_cache.get_int("ISSUE_DAYS_LIMIT"))
+    except Exception:  # pylint: disable=broad-except
+        # Cache unavailable (e.g. standalone CLI/test) — fall back to default.
+        return 60
