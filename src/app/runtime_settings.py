@@ -39,6 +39,9 @@ def _build_initial_config() -> RuntimeConfig:
         GRAPH_UI_MAX_NODE_LABEL_CHARS=app_settings.GRAPH_UI_MAX_NODE_LABEL_CHARS,
         CONNECTOR_SCAN_POLL_INTERVAL=app_settings.CONNECTOR_SCAN_POLL_INTERVAL,
         RECENT_ACTIONS_LIMIT=app_settings.RECENT_ACTIONS_LIMIT,
+        RETRY_BUDGET_SECONDS=app_settings.RETRY_BUDGET_SECONDS,
+        RETRY_BACKOFF_CAP_SECONDS=app_settings.RETRY_BACKOFF_CAP_SECONDS,
+        RETRY_BASE_DELAY_SECONDS=app_settings.RETRY_BASE_DELAY_SECONDS,
         TIMEZONE=app_settings.TIMEZONE,
         UI_DATETIME_FORMAT=app_settings.UI_DATETIME_FORMAT,
         UI_DATE_FORMAT=app_settings.UI_DATE_FORMAT,
@@ -57,6 +60,7 @@ def _build_initial_config() -> RuntimeConfig:
         # ── Connectors ────────────────────────────────────────────────
         COMMIT_DAYS_LIMIT=app_settings.COMMIT_DAYS_LIMIT,
         PULL_REQUEST_DAYS_LIMIT=app_settings.PULL_REQUEST_DAYS_LIMIT,
+        ISSUE_DAYS_LIMIT=app_settings.ISSUE_DAYS_LIMIT,
         IDENTITY_REFRESH_DAYS=app_settings.IDENTITY_REFRESH_DAYS,
         MAX_TEAM_SIZE=app_settings.MAX_TEAM_SIZE,
         JIRA_LOOKBACK_DAYS=app_settings.JIRA_LOOKBACK_DAYS,

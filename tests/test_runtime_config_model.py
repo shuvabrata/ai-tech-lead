@@ -27,6 +27,9 @@ class TestRuntimeConfigDefaults:
             ("GRAPH_UI_MAX_NODE_LABEL_CHARS", 10),
             ("CONNECTOR_SCAN_POLL_INTERVAL", 5000),
             ("RECENT_ACTIONS_LIMIT", 5),
+            ("RETRY_BUDGET_SECONDS", 3600),
+            ("RETRY_BACKOFF_CAP_SECONDS", 30),
+            ("RETRY_BASE_DELAY_SECONDS", 1),
             ("TIMEZONE", "UTC"),
             ("UI_DATETIME_FORMAT", "%b %d, %Y %I:%M %p"),
             ("UI_DATE_FORMAT", "%b %d, %Y"),
@@ -45,6 +48,7 @@ class TestRuntimeConfigDefaults:
             # ── Connectors ────────────────────────────────────────────
             ("COMMIT_DAYS_LIMIT", 60),
             ("PULL_REQUEST_DAYS_LIMIT", 60),
+            ("ISSUE_DAYS_LIMIT", 60),
             ("IDENTITY_REFRESH_DAYS", 7),
             ("MAX_TEAM_SIZE", 100),
             ("JIRA_LOOKBACK_DAYS", 90),
@@ -72,7 +76,7 @@ class TestRuntimeConfigDefaults:
     @pytest.mark.unit
     def test_all_fields_present(self) -> None:
         """The model exposes the expected number of runtime-configurable fields."""
-        assert len(RuntimeConfig.model_fields) == 37
+        assert len(RuntimeConfig.model_fields) == 41
 
 
 class TestRuntimeConfigValidation:
@@ -97,6 +101,30 @@ class TestRuntimeConfigValidation:
         """NEO4J_QUERY_TIMEOUT must be >= 1."""
         with pytest.raises(ValidationError):
             RuntimeConfig(NEO4J_QUERY_TIMEOUT=bad)
+
+    @pytest.mark.unit
+    @pytest.mark.parametrize(
+        "field",
+        ["RETRY_BUDGET_SECONDS", "RETRY_BACKOFF_CAP_SECONDS", "RETRY_BASE_DELAY_SECONDS"],
+    )
+    @pytest.mark.parametrize("bad", [0, -1])
+    def test_retry_settings_reject_lt_one(self, field: str, bad: int) -> None:
+        """Retry settings must be >= 1."""
+        with pytest.raises(ValidationError):
+            RuntimeConfig(**{field: bad})
+
+    @pytest.mark.unit
+    @pytest.mark.parametrize(
+        "field,good",
+        [
+            ("RETRY_BUDGET_SECONDS", 3600),
+            ("RETRY_BACKOFF_CAP_SECONDS", 30),
+            ("RETRY_BASE_DELAY_SECONDS", 1),
+        ],
+    )
+    def test_retry_settings_accept_valid(self, field: str, good: int) -> None:
+        """Retry settings accept valid positive integers."""
+        assert getattr(RuntimeConfig(**{field: good}), field) == good
 
     @pytest.mark.unit
     @pytest.mark.parametrize("bad", ["Not/AZone", "", "UTC/Something"])
