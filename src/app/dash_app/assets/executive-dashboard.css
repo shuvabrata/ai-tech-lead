@@ -753,6 +753,49 @@ input::placeholder {
     color: inherit !important;
 }
 
+/* Favourite star toggle on each catalog query list item. */
+.graph-catalog-favourite-toggle {
+    background: transparent;
+    border: none;
+    padding: 0;
+    margin-left: 8px;
+    cursor: pointer;
+    color: var(--color-gray-medium);
+    font-size: 13px;
+    line-height: 1;
+    flex-shrink: 0;
+}
+
+.graph-catalog-favourite-toggle:hover {
+    color: var(--color-charcoal);
+}
+
+.graph-catalog-favourite-toggle.is-favourite {
+    color: #f5b301 !important;
+}
+
+.graph-catalog-favourite-toggle:focus-visible {
+    outline: 2px solid var(--color-accent, #3b82f6);
+    outline-offset: 2px;
+    border-radius: 2px;
+}
+
+.graph-catalog-list-item-title-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.graph-catalog-list-item-title {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 .graph-results-table {
     background-color: var(--color-background-white) !important;
     color: var(--color-charcoal-medium) !important;

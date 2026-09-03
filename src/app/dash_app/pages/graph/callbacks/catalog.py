@@ -329,12 +329,13 @@ def _build_person_picker(parameter: dict, current_value: str | dict | None) -> h
 @callback(
     Output("query-catalog-store", "data"),
     Output("query-catalog-load-status", "children"),
+    Output("catalog-metadata-store", "data"),
     Input("url", "pathname"),
 )
 def load_query_catalog(pathname: str | None):
     """Fetch catalog metadata when the Graph page is opened."""
     if pathname != "/app/graph":
-        return no_update, no_update
+        return no_update, no_update, no_update
 
     api_base = get_graph_api_base_url()
     try:
@@ -346,7 +347,6 @@ def load_query_catalog(pathname: str | None):
         payload = response.json()
         items = payload.get("items", [])
         logger.info("[GRAPH-CATALOG] loaded count=%d", len(items))
-        return items, None
     except requests.exceptions.RequestException as exc:
         logger.error("[GRAPH-CATALOG] load_failed %s", exc)
         error_display = create_error_alert(
@@ -356,7 +356,36 @@ def load_query_catalog(pathname: str | None):
             hint="The query catalog API could not be reached. The query console still works.",
             doc_link=None,
         )
-        return [], error_display
+        return [], error_display, {}
+
+    # Load favourite metadata alongside the catalog list.
+    metadata = _fetch_catalog_metadata(api_base)
+    return items, None, metadata
+
+
+def _fetch_catalog_metadata(api_base: str) -> dict:
+    """Fetch favourite metadata and normalise it into a ``{catalog_id: {...}}`` map.
+
+    Returns an empty dict on any error so the UI degrades gracefully (stars
+    simply render as unfilled).
+    """
+    try:
+        response = requests.get(
+            f"{api_base}/api/v1/queries/catalog-metadata",
+            timeout=TIMEOUT_SECONDS,
+        )
+        response.raise_for_status()
+        payload = response.json()
+        metadata: dict = {}
+        for item in payload.get("items", []):
+            metadata[item["catalog_id"]] = {
+                "is_favourite": item.get("is_favourite", False),
+                "updated_at": item.get("updated_at"),
+            }
+        return metadata
+    except requests.exceptions.RequestException as exc:
+        logger.warning("[GRAPH-CATALOG] metadata_load_failed %s", exc)
+        return {}
 
 
 @callback(
@@ -408,15 +437,18 @@ def sync_selected_catalog_query(
     Input("catalog-namespace-filter", "value"),
     Input("catalog-search-input", "value"),
     Input("selected-catalog-query-store", "data"),
+    Input("catalog-metadata-store", "data"),
 )
 def render_catalog_query_list(
     catalog_queries: list[dict] | None,
     namespace_filter: str | None,
     search_text: str | None,
     selected_query: dict | None,
+    metadata_store: dict | None,
 ):
     """Render the filtered query list."""
     catalog_queries = catalog_queries or []
+    metadata_store = metadata_store or {}
     filtered = filter_catalog_queries(
         catalog_queries,
         namespace_filter,
@@ -442,19 +474,47 @@ def render_catalog_query_list(
         namespace = query.get("namespace") or {}
         subtitle = namespace.get("name", "")
         status_badge = _build_status_badge(query.get("status"))
+        catalog_id = query.get("id")
+        is_favourite = bool((metadata_store.get(catalog_id) or {}).get("is_favourite"))
         items.append(
             dbc.ListGroupItem(
                 [
                     html.Div(
                         [
-                            html.Span(query.get("name", "Untitled")),
-                            status_badge,
+                            html.Div(
+                                [
+                                    html.Span(query.get("name", "Untitled")),
+                                    status_badge,
+                                ],
+                                className="graph-catalog-list-item-title",
+                                style={"fontWeight": 600, "fontSize": "12px"},
+                            ),
+                            html.Button(
+                                html.I(
+                                    className="fas fa-star" if is_favourite else "far fa-star",
+                                ),
+                                id={"type": "catalog-favourite-toggle", "catalog_id": catalog_id},
+                                n_clicks=0,
+                                className=(
+                                    "graph-catalog-favourite-toggle is-favourite"
+                                    if is_favourite
+                                    else "graph-catalog-favourite-toggle"
+                                ),
+                                title="Mark as favourite" if not is_favourite else "Remove favourite",
+                                **{
+                                    "aria-label": (
+                                        f"Remove {query.get('name', 'query')} from favourites"
+                                        if is_favourite
+                                        else f"Add {query.get('name', 'query')} to favourites"
+                                    )
+                                },
+                            ),
                         ],
-                        style={"fontWeight": 600, "fontSize": "12px"},
+                        className="graph-catalog-list-item-title-row",
                     ),
                     html.Div(subtitle, style={"fontSize": "11px", "color": COLOR_TEXT_SECONDARY}),
                 ],
-                id={"type": "catalog-query-select", "catalog_id": query.get("id")},
+                id={"type": "catalog-query-select", "catalog_id": catalog_id},
                 action=True,
                 active=query.get("id") == selected_id,
                 n_clicks=0,
@@ -469,6 +529,55 @@ def render_catalog_query_list(
         ),
         dbc.ListGroup(items, flush=True, class_name="graph-catalog-list-group"),
     ])
+
+
+@callback(
+    Output("catalog-metadata-store", "data"),
+    Input({"type": "catalog-favourite-toggle", "catalog_id": ALL}, "n_clicks"),
+    State("catalog-metadata-store", "data"),
+    prevent_initial_call=True,
+)
+def toggle_catalog_favourite(
+    _clicks: list[int | None],
+    metadata_store: dict | None,
+) -> dict:
+    """Toggle a query's favourite state and persist it via the API.
+
+    Fires ``PUT /catalog-metadata/{catalog_id}`` with the flipped value, then
+    updates the metadata store in place. The list is **not** re-sorted here
+    (Option B) — the star flips in place; re-sort happens on the next
+    namespace change/reload.
+    """
+    triggered = ctx.triggered_id
+    if not isinstance(triggered, dict):
+        raise PreventUpdate
+
+    catalog_id = triggered.get("catalog_id")
+    if not catalog_id:
+        raise PreventUpdate
+
+    store = dict(metadata_store or {})
+    current = store.get(catalog_id) or {}
+    new_value = not bool(current.get("is_favourite"))
+
+    api_base = get_graph_api_base_url()
+    try:
+        response = requests.put(
+            f"{api_base}/api/v1/queries/catalog-metadata/{catalog_id}",
+            json={"is_favourite": new_value},
+            timeout=TIMEOUT_SECONDS,
+        )
+        response.raise_for_status()
+        body = response.json()
+    except requests.exceptions.RequestException as exc:
+        logger.warning("[GRAPH-CATALOG] favourite_toggle_failed %s", exc)
+        raise PreventUpdate from exc
+
+    store[catalog_id] = {
+        "is_favourite": bool(body.get("is_favourite", new_value)),
+        "updated_at": body.get("updated_at"),
+    }
+    return store
 
 
 @callback(

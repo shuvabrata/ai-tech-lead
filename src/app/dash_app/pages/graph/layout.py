@@ -572,6 +572,8 @@ def create_stores():
         dcc.Store(id="query-catalog-store", data=[]),
         dcc.Store(id="selected-catalog-query-store", data=None),
         dcc.Store(id="catalog-parameters-store", data={}),
+        # Per-query metadata (favourites): {catalog_id: {"is_favourite": bool, "updated_at": str}}
+        dcc.Store(id="catalog-metadata-store", data={}),
         
         # --- Phase 1.1b: Node Expansion Stores ---
         # Store for tracking expanded nodes: {node_id: {direction: "both", count: 23, timestamp: "..."}}

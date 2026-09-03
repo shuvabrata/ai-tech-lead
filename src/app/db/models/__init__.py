@@ -1,4 +1,5 @@
 from app.db.models.application_settings import ApplicationSettings
+from app.db.models.catalog_metadata import CatalogMetadata
 from app.db.models.command_status import CommandStatus
 from app.db.models.graph_theme import GraphTheme
 from app.db.models.project import Project
