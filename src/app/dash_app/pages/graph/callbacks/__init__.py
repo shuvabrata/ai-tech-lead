@@ -18,6 +18,7 @@ from .catalog import (
     handle_person_pick,
     handle_person_chip_clear,
     sync_person_parameter_values,
+    toggle_catalog_favourite,
 )
 from .display import display_properties, update_layout
 from .expansion import (
