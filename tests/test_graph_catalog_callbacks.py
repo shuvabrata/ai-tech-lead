@@ -134,7 +134,6 @@ def test_build_namespace_options_includes_all_namespaces_first():
     )
 
     assert options == [
-        {"label": "My Fav", "value": catalog_callbacks.FAVOURITES_NAMESPACE},
         {"label": "All namespaces", "value": catalog_callbacks.ALL_NAMESPACES},
         {"label": "GitHub", "value": "github"},
         {"label": "Jira", "value": "jira"},
