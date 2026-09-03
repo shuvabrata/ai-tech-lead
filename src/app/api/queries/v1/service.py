@@ -1,7 +1,22 @@
 """Service layer for Query Catalog API v1."""
 
+from __future__ import annotations
+
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.db.models.catalog_metadata import CatalogMetadata
+from app.query_catalog import (
+    CatalogLoadError,
+    CatalogNamespace,
+    CatalogQuery,
+    get_catalog_query as loader_get_catalog_query,
+)
+
 from . import query
-from app.query_catalog import CatalogNamespace, CatalogQuery
+
+
+class CatalogQueryNotFoundError(ValueError):
+    """Raised when a ``catalog_id`` does not exist in the YAML catalog."""
 
 
 def list_namespaces() -> list[CatalogNamespace]:
@@ -78,3 +93,49 @@ def _matches_search(catalog_query: CatalogQuery, search_text: str) -> bool:
         ]
     ).lower()
     return search_text in haystack
+
+
+# ── Catalog metadata (favourites) ─────────────────────────────────────
+
+
+def _require_catalog_query(catalog_id: str) -> None:
+    """Raise :class:`CatalogQueryNotFoundError` if ``catalog_id`` is unknown.
+
+    Validates the id against the YAML catalog so metadata can only be stored
+    for queries that actually exist.
+    """
+    try:
+        loader_get_catalog_query(catalog_id)
+    except CatalogLoadError as exc:
+        raise CatalogQueryNotFoundError(
+            f"Catalog query not found: {catalog_id}"
+        ) from exc
+
+
+async def list_catalog_metadata(
+    db: AsyncSession, *, is_favourite: bool | None = None
+) -> list[CatalogMetadata]:
+    """List catalog metadata rows, optionally filtered by favourite state."""
+    return await query.list_catalog_metadata(db, is_favourite=is_favourite)
+
+
+async def get_catalog_metadata(
+    db: AsyncSession, catalog_id: str
+) -> CatalogMetadata | None:
+    """Fetch one catalog metadata row by ``catalog_id``."""
+    return await query.get_catalog_metadata(db, catalog_id)
+
+
+async def set_catalog_metadata(
+    db: AsyncSession, catalog_id: str, is_favourite: bool
+) -> CatalogMetadata:
+    """Upsert a catalog metadata row, validating ``catalog_id`` first.
+
+    Raises :class:`CatalogQueryNotFoundError` (→ 404) if ``catalog_id`` does
+    not exist in the YAML catalog.
+    """
+    _require_catalog_query(catalog_id)
+    row = await query.upsert_catalog_metadata(db, catalog_id, is_favourite)
+    await db.commit()
+    await db.refresh(row)
+    return row
