@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from urllib.parse import parse_qs
 
 import dash_bootstrap_components as dbc
@@ -27,11 +28,19 @@ from ..utils import create_error_alert, get_graph_api_base_url
 TIMEOUT_SECONDS = runtime_settings.get_int("HTTP_REQUEST_TIMEOUT")
 ALL_NAMESPACES = "__all__"
 ALL_VIEWS = "__all__"
+FAVOURITES_NAMESPACE = "__favourites__"
 
 
 def build_namespace_options(catalog_queries: list[dict]) -> list[dict]:
-    """Build namespace filter options from loaded catalog queries."""
-    options = [{"label": "All namespaces", "value": ALL_NAMESPACES}]
+    """Build namespace filter options from loaded catalog queries.
+
+    The virtual "My Fav" namespace is always prepended at the top, followed by
+    "All namespaces", then the real namespaces in catalog order.
+    """
+    options = [
+        {"label": "My Fav", "value": FAVOURITES_NAMESPACE},
+        {"label": "All namespaces", "value": ALL_NAMESPACES},
+    ]
     seen: set[str] = set()
     for query in catalog_queries:
         namespace = query.get("namespace") or {}
@@ -44,16 +53,39 @@ def build_namespace_options(catalog_queries: list[dict]) -> list[dict]:
     return options
 
 
+def _favourite_catalog_ids(metadata_store: dict | None) -> set[str]:
+    """Return the set of catalog_ids currently marked as favourites."""
+    metadata_store = metadata_store or {}
+    return {
+        catalog_id
+        for catalog_id, meta in metadata_store.items()
+        if bool((meta or {}).get("is_favourite"))
+    }
+
+
 def filter_catalog_queries(
     catalog_queries: list[dict],
     namespace_filter: str | None,
     search_text: str | None,
     view_filter: str | None,
+    metadata_store: dict | None = None,
 ) -> list[dict]:
-    """Filter catalog metadata client-side for the workbench."""
+    """Filter catalog metadata client-side for the workbench.
+
+    When ``namespace_filter`` is the virtual ``FAVOURITES_NAMESPACE``
+    (``"__favourites__"``), only queries whose ``catalog_id`` is in the
+    favourites set are returned.
+    """
     filtered = catalog_queries
 
-    if namespace_filter and namespace_filter != ALL_NAMESPACES:
+    if namespace_filter == FAVOURITES_NAMESPACE:
+        favourite_ids = _favourite_catalog_ids(metadata_store)
+        filtered = [
+            query
+            for query in filtered
+            if query.get("id") in favourite_ids
+        ]
+    elif namespace_filter and namespace_filter != ALL_NAMESPACES:
         filtered = [
             query
             for query in filtered
@@ -389,11 +421,22 @@ def _fetch_catalog_metadata(api_base: str) -> dict:
 
 @callback(
     Output("catalog-namespace-filter", "options"),
+    Output("catalog-namespace-filter", "value"),
     Input("query-catalog-store", "data"),
+    Input("catalog-metadata-store", "data"),
 )
-def populate_namespace_filter(catalog_queries: list[dict] | None):
-    """Populate namespace options from loaded catalog metadata."""
-    return build_namespace_options(catalog_queries or [])
+def populate_namespace_filter(
+    catalog_queries: list[dict] | None,
+    metadata_store: dict | None,
+):
+    """Populate namespace options and set the default selection.
+
+    Defaults to "My Fav" when favourites exist, otherwise "All namespaces".
+    """
+    options = build_namespace_options(catalog_queries or [])
+    favourite_ids = _favourite_catalog_ids(metadata_store)
+    default_value = FAVOURITES_NAMESPACE if favourite_ids else ALL_NAMESPACES
+    return options, default_value
 
 
 @callback(
@@ -430,6 +473,40 @@ def sync_selected_catalog_query(
     return {"id": catalog_queries[0].get("id")}
 
 
+def _sort_catalog_queries(
+    queries: list[dict],
+    metadata_store: dict | None,
+) -> list[dict]:
+    """Sort queries favourites-first, then alphabetically.
+
+    Favourites are sorted by ``updated_at`` DESC (most recently favourited on
+    top); non-favourites follow alphabetically by name. Sort key:
+    ``(not is_favourite, -updated_at if favourite else 0, name.lower())``.
+    """
+    metadata_store = metadata_store or {}
+
+    def _sort_key(query: dict):
+        catalog_id = query.get("id")
+        meta = metadata_store.get(catalog_id) or {}
+        is_favourite = bool(meta.get("is_favourite"))
+        updated_at = meta.get("updated_at") or ""
+        # ISO-8601 timestamps sort lexicographically ascending; negate the
+        # ordinal so favourites sort most-recent-first. Missing timestamps
+        # sort as oldest (0).
+        recency = _timestamp_ordinal(updated_at) if is_favourite else 0
+        return (not is_favourite, -recency, query.get("name", "").lower())
+
+    return sorted(queries, key=_sort_key)
+
+
+def _timestamp_ordinal(value: str) -> float:
+    """Return a numeric ordinal for an ISO-8601 timestamp (0 if unparseable)."""
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00")).timestamp()
+    except (ValueError, TypeError):
+        return 0.0
+
+
 @callback(
     Output("catalog-query-list", "children"),
     Input("query-catalog-store", "data"),
@@ -453,7 +530,9 @@ def render_catalog_query_list(
         namespace_filter,
         search_text,
         None,
+        metadata_store,
     )
+    filtered = _sort_catalog_queries(filtered, metadata_store)
 
     if not catalog_queries:
         return html.Div(
